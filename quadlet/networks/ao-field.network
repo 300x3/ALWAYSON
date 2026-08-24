@@ -1,0 +1,5 @@
+# /ALWAYSON/quadlet/networks/ao-field.network
+[Network]
+NetworkName=ao-field
+Driver=bridge
+Internal=true

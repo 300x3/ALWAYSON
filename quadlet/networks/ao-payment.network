@@ -1,0 +1,5 @@
+# /ALWAYSON/quadlet/networks/ao-payment.network
+[Network]
+NetworkName=ao-payment
+Driver=bridge
+Internal=true

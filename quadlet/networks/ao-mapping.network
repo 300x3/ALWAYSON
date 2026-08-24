@@ -1,0 +1,5 @@
+# /ALWAYSON/quadlet/networks/ao-mapping.network
+[Network]
+NetworkName=ao-mapping
+Driver=bridge
+Internal=true

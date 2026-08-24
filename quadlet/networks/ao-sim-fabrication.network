@@ -1,0 +1,5 @@
+# /ALWAYSON/quadlet/networks/ao-sim-fabrication.network
+[Network]
+NetworkName=ao-sim-fabrication
+Driver=bridge
+Internal=true

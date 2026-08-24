@@ -1,0 +1,35 @@
+host:
+  os_release: "Ubuntu 26.04 LTS"
+  kernel: "7.0.0-29-generic"
+  systemd: ""              # captured post-install by capture-version-matrix.sh
+  podman: ""               # pending Section 2.4 install
+  quadlet_capability: ""
+  netplan: ""
+  nftables: "installed (service inactive); ufw active"
+  ufw: "active"
+
+gpu:
+  model: "EVGA NVIDIA GTX 1080 (GP104)"
+  nvidia_driver: ""        # captured post-install
+  container_runtime_integration: "pending CDI/nvidia-container-toolkit validation (Section 2.5)"
+  cuda_runtime_image_digest: ""
+
+mapping:
+  webodm_image_digest: ""  # requires operator-approved pinned digest before deploy
+  nodeodm_image_digest: ""
+  postgresql_version: ""
+  redis_version: ""
+  processing_profiles_commit: ""
+
+simulation:
+  ros2_distribution: "SPEC: Jazzy | HOST: lyrical found at /opt/ros/lyrical - DEVIATION PENDING APPROVAL"
+  gazebo_release: "SPEC: Harmonic | HOST: gz sim 10.5.0 found - DEVIATION PENDING APPROVAL"
+  ardupilot_commit: ""
+  qgroundcontrol_version: ""
+  sb3_version: ""
+
+ledger:
+  corda_version: ""
+  cordapp_hashes: ""
+  postgres_version: ""
+  certificate_profile_version: ""

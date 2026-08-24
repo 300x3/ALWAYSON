@@ -1,0 +1,5 @@
+# /ALWAYSON/quadlet/networks/ao-admin.network
+[Network]
+NetworkName=ao-admin
+Driver=bridge
+Internal=true

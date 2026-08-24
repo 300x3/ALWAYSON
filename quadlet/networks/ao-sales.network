@@ -1,0 +1,5 @@
+# /ALWAYSON/quadlet/networks/ao-sales.network
+[Network]
+NetworkName=ao-sales
+Driver=bridge
+Internal=true

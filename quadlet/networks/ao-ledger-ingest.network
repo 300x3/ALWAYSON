@@ -1,0 +1,5 @@
+# /ALWAYSON/quadlet/networks/ao-ledger-ingest.network
+[Network]
+NetworkName=ao-ledger-ingest
+Driver=bridge
+Internal=true

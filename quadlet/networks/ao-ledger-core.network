@@ -1,0 +1,5 @@
+# /ALWAYSON/quadlet/networks/ao-ledger-core.network
+[Network]
+NetworkName=ao-ledger-core
+Driver=bridge
+Internal=true
