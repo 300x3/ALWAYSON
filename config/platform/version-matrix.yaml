@@ -1,16 +1,16 @@
 host:
   os_release: "Ubuntu 26.04 LTS"
   kernel: "7.0.0-29-generic"
-  systemd: ""              # captured post-install by capture-version-matrix.sh
-  podman: ""               # pending Section 2.4 install
-  quadlet_capability: ""
-  netplan: ""
+  systemd: "259"
+  podman: "5.7.0"
+  quadlet_capability: "podman unknown"
+  netplan: "not present"
   nftables: "installed (service inactive); ufw active"
   ufw: "active"
 
 gpu:
   model: "EVGA NVIDIA GTX 1080 (GP104)"
-  nvidia_driver: ""        # captured post-install
+  nvidia_driver: "580.173.02"
   container_runtime_integration: "pending CDI/nvidia-container-toolkit validation (Section 2.5)"
   cuda_runtime_image_digest: ""
 

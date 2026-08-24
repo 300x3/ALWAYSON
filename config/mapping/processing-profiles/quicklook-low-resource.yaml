@@ -1,0 +1,6 @@
+profile:
+  name: quicklook-low-resource
+  outputs: [orthophoto]
+  resolution_cm_per_px: 10.0
+  feature_quality: medium
+  max_concurrency: 1

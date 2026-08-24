@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ALWAYS ON ledger manifest v1.0 (Section 1.9)",
+  "type": "object",
+  "required": ["object_id", "object_type", "origin_domain", "created_at_utc", "schema_version", "content_hash_sha256", "content_size_bytes"],
+  "properties": {
+    "object_id": {"type": "string", "format": "uuid"},
+    "object_type": {"enum": ["sales_receipt", "telemetry_batch", "map_product", "vehicle_simulation", "fabrication_simulation"]},
+    "origin_domain": {"enum": ["sales", "field", "mapping", "sim_vehicle", "sim_fabrication"]},
+    "created_at_utc": {"type": "string", "format": "date-time"},
+    "schema_version": {"const": "1.0"},
+    "content_hash_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "content_size_bytes": {"type": "integer", "minimum": 0},
+    "local_storage_reference": {"type": "string"},
+    "ipfs_cid": {"type": "string"},
+    "pcloud_archive_reference": {"type": "string"},
+    "authorization_policy_id": {"type": "string"},
+    "producer_key_id": {"type": "string"},
+    "signature": {"type": "string"}
+  },
+  "additionalProperties": false
+}

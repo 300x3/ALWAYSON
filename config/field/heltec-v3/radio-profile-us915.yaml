@@ -1,0 +1,18 @@
+# Heltec WiFi LoRa 32 V3 - desktop gateway profile
+radio_profile:
+  region: US915
+  frequency_plan: "US915 hybrid-channel raw LoRa (NOT LoRaWAN)"
+  bandwidth_khz: 125
+  spreading_factor: 10
+  coding_rate: "4/5"
+  preamble_length: 8
+  tx_power_dbm: 20
+  sync_word: 0x12
+  packet_framing: "length-prefixed CRC16 frames"
+  max_packet_bytes: 222
+  encryption_key_id: "REPLACE_WITH_KEY_ID"
+  device_identity: "REPLACE_WITH_DEVICE_PUBLIC_ID"
+  replay_protection: "monotonic sequence numbers, 24h window"
+  ack_policy: "selective-repeat, 3 retries"
+  retry_backoff_ms: [500, 1500, 4500]
+  airtime_limit_pct: 10

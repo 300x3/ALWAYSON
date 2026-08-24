@@ -1,0 +1,6 @@
+profile:
+  name: survey-orthomosaic
+  outputs: [orthophoto]
+  resolution_cm_per_px: 2.0
+  matcher_neighbors: 8
+  min_num_features: 8000

@@ -1,0 +1,6 @@
+storefront_release:
+  build_verify_publish_sequence: true
+  hash_each_release: true
+  rollback_artifact_kept_releases: 3
+  forbidden_content_ref: "Section 1.4 'must never include' list"
+  payment_links_source: "config/storefront/payment-links/ (provider-hosted checkout only)"

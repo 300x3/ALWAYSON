@@ -1,0 +1,15 @@
+{
+  "object_id": "e013c73c-cd22-4ef6-853d-20b5aa015748",
+  "object_type": "map_product",
+  "origin_domain": "mapping",
+  "created_at_utc": "2026-08-24T01:58:35Z",
+  "schema_version": "1.0",
+  "content_hash_sha256": "20387fa59bbd45c1c94319416d2af748166ba4e050e0385d6711bca7deb23ecb",
+  "content_size_bytes": 32,
+  "local_storage_reference": "photogram://deliverables/test-001",
+  "ipfs_cid": "",
+  "pcloud_archive_reference": "",
+  "authorization_policy_id": "",
+  "producer_key_id": "test",
+  "signature": "ed25519:jQCoAul0gluXvIHLCHo9PGQofixPrBvB1GG1j2T2pZLcysgawQ2N2/J/iblMSXaMJ6z2y13kMEaNndUYIpfsAw=="
+}

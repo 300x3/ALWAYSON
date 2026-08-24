@@ -1,0 +1,16 @@
+backup_policy:
+  strategy: "3-2-1"
+  schedules:
+    wal_continuous_minutes: 15
+    hourly_incremental: ["config", "manifests", "sales", "field-telemetry"]
+    daily: ["postgres-dumps", "corda-backup", "mapping-manifests", "simulation-exports", "storefront-releases"]
+    weekly: ["restic-check", "off-host-copy-validation"]
+    monthly: ["isolated-restore-test"]
+    quarterly: ["disaster-recovery-exercise"]
+  restore_test_requirements:
+    - isolated test path or host
+    - database integrity validation
+    - hash recalculation vs manifests
+    - corda receipt verification
+    - record operator/backup-id/result/exceptions
+    - alert on failure

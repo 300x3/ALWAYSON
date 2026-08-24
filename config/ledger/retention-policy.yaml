@@ -1,0 +1,5 @@
+ledger_retention:
+  corda_stores_only: "hashes, IDs, states, references - never bulk data"
+  never_store: ["card numbers", "CVV", "payment secrets", "raw webhooks", "full PII",
+                "raw telemetry", "images", "geotiffs", "point clouds", "ros bags",
+                "mavlink logs", "llm transcripts with sensitive material", "private keys"]

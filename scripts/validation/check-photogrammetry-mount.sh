@@ -17,7 +17,9 @@ if [[ "$source_device" == "$root_device" ]]; then
   exit 21
 fi
 
-actual_uuid="$(findmnt -n -o UUID --target "$PHOTOGRAM_MOUNT" 2>/dev/null || true)"
+# NOTE: this host stacks a systemd autofs unit over the real mount; findmnt emits
+# one row per stacked mount. Take the last non-empty UUID (the real filesystem).
+actual_uuid="$(findmnt -n -o UUID --target "$PHOTOGRAM_MOUNT" 2>/dev/null | sed '/^[[:space:]]*$/d' | tail -n 1)"
 
 if [[ -n "${PHOTOGRAM_UUID:-}" && "$PHOTOGRAM_UUID" != "REPLACE_WITH_VERIFIED_UUID" && "$actual_uuid" != "$PHOTOGRAM_UUID" ]]; then
   echo "ERROR: mounted UUID does not match expected UUID" >&2

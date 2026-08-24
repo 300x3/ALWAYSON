@@ -1,0 +1,6 @@
+vehicle_sim_safety:
+  isolation: "ao-sim-vehicle network only; no live flight controllers, radios, sales, payments, or Corda core"
+  ros_domain_id: 21
+  gz_partition: alwayson_vehicle_sim
+  failsafe_scenarios_required: [gps_loss, packet_loss, actuator_fault, sensor_drift]
+  approval_required_before_release: true

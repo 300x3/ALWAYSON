@@ -1,0 +1,12 @@
+host_policy:
+  version: "1.0"
+  operator_user: "scottw"
+  container_engine: "podman-rootless"
+  quadlet_scope: "user"
+  firewall:
+    default_incoming: deny
+    manager: ufw
+  public_exposure:
+    allowed: []            # no public ports without explicit operator approval
+  gpu_policy: "cpu-only until Section 2.8 step 12 validation completes"
+  prohibited_paths_ref: "/ALWAYSON/docs/architecture/isolation.md"

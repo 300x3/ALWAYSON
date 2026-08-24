@@ -1,0 +1,5 @@
+profile:
+  name: terrain-dem
+  outputs: [dsm, dtm]
+  resolution_cm_per_px: 5.0
+  dem_interpolation: invdist

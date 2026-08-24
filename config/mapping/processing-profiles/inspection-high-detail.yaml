@@ -1,0 +1,6 @@
+profile:
+  name: inspection-high-detail
+  outputs: [orthophoto, textured_model]
+  resolution_cm_per_px: 0.5
+  min_num_features: 12000
+  mesh_octree_depth: 12

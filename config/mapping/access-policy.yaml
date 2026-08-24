@@ -1,0 +1,14 @@
+mapping_access:
+  mount_root: /media/scottw/500GBPHOTOGRAM
+  permissions: "0750, world-writable forbidden"
+  ownership_model: "PENDING dedicated mapping service-account review (Section 2.3)"
+  writers:
+    incoming/: imagery-ingest
+    validated/: validation-service
+    rejected/: validation-service
+    webodm/: webodm-nodeodm
+    deliverables/: mapping-exporter
+    manifests/: mapping-exporter
+    exports/: archive-service
+    backups/: backup-process
+    tmp/: mapping-worker

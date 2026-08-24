@@ -1,0 +1,7 @@
+fabrication_sim_policy:
+  isolation: "ao-sim-fabrication network only; no live machinery in phase one"
+  ros_domain_id: 22
+  gz_partition: alwayson_fabrication_sim
+  safety_zones_enforced: true
+  interlock_modeling_required: true
+  approval_required_before_release: true

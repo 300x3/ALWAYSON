@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["profile"],
+  "properties": {
+    "profile": {
+      "type": "object",
+      "required": ["name", "outputs"],
+      "properties": {
+        "name": {"type": "string"},
+        "outputs": {"type": "array", "items": {"enum": ["orthophoto", "dsm", "dtm", "textured_model", "point_cloud"]}},
+        "resolution_cm_per_px": {"type": "number", "exclusiveMinimum": 0}
+      }
+    }
+  }
+}

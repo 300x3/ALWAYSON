@@ -1,0 +1,5 @@
+mapping_retention:
+  tmp_processing_days: 7
+  pending_review_days: 30
+  eligible_for_archive_after_days: 90
+  deliverables_retention: "indefinite until archived to pCloud + IPFS and receipted in Corda"

@@ -1,0 +1,6 @@
+mapping_resource_limits:
+  webodm_memory_max: "12G"
+  webodm_cpu_quota: "600%"
+  nodeodm_max_concurrency: 1        # conservative start; raise only with disk/CPU headroom proven
+  disk_alert_free_gb: 100
+  mode: "cpu-only"                  # GPU enablement deferred to Section 2.8 step 12
