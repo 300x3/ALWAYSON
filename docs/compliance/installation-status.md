@@ -36,3 +36,26 @@ Date: 2026-08-24 · Operator host: Kubuntu/Ubuntu 26.04 LTS workstation
 
 - `check-photogrammetry-mount.sh`: hardened UUID extraction for systemd-autofs stacked mount.
 - `ao-bootstrap-privileged.sh` added beyond §4.1 list (installation journaling requirement).
+
+---
+## Operator decisions applied (2026-08-24 evening session)
+
+| # | Decision | Outcome |
+|---|---|---|
+| 1 | nginx removed | purged via apt; port 80 clear |
+| 2 | KDE Connect disabled | autostart hidden, daemon stopped, :1716 clear |
+| 3 | Host PG18/Redis reuse | left untouched & loopback-only; WebODM ships container-scoped db/broker on internal ao-mapping (rootless userns makes host-service reuse impractical + would weaken isolation) |
+| 4 | ROS lyrical/Gazebo 10.5 approved | recorded in version-matrix.yaml |
+| 5 | WebODM deployed | WEBODM_DEPLOY_OK: 5 containers on internal ao-mapping, digests pinned, alwayson-mapping svc account, boot-persistent via quadlet [Install] |
+| 6 | Corda 5.2.2 selected | version pinned; node deployment scaffolded next |
+| 7 | KWallet secrets runbook | docs/runbooks/secrets.md |
+| 8 | Heltec deferred to end | acknowledged |
+| 9 | Mapping service account | created, documented in README.md |
+
+### Deployment lessons recorded
+- Quadlet .container units require a matching .network quadlet per user store.
+- Generated units cannot be 'enabled'; use start; [Install] wires default.target at generation.
+- Network/volume quadlets generate <name>-network/-volume.service names.
+- Podman does not auto-create bind-mount parent dirs; pre-create with correct owner.
+- HealthCmd must be a single token or properly quoted list.
+- Drive root needed shared group ao-mapping (setgid 2770) for cross-user traversal.

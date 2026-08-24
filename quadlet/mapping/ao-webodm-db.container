@@ -14,7 +14,7 @@ EnvironmentFile=%h/secrets/webodm.env
 Environment=POSTGRES_DB=webodm
 Environment=POSTGRES_USER=postgres
 NoNewPrivileges=true
-HealthCmd=pg_isready -U postgres
+HealthCmd=pg_isready
 HealthInterval=30s
 
 [Service]
