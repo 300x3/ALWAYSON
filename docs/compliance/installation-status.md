@@ -59,3 +59,9 @@ Date: 2026-08-24 · Operator host: Kubuntu/Ubuntu 26.04 LTS workstation
 - Podman does not auto-create bind-mount parent dirs; pre-create with correct owner.
 - HealthCmd must be a single token or properly quoted list.
 - Drive root needed shared group ao-mapping (setgid 2770) for cross-user traversal.
+
+## Ledger scaffold complete (2026-08-24)
+Corda 5.2.2 combined-worker + CLI downloaded & sha256-verified into
+/home/alwayson-ledger/dist/. Database cordadb/corda provisioned on host PG18.
+User service ao-ledger-core.service installed, held OFF until the operator
+cert/identity ceremony (docs/runbooks/ledger-bootstrap.md).
