@@ -1,0 +1,32 @@
+# /ALWAYSON/quadlet/mapping/ao-webodm-web.container
+# ALWAYS ON WebODM Web UI/API - internal to ao-mapping only (no PublishPort;
+# operator access via SSH tunnel per Section 1.3)
+[Unit]
+Description=ALWAYS ON WebODM Web
+After=ao-webodm-db.service ao-webodm-broker.service
+Wants=ao-webodm-db.service ao-webodm-broker.service
+
+[Container]
+Image=webodm/webodm_webapp@DIGEST_WEBAPP
+ContainerName=webapp
+Network=ao-mapping.network
+Volume=/media/scottw/500GBPHOTOGRAM/webodm/media:/webodm/app/media:Z
+EnvironmentFile=%h/secrets/webodm.env
+Environment=WO_PORT=8000
+Environment=WO_HOST=webapp
+Environment=WO_DEBUG=NO
+Environment=WO_BROKER=redis://broker:6379
+Environment=WO_DEFAULT_NODES=0
+Environment=WEB_CONCURRENCY=2
+Exec=/bin/bash -c "service cron start && chmod +x /webodm/*.sh && /bin/bash -c \"/webodm/wait-for-postgres.sh db /webodm/wait-for-it.sh -t 0 broker:6379 -- /webodm/start.sh\""
+NoNewPrivileges=true
+
+[Service]
+Restart=on-failure
+RestartSec=15
+MemoryMax=6G
+CPUQuota=200%
+TimeoutStartSec=600
+
+[Install]
+WantedBy=default.target

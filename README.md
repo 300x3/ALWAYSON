@@ -43,6 +43,39 @@ All networks are `Internal=true`. See `config/platform/network-cidrs.yaml`.
 UUID `498597d4-9fc8-42cf-8db7-4e71ede53267`, mounted at `/media/scottw/500GBPHOTOGRAM`,
 validated by `scripts/validation/check-photogrammetry-mount.sh`.
 
+## Mapping domain service account (autonomous operation)
+
+WebODM runs under the dedicated **`alwayson-mapping`** system account
+(uid 997), created 2026-08-24 by operator decision:
+
+- Rootless Podman with subordinate UID range `165536-196607`
+- Linger enabled → services run autonomously at boot, no login required
+- Owns the photogrammetry working directories per §3.5 writers model:
+  `incoming/ validated/ rejected/ webodm/ deliverables/ manifests/ exports/ backups/ tmp/`
+- Secrets in `/home/alwayson-mapping/secrets/webodm.env` (0600, outside Git)
+- Quadlet units: `/ALWAYSON/quadlet/mapping/` → deployed to
+  `/home/alwayson-mapping/.config/containers/systemd/mapping/`
+- All images pinned by digest; stack = db + broker(redis) + webapp + worker +
+  nodeodm on the internal-only `ao-mapping` network
+
+### Autonomous processing flow
+
+When imagery lands in `incoming/drone|operator` and the operator authorizes a
+job (via WebODM API over SSH tunnel — there is deliberately no public port):
+
+1. `scripts/mapping/intake-imagery.sh` validates type/checksums/quota → `validated/`
+2. `scripts/mapping/submit-webodm-task.sh` creates the WebODM task with profile
+   from `config/mapping/processing-profiles/`
+3. Worker processes to **orthomosaic / point cloud** outputs into `webodm/media`
+4. `scripts/mapping/export-mapping-manifest.sh` hashes outputs, writes signed
+   manifest to `manifests/`, stages archives in `exports/`
+
+Operator access without exposing ports:
+`ssh -L 8000:webapp.ao-mapping:8000 scottw@<host>` then browse localhost:8000.
+(Actual tunnel target is the podman user socket of `alwayson-mapping`; see
+docs/runbooks/mapping-access.md for the exact command.)
+
 ## Status
 
-See `VERSION` and `git log`. Open blockers are tracked in the installation journal.
+See `VERSION`, `git log`, and `docs/compliance/installation-status.md`.
+

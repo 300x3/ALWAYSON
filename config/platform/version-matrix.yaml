@@ -22,14 +22,15 @@ mapping:
   processing_profiles_commit: ""
 
 simulation:
-  ros2_distribution: "SPEC: Jazzy | HOST: lyrical found at /opt/ros/lyrical - DEVIATION PENDING APPROVAL"
-  gazebo_release: "SPEC: Harmonic | HOST: gz sim 10.5.0 found - DEVIATION PENDING APPROVAL"
+  ros2_distribution: "lyrical (host-installed) - DEVIATION FROM SPEC Jazzy APPROVED BY OPERATOR 2026-08-24; graphics-proven Gazebo retained"
+  gazebo_release: "gz sim 10.5.0 (host-installed, graphics-verified) - operator approved over spec Harmonic"
   ardupilot_commit: ""
   qgroundcontrol_version: ""
   sb3_version: ""
 
 ledger:
-  corda_version: ""
+  corda_version: "5.2.2 (release-5.2.2.0, latest stable - operator selection 2026-08-24)"
   cordapp_hashes: ""
-  postgres_version: ""
+  postgres_version: ""     # ledger-core DB provisioned at deployment
   certificate_profile_version: ""
+

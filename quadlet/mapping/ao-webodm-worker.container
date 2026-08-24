@@ -1,0 +1,27 @@
+# /ALWAYSON/quadlet/mapping/ao-webodm-worker.container
+[Unit]
+Description=ALWAYS ON WebODM Worker
+After=ao-webodm-db.service ao-webodm-web.service
+Wants=ao-webodm-db.service
+
+[Container]
+Image=webodm/webodm_webapp@DIGEST_WEBAPP
+ContainerName=worker
+Network=ao-mapping.network
+Volume=/media/scottw/500GBPHOTOGRAM/webodm/media:/webodm/app/media:Z
+EnvironmentFile=%h/secrets/webodm.env
+Environment=WO_DEBUG=NO
+Environment=WO_BROKER=redis://broker:6379
+Environment=WEB_CONCURRENCY=1
+Exec=/bin/bash -c "/webodm/wait-for-postgres.sh db /webodm/wait-for-it.sh -t 0 broker:6379 -- /webodm/wait-for-it.sh -t 0 webapp:8000 -- /webodm/worker.sh start"
+NoNewPrivileges=true
+
+[Service]
+Restart=on-failure
+RestartSec=15
+MemoryMax=6G
+CPUQuota=400%
+TimeoutStartSec=600
+
+[Install]
+WantedBy=default.target

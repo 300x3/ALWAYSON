@@ -1,0 +1,16 @@
+# /ALWAYSON/quadlet/mapping/ao-webodm-broker.container
+[Unit]
+Description=ALWAYS ON WebODM Redis Broker
+[Container]
+Image=redis@DIGEST_BROKER
+ContainerName=broker
+Network=ao-mapping.network
+NoNewPrivileges=true
+HealthCmd=redis-cli ping
+HealthInterval=30s
+[Service]
+Restart=on-failure
+RestartSec=15
+MemoryMax=512M
+[Install]
+WantedBy=default.target

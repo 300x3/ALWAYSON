@@ -1,0 +1,17 @@
+# /ALWAYSON/quadlet/mapping/ao-nodeodm.container
+# ALWAYS ON NodeODM processing worker - CPU-only per Section 2.8 step 12
+[Unit]
+Description=ALWAYS ON NodeODM
+[Container]
+Image=opendronemap/nodeodm@DIGEST_NODEODM
+ContainerName=nodeodm
+Network=ao-mapping.network
+Volume=/media/scottw/500GBPHOTOGRAM/webodm/nodeodm:/webodm/nodeodm/data:Z
+NoNewPrivileges=true
+[Service]
+Restart=on-failure
+RestartSec=15
+MemoryMax=8G
+CPUQuota=600%
+[Install]
+WantedBy=default.target

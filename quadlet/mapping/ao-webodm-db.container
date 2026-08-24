@@ -1,0 +1,27 @@
+# /ALWAYSON/quadlet/mapping/ao-webodm-db.container
+# ALWAYS ON WebODM PostgreSQL/PostGIS - Section 3.6 structural deployment
+[Unit]
+Description=ALWAYS ON WebODM Database (webodm_db)
+After=network-online.target
+Wants=network-online.target
+
+[Container]
+Image=webodm/webodm_db@DIGEST_DB
+ContainerName=db
+Network=ao-mapping.network
+Volume=%h/webodm/dbdata:/var/lib/postgresql/data:Z
+EnvironmentFile=%h/secrets/webodm.env
+Environment=POSTGRES_DB=webodm
+Environment=POSTGRES_USER=postgres
+NoNewPrivileges=true
+HealthCmd=pg_isready -U postgres
+HealthInterval=30s
+
+[Service]
+Restart=on-failure
+RestartSec=15
+MemoryMax=4G
+TimeoutStartSec=300
+
+[Install]
+WantedBy=default.target
