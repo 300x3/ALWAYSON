@@ -65,3 +65,13 @@ Corda 5.2.2 combined-worker + CLI downloaded & sha256-verified into
 /home/alwayson-ledger/dist/. Database cordadb/corda provisioned on host PG18.
 User service ao-ledger-core.service installed, held OFF until the operator
 cert/identity ceremony (docs/runbooks/ledger-bootstrap.md).
+
+## Sales domain (2026-08-24)
+- alwayson-sales service account (uid 993, linger) · ao-sales network (internal)
+- sales-db: postgres:17 pinned sha256:a65e6a84..., healthy
+- salesdb provisioned: 14 Section 3.8 tables + api/migration/backup roles,
+  API role password synced from secret; schema applied via
+  scripts/deploy/bootstrap-sales-db.sh (exec-based; initdb.d mount not
+  traversable under rootless userns — documented deviation)
+- PENDING EXTERNAL: payment provider selection + webhook secret;
+  Mastodon instance + OAuth registration; sales API application implementation.

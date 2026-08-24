@@ -1,0 +1,26 @@
+# /ALWAYSON/quadlet/sales/ao-sales-db.container
+[Unit]
+Description=ALWAYS ON Sales PostgreSQL (salesdb)
+After=network-online.target
+Wants=network-online.target
+
+[Container]
+Image=DIGEST_PINNED_AT_DEPLOY
+ContainerName=sales-db
+Network=ao-sales.network
+Volume=%h/webodm/sales-dbdata:/var/lib/postgresql/data:Z
+EnvironmentFile=%h/secrets/sales-db.env
+Environment=POSTGRES_DB=salesdb
+Environment=POSTGRES_USER=sales_migration_role
+NoNewPrivileges=true
+HealthCmd=pg_isready
+HealthInterval=30s
+
+[Service]
+Restart=on-failure
+RestartSec=15
+MemoryMax=2G
+TimeoutStartSec=300
+
+[Install]
+WantedBy=default.target
