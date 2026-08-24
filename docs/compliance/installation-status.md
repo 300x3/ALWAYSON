@@ -17,7 +17,7 @@ Date: 2026-08-24 · Operator host: Kubuntu/Ubuntu 26.04 LTS workstation
 
 ## Blockers requiring operator approval (Section 2.2 pause rules)
 
-1. **nginx bound to 0.0.0.0:80/[::]:80** — pre-existing system service. Decision needed:
+1. ~~nginx on :80~~ — RESOLVED: stopped and disabled at operator direction; port 80 clear.
    keep+allowlist, repurpose as ALWAYS ON ingress, or stop.
 2. **KDE Connect on *:1716** — allowlist or disable.
 3. **Existing PostgreSQL 18 cluster + Redis** on host loopback — reuse for domains vs.
