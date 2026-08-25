@@ -1,0 +1,15 @@
+{
+  "object_id": "dbc3f06d-e3d4-4fcd-9139-c40c8448e1a3",
+  "object_type": "map_product",
+  "origin_domain": "mapping",
+  "created_at_utc": "2026-08-25T21:00:25Z",
+  "schema_version": "1.0",
+  "content_hash_sha256": "3047a8784160daafe48a9f4f4be726579d153aab3efc4a46582dbb2c9b310ab6",
+  "content_size_bytes": 79847,
+  "local_storage_reference": "photogram://deliverables/apt76-orthophoto.tif",
+  "ipfs_cid": "",
+  "pcloud_archive_reference": "",
+  "authorization_policy_id": "",
+  "producer_key_id": "producer",
+  "signature": "ed25519:m/yHIusDzamAzu34mb/VMG0xPVJIQ8YCmqK7wui1AEpvLmZ9NoohuUOFqfY8H+lVDD4Peu21brx7EtuDGMIeDw=="
+}
