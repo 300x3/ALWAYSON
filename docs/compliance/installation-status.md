@@ -75,3 +75,11 @@ cert/identity ceremony (docs/runbooks/ledger-bootstrap.md).
   traversable under rootless userns — documented deviation)
 - PENDING EXTERNAL: payment provider selection + webhook secret;
   Mastodon instance + OAuth registration; sales API application implementation.
+
+## GPU enablement complete (2026-08-24)
+nvidia-container-toolkit installed from NVIDIA repo; CDI spec at /etc/cdi/nvidia.yaml;
+NodeODM switched to pinned gpu image sha256:214fe6a4...; in-container nvidia-smi
+confirms GTX 1080 visible. Section 2.5 checklist satisfied.
+INCIDENT: restarting nodeodm mid-run aborted the first apt-76 CPU task
+(WebODM reported 'task uuid not found' after worker restart). Task resubmitted
+on the GPU node. Lesson: never restart processing workers with active tasks.
