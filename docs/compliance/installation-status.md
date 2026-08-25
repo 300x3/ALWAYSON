@@ -83,3 +83,11 @@ confirms GTX 1080 visible. Section 2.5 checklist satisfied.
 INCIDENT: restarting nodeodm mid-run aborted the first apt-76 CPU task
 (WebODM reported 'task uuid not found' after worker restart). Task resubmitted
 on the GPU node. Lesson: never restart processing workers with active tasks.
+
+## Section 5 item 8: SATISFIED (2026-08-24)
+apt-76 real dataset processed end-to-end on GPU NodeODM (~9 min).
+Ortho 237x128 px @20cm GSD (coarse by design for smoke); deliverable at
+photogram://deliverables/apt76-orthophoto.tif; signed manifest
+artifacts/mapping-manifests/apt76.json (ed25519, producer key).
+Note: project 8/task 931c3fb1 was the aborted CPU attempt; completed GPU run is
+project 10/task d6c30ec5. Operator accepted coarse resolution as smoke evidence.
