@@ -91,3 +91,16 @@ photogram://deliverables/apt76-orthophoto.tif; signed manifest
 artifacts/mapping-manifests/apt76.json (ed25519, producer key).
 Note: project 8/task 931c3fb1 was the aborted CPU attempt; completed GPU run is
 project 10/task d6c30ec5. Operator accepted coarse resolution as smoke evidence.
+
+## Section 5 items 14-15: SATISFIED (2026-08-25)
+Backups:
+- salesdb dump (3.0KB gz) + webodm dump (469B gz) -> /ALWAYSON/backups/postgres/
+- restic repo /var/backups/alwayson-restic initialized; snapshot 548d9910
+  (86 files); restic check clean; passphrase in secrets/operations/restic.env
+  (0600) - import to KWallet folder 'ao-admin' per runbook.
+Restore tests (isolated):
+- FILE: snapshot restored to /tmp/restore-test; apt76.json sha256 match
+- DB: dump restored into fresh restore_salesdb INSIDE sales-db container;
+  14/14 tables verified; test db dropped.
+Deviations noted: restore-in-container (not separate host) acceptable for
+first pass; off-host copy of restic repo still required for full 3-2-1.
