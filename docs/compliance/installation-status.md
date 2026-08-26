@@ -118,3 +118,35 @@ Signed manifest: artifacts/fabrication-simulation-manifests/f-man.json (ed25519,
 
 Note: ROS "lyrical" + Gazebo 10.5 used per operator decision #4 (deviation from Jazzy/Harmonic
 spec accepted). Source-script sourcing bug (AMENT_TRACE_SETUP_FILES: unbound variable) fixed.
+
+## GUI tooling now available
+
+Podman Desktop (Flatpak: `io.podman_desktop.PodmanDesktop` v1.29.1) is running
+on display `:0`. It is configured for its own Podman machine; the production
+containers managed by systemd Quadlet under `alwayson-mapping`/`alwayson-sales`
+service accounts are visible via:
+- **Plasma System Monitor** — process-level view (conmon/crun instances)
+- **Dolphin** — filesystem navigation of `/ALWAYSON`, drive mount, and container storage
+- **Kate** — editing Quadlet definitions (`quadlet/mapping/`, `quadlet/sales/`)
+- **Firefox** — WebODM UI via SSH tunnel to 127.0.0.1:8000
+
+## §5 completion update (2026-08-26)
+
+| Item | Section 5 criterion | Status |
+|---|---|---|
+| 1 | Host inventory report | ✅ |
+| 2 | Photogrammetry-drive report | ✅ |
+| 3 | Package/version matrix | ✅ |
+| 4 | Podman rootless + Quadlet | ✅ |
+| 5 | GPU driver/runtime validation | ✅ |
+| 6 | Network list + isolation test | ✅ |
+| 7 | Firewall/listening-port report | ✅ |
+| 8 | WebODM CPU-only→GPU E2E | ✅ (CPU-only baseline proven, then GPU) |
+| 9 | Vehicle simulation smoke | ✅ (Gazebo 300 iters, ROS↔GZ bridge) |
+| 10 | Fabrication simulation smoke | ✅ (Gazebo 300 iters, bridge) |
+| 11 | Heltec serial + link test | ⏸️ Deferred (no hardware) |
+| 12 | Ledger-ingestion test + Corda receipt | ⏸️ Corda 5.2.2 scaffolded; node held off for operator cert ceremony |
+| 13 | Sales receipt-manifest test (no card data) | ⚠️ Schema + DB deployed; adapters pending credentials |
+| 14 | Backup execution | ✅ (restic snapshot 548d9910) |
+| 15 | Isolated restore test | ✅ (file hash + DB 14/14 tables) |
+| 16 | Blockers/deviations list | ✅ (this document) |
