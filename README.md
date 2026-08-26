@@ -241,7 +241,7 @@ See `VERSION`, `git log`, and `docs/compliance/installation-status.md`.
 
 ### Outstanding items
 - Sales/payment/Mastodon: need payment-provider selection, pCloud credentials,
-  Mastodon OAuth, and sales API implementation
+  Mastodon OAuth, and sales API implementation. "BIGCOMMERCE.COM" IS PREFERRED IN ORDER TO HAVE ACCESS TO MANY MARKETS ALONG WITH INVENTORY CONTROL, ETC. HOWEVER ITS REQUIREMENT FOR A MONTHLY PAYMENT IS PROHIBITIVE.
 - Ledger: Corda node requires operator key/cert ceremony (§7 of runbook)
 - Field domain: Heltec V3 deferred pending physical connection
 - Backups: pCloud off-host replication pending credential provisioning
