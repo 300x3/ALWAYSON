@@ -1856,6 +1856,6 @@ The §5 smoke tests ran through the system-side store: the install journal recor
 
 ### Photogrammetry tree addendum
 
-An empty stray directory `/media/scottw/500GBPHOTOGRAM/incom/` exists alongside `incoming/`, created at bootstrap time (2026-08-23) and referenced by no script and by no WebODM function — almost certainly a typo'd duplicate. Candidate for removal under §2.1 rule 3 upon explicit operator approval.
+An empty stray directory `/media/scottw/500GBPHOTOGRAM/incom/` (a typo'd duplicate of `incoming/` created at bootstrap time, referenced by no script and no WebODM function) was identified during the 2026-08-26 review and **removed with operator approval the same day**. The drive tree now matches §2.3 exactly.
 
 
