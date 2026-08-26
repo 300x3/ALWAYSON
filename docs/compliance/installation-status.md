@@ -150,3 +150,17 @@ service accounts are visible via:
 | 14 | Backup execution | ✅ (restic snapshot 548d9910) |
 | 15 | Isolated restore test | ✅ (file hash + DB 14/14 tables) |
 | 16 | Blockers/deviations list | ✅ (this document) |
+
+## Container GUI visibility resolved (2026-08-25)
+Flatpak Podman Desktop was sandboxed and could only see scottw's empty podman
+(the service workloads live under alwayson-mapping/sales accounts). To give the
+operator accurate GUI access while preserving isolation:
+- Removed Flatpak PD; installed native non-sandboxed Podman Desktop at
+  ~/Applications/podman-desktop/ (menu entry installed).
+- Enabled per-service podman.socket for uid 997/993/994 (boot-persistent).
+- Root socat bridge ao-podman-bridge.service exposes each service socket to
+  scottw at /run/ao-podman/{mapping,sales,ledger}.sock (loopback, 0660).
+- Registered podman system connections (default=mapping).
+- Verified: mapping=5 running (broker,db,webapp,worker,nodeodm, 8 images),
+  sales=1 running (sales-db). ledger empty (nothing staged).
+Runbook: docs/runbooks/container-visibility.md
