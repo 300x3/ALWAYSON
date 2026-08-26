@@ -104,3 +104,17 @@ Restore tests (isolated):
   14/14 tables verified; test db dropped.
 Deviations noted: restore-in-container (not separate host) acceptable for
 first pass; off-host copy of restic repo still required for full 3-2-1.
+
+## Section 5 items 9-10: SATISFIED (2026-08-26)
+Vehicle simulation (§1.8): headless Gazebo Harmonic 10.5 ran ackermann_steering.sdf
+for 300 iterations (rc=0); ROS↔GZ clock bridge `/clock` echo confirmed (bridge_ok=1).
+Domain ao-sim-vehicle (ROS_DOMAIN_ID 21, GZ_PARTITION ao_vehicle_sim).
+Signed manifest: artifacts/vehicle-simulation-manifests/v-man.json (ed25519, producer).
+
+Fabrication simulation: headless Gazebo ran joint_position_controller.sdf
+300 iterations (rc=0); clock bridge confirmed (bridge_ok=1).
+Domain ao-sim-fabrication (ROS_DOMAIN_ID 22, GZ_PARTITION ao_fabrication_sim).
+Signed manifest: artifacts/fabrication-simulation-manifests/f-man.json (ed25519, producer).
+
+Note: ROS "lyrical" + Gazebo 10.5 used per operator decision #4 (deviation from Jazzy/Harmonic
+spec accepted). Source-script sourcing bug (AMENT_TRACE_SETUP_FILES: unbound variable) fixed.
