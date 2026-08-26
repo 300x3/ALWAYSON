@@ -189,7 +189,8 @@ entitlement/provenance state.
 Corda transaction object types: sales orders, telemetry batches, map products,
 simulation results, and release artifacts. Corda never stores card data, full
 customer PII, raw telemetry, drone images, GeoTIFFs/point clouds, ROS bags,
-large simulation outputs, sensitive LLM data, or private keys.
+large simulation outputs, sensitive LLM data, or private keys. CORDA MANAGES SALES OF DIGITAL DATA, NOT 
+SALES OF PHYSICAL ITEMS LIKE BUILDINGS OR PRODUCTS.
 
 ## Photogrammetry drive (§1.5, §3.5)
 
