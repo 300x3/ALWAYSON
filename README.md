@@ -63,14 +63,14 @@ replication and controlled IPFS artifact distribution.
 | Field protocol | RNS/Reticulum + MeshChatX over raw LoRa, unless a true LoRaWAN deployment is later selected |
 | Mapping | WebODM and supporting services under Podman |
 | Mapping storage | `/media/scottw/500GBPHOTOGRAM/` |
-| Vehicle simulation | ROS 2 Jazzy, Gazebo Harmonic, ArduPilot SITL, MAVLink, QGroundControl |
-| Fabrication simulation | ROS 2 Jazzy, Gazebo Harmonic, robot arms, 3D printer, LPBF, storage, assembly, fridge/pantry, kitchen, carousels, pass-throughs |
+| Vehicle simulation | ROS 2 lyrical, Gazebo 10.5.0, ArduPilot SITL, MAVLink, QGroundControl |
+| Fabrication simulation | ROS 2 lyrical, Gazebo 10.5.0, robot arms, 3D printer, LPBF, storage, assembly, fridge/pantry, kitchen, carousels, pass-throughs |
 | Ledger | Corda core behind a ledger-ingestion gateway |
 | Archive | Local source data, signed manifests, encrypted pCloud replication, private/encrypted IPFS workflow |
 | Monitoring | Prometheus-compatible metrics, alerts, systemd/Podman health checks, protected administration access |
 | Backup | PostgreSQL/Corda-aware backups, restic or equivalent encrypted backup, scheduled restore testing |
 
-WebODM supports a Podman deployment path, though its standard tooling may expect Docker-compatible commands that Podman can provide.  ROS 2 Jazzy and Gazebo Harmonic are the selected simulation baseline. [docs.webodm](https://docs.webodm.org/tutorials/using-podman/)
+WebODM supports a Podman deployment path, though its standard tooling may expect Docker-compatible commands that Podman can provide.  ROS 2 lyrical and Gazebo 10.5.0 are the installed simulation baseline (operator-approved deviation from the originally drafted Jazzy/Harmonic pair, recorded 2026-08-24 in `config/platform/version-matrix.yaml`). [docs.webodm](https://docs.webodm.org/tutorials/using-podman/)
 
 *Retained from the repository README summary — implementation/state notes.*
 
@@ -92,8 +92,8 @@ WebODM supports a Podman deployment path, though its standard tooling may expect
 | Field protocol | RNS/Reticulum + MeshChatX over raw LoRa (not LoRaWAN unless true gateway/network-server architecture is selected) |
 | Mapping | WebODM + NodeODM under Podman |
 | Mapping storage | `/media/scottw/500GBPHOTOGRAM/` (UUID `498597d4-9fc8-42cf-8db7-4e71ede53267`) |
-| Vehicle simulation | ROS 2 Jazzy, Gazebo Harmonic, ArduPilot SITL, MAVLink, QGroundControl |
-| Fabrication simulation | ROS 2 Jazzy, Gazebo Harmonic, robot arms, 3D printer, LPBF, kitchen/facility model |
+| Vehicle simulation | ROS 2 lyrical, Gazebo 10.5.0, ArduPilot SITL, MAVLink, QGroundControl |
+| Fabrication simulation | ROS 2 lyrical, Gazebo 10.5.0, robot arms, 3D printer, LPBF, kitchen/facility model |
 | Ledger | Corda core behind ledger-ingestion gateway |
 | Archive | Local source data, signed manifests, encrypted pCloud replication, private/encrypted IPFS workflow |
 | Monitoring | Prometheus-compatible metrics, alerts, systemd/Podman health checks, VPN-only admin access |
@@ -590,8 +590,8 @@ sequence-number/replay policy, ACK policy, retry/backoff, airtime limits.
 
 ```text
 ao-sim-vehicle
-├── ROS 2 Jazzy
-├── Gazebo Harmonic
+├── ROS 2 lyrical
+├── Gazebo 10.5.0
 ├── ArduPilot SITL
 ├── ROS–Gazebo bridge
 ├── MAVLink router
@@ -620,8 +620,8 @@ It must never reach live flight controllers, field radios, real drone telemetry,
 
 ```text
 ao-sim-fabrication
-├── ROS 2 Jazzy
-├── Gazebo Harmonic
+├── ROS 2 lyrical
+├── Gazebo 10.5.0
 ├── Robot-arm cells
 ├── 3D-printer cell
 ├── LPBF process-area model
@@ -1307,8 +1307,8 @@ mapping:
   processing_profiles_commit: ""
 
 simulation:
-  ros2_distribution: "Jazzy"
-  gazebo_release: "Harmonic"
+  ros2_distribution: "lyrical"
+  gazebo_release: "10.5.0"
   ardupilot_commit: ""
   qgroundcontrol_version: ""
   sb3_version: ""
@@ -1836,4 +1836,26 @@ See `VERSION`, `git log`, and `docs/compliance/installation-status.md`.
 - Ledger: Corda node requires operator key/cert ceremony (§7 of runbook)
 - Field domain: Heltec V3 deferred pending physical connection
 - Backups: pCloud off-host replication pending credential provisioning
+
+### Host runtime re-check (verified 2026-08-26)
+
+| Item | Verified value |
+|---|---|
+| Kernel | 7.0.0-30-generic |
+| Podman | 5.7.0, rootless as `scottw`; all 10 `ao-*` networks present with `Internal=true` |
+| GPU | GTX 1080, driver 580.173.02; CDI devices registered (`nvidia.com/gpu=0`, `GPU-02377888…`) |
+| Simulation | ROS 2 lyrical (`/opt/ros/lyrical`), gz sim 10.5.0 |
+| Host data services | PostgreSQL 18.6 + Redis 8.0.5 running on loopback only (:5432/:6379) |
+| Photogrammetry drive | ext4 `/dev/sdb1`, UUID verified, 433.9G free of 457G |
+
+### Container-store visibility note (networks shown, containers not)
+
+`podman ps -a` returning empty while the ten `ao-*` networks are listed is a **storage-isolation property of rootless/rootful Podman, not lost work**. Container/image/volume storage is strictly per user store (`~/.local/share/containers/storage` for rootless; `/var/lib/containers/storage` for the system store); networks are configuration and appear to whichever store created them.
+
+The §5 smoke tests ran through the system-side store: the install journal records successful WebODM E2E runs on 2026-08-24/25 (`WEBODM E2E SMOKE6-V2`, `APT-76 FULL RUN`, `ORTHOPHOTO_SAVED`, ortho TIFF inspected at `500GBPHOTOGRAM/deliverables/apt76-orthophoto.tif`) and simulation smoke tests (`VEHICLE_SMOKE_OK`, `FABRICATION_SMOKE_OK`). The webodm DB dump retained under `/ALWAYSON/backups/postgres/webodm/` is owned by **root**, confirming the mapping stack executed via the system/rootful instance rather than the operator's rootless store — which is why `podman ps -a` from an operator shell shows no containers. The smoke-test evidence persists in the journal, backups, and drive deliverables regardless of container cleanup.
+
+### Photogrammetry tree addendum
+
+An empty stray directory `/media/scottw/500GBPHOTOGRAM/incom/` exists alongside `incoming/`, created at bootstrap time (2026-08-23) and referenced by no script and by no WebODM function — almost certainly a typo'd duplicate. Candidate for removal under §2.1 rule 3 upon explicit operator approval.
+
 
