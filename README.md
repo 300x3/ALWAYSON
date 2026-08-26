@@ -117,6 +117,7 @@ timestamp, nonce, idempotency key, and audit record.
 | Payments | Hosted checkout, provider-verified webhooks, no local card handling |
 | Sales/customer support | Sales API, PostgreSQL, Mastodon integration, OpenClaw, LM Studio |
 | Drone compute | Raspberry Pi 5 + Waveshare SX1262 LoRa top-hat |
+| Drone AUTOPILOT MODULE | 3DR N1 CONNECTED TO RPI5 VIA MAVLINK |
 | Desktop radio | Heltec WiFi LoRa 32 V3 via USB serial |
 | Field protocol | RNS/Reticulum + MeshChatX over raw LoRa (not LoRaWAN unless true gateway/network-server architecture is selected) |
 | Mapping | WebODM + NodeODM under Podman |
