@@ -1,5 +1,9 @@
 # ALWAYS ON
 
+SUPPORTING SERVER SOFTWARE INTEGRATION FOR AUTOMATED: LIVE/WORK BUILDING. AND DRONE/VEHICLE. 
+INCLUDES BASIC SETUP FOR AUTOMATED LEARNING VIA SIMULATION AS WELL AS ON-SITE BLOCKCHAIN BASED
+ACCOUNTING.
+
 Compartmentalized, on-premises platform for drone telemetry/communications,
 photogrammetry/mapping, vehicle and fabrication simulation, static public
 sales content, hosted payment processing, Mastodon-based customer support,
