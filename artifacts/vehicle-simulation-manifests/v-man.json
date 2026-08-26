@@ -1,0 +1,15 @@
+{
+  "object_id": "c5d5da51-3e0f-4b3a-9328-875e36f589b2",
+  "object_type": "vehicle_simulation",
+  "origin_domain": "sim_vehicle",
+  "created_at_utc": "2026-08-26T01:55:39Z",
+  "schema_version": "1.0",
+  "content_hash_sha256": "0a60426d0991a0064dbb3a8b06bfb01be10a6261fa52ac0f80d740008a04b7f3",
+  "content_size_bytes": 346,
+  "local_storage_reference": "sim://vehicle/smoke",
+  "ipfs_cid": "",
+  "pcloud_archive_reference": "",
+  "authorization_policy_id": "",
+  "producer_key_id": "producer",
+  "signature": "ed25519:Cg31POw+cMl1zxpEtaSPMF2vaA5Ub5G3JwjOiE/T2UhlcQANTy8pNrROFD7LNMAlJHzVXH1txkQ/COm+JgTOAg=="
+}

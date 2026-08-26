@@ -1,0 +1,15 @@
+{
+  "object_id": "d343252a-5cb3-4f8d-948d-26a36c488a2e",
+  "object_type": "fabrication_simulation",
+  "origin_domain": "sim_fabrication",
+  "created_at_utc": "2026-08-26T01:55:39Z",
+  "schema_version": "1.0",
+  "content_hash_sha256": "1ec3756c9feb3061eae38f500f3cb5f445683eba09def5b96530007d349fd332",
+  "content_size_bytes": 361,
+  "local_storage_reference": "sim://fabrication/smoke",
+  "ipfs_cid": "",
+  "pcloud_archive_reference": "",
+  "authorization_policy_id": "",
+  "producer_key_id": "producer",
+  "signature": "ed25519:wZ1N4YZHqpBaE7Zj5wfDVgVOW5P0w2RGwkpnXnrSYOIeNDDOr/knDOI2hLlrBLdbBWk9okpS4FZCw0TeOYBhCw=="
+}
