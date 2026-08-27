@@ -46,7 +46,7 @@ ACCOUNTING.
 
 Compartmentalized, on-premises platform for drone telemetry/communications,
 photogrammetry/mapping, vehicle and fabrication simulation, static public
-sales content, hosted payment processing, Mastodon-based customer support,
+sales content, hosted payment processing (STANDARD RECEIPTS/CARDS AND BIG BOX MARKETS), Mastodon-based customer support,
 LM Studio/OpenClaw AI assistance, and Corda-backed provenance, receipts,
 entitlement, and data-integrity records; with encrypted pCloud archival
 replication and controlled IPFS artifact distribution.
