@@ -1,0 +1,38 @@
+# ALWAYS ON - Mastodon local instance policy (Section 3.8).
+# The project specifies Mastodon as a customer/community follow-up adapter.
+# This operator chose to SELF-HOST MASTODON LOCALLY and pair it with Tokodon
+# (KDE Mastodon client) on the desktop.
+mastodon:
+  hosting: "local, self-hosted, containerized on the internal ao-sales network"
+  operator_client: "Tokodon (KDE, /usr/bin/tokodon) - on the operator desktop"
+  protocol: "http only on 127.0.0.1:3000 loopback - NO public listener (listener-allowlist stays empty)"
+  local_domain: "localhost"
+  public_federation: false            # offline/local instance; not on the fediverse
+  approved_pub_host: null             # no outbound posting to external hosts yet
+
+  containment:
+    network: "ao-sales (Internal=true)"
+    db: "mastodon-db (postgres) on ao-sales - does NOT reuse host PG18"
+    redis: "mastodon-redis on ao-sales"
+    ui_api_ports:
+      web:       "127.0.0.1:3000"
+      streaming: "127.0.0.1:4000"
+    egress: "none beyond loopback (self-contained local instance)"
+    operator_access: "Tokodon OAuth + SSH tunnel (no opened host port)"
+
+  services:
+    - mastodon-web
+    - mastodon-sidekiq
+    - mastodon-streaming
+    - mastodon-redis (container-scoped)
+    - mastodon-db    (container-scoped postgres)
+
+  mastodon_adapter_controls:   # carried over from Section 3.8
+    outbound_egress_only_to_approved_host: true
+    human_approval_mandatory: true
+    immutable_publication_audit_log: true
+
+  secrets:
+    secret_key_base: "wallet:ao-mastodon/mastodon-secret-key-base"
+    otp_secret:      "wallet:ao-mastodon/mastodon-otp-secret"
+    db_password:     "wallet:ao-mastodon/mastodon-db-password"

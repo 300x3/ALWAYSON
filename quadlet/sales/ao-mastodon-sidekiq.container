@@ -1,0 +1,22 @@
+# /ALWAYSON/quadlet/sales/ao-mastodon-sidekiq.container
+# ALWAYS ON Mastodon background workers
+[Unit]
+Description=ALWAYS ON Mastodon Sidekiq
+After=ao-mastodon-db.service ao-mastodon-redis.service ao-sales.network
+Wants=ao-mastodon-db.service ao-mastodon-redis.service
+
+[Container]
+Image=docker.io/mastodon/mastodon:v4.3.7
+ContainerName=mastodon-sidekiq
+Network=ao-sales.network
+EnvironmentFile=/ALWAYSON/secrets/mastodon/mastodon.env
+NoNewPrivileges=true
+Exec=/bin/sh -c "bundle exec sidekiq -q default -q push -q pull_request -q mailers -q scheduler"
+
+[Service]
+Restart=on-failure
+RestartSec=15
+MemoryMax=4G
+
+[Install]
+WantedBy=default.target
