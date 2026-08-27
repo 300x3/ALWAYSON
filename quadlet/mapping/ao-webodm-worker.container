@@ -5,7 +5,7 @@ After=ao-webodm-db.service ao-webodm-web.service
 Wants=ao-webodm-db.service
 
 [Container]
-Image=webodm/webodm_webapp@DIGEST_WEBAPP
+Image=webodm/webodm_webapp@sha256:188267c654c27a0f5352b0ff27ebe777788637df06d948d80ccb8513c72abd38
 ContainerName=worker
 Network=ao-mapping.network
 Volume=/media/scottw/500GBPHOTOGRAM/webodm/media:/webodm/app/media:Z

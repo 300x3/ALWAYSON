@@ -2,7 +2,13 @@
 # "Never expose public ports without explicit approval").
 # Add "- <port>" lines ONLY after operator review.
 #
-# KNOWN CONFLICTS PENDING OPERATOR DECISION (Section 2.2 pause conditions):
-#   :80    - pre-existing nginx system service bound to 0.0.0.0+[::]
-#            (conflicts with future ALWAYS ON ingress planning)
+# RESOLVED CONFLICT HISTORY:
+#   :80    - nginx conflict REMOVED 2026-08-24 (purged via apt; port clear).
+#
+# OPEN DECISIONS (Section 2.2 pause conditions):
+#   :1716  - KDE Connect RE-BOUND on *:1716 as of 2026-08-26 despite the
+#            2026-08-24 decision to disable it (autostart hidden, daemon
+#            stopped). Regression suspected after update/reboot. Needs a
+#            durable disable or an explicit allowlist entry. Re-check with:
+#              ss -tlnp | grep 1716
 listeners: []

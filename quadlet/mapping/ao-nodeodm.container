@@ -3,7 +3,7 @@
 [Unit]
 Description=ALWAYS ON NodeODM
 [Container]
-Image=opendronemap/nodeodm@DIGEST_NODEODM
+Image=opendronemap/nodeodm@sha256:553fe5cacb1c248e3740e07e58cb4edc42c48b86aee229555dc9dc49edb09024
 ContainerName=nodeodm
 Network=ao-mapping.network
 Volume=/media/scottw/500GBPHOTOGRAM/webodm/nodeodm:/webodm/nodeodm/data:Z
