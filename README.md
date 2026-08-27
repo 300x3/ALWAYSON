@@ -628,18 +628,17 @@ It must never reach live flight controllers, field radios, real drone telemetry,
 ao-sim-fabrication
 ├── ROS 2 lyrical
 ├── Gazebo 10.5.0
-├── Robot-arm cells
-├── 3D-printer cell
-├── LPBF process-area model
-├── Storage and inventory model
-├── Assembly stations
-├── Refrigerator and pantry
-├── Kitchen operations
-├── Carousels/conveyors
-├── Pass-through ports
-├── Facility scheduler
+├── Robot-arm cells / assembly stations (standard boxe with 2 arms on independent rails)
+├── 3D-printer cells
+├── LPBF cells
+├── Storage and inventory cells (bins on carousels)
+├── Refrigerator, Freezer, and Pantry (bins on carousels)
+├── Kitchen (standard appliances)
+├── Carousels/conveyors (general operation)
+├── Pass-through ports (sliding doors)
+├── Facility scheduler (leveling material supply & fabrication process vs backlog/orders)
 ├── Safety-zone/interlock model
-└── Fabrication-result exporter
+└── Fabrication-result exporter (shipping by drone or standard delivery)
 ```
 
 ```text
