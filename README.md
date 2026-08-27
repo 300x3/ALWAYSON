@@ -1894,6 +1894,7 @@ An empty stray directory `/media/scottw/500GBPHOTOGRAM/incom/` (a typo'd duplica
 
 
 ---
+SIMULATION 
 
 ![SIMULATION](assets/SIMULATION.png)
 
