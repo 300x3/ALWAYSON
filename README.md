@@ -820,7 +820,7 @@ Corda transaction object types: sales orders, telemetry batches, map products,
 simulation results, and release artifacts. Corda never stores card data, full
 customer PII, raw telemetry, drone images, GeoTIFFs/point clouds, ROS bags,
 large simulation outputs, sensitive LLM data, or private keys. CORDA MANAGES SALES OF DIGITAL DATA, NOT 
-SALES OF PHYSICAL ITEMS LIKE BUILDINGS OR PRODUCTS.
+SALES OF PHYSICAL ITEMS LIKE BUILDINGS OR PRODUCTS. LARGE SALES ARE MANAGED THROUGH ZELLE TO ELIMINATE TRANSACTION FEES. FINAL SALES USING OTHER SYSTEMS: PAYPAL/ZELLE/CARD-PROCESSING ARE FOLLOWED UP WITH A CONNECTION TO THE CORDA LEDGER.
 
 Deployment deviation (operator-approved 2026-08-23/24): the Corda database
 (`cordadb`) is provisioned on the **host PostgreSQL 18 cluster** rather than a
