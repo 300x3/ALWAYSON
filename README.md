@@ -612,9 +612,9 @@ ROS_DOMAIN_ID=21
 GZ_PARTITION=alwayson_vehicle_sim
 ```
 
-Vehicle simulation may model:
+Vehicle simulation models:
 
-- Multirotor, bicopter, fixed-wing, VTOL, and ground vehicles.
+- A SINGLE VEHICLE WITH OPERATION MODES AS: Multirotor (bicopter), fixed-wing (VTOL TAILSITTER), ROVER (QUADCYCLE), AND SUBMARINE (DUAL ROTATING)
 - Wind, terrain, obstacles, mission routing, takeoff/landing.
 - Sensors, camera, GPS, IMU, barometer, rangefinder, and battery.
 - MAVLink behavior and telemetry.
