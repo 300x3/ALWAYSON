@@ -58,7 +58,7 @@ replication and controlled IPFS artifact distribution.
 | Area | Final standard |
 |---|---|
 | Host OS | Kubuntu 26 LTS-class workstation |
-| CPU/GPU | AMD CPU and EVGA NVIDIA GTX 1080 |
+| CPU/GPU | AMD CPU and EVGA NVIDIA GTX 1080 -> RPICLUSTER & IMMERSION COOLED SERVER RACK|
 | Container engine | Podman only |
 | Container lifecycle | systemd and Podman Quadlet |
 | Public website | Static HTML in pCloud Public Folder |
