@@ -50,9 +50,10 @@ The Default connection is `mapping`; switch with GUI dropdown or
   access by the operator into each domain.
 
 ## Rebuild after reboot
-v2 bridge script (scripts/deploy/ao-podman-bridge.sh) runs a reconcile loop:
-it waits for the service users' sockets and brings bridges up as they appear,
-so no manual restart is needed after reboot.
+v2.1 bridge script (scripts/deploy/ao-podman-bridge.sh) runs a reconcile loop
+with PID-file health checks: it waits for the service users' sockets, brings
+bridges up as they appear, and repairs dead instances — no manual restart
+needed after reboot.
 
 If bridges are still missing after ~30s:
   systemctl restart ao-podman-bridge.service
@@ -61,7 +62,14 @@ If bridges are still missing after ~30s:
 ### 2026-08-26 incident record
 After this morning's reboot the original v1 script hit its boot race:
 journal showed `mapping/sales/ledger: bridge_missing_src` x3, no socat
-processes, /run/ao-podman/ empty. v2 (retry loop) authored same day; install:
-  sudo install -m 0755 /ALWAYSON/scripts/deploy/ao-podman-bridge.sh /usr/local/sbin/ao-podman-bridge.sh
-  sudo systemctl restart ao-podman-bridge.service
+processes, /run/ao-podman/ empty. Same day:
+- v2 retry loop authored, installed via pkexec; validation then exposed a
+  bug in its own pgrep-quoted health check (never matched -> churn/spawn leak).
+- v2.1 (PID-file health checks) authored, installed via pkexec, verified
+  LIVE: PIDs stable across >=3 reconcile cycles, pidfiles in /run/ao-podman/,
+  mapping+sales bridges verified end-to-end (`podman --url unix:///run/ao-podman/<name>.sock info`).
+- OPEN at close of session: ledger.sock bridged but EOFs on every request —
+  the alwayson-ledger user's podman backend is unhealthy. Diagnose with:
+    pkexec /tmp/ledger-diag.sh        # or re-create from this repo's history
+  (runs `podman info` as alwayson-ledger + pulls uid-994 journal).
 

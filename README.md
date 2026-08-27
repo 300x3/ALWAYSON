@@ -1866,11 +1866,12 @@ An empty stray directory `/media/scottw/500GBPHOTOGRAM/incom/` (a typo'd duplica
 
 ### Part-2 remediation log (2026-08-26)
 
-1. **Podman socket bridges:** v2 reconcile-loop script authored at
-   `scripts/deploy/ao-podman-bridge.sh` (fixes the v1 boot race that left all
-   three bridges dead after the Aug-26 reboot). Requires one-time privileged
-   install + restart (`sudo install -m 0755 … && sudo systemctl restart ao-podman-bridge.service`),
-   recorded in `docs/runbooks/container-visibility.md`.
+1. **Podman socket bridges:** RESOLVED LIVE. v2.1 PID-file reconcile-loop
+   script installed via pkexec to `/usr/local/sbin/ao-podman-bridge.sh` and
+   restarted. Verified: all three bridges up, PIDs stable across multiple
+   cycles, mapping + sales confirmed working through the tunnels. Residual
+   issue: the ledger tunnel connects but the alwayson-ledger podman backend
+   EOFs — backend diagnostic pending one operator-run privileged command.
 2. **Quadlet sources pinned:** all six container units now carry the real
    sha256 image digests recorded at deploy time (no more placeholder tags).
    Secrets wiring (`Secret=`) remains intentionally absent until §3.4 secret
