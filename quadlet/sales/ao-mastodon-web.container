@@ -1,0 +1,25 @@
+# /ALWAYSON/quadlet/sales/ao-mastodon-web.container
+# ALWAYS ON Mastodon Web/API - loopback-only publisher (127.0.0.1:3000).
+# NO public port opened (listener-allowlist stays empty); operator uses Tokodon/SSH.
+[Unit]
+Description=ALWAYS ON Mastodon Web
+After=ao-mastodon-db.service ao-mastodon-redis.service ao-sales.network
+Wants=ao-mastodon-db.service ao-mastodon-redis.service
+
+[Container]
+Image=docker.io/mastodon/mastodon:v4.3.7
+ContainerName=mastodon-web
+Network=ao-sales.network
+EnvironmentFile=/ALWAYSON/secrets/mastodon/mastodon.env
+PublishPort=127.0.0.1:3000:3000
+NoNewPrivileges=true
+Exec=/bin/sh -c "bundle exec rails s -p 3000 -b 0.0.0.0"
+
+[Service]
+Restart=on-failure
+RestartSec=15
+MemoryMax=4G
+TimeoutStartSec=600
+
+[Install]
+WantedBy=default.target

@@ -170,3 +170,23 @@ operator accurate GUI access while preserving isolation:
 - Verified: mapping=5 running (broker,db,webapp,worker,nodeodm, 8 images),
   sales=1 running (sales-db). ledger empty (nothing staged).
 Runbook: docs/runbooks/container-visibility.md
+
+## Mastodon local self-host + KDE Wallet provisioning (2026-08-27)
+
+SDLC: scaffolded, NOT yet running (requires operator root TTY to pull image
+and enable the sales-user container set).
+
+- **Secrets:** KDE Wallet now stores the platform secrets (Section 3.4). All ten
+  `ao-*` domain folders created in `kdewallet`; writes/reads verified through
+  `org.kde.kwalletd6` (`kwallet-provision.sh` round-trip passed).
+- **Mastodon secret values generated + stored** in `ao-mastodon`
+  (`secret-key-base`, `otp-secret`, `db-password`) and mirrored to gitignored
+  `/ALWAYSON/secrets/mastodon/mastodon.env`.
+- **Deployment scaffold:** 5 Quadlet units
+  (`quadlet/sales/ao-mastodon-{db,redis,web,sidekiq,streaming}.container`) on the
+  internal `ao-sales` network; web/streaming bind ONLY 127.0.0.1 (no public
+  listener). Operator client: **Tokodon** (installed, `/usr/bin/tokodon`).
+  Docs: `config/mastodon/instance-policy.yaml`, `docs/runbooks/mastodon.md`.
+- **Pending (operator root TTY):** pull `mastodon/mastodon:v4.3.7` (or mirror),
+  `daemon-reload`, start units, `bin/rails db:prepare`, create Owner via tootctl,
+  then add the account in Tokodon (http://localhost:3000).

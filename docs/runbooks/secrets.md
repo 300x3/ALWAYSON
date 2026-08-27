@@ -44,3 +44,28 @@ These files are outside `/ALWAYSON` and excluded from Git by `.gitignore`.
 
 Rotate = update KWallet entry + service file + restart unit + note in audit log.
 Database passwords additionally require `ALTER ROLE` before/after file swap.
+
+---
+## Addendum: Mastodon self-host folder + CLI tool
+
+Mastodon self-hosting adds the KDE Wallet folder **`ao-mastodon`** with entries:
+
+- `ao-mastodon/mastodon-secret-key-base`
+- `ao-mastodon/mastodon-otp-secret`
+- `ao-mastodon/mastodon-db-password`
+- `ao-mastodon/mastodon-owner-password`
+
+Simulation signing adds `ao-sim-vehicle` / `ao-sim-fabrication` (producer.pem
+keys live as 0600 files under `/ALWAYSON/secrets/<domain>/`).
+
+### CLI provisioning (`/ALWAYSON/scripts/ops/kwallet-provision.sh`)
+Reads/writes these folders via the `org.kde.kwalletd6` D-Bus service (correct
+for this host). Run **from the Plasma session** (wallet unlocked):
+
+```bash
+/ALWAYSON/scripts/ops/kwallet-provision.sh create-folders
+/ALWAYSON/scripts/ops/kwallet-provision.sh put kdewallet ao-mastodon mastodon-otp-secret <value>
+/ALWAYSON/scripts/ops/kwallet-provision.sh get kdewallet ao-mastodon mastodon-otp-secret
+```
+
+Used automatically by `scripts/mastodon/deploy-mastodon.sh genenv`.
