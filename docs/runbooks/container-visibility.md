@@ -50,5 +50,18 @@ The Default connection is `mapping`; switch with GUI dropdown or
   access by the operator into each domain.
 
 ## Rebuild after reboot
-ao-podman-bridge.service starts sockets at boot (added to multi-user.target).
-If bridges missing: systemctl restart ao-podman-bridge.service
+v2 bridge script (scripts/deploy/ao-podman-bridge.sh) runs a reconcile loop:
+it waits for the service users' sockets and brings bridges up as they appear,
+so no manual restart is needed after reboot.
+
+If bridges are still missing after ~30s:
+  systemctl restart ao-podman-bridge.service
+  journalctl -u ao-podman-bridge.service -n 20   # expect per-domain bridge_up lines
+
+### 2026-08-26 incident record
+After this morning's reboot the original v1 script hit its boot race:
+journal showed `mapping/sales/ledger: bridge_missing_src` x3, no socat
+processes, /run/ao-podman/ empty. v2 (retry loop) authored same day; install:
+  sudo install -m 0755 /ALWAYSON/scripts/deploy/ao-podman-bridge.sh /usr/local/sbin/ao-podman-bridge.sh
+  sudo systemctl restart ao-podman-bridge.service
+

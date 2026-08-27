@@ -817,6 +817,12 @@ customer PII, raw telemetry, drone images, GeoTIFFs/point clouds, ROS bags,
 large simulation outputs, sensitive LLM data, or private keys. CORDA MANAGES SALES OF DIGITAL DATA, NOT 
 SALES OF PHYSICAL ITEMS LIKE BUILDINGS OR PRODUCTS.
 
+Deployment deviation (operator-approved 2026-08-23/24): the Corda database
+(`cordadb`) is provisioned on the **host PostgreSQL 18 cluster** rather than a
+dedicated container-scoped instance — matching the ledger-scaffold journal note
+"provisioning cordadb on host PostgreSQL (operator-approved reuse)". Corda node
+deployment itself remains held pending the operator key/certificate ceremony.
+
 # Section 2 — Agentic AI Software Installation Instructions
 
 ## 2.1 Mandatory Agent Rules
@@ -1771,8 +1777,8 @@ Alerts should cover disk pressure, backup failure, bad restore tests, container 
 
 | Schedule | Content |
 |---|---|
-| Hourly | PostgreSQL/Corda-aware dumps |
-| Daily | Mapping manifests, simulation exports, storefront releases |
+| Hourly | Configurations, manifests, sales records, field telemetry (incrementals) |
+| Daily | PostgreSQL/Corda-aware dumps; mapping manifests, simulation exports, storefront releases |
 | Weekly | Repository integrity check + off-host copy validation |
 | Monthly | Isolated restore test |
 | Quarterly | Full disaster-recovery exercise |
@@ -1857,5 +1863,28 @@ The §5 smoke tests ran through the system-side store: the install journal recor
 ### Photogrammetry tree addendum
 
 An empty stray directory `/media/scottw/500GBPHOTOGRAM/incom/` (a typo'd duplicate of `incoming/` created at bootstrap time, referenced by no script and no WebODM function) was identified during the 2026-08-26 review and **removed with operator approval the same day**. The drive tree now matches §2.3 exactly.
+
+### Part-2 remediation log (2026-08-26)
+
+1. **Podman socket bridges:** v2 reconcile-loop script authored at
+   `scripts/deploy/ao-podman-bridge.sh` (fixes the v1 boot race that left all
+   three bridges dead after the Aug-26 reboot). Requires one-time privileged
+   install + restart (`sudo install -m 0755 … && sudo systemctl restart ao-podman-bridge.service`),
+   recorded in `docs/runbooks/container-visibility.md`.
+2. **Quadlet sources pinned:** all six container units now carry the real
+   sha256 image digests recorded at deploy time (no more placeholder tags).
+   Secrets wiring (`Secret=`) remains intentionally absent until §3.4 secret
+   provisioning completes.
+3. **Listener policy converged:** allowlist history updated (:80 nginx purge
+   RESOLVED); :1716 KDE Connect regression REOPENED — it re-bound after the
+   Aug-26 update/reboot despite the 08-24 disable decision.
+4. **GPU doc drift resolved** across README/version-matrix/installation-status:
+   toolkit 1.20.0 installed, CDI registered, GPU smoke passed.
+5. **cordadb-on-host-PG deviation** now documented here (ledger notes above).
+6. **Backup summary corrected** to match §4.4 / backup-policy.yaml (hourly =
+   incrementals; dumps are daily).
+7. version-matrix refreshed: kernel 7.0.0-30, Quadlet capability noted,
+   ArduPilot commit e57b8a47d3 filled; QGC/SB3 remain not-installed markers.
+
 
 

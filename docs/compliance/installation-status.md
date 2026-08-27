@@ -10,21 +10,27 @@ Date: 2026-08-24 · Operator host: Kubuntu/Ubuntu 26.04 LTS workstation
 | 2 | Photogrammetry-drive report | ✅ /dev/sdb1 ext4 UUID 498597d4-9fc8-42cf-8db7-4e71ede53267, 435G free, dir tree + .mounted-ok created, validation script passes |
 | 3 | Installed package/version matrix | ✅ `config/platform/version-matrix.yaml` (systemd 259, podman 5.7.0, NVIDIA 580.173.02) |
 | 4 | Podman rootless + Quadlet verification | ✅ rootless OK, cgroups v2, linger enabled, 10 networks Internal=true |
-| 5 | GPU driver/container-runtime report | ✅ driver working; container GPU toolkit NOT installed (correct per §2.8 step 12) |
+| 5 | GPU driver/container-runtime report | ✅ driver working; nvidia-container-toolkit 1.20.0 installed 2026-08-25; CDI devices registered (`nvidia-ctk cdi list` verified 2026-08-26); GPU-enabled WebODM ortho run passed |
 | 6 | Podman network list + isolation test | ✅ `config/platform/network-cidrs.yaml`; check-network-isolation.sh PASS |
-| 7 | Firewall/listening-port report | ⚠️ ufw active; check-open-ports.sh FAILS by design on unapproved :80/:1716 (see blockers) |
-| 8–15 | WebODM/sim/Heltec/ledger/sales/backup/restore smoke tests | ⏸️ blocked below |
+| 7 | Firewall/listening-port report | ⚠️ ufw active; :80 resolved (nginx purged); **:1716 re-bound 2026-08-26 despite disable decision** — reopened, see blockers |
+| 8–15 | WebODM/sim/Heltec/ledger/sales/backup/restore smoke tests | Mixed: 8 ✅ (apt-76 ortho), 9–10 ✅ (headless Gazebo), 14 ✅ (restic 548d9910), 15 ✅ (file+DB restore) — all 2026-08-25 journal; 11 ⏸️ Heltec deferred; 12 ⏸️ Corda scaffolded, awaits key ceremony; 13 ⚠️ schema only |
 
 ## Blockers requiring operator approval (Section 2.2 pause rules)
 
 1. ~~nginx on :80~~ — RESOLVED: stopped and disabled at operator direction; port 80 clear.
    keep+allowlist, repurpose as ALWAYS ON ingress, or stop.
-2. **KDE Connect on *:1716** — allowlist or disable.
-3. **Existing PostgreSQL 18 cluster + Redis** on host loopback — reuse for domains vs.
-   containerize per plan. Document mandates domain-scoped instances.
+2. **KDE Connect on *:1716** — RESOLVED 2026-08-24 (autostart hidden, daemon stopped)
+   but RECURRED as of 2026-08-26 (:1716 listening again after update/reboot).
+   Apply a durable disable or grant an explicit allowlist entry.
+3. **Existing PostgreSQL 18 cluster + Redis** on host loopback — PARTIALLY DECIDED
+   2026-08-24: WebODM uses container-scoped db/broker on ao-mapping; sales-db runs
+   container-scoped postgres@pinned digest under alwayson-sales; **cordadb provisioned
+   on host PG18 cluster** (operator-approved reuse deviation). Redis reuse still undecided.
 4. **ROS "lyrical" + Gazebo 10.5 installed** vs spec Jazzy + Harmonic — accept deviation
    or install Jazzy/Harmonic alongside.
-5. **WebODM image digests** — no pinned digests approved yet (§3.3 template uses placeholder).
+5. ~~WebODM image digests — none approved~~ RESOLVED: digests pinned at deploy
+   (version-matrix.yaml; webapp/db/nodeodm/broker sha256 recorded 2026-08-24);
+   repo Quadlet templates updated to the real digests 2026-08-26.
 6. **Corda version/cert profile undecided** — ledger-core deployment cannot start.
 7. **Secrets provisioning** — restic.env, pCloud archive credential, payment webhook secret,
    Mastodon OAuth, field radio keys (§3.4 table).

@@ -2,11 +2,11 @@ ledger_authorization:
   mtls_required: true
   one_client_certificate_per_exporter_domain: true
   approved_paths:            # Section 1.3 approved paths only
-    - from: sales            ; to: ledger-ingest ; payload: signed receipt manifest
-    - from: payment          ; to: sales         ; payload: verified payment state
-    - from: field            ; to: ledger-ingest ; payload: telemetry manifest
-    - from: mapping          ; to: ledger-ingest ; payload: deliverable manifest
-    - from: sim_vehicle      ; to: ledger-ingest ; payload: vehicle manifest
-    - from: sim_fabrication  ; to: ledger-ingest ; payload: fabrication manifest
+    - { from: sales,           to: ledger-ingest,   payload: "signed receipt manifest" }
+    - { from: payment,         to: sales,           payload: "verified payment state" }
+    - { from: field,           to: ledger-ingest,   payload: "telemetry manifest" }
+    - { from: mapping,         to: ledger-ingest,   payload: "deliverable manifest" }
+    - { from: sim_vehicle,     to: ledger-ingest,   payload: "vehicle manifest" }
+    - { from: sim_fabrication, to: ledger-ingest,   payload: "fabrication manifest" }
   prohibited_paths_ref: "Section 1.3 prohibited paths table"
   idempotency_key_required: true

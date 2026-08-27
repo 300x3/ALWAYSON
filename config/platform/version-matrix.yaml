@@ -1,9 +1,9 @@
 host:
   os_release: "Ubuntu 26.04 LTS"
-  kernel: "7.0.0-29-generic"
+  kernel: "7.0.0-30-generic"
   systemd: "259"
   podman: "5.7.0"
-  quadlet_capability: "podman unknown"
+  quadlet_capability: "Quadlet systemd generator functional in podman 5.7.0 (user scope)"
   netplan: "not present"
   nftables: "installed (service inactive); ufw active"
   ufw: "active"
@@ -11,7 +11,7 @@ host:
 gpu:
   model: "EVGA NVIDIA GTX 1080 (GP104)"
   nvidia_driver: "580.173.02"
-  container_runtime_integration: "pending CDI/nvidia-container-toolkit validation (Section 2.5)"
+  container_runtime_integration: "nvidia-container-toolkit 1.20.0 installed 2026-08-25; CDI devices registered for operator store (nvidia.com/gpu=0); GPU-enabled WebODM smoke run passed; formal Section 2.8 step-12 validation record pending"
   cuda_runtime_image_digest: ""
 
 mapping:
@@ -27,7 +27,7 @@ mapping:
 simulation:
   ros2_distribution: "lyrical (host-installed) - DEVIATION FROM SPEC Jazzy APPROVED BY OPERATOR 2026-08-24; graphics-proven Gazebo retained"
   gazebo_release: "gz sim 10.5.0 (host-installed, graphics-verified) - operator approved over spec Harmonic"
-  ardupilot_commit: ""
+  ardupilot_commit: "e57b8a47d3 (ArduPilot-4.6.0-beta1-7859-ge57b8a47d3, 2026-08-04; ~/ardupilot)"
   qgroundcontrol_version: ""
   sb3_version: ""
 
