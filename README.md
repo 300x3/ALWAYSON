@@ -1883,8 +1883,9 @@ An empty stray directory `/media/scottw/500GBPHOTOGRAM/incom/` (a typo'd duplica
    Secrets wiring (`Secret=`) remains intentionally absent until §3.4 secret
    provisioning completes.
 3. **Listener policy converged:** allowlist history updated (:80 nginx purge
-   RESOLVED); :1716 KDE Connect regression REOPENED — it re-bound after the
-   Aug-26 update/reboot despite the 08-24 disable decision.
+   RESOLVED); :1716 KDE Connect regression RESOLVED — kdeconnect packages
+   purged via apt, daemon killed, autostart + D-Bus service + user config
+   removed; port 1716 confirmed clear.
 4. **GPU doc drift resolved** across README/version-matrix/installation-status:
    toolkit 1.20.0 installed, CDI registered, GPU smoke passed.
 5. **cordadb-on-host-PG deviation** now documented here (ledger notes above).
