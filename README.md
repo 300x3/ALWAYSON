@@ -11,6 +11,8 @@ WWW.300X3.COM
 
 **ALWAYS ON** is a compartmentalized, on-premises platform for:
 
+A ~160SF MODULAR LIVE/WORK FACILITY WITH ACCOMPANYING MODULAR MICRO AIRCRAFT CARRIER
+
 - Drone telemetry and field communications.
 - Photogrammetry and mapping.
 - Vehicle simulation.
