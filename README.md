@@ -1893,4 +1893,10 @@ An empty stray directory `/media/scottw/500GBPHOTOGRAM/incom/` (a typo'd duplica
    ArduPilot commit e57b8a47d3 filled; QGC/SB3 remain not-installed markers.
 
 
+---
+
+![SIMULATION](assets/SIMULATION.png)
+
+
+
 
