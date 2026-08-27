@@ -30,7 +30,7 @@ AN AUTOMATED ~160SF MODULAR LIVE/FABRICATE FACILITY WITH ACCOMPANYING MODULAR MI
 
 The system is designed around **strict isolation**. Sales, AI, payment, mapping, field telemetry, vehicle simulation, fabrication simulation, and ledger services must not share broad networks, credentials, writable storage, or database access.
 
-The host is a Kubuntu 26 LTS-class workstation with an AMD CPU and EVGA NVIDIA GTX 1080 GPU. Kubuntu is appropriate for this workstation role because it provides the KDE desktop needed for QGroundControl, Gazebo visualization, GPU diagnostics, and engineering workflows while retaining the Ubuntu LTS package base. Ubuntu 26.04 LTS has standard support through April 2031. [documentation.ubuntu](https://documentation.ubuntu.com/release-notes/26.04/)
+The host is a Kubuntu 26 LTS-class workstation with an AMD CPU and EVGA NVIDIA GTX 1080 GPU (THIS ATX DESKTOP IS SEVERELY UNDERPOWERED AND WILL EVENTUALLY BE REPLACED BY AN IMMERSION COOLED SERVER RACK AND AN RPI6+ CLUSTER FOR AIRGAPPED TASKS.) Kubuntu is appropriate for this workstation role because it provides the KDE desktop needed for QGroundControl, Gazebo visualization, GPU diagnostics, and engineering workflows while retaining the Ubuntu LTS package base. Ubuntu 26.04 LTS has standard support through April 2031. [documentation.ubuntu](https://documentation.ubuntu.com/release-notes/26.04/)
 
 Podman is the only container runtime. Containers are managed through systemd Quadlet definitions rather than fragile shell wrappers or Docker Compose. Quadlet provides declarative systemd integration for Podman-managed containers, volumes, networks, and pods. [redhat](https://www.redhat.com/en/blog/quadlet-podman)
 
