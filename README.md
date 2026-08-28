@@ -1,125 +1,176 @@
 ![ALWAYS ON — WEBSITEMAIN](assets/WEBSITEMAIN.png)
 
-# PROJECT NAME:
-ALWAYS ON
-# APPLICABLE LICENSE: 
-WWW.CREATIVECOMMONS.ORG (CC-BY-NC-SA)
-PROJECT START ~2010 (BUILDING) ~2012 (DRONE) ~2023 (LINUX SYSTEMS)
-# SUPPORTING PROJECT PLAN: 
-https://archive.org/details/@scott_widmann
-# CURRENT PROJECT WEBSITE: 
-WWW.300X3.COM
+# ALWAYS ON
+
+**License:** CC BY-NC-SA  
+**Project origin:** Building ~2010 · Drone ~2012 · Linux systems ~2023  
+**Supporting project plan:** https://archive.org/details/@scott_widmann  
+**Current project website:** https://www.300x3.com
 
 ---
 
-## Architecture, Installation, Configuration, and Customization
+# Architecture, Installation, Configuration, Operations, and Status
 
-## 1. System Purpose
+## Document Status and Reading Guide
 
-**ALWAYS ON** is a compartmentalized, on-premises platform for:
+This README is the single authoritative document for the ALWAYS ON project. It
+contains the intended architecture, implemented configuration, operational
+requirements, validation evidence, approved deviations, known issues, and work
+queue.
 
-AN AUTOMATED ~160SF MODULAR LIVE/FABRICATE FACILITY WITH ACCOMPANYING MODULAR MICRO AIRCRAFT CARRIER
+Every material statement in this document belongs to one of the following
+categories:
+
+| Category | Meaning |
+|---|---|
+| **Architecture requirement** | Mandatory final-state design constraint |
+| **Implemented** | Verified as deployed or tested on the current host |
+| **Planned** | Approved design not yet implemented |
+| **Blocked** | Requires an operator decision, credential, key ceremony, hardware connection, or other prerequisite |
+| **Deviation** | Approved difference between intended architecture and current implementation |
+| **Work item** | A discrete task with acceptance criteria |
+| **Issue** | A recorded defect, ambiguity, or implementation risk |
+
+When the current implementation differs from an architecture requirement, the
+difference must be recorded in **Approved Deviations and Open Decisions** with
+a rationale, compensating controls, owner, and resolution condition.
+
+**Last consolidated review:** 2026-08-28
+
+---
+
+# 1. System Purpose
+
+ALWAYS ON is a compartmentalized, on-premises platform supporting an automated
+approximately 160-square-foot modular live/fabricate facility and an
+accompanying modular micro-aircraft carrier.
+
+The platform supports:
 
 - Drone telemetry and field communications.
 - Photogrammetry and mapping.
 - Vehicle simulation.
-- Fabrication/facility/kitchen simulation.
+- Fabrication, facility, inventory, kitchen, and logistics simulation.
 - Static public sales content.
-- Hosted payment processing and receipt generation.
-- Mastodon-based customer/community follow-up.
-- Local LM Studio/OpenClaw support assistance.
-- Corda-backed provenance, receipts, entitlement, and data-integrity records.
-- Encrypted pCloud archival replication and controlled IPFS artifact distribution.
+- Hosted payment checkout and receipt generation.
+- Mastodon-based customer and community follow-up.
+- Local LM Studio and OpenClaw-assisted support workflows.
+- Corda-backed provenance, receipts, entitlements, and approved state records.
+- Encrypted pCloud archival replication and controlled IPFS artifact
+  distribution.
 
-The system is designed around **strict isolation**. Sales, AI, payment, mapping, field telemetry, vehicle simulation, fabrication simulation, and ledger services must not share broad networks, credentials, writable storage, or database access.
+The system is designed around **strict isolation**. Sales, AI, payments,
+mapping, field telemetry, vehicle simulation, fabrication simulation, archive,
+and ledger services must not share broad networks, credentials, writable
+storage, databases, or unrestricted host access.
 
-The host is a Kubuntu 26 LTS-class workstation with an AMD CPU and EVGA NVIDIA GTX 1080 GPU (THIS ATX DESKTOP IS SEVERELY UNDERPOWERED AND WILL EVENTUALLY BE REPLACED BY AN IMMERSION COOLED SERVER RACK AND AN RPI6+ CLUSTER FOR AIRGAPPED LOCAL/EDGE COMPUTING TASKS.) Kubuntu is appropriate for this workstation role because it provides the KDE desktop needed for QGroundControl, Gazebo visualization, GPU diagnostics, and engineering workflows while retaining the Ubuntu LTS package base. Ubuntu 26.04 LTS has standard support through April 2031. [documentation.ubuntu](https://documentation.ubuntu.com/release-notes/26.04/)
+The current workstation is a development, integration, and validation host. It
+uses Kubuntu 26 LTS-class software, an AMD CPU, and an EVGA NVIDIA GTX 1080.
+Future compute-intensive production workloads may move to an immersion-cooled
+server rack and a Raspberry Pi edge-computing cluster.
 
-Podman is the only container runtime. Containers are managed through systemd Quadlet definitions rather than fragile shell wrappers or Docker Compose. Quadlet provides declarative systemd integration for Podman-managed containers, volumes, networks, and pods. [redhat](https://www.redhat.com/en/blog/quadlet-podman)
+Kubuntu is appropriate for the current workstation role because KDE supports
+QGroundControl, Gazebo visualization, GPU diagnostics, Tokodon, and general
+engineering workflows while retaining an Ubuntu LTS package base. Ubuntu 26.04
+LTS standard support is scheduled through April 2031.
 
-# Section 1 — Final Architecture
+Podman is the only supported container runtime. Containers are managed through
+systemd Quadlet definitions rather than Docker Compose, shell-wrapper
+orchestration, or a Docker daemon.
 
-## 1.1 Platform Baseline
+---
 
-| Area | Final standard |
+# 2. Platform Baseline
+
+## 2.1 Intended Platform Standard
+
+| Area | Architecture requirement |
 |---|---|
 | Host OS | Kubuntu 26 LTS-class workstation |
-| CPU/GPU | AMD CPU and EVGA NVIDIA GTX 1080 -> RPICLUSTER & IMMERSION COOLED SERVER RACK|
+| Current CPU/GPU | AMD CPU and EVGA NVIDIA GTX 1080 |
+| Future compute | Immersion-cooled server rack and Raspberry Pi edge cluster |
 | Container engine | Podman only |
 | Container lifecycle | systemd and Podman Quadlet |
 | Public website | Static HTML in pCloud Public Folder |
-| Payments | Hosted checkout, provider-verified webhooks, no local card handling |
-| Sales/customer support | Sales API, PostgreSQL, Mastodon integration, OpenClaw, LM Studio |
-| Drone compute | Raspberry Pi 5 plus Waveshare SX1262-class LoRa top-hat |
-| Desktop radio | Heltec WiFi LoRa 32 V3 via USB serial |
-| Field protocol | RNS/Reticulum + MeshChatX over raw LoRa, unless a true LoRaWAN deployment is later selected |
+| Payments | Provider-hosted checkout and verified payment events; no local card handling |
+| Sales and support | Sales API, PostgreSQL, Mastodon integration, OpenClaw, and LM Studio |
+| Drone compute | Raspberry Pi 5 with Waveshare SX1262-class LoRa top-hat |
+| Drone autopilot | 3DR N1 connected to Raspberry Pi 5 by MAVLink |
+| Desktop radio | Heltec WiFi LoRa 32 V3 through stable USB serial path |
+| Field protocol | RNS/Reticulum and MeshChatX over raw LoRa unless a true LoRaWAN deployment is selected |
 | Mapping | WebODM and supporting services under Podman |
 | Mapping storage | `/media/scottw/500GBPHOTOGRAM/` |
-| Vehicle simulation | ROS 2 lyrical, Gazebo 10.5.0, ArduPilot SITL, MAVLink, QGroundControl |
-| Fabrication simulation | ROS 2 lyrical, Gazebo 10.5.0, robot arms, 3D printer, LPBF, storage, assembly, fridge/pantry, kitchen, carousels, pass-throughs |
-| Ledger | Corda core behind a ledger-ingestion gateway |
-| Archive | Local source data, signed manifests, encrypted pCloud replication, private/encrypted IPFS workflow |
-| Monitoring | Prometheus-compatible metrics, alerts, systemd/Podman health checks, protected administration access |
-| Backup | PostgreSQL/Corda-aware backups, restic or equivalent encrypted backup, scheduled restore testing |
+| Vehicle simulation | ROS 2 Lyrical, Gazebo Sim 10.5.0, ArduPilot SITL, MAVLink, QGroundControl |
+| Fabrication simulation | ROS 2 Lyrical, Gazebo Sim 10.5.0, robot cells, additive manufacturing, storage, kitchen, and logistics models |
+| Ledger | Corda core behind a dedicated ledger-ingestion gateway |
+| Archive | Local source data, signed manifests, encrypted pCloud replication, private or encrypted IPFS workflow |
+| Monitoring | Prometheus-compatible metrics, alerts, health checks, and protected administration access |
+| Backup | PostgreSQL/Corda-aware backup, restic or equivalent encrypted backup, and scheduled restore testing |
 
+## 2.2 Current Host Facts
 
-## 1.2 Host facts
-
-| Area | Specification |
+| Area | Verified current value |
 |---|---|
-| Host OS | Kubuntu 26 LTS-class workstation (Ubuntu 26.04 LTS, standard support to April 2031) |
-| CPU/GPU | AMD CPU + EVGA NVIDIA GTX 1080 |
-| Container engine | Podman only |
-| Container lifecycle | systemd Quadlet |
-| Container runtime | rootless (user `alwayson-mapping`, `alwayson-sales`, `alwayson-ledger`, etc.) |
-| Public website | Static HTML in pCloud Public Folder |
-| Payments | Hosted checkout, provider-verified webhooks, no local card handling |
-| Sales/customer support | Sales API, PostgreSQL, Mastodon integration, OpenClaw, LM Studio |
-| Drone compute | Raspberry Pi 5 + Waveshare SX1262 LoRa top-hat |
-| Drone AUTOPILOT MODULE | 3DR N1 CONNECTED TO RPI5 VIA MAVLINK |
-| Desktop radio | Heltec WiFi LoRa 32 V3 via USB serial |
-| Field protocol | RNS/Reticulum + MeshChatX over raw LoRa (not LoRaWAN unless true gateway/network-server architecture is selected) |
-| Mapping | WebODM + NodeODM under Podman |
-| Mapping storage | `/media/scottw/500GBPHOTOGRAM/` (UUID `498597d4-9fc8-42cf-8db7-4e71ede53267`) |
-| Vehicle simulation | ROS 2 lyrical, Gazebo 10.5.0, ArduPilot SITL, MAVLink, QGroundControl |
-| Fabrication simulation | ROS 2 lyrical, Gazebo 10.5.0, robot arms, 3D printer, LPBF, kitchen/facility model |
-| Ledger | Corda core behind ledger-ingestion gateway |
-| Archive | Local source data, signed manifests, encrypted pCloud replication, private/encrypted IPFS workflow |
-| Monitoring | Prometheus-compatible metrics, alerts, systemd/Podman health checks, VPN-only admin access |
-| Backup | PostgreSQL/Corda-aware backups, restic encrypted backup, scheduled restore testing |
+| Kernel | `7.0.0-30-generic` |
+| Podman | `5.7.0` |
+| Podman networks | Ten `ao-*` networks present; internal workload-domain isolation verified |
+| GPU | EVGA NVIDIA GTX 1080 |
+| NVIDIA driver | `580.173.02` |
+| NVIDIA integration | CDI devices registered, including `nvidia.com/gpu=0` |
+| Simulation stack | ROS 2 Lyrical at `/opt/ros/lyrical`; Gazebo Sim `10.5.0` |
+| Host PostgreSQL | PostgreSQL `18.6`, loopback-only |
+| Host Redis | Redis `8.0.5`, loopback-only |
+| Mapping drive | ext4 `/dev/sdb1`; UUID verified; approximately 433.9 GB free of 457 GB |
+| Mapping mount | `/media/scottw/500GBPHOTOGRAM/` |
+| Current runtime model | Mixed rootless and system/rootful Podman evidence; see approved deviation section |
 
-## 1.3 High-Level Isolation Diagram
+---
+
+# 3. High-Level Architecture
+
+## 3.1 Isolation Diagram
 
 ```text
-                                   PUBLIC INTERNET
-                                          │
-                                          ▼
-                     ┌─────────────────────────────────────┐
-                     │ pCloud Public Folder                │
-                     │ Static HTML storefront only         │
-                     │ Products • Docs • Legal • Links     │
-                     └───────┬───────────────┬─────────────┘
-                             │               │
-             Hosted checkout │               │ Mastodon / Support / AI link
-                             ▼               ▼
-                  ┌────────────────────────────────────────┐
-                  │ SALES / AI DOMAIN                       │
-                  │ Sales API • Sales PostgreSQL            │
-                  │ Mastodon Adapter • OpenClaw • LM Studio │
-                  └────────────────┬───────────────────────┘
-                                   │ signed receipt manifest
-                                   ▼
-                  ┌────────────────────────────────────────┐
-                  │ LEDGER-INGEST DOMAIN                    │
-                  │ mTLS • validation • authorization       │
-                  │ signatures • idempotency • audit        │
-                  └────────────────┬───────────────────────┘
-                                   │
-                                   ▼
-                  ┌────────────────────────────────────────┐
-                  │ LEDGER-CORE DOMAIN                      │
-                  │ Corda Node • Corda PostgreSQL • PKI     │
-                  └────────────────────────────────────────┘
+                                  PUBLIC INTERNET
+                                         │
+                                         ▼
+                    ┌─────────────────────────────────────┐
+                    │ pCloud Public Folder                │
+                    │ Static storefront only              │
+                    │ Products -  Docs -  Legal -  Links     │
+                    └─────────┬───────────────┬───────────┘
+                              │               │
+                Hosted checkout               │ Community/support links
+                              │               │
+                              ▼               ▼
+                 ┌────────────────────────────────────────┐
+                 │ CONTROLLED INGRESS / EGRESS ADAPTERS    │
+                 │ Payment ingress -  Archive egress        │
+                 │ Community egress -  Build/update path    │
+                 └───────────────┬────────────────────────┘
+                                 │
+           ┌─────────────────────┼─────────────────────┐
+           ▼                     ▼                     ▼
+┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐
+│ PAYMENT DOMAIN   │  │ SALES / AI DOMAIN│  │ ARCHIVE ADAPTER  │
+│ Webhook verifier │  │ Sales API         │  │ pCloud/IPFS      │
+│ Normalizer       │  │ Sales PostgreSQL  │  │ encrypted export │
+└────────┬─────────┘  │ Mastodon adapter  │  └──────────────────┘
+         │            │ OpenClaw/LM Studio│
+         │            └────────┬──────────┘
+         │                     │ Signed receipt manifests
+         ▼                     ▼
+             ┌──────────────────────────────────────────┐
+             │ LEDGER-INGEST DOMAIN                     │
+             │ mTLS -  authorization -  schema validation │
+             │ signatures -  idempotency -  audit          │
+             └──────────────────┬───────────────────────┘
+                                │
+                                ▼
+             ┌──────────────────────────────────────────┐
+             │ LEDGER-CORE DOMAIN                       │
+             │ Corda node -  Corda database -  PKI        │
+             └──────────────────────────────────────────┘
 
 Drone Pi 5 + Waveshare ─ LoRa ─ Heltec V3 ─► FIELD DOMAIN ─────┐
                                                                │
@@ -132,27 +183,63 @@ Fabrication ROS/Gazebo ───────────────────
                                                     LEDGER-INGEST
 ```
 
-The public pCloud site has no direct route to the Kubuntu host’s field, mapping, simulation, database, AI, Podman, or Corda-core services.
+The public storefront has no direct route to the Kubuntu host’s field,
+mapping, simulation, database, AI, Podman, or Corda-core services.
 
-## 1.4 Domains (strict isolation)
+## 3.2 Canonical Implementation Status
 
-| Podman network | Purpose | Public exposure | Permitted output |
-|---|---|---|---|
-| `ao-sales` | Sales API, sales PostgreSQL, Mastodon adapter, OpenClaw, LM Studio | No direct host exposure by default | Signed order/receipt/entitlement manifests |
-| `ao-payment` | Provider webhook verifier, payment adapter | No | Verified payment state only |
-| `ao-field` | Heltec gateway, RNS/MeshChatX, telemetry spool, mission-release service | No | Signed telemetry and mission manifests |
-| `ao-mapping` | WebODM, NodeODM, Redis, mapping DB, imagery intake/exporter | VPN/operator only if required | Signed mapping-deliverable manifests |
-| `ao-sim-vehicle` | ROS 2, Gazebo, ArduPilot SITL, MAVLink, QGroundControl sim | No | Signed vehicle-simulation manifests |
-| `ao-sim-fabrication` | ROS 2, Gazebo, robot-arm cells, 3D printer, LPBF, facility model | No | Signed fabrication-simulation manifests |
-| `ao-ledger-ingest` | Mutual TLS validation gateway, authorization, audit | No | Corda receipt IDs/statuses |
-| `ao-ledger-core` | Corda node, Corda PostgreSQL, certificate/keystore material | No | None directly |
-| `ao-data` | Shared data plumbing (narrow) | No | Controlled references only |
-| `ao-admin` | Monitoring/backups — VPN or allowlisted only | VPN/allowlist only | Operational reports |
+| Domain or component | Architecture requirement | Current implementation state | Status | Blocking condition or next action |
+|---|---|---|---|---|
+| Host platform | Kubuntu, Podman, Quadlet, protected administration | Host inventory and base platform verified | Implemented | Maintain version matrix |
+| Domain isolation | Separate workload networks with explicit approved paths | Ten internal workload networks and isolation test verified | Implemented | Add narrow adapters only as required |
+| Mapping | Dedicated mapping domain and photogrammetry drive | GPU-enabled WebODM smoke test completed; orthophoto produced | Implemented with deviation | Formalize steady-state rootless/system model |
+| Field and LoRa | Raspberry Pi 5, Waveshare LoRa, Heltec V3 gateway | Heltec V3 not connected; no live link test | Blocked | Connect Heltec V3 by USB-C |
+| Vehicle simulation | Isolated ROS/Gazebo/ArduPilot SITL domain | Headless Gazebo and ROS-Gazebo bridge smoke test passed | Implemented | Add scenario and QGroundControl validation as needed |
+| Fabrication simulation | Isolated ROS/Gazebo facility domain | Headless simulation smoke test passed | Implemented | Expand facility models and safety scenarios |
+| Ledger | Corda core behind mTLS ingestion gateway | Corda 5.2.2 scaffolded | Blocked | Complete operator key and certificate ceremony |
+| Sales and payment | Hosted payment flow and verified events | Sales DB deployed; payment provider and API pending | Planned | Select provider and implement verifier/API |
+| Mastodon and OpenClaw | Restricted local support/community workflow | Local stack in progress; OAuth/client issues recorded | In progress | Complete Tokodon and local LLM validation |
+| Archive | Encrypted off-host replication and controlled IPFS workflow | Local restic backup and restore validation complete | Partially implemented | Provision pCloud/archive credentials and test replication |
+| Backup and restore | Encrypted backup plus recurring restore testing | Encrypted restic snapshot and isolated restore test complete | Implemented | Automate recurring schedule |
 
-**All networks are `Internal=true`.** CIDRs recorded in
-`config/platform/network-cidrs.yaml`.
+---
 
-### 1.4.A Prohibited paths
+# 4. Security, Isolation, and Data Policy
+
+## 4.1 Non-Negotiable Rules
+
+1. Inspect before changing.
+2. Preserve existing data.
+3. Never format, repartition, delete, prune, or overwrite without explicit
+   operator approval.
+4. Never install Docker daemon, Docker Compose, or Watchtower.
+5. Use Podman and Quadlet only.
+6. Never expose a public port without explicit operator approval.
+7. Never place secrets in scripts, logs, HTML, Git, pCloud Public Folder, IPFS,
+   Corda payloads, shell history, or documentation examples.
+8. Never use `--privileged` as a default.
+9. Use pinned image digests for operational services.
+10. Verify the photogrammetry drive before deploying or operating WebODM.
+11. Record commands, versions, significant output, and failures in the
+    installation or operational journal.
+12. Stop and report conflicts involving services, packages, networks, mounts,
+    ports, serial devices, firewall policy, or existing data.
+13. Do not broaden network access, filesystem access, container privileges, or
+    secret access merely to bypass an error.
+14. Require explicit human approval before publishing external communications,
+    initiating payments, changing production credentials, deleting data, or
+    modifying external records.
+
+## 4.2 Data Classification
+
+| Classification | Examples | Handling requirement |
+|---|---|---|
+| Public | Storefront HTML, intentionally published documentation, approved product data | May be placed in pCloud Public Folder |
+| Internal operational | Non-sensitive configuration, health data, non-sensitive manifests, unit status | Restricted local access; do not publish by default |
+| Sensitive | Customer contact data, payment references, precise telemetry, sensitive imagery, proprietary technical designs | Domain-restricted storage; encrypted backup; no public IPFS |
+| Secret | Passwords, tokens, API keys, private keys, Corda keystores, archive credentials, radio keys | Podman secrets, systemd credentials, or approved secret files only |
+
+## 4.3 Prohibited Paths
 
 ```text
 Sales/AI → MAVLink, ArduPilot, ROS, Gazebo, LoRa, RNS, MeshChatX
@@ -161,38 +248,112 @@ Payment → OpenClaw, LM Studio, Mastodon, field, mapping, simulation
 Field → payment provider, Mastodon, OpenClaw, LM Studio, Corda core
 Mapping → flight control, LoRa/RNS, payment provider, Mastodon, Corda core
 Vehicle simulation → live drones, live radios, sales, payments, Corda core
-Fabrication simulation → live machinery in phase one, sales, payments, Corda core
+Fabrication simulation → live machinery during phase one, sales, payments, Corda core
 Public internet → PostgreSQL, Redis, WebODM workers, LM Studio, Corda,
                   ROS, MAVLink, Gazebo, QGroundControl, RNS, MeshChatX
 ```
 
-### 1.4.B Approved paths
+## 4.4 Approved Internal Paths
 
 ```text
 Sales receipt manifest ───────────────► Ledger-ingestion gateway
-Payment verification event ───────────► Sales API / ledger-ingestion gateway
+Verified payment event ───────────────► Sales API and/or ledger-ingestion gateway
 Field telemetry manifest ─────────────► Ledger-ingestion gateway
 Mapping deliverable manifest ─────────► Ledger-ingestion gateway
-Vehicle-simulation manifest ──────────► Ledger-ingestion gateway
-Fabrication-simulation manifest ──────► Ledger-ingestion gateway
+Vehicle simulation manifest ──────────► Ledger-ingestion gateway
+Fabrication simulation manifest ──────► Ledger-ingestion gateway
 
-Ledger receipt / entitlement state ───► Authorized service through narrow API
+Ledger receipt or entitlement status ─► Authorized service through narrow API
 Signed mission release ───────────────► Field mission-release service
 Validated image set ──────────────────► WebODM intake service
 ```
 
-All cross-domain requests require mutual TLS, a dedicated service certificate, signed payload, schema validation, timestamp, nonce, idempotency key, audit record, and explicit authorization policy.
+All cross-domain requests require:
 
-***
+- Mutual TLS.
+- A dedicated service certificate or identity.
+- Signed payload where durable provenance is required.
+- Schema validation.
+- Timestamp and nonce or equivalent replay defense.
+- Durable idempotency key handling.
+- Audit record.
+- Explicit authorization policy.
 
-*Retained from the repository README summary — implementation/state notes.*
+Mutual TLS authenticates transport peers. Detached manifest signatures permit
+independent verification after storage, export, or audit. These are separate
+controls and should be used together for provenance-bearing artifacts.
 
+---
 
+# 5. Network Domains and Controlled External Access
 
+## 5.1 Workload Domains
 
-## 1.5 Public Storefront
+| Podman network | Purpose | Public exposure | Permitted output |
+|---|---|---|---|
+| `ao-sales` | Sales API, sales PostgreSQL, Mastodon adapter, OpenClaw, LM Studio | No direct public exposure | Signed order, receipt, and entitlement manifests |
+| `ao-payment` | Provider webhook verifier and payment adapter | No direct public exposure | Verified normalized payment state |
+| `ao-field` | Heltec gateway, RNS/MeshChatX, telemetry spool, mission-release service | No direct public exposure | Signed telemetry and mission manifests |
+| `ao-mapping` | WebODM, NodeODM, Redis, mapping DB, imagery intake/exporter | Operator/VPN access only when approved | Signed mapping deliverable manifests |
+| `ao-sim-vehicle` | ROS 2, Gazebo, ArduPilot SITL, MAVLink, QGroundControl simulation | No direct public exposure | Signed vehicle-simulation manifests |
+| `ao-sim-fabrication` | ROS 2, Gazebo, robot cells, additive manufacturing, facility model | No direct public exposure | Signed fabrication-simulation manifests |
+| `ao-ledger-ingest` | mTLS validation gateway, authorization, audit, idempotency | No direct public exposure | Corda receipt IDs and status |
+| `ao-ledger-core` | Corda node, Corda database, certificate/keystore material | No direct public exposure | No direct output |
+| `ao-data` | Narrow controlled data plumbing where unavoidable | No direct public exposure | Controlled references only |
+| `ao-admin` | Monitoring, backup, restore validation, administration | VPN or explicitly allowlisted administration only | Operational reports |
 
-The public storefront is static HTML hosted in the pCloud Public Folder. pCloud documents that the Public Folder can host static HTML, provide direct links, and embed public content. [help.pcloud](https://help.pcloud.com/article/public-folder)
+All workload-domain networks are `Internal=true`. CIDRs are recorded in:
+
+```text
+/ALWAYSON/config/platform/network-cidrs.yaml
+```
+
+No workload service may receive unrestricted Internet access simply by joining
+its application-domain network.
+
+## 5.2 Controlled Ingress and Egress Adapters
+
+External connectivity is allowed only through narrowly scoped, independently
+reviewed adapters. These adapters are architecture-controlled exceptions, not
+general-purpose Internet access.
+
+| Adapter/network | Purpose | Direction | Mandatory controls |
+|---|---|---|---|
+| `ao-ingress-payment` | Payment-provider webhook receiver or approved relay | Inbound | Minimal listener, provider-signature verification, rate limits, audit log, normalized event output |
+| `ao-egress-archive` | Encrypted pCloud replication and approved IPFS operations | Outbound | Destination allowlist, TLS validation, encrypted payloads, separate credentials, transfer audit |
+| `ao-egress-community` | Approved Mastodon/community activity when remote connectivity is explicitly enabled | Outbound | Approved host allowlist, minimum OAuth scope, rate limits, publication approval log |
+| `ao-build-update` | Image and package acquisition before controlled promotion | Outbound | Verified source, digest capture, update audit, no direct workload attachment |
+
+No sales, mapping, field, simulation, database, AI, or ledger-core container may
+attach directly to an Internet-capable network. An external adapter must use
+separate credentials, destination allowlists, validated DNS/TLS, firewall
+policy, minimal permissions, and connection logging.
+
+---
+
+# 6. Component Boundary Matrix
+
+| Component | Owning domain | Inputs accepted | Outputs allowed | Persistent data | External connectivity |
+|---|---|---|---|---|---|
+| Sales API | `ao-sales` | Verified payment state and approved support requests | Signed receipt/entitlement manifests | Sales PostgreSQL | None directly |
+| Payment verifier | `ao-payment` | Provider webhook or approved relay event | Verified normalized payment event | Minimal event and audit record | Through `ao-ingress-payment` only |
+| Mapping intake | `ao-mapping` | Authenticated imagery upload | Validated image-set reference | Intake, validation, quarantine record | None directly |
+| WebODM/NodeODM | `ao-mapping` | Validated mapping task input | Processing output to mapping exporter | Dedicated photogrammetry volume | None directly |
+| Field gateway | `ao-field` | USB serial LoRa frames | Normalized telemetry manifest | Raw packet store and telemetry spool | USB serial and radio only |
+| Vehicle simulator | `ao-sim-vehicle` | Approved scenario/model artifact | Signed simulation manifest | Vehicle simulation data path | None directly |
+| Fabrication simulator | `ao-sim-fabrication` | Approved facility/task model | Signed simulation manifest | Fabrication simulation data path | None directly |
+| Ledger ingestion | `ao-ledger-ingest` | Signed mTLS manifests | Receipt/status response | Audit and idempotency state | Only to ledger core |
+| Ledger core | `ao-ledger-core` | Ledger-ingestion gateway requests only | No direct public output | Corda state and PKI | None directly |
+| Archive adapter | `ao-egress-archive` | Approved encrypted archive bundle | Replication result/status | Staging and transfer log | Outbound only |
+| Community adapter | `ao-egress-community` | Approved publication or support request | Remote delivery/status response | Publication audit log | Outbound only |
+
+---
+
+# 7. Public Storefront and Payment Policy
+
+## 7.1 Storefront Boundary
+
+The public storefront is static HTML hosted in the pCloud Public Folder.
 
 ```text
 pCloud Public Folder
@@ -215,13 +376,13 @@ pCloud Public Folder
 
 The public site may include:
 
-- Product catalog and product documentation.
+- Product catalog and documentation.
 - Hosted payment checkout links.
-- PayPal or other provider-controlled checkout buttons.
-- Order follow-up/support links.
-- Mastodon links.
-- AI-assisted support/community entry point.
-- Shipping, returns, warranty, privacy, and legal content.
+- Provider-controlled payment buttons.
+- Order follow-up and support links.
+- Mastodon/community links.
+- AI-assisted support entry points that do not expose private infrastructure.
+- Shipping, return, warranty, privacy, and legal content.
 
 The public site must never include:
 
@@ -230,11 +391,41 @@ The public site must never include:
 - Mastodon OAuth tokens.
 - pCloud archive credentials.
 - IPFS private keys or swarm keys.
-- Local hostnames, LAN addresses, or Podman ports.
+- Local hostnames, LAN addresses, Podman ports, or private API routes.
 - Database connection strings.
-- Drone radio configuration or control endpoints.
+- Drone radio configuration, control endpoints, or flight-control access.
+- Internal service certificates, identifiers, or diagnostic output.
 
-### 1.5.A Sales and receipt sequence
+## 7.2 Payment and Settlement Policy
+
+ALWAYS ON does not process, transmit, or store payment-card numbers, CVV
+values, or payment-provider secret material in the storefront, sales database,
+Corda, Git repository, logs, pCloud Public Folder, or IPFS.
+
+The default payment model is provider-hosted checkout. The selected provider is
+responsible for payment-card capture and authorization. The local
+payment-verifier service accepts only provider-signed webhook events and stores
+normalized business state.
+
+| Payment method | Intended use | Required control |
+|---|---|---|
+| Hosted card checkout | Standard online transactions | Provider-hosted checkout, signature-verified webhook, no local card handling |
+| Hosted PayPal checkout | Optional provider-supported checkout | Provider-controlled flow and verified event |
+| Wire transfer | Approved high-value transactions | Manual reconciliation, operator approval, auditable reference record |
+| Other payment methods | Disabled by default | Requires documented provider terms, accounting treatment, refund process, and explicit operator approval |
+
+Corda does not accept payment cards and does not replace payment-provider,
+banking, tax, consumer-protection, accounting, refund, or other legal
+obligations. Corda may record approved receipt, fulfillment, entitlement, or
+provenance state after a payment event has been verified or manually
+reconciled.
+
+Zelle, USDC, cryptocurrency, or other alternative payment methods are not part
+of the production payment flow unless separately approved, documented for legal
+and accounting treatment, and implemented with appropriate controls. They must
+not be described as mechanisms for bypassing payment-processing fees.
+
+## 7.3 Sales and Receipt Sequence
 
 ```text
 Customer browser
@@ -242,61 +433,63 @@ Customer browser
       ▼
 pCloud static storefront
       │
-      ├── Hosted card checkout
-      ├── Hosted PayPal checkout
-      └── Optional wire-transfer order request
-              │
-              ▼
-Payment provider
-              │
-              ▼
-Verified signed webhook
-              │
-              ▼
+      ▼
+Provider-hosted checkout or approved wire-transfer request
+      │
+      ▼
+Payment provider or reconciliation process
+      │
+      ▼
+Controlled payment ingress adapter
+      │
+      ▼
+Verified payment event
+      │
+      ▼
 Sales API and sales PostgreSQL
+      ├── Order record
+      ├── Receipt record
+      ├── Fulfillment state
+      └── Entitlement state
               │
-              ├── Order record
-              ├── Receipt record
-              ├── Fulfillment state
-              └── Entitlement state
-                      │
-                      ▼
+              ▼
 Signed receipt manifest
-                      │
-                      ▼
+              │
+              ▼
 Ledger-ingestion gateway
-                      │
-                      ▼
-Corda receipt / entitlement transaction
+              │
+              ▼
+Corda receipt and entitlement state
 ```
 
-3DR’s published order information uses credit card or PayPal for immediate processing, with wire transfer handled separately. That is a sound model for the storefront: a standard provider processes payments; ALWAYS ON stores verified references and business receipt state, not card data. [docs.3dr](https://docs.3dr.com/es/orders-and-shipping/how-to-place-an-order-online/) HOWEVER IT IS ALSO BASED ON A SUBSCRIPTION SERVICE, USE OF THAT SUBSCRIPTION SERVICE IS STILL GENERALLY NECESSARY IN ORDER TO MAINTAIN ACCESS TO BIG BOX STORE LISTINGS.
+---
 
-***
+# 8. Mapping and Photogrammetry
 
-## 1.6 Dedicated Photogrammetry Storage
+## 8.1 Dedicated Storage
 
-The dedicated local drive for WebODM and all photogrammetry work is:
+The dedicated local workspace for WebODM and photogrammetry is:
 
 ```text
 /media/scottw/500GBPHOTOGRAM/
 ```
 
-This is the authoritative workspace for:
+This drive is authoritative for:
 
 - Incoming drone imagery.
 - Validated imagery sets.
-- Rejected/quarantined uploads.
+- Rejected and quarantined uploads.
 - WebODM media and project data.
-- NodeODM processing intermediates.
+- NodeODM intermediates.
 - Mapping deliverables.
 - Mapping processing and provenance manifests.
 - pCloud/IPFS archive staging.
-- Mapping database backup exports.
+- Mapping-database backup exports.
 
-WebODM must not use the root filesystem, `$HOME`, or Podman’s writable container layers for high-volume processing.
+WebODM must not use the root filesystem, `$HOME`, or Podman writable container
+layers for high-volume processing.
 
-### 1.6.A Required directory structure
+## 8.2 Required Directory Tree
 
 ```text
 /media/scottw/500GBPHOTOGRAM/
@@ -340,86 +533,47 @@ WebODM must not use the root filesystem, `$HOME`, or Podman’s writable contain
     └── processing/
 ```
 
-### 1.6.B Storage ownership
+No directory in this tree may be world-writable. Use dedicated mapping
+ownership, explicit groups, and ACLs only when necessary.
 
-| Directory | Primary writer | Purpose |
-|---|---|---|
-| `incoming/` | Imagery-ingest service | Controlled upload landing zone |
-| `validated/` | Validation service | Approved mission imagery |
-| `rejected/` | Validation service | Failed or suspicious uploads |
-| `webodm/` | WebODM/NodeODM services | Application and processing data |
-| `deliverables/` | Mapping result exporter | Approved finished products |
-| `manifests/` | Mapping exporter | Signed provenance records |
-| `exports/` | Archive service | pCloud/IPFS staging only |
-| `backups/` | Backup process | Mapping DB backup exports |
-| `tmp/` | Mapping worker | Temporary work only |
-
-Do not use world-writable permissions. Use a dedicated mapping group, explicit ownership, and ACLs only where necessary.
-
-### 1.6.C Drive validation
-
-The drive must be identified by filesystem UUID, not `/dev/sdX`. Before WebODM starts, verify:
-
-```bash
-lsblk -f
-findmnt /media/scottw/500GBPHOTOGRAM
-blkid
-df -hT /media/scottw/500GBPHOTOGRAM
-```
-
-WebODM must refuse to start when:
-
-- The mount is absent.
-- The mountpoint resolves to the root filesystem.
-- The expected UUID does not match.
-- `.mounted-ok` is absent.
-- Free space is below the configured threshold.
-- Required directories are missing.
-- Mapping service permissions are incorrect.
-
-A standalone WebODM UI-plus-processing deployment commonly needs at least 16 GB RAM and 100 GB free storage; 500 GB is usable if retention, archival, job-concurrency limits, and disk alerts are enforced. [github](https://github.com/michaelquickct/WebODM-podman)
-
-## 1.7 Mapping Design
+## 8.3 Mapping Processing Flow
 
 ```text
-Authenticated drone/operator upload
+Authenticated drone or operator upload
       │
       ▼
 Imagery-ingest service
-      ├── file type validation
+      ├── File type validation
       ├── SHA-256 checksum
-      ├── EXIF/metadata validation
-      ├── mission association
-      ├── storage-quota check
-      ├── file-count validation
-      └── quarantine on failure
+      ├── EXIF and metadata validation
+      ├── Mission association
+      ├── Storage quota check
+      ├── File-count validation
+      └── Quarantine on failure
               │
               ▼
-WebODM API/project task creation
+WebODM API and project task creation
               │
               ▼
 Queue / Redis
               │
               ▼
 NodeODM processing worker
+      ├── Orthomosaic
+      ├── Point cloud
+      ├── DSM / DEM
+      ├── Textured model
+      └── Processing report
               │
-              ├── orthomosaic
-              ├── point cloud
-              ├── DSM / DEM
-              ├── textured model
-              └── processing report
-                      │
-                      ▼
+              ▼
 Mapping-result exporter
-      ├── hashes outputs
-      ├── generates manifest
-      ├── stages approved archives
-      └── submits signed manifest to ledger ingestion
+      ├── Hashes outputs
+      ├── Generates signed manifest
+      ├── Stages approved archive bundle
+      └── Submits signed manifest to ledger ingestion
 ```
 
-WebODM and associated processing services run only in `ao-mapping`.
-
-Persistent locations:
+## 8.4 Persistent Locations
 
 | Data | Location |
 |---|---|
@@ -428,33 +582,60 @@ Persistent locations:
 | WebODM media/projects | `/media/scottw/500GBPHOTOGRAM/webodm/` |
 | Intermediate work | `/media/scottw/500GBPHOTOGRAM/webodm/nodeodm/` and `tmp/` |
 | Deliverables | `/media/scottw/500GBPHOTOGRAM/deliverables/` |
-| Mapping PostgreSQL | `/ALWAYSON/data/mapping/postgres/` or dedicated Podman volume |
-| Redis persistence if used | `/ALWAYSON/data/mapping/redis/` |
+| Mapping PostgreSQL | `/ALWAYSON/data/mapping/postgres/` or approved Podman volume |
+| Redis persistence | `/ALWAYSON/data/mapping/redis/` |
 | Signed manifests | `/ALWAYSON/artifacts/mapping-manifests/` |
 
-Begin with CPU-only WebODM validation. Permit GTX 1080 access only after container GPU runtime, driver compatibility, workload benefit, and CPU-only recovery procedures are proven.
+## 8.5 Mapping Mount Validation
 
-## 1.8 Field and LoRa Architecture
+The drive must be identified by filesystem UUID, not by `/dev/sdX`.
 
-### 1.8.A Drone-side system
+WebODM must refuse to start when:
+
+- The mount is absent.
+- The mountpoint resolves to the root filesystem.
+- The mounted UUID differs from the approved UUID.
+- `.mounted-ok` is absent.
+- Available space is below the configured minimum.
+- Required directories are missing.
+- Mapping service ownership or permissions are incorrect.
+
+Required validation:
+
+```bash
+lsblk -f
+findmnt /media/scottw/500GBPHOTOGRAM
+blkid
+df -hT /media/scottw/500GBPHOTOGRAM
+```
+
+Begin with CPU-only validation. Enable GTX 1080 access only after validated
+container GPU runtime, driver compatibility, measurable workload benefit, and a
+documented CPU-only recovery path.
+
+---
+
+# 9. Field and LoRa Architecture
+
+## 9.1 Drone-Side System
 
 ```text
 ArduPilot flight controller
-       │ MAVLink via UART/USB
+       │ MAVLink through UART or USB
        ▼
 Raspberry Pi 5
-       ├── MAVLink collector / mission agent
+       ├── MAVLink collector and mission agent
        ├── Local encrypted telemetry spool
        ├── RNS / Reticulum node
        ├── MeshChatX application
        ├── Packet signing and acknowledgement
-       └── Waveshare LoRa HAT
+       └── Waveshare SX1262-class LoRa HAT
                   │
                   ▼
               LoRa RF link
 ```
 
-### 1.8.B Desktop-side gateway
+## 9.2 Desktop Gateway
 
 ```text
 Heltec WiFi LoRa 32 V3
@@ -465,88 +646,62 @@ Heltec WiFi LoRa 32 V3
        ▼
 Heltec gateway service
        ├── Serial framing
-       ├── Link health and RSSI/SNR metrics
+       ├── Link-health and RSSI/SNR metrics
        ├── Packet authentication
-       ├── Duplicate/replay detection
+       ├── Duplicate and replay detection
        ├── RNS / MeshChatX adapter
        ├── Raw-packet storage
        ├── Telemetry normalization
-       └── Signed telemetry manifest exporter
+       └── Signed telemetry-manifest exporter
 ```
 
-The Heltec V3 uses an ESP32-S3 and SX1262 LoRa radio, while the Waveshare HAT family uses SX1262/SX1268-class LoRa modules. [heltec](https://heltec.org/project/wifi-lora-32-v3/)
+Both radio ends must be verified as compatible US915 hardware variants.
+Matching SX1262-family radio chips do not guarantee protocol compatibility.
 
-Both devices must be verified as compatible US915 hardware variants. Matching chip families do not automatically provide protocol compatibility.
-
-Version-controlled configuration files:
+Version-controlled profiles:
 
 ```text
 /ALWAYSON/config/field/heltec-v3/radio-profile-us915.yaml
 /ALWAYSON/config/drone/waveshare-lora/radio-profile-us915.yaml
 ```
 
-The profiles must define identical or interoperable:
+The profiles must define identical or explicitly interoperable values for:
 
-- Frequency/channel plan.
+- Frequency or channel plan.
 - Bandwidth.
 - Spreading factor.
 - Coding rate.
 - Preamble length.
 - Transmit power.
-- Sync word/network identifier.
+- Sync word or network identifier.
 - Packet framing.
 - Maximum packet size.
 - Encryption key identifier.
 - Device public identity.
-- Sequence-number and replay-protection policy.
+- Sequence number and replay-protection policy.
 - Acknowledgement policy.
-- Retry/backoff policy.
+- Retry and backoff policy.
 - Airtime limits.
 
-Do not label the system LoRaWAN unless it implements an actual LoRaWAN device/gateway/network-server architecture.
+Do not describe this system as LoRaWAN unless it implements a true LoRaWAN
+device, gateway, and network-server architecture.
 
-## 1.9 (_REMOVED_)
+---
 
-***
+# 10. Simulation Architecture
 
-*Retained from the repository README summary — implementation/state notes.*
-
-## 1.10 Field & LoRa
-
-### 1.10.A Drone-side
-
-ArduPilot → MAVLink → Raspberry Pi 5 (MAVLink collector, RNS/MeshChatX,
-Waveshare SX1262 LoRa HAT).
-
-### Desktop gateway
-
-Heltec WiFi LoRa 32 V3 (ESP32-S3 + SX1262) via USB-C serial
-(`/dev/serial/by-id/...`).
-
-### Configuration profiles
-
-`/ALWAYSON/config/field/heltec-v3/radio-profile-us915.yaml`
-`/ALWAYSON/config/drone/waveshare-lora/radio-profile-us915.yaml`
-
-Both profiles define identical or interoperable: frequency/channel plan,
-bandwidth, spreading factor, coding rate, preamble length, TX power, sync word,
-packet framing, max packet size, encryption key ID, device public identity,
-sequence-number/replay policy, ACK policy, retry/backoff, airtime limits.
-
-## 1.11 Simulation Design
-
-### 1.11.A Vehicle simulation
+## 10.1 Vehicle Simulation
 
 ```text
 ao-sim-vehicle
-├── ROS 2 lyrical
-├── Gazebo 10.5.0
+├── ROS 2 Lyrical
+├── Gazebo Sim 10.5.0
 ├── ArduPilot SITL
-├── ROS–Gazebo bridge
+├── ROS-Gazebo bridge
 ├── MAVLink router
 ├── QGroundControl simulation client
-├── Optional SB3 evaluation
-├── Mission/scenario runner
+├── Optional Stable-Baselines3 evaluation
+├── Mission and scenario runner
 └── Vehicle-result exporter
 ```
 
@@ -555,33 +710,35 @@ ROS_DOMAIN_ID=21
 GZ_PARTITION=alwayson_vehicle_sim
 ```
 
-Vehicle simulation models:
+Vehicle profiles may model separate or modular configurations, including:
 
-- A SINGLE VEHICLE WITH OPERATION MODES AS: Multirotor (bicopter), fixed-wing (VTOL TAILSITTER), ROVER (QUADCYCLE), AND SUBMARINE (DUAL ROTATING)
-- Wind, terrain, obstacles, mission routing, takeoff/landing.
-- Sensors, camera, GPS, IMU, barometer, rangefinder, and battery.
-- MAVLink behavior and telemetry.
+- Multirotor or bicopter profile.
+- Fixed-wing VTOL tailsitter profile.
+- Rover or quadcycle profile.
+- Dual-rotating underwater/submersible profile.
+- Wind, terrain, obstacles, routing, takeoff, and landing.
+- Camera, GPS, IMU, barometer, rangefinder, battery, and MAVLink behavior.
 - GPS loss, packet loss, actuator faults, sensor drift, and failsafe handling.
 
-It must never reach live flight controllers, field radios, real drone telemetry, payment services, customer records, or Corda core.
+Vehicle simulation must never connect to live flight controllers, field radios,
+real drone telemetry, payment services, customer records, or Corda core.
 
-### 1.11.B Fabrication and kitchen simulation
+## 10.2 Fabrication and Facility Simulation
 
 ```text
 ao-sim-fabrication
-├── ROS 2 lyrical
-├── Gazebo 10.5.0
-├── Robot-arm cells / assembly stations (standard boxe with 2 arms on independent rails)
+├── ROS 2 Lyrical
+├── Gazebo Sim 10.5.0
+├── Robot-arm cells and assembly stations
 ├── 3D-printer cells
 ├── LPBF cells
-├── Storage and inventory cells (bins on carousels)
-├── Refrigerator, Freezer, and Pantry (bins on carousels)
-├── Kitchen (standard appliances)
-├── Carousels/conveyors (general operation)
-├── Pass-through ports (sliding doors)
-├── Facility scheduler (leveling material supply & fabrication process vs backlog/orders)
-├── Safety-zone/interlock model
-└── Fabrication-result exporter (shipping by drone or standard delivery)
+├── Storage and inventory cells
+├── Refrigerator, freezer, and pantry models
+├── Kitchen and pass-through models
+├── Carousels and conveyors
+├── Facility scheduler
+├── Safety-zone and interlock model
+└── Fabrication-result exporter
 ```
 
 ```text
@@ -589,13 +746,11 @@ ROS_DOMAIN_ID=22
 GZ_PARTITION=alwayson_fabrication_sim
 ```
 
-The fabrication simulation models:
-
 ```text
 Storage
    │
    ▼
-Carousel / conveyor
+Carousel or conveyor
    │
    ▼
 Robot-arm pickup
@@ -603,69 +758,59 @@ Robot-arm pickup
    ├── 3D printing
    ├── LPBF process area
    ├── Assembly
-   ├── Refrigerator / pantry
-   └── Kitchen / pass-through
+   ├── Refrigerator or pantry
+   └── Kitchen or pass-through
 ```
 
-Phase one is simulation only. It does not command live robot arms, printers, LPBF systems, refrigeration, carousels, kitchen equipment, or other machinery.
+Phase one is simulation only. It must not command live robot arms, printers,
+LPBF systems, refrigeration, carousels, kitchen equipment, or other machinery.
 
-Vehicle and fabrication simulations must have separate:
+Vehicle and fabrication simulation domains require separate:
 
 - Podman networks.
-- ROS Domain IDs.
+- ROS domain IDs.
 - Gazebo partitions.
-- ROS/DDS configurations.
+- DDS configuration.
 - Service identities.
 - Filesystem mounts.
 - Result directories.
 - Ledger client certificates.
-- Git repositories or repository subtrees.
+- Git repositories or clearly separated repository subtrees.
 - Artifact manifests.
 
-Use Git for SDF, URDF/Xacro, world files, robot definitions, safety zones, task plans, and launch configurations. Use Git LFS or a separate artifact repository for large meshes, textures, point clouds, and generated results.
+Use Git for SDF, URDF/Xacro, world files, robot definitions, safety zones,
+task plans, and launch configurations. Use Git LFS or a separate artifact
+repository for large meshes, textures, point clouds, and generated results.
 
-***
+---
 
-*Retained from the repository README summary — implementation/state notes.*
+# 11. Ledger, Provenance, Archive, and IPFS
 
-## 1.12 Simulation configuration
+## 11.1 Ledger Authority Policy
 
-### 1.12.A Vehicle simulation
+Corda is the authoritative ledger for approved business provenance, receipt,
+entitlement, fulfillment-approval, and release-approval records.
 
-```
-Network:      ao-sim-vehicle
-ROS_DOMAIN_ID: 21
-GZ_PARTITION: alwayson_vehicle_sim
-Data:         /ALWAYSON/data/sim-vehicle/
-Exports:      /ALWAYSON/data/sim-vehicle/exports/
-```
+Corda is not the authoritative store for domain-operational source data.
 
-### 1.12.B Fabrication simulation
+| Domain | Authoritative operational data |
+|---|---|
+| Sales | Sales PostgreSQL order, fulfillment, and customer-service records |
+| Payment | Verified provider event record and normalized payment state |
+| Field | Raw packet store, telemetry spool, and mission records |
+| Mapping | Validated imagery, WebODM project data, processing outputs, and deliverables |
+| Vehicle simulation | Scenario definitions, run data, and result artifacts |
+| Fabrication simulation | Facility/task models, safety scenarios, and result artifacts |
+| Archive | Encrypted archive objects and retention records |
 
-```
-Network:      ao-sim-fabrication
-ROS_DOMAIN_ID: 22
-GZ_PARTITION: alwayson_fabrication_sim
-Data:         /ALWAYSON/data/sim-fabrication/
-Exports:      /ALWAYSON/data/sim-fabrication/exports/
-```
+Corda records signed references, hashes, approved transitions, and
+entitlement/provenance data that permit verification without duplicating
+sensitive or high-volume data.
 
-Vehicle and fabrication simulations have separate Podman networks, ROS Domain
-IDs, Gazebo partitions, service identities, filesystem mounts, result
-directories, and ledger client certificates. Use Git for SDF/URDF/world files;
-Git LFS or separate artifact repository for large meshes, textures, point
-clouds, and generated results.
-
-## 1.13 Corda, pCloud, and IPFS
-
-Corda is the private provenance, receipt, ownership, approval, and entitlement layer. It must not become a bulk datastore or real-time flight-control system. Corda’s model is intended for private transactions among relevant participants rather than universal public broadcast. [github](https://github.com/corda/corda)
-
-CORDA IS ALWAYS THE "SINGLE SOURCE OF TRUTH" AS AN ACCOUNTING LEDGER OF SALES FOR PHYSICAL AND DIGITAL GOODS. STANDARD RECEIPTS AND ZELLE/PAYPAL/DIRECT CARD PROCESSING ARE SYNCHRONIZED TO CORDA IN ORDER TO SUPPORT PREFERRED EXISTING CUSTOMER TRANSACTION METHODS.
-
-### 1.13.A Ledger flow
+## 11.2 Ledger Flow
 
 ```text
-Domain event/artifact
+Domain event or artifact
       │
       ▼
 SHA-256 content hash
@@ -675,43 +820,43 @@ Signed manifest
       │
       ▼
 Ledger-ingestion gateway
-      ├── mutual TLS
-      ├── authorization
-      ├── schema validation
-      ├── signature verification
-      ├── idempotency
-      └── audit logging
+      ├── Mutual TLS
+      ├── Authorization
+      ├── Schema validation
+      ├── Signature verification
+      ├── Idempotency
+      └── Audit logging
               │
               ▼
 Corda transaction
-      │
-      ▼
-Receipt / entitlement / provenance state
+              │
+              ▼
+Receipt, entitlement, provenance, or approval state
 ```
 
-### 1.13.B Corda stores
+## 11.3 Corda Stores
 
-| Object type | Corda stores |
+| Object type | Corda record |
 |---|---|
-| Sales | Order ID, receipt state, product/SKU, entitlement, fulfillment state, payment-provider reference hash |
+| Sales | Order ID, receipt state, SKU, entitlement, fulfillment state, payment-provider reference hash |
 | Telemetry | Device ID, mission ID, batch hash, time window, quality status |
-| Mapping | Source manifest hash, processing profile hash, deliverable hashes, license/ownership state |
-| Vehicle simulation | Scenario/model/software hashes, result hash, approval state |
+| Mapping | Source-manifest hash, processing-profile hash, deliverable hashes, license/ownership state |
+| Vehicle simulation | Scenario, model, software hashes, result hash, approval state |
 | Fabrication simulation | Facility model/task-plan hash, result hash, safety/approval state |
-| Releases | Software/firmware/container/artifact hash, signer, release status |
+| Releases | Software, firmware, container, or artifact hash; signer; release status |
 
-### 1.13.C Corda does not store
+## 11.4 Corda Does Not Store
 
-- Card numbers, CVV, payment secrets, raw payment webhooks.
+- Card numbers, CVV, payment secrets, or raw payment webhooks.
 - Full customer PII.
 - Raw telemetry streams.
 - Drone images.
 - GeoTIFFs, point clouds, or models.
-- ROS bags, MAVLink logs, large simulation outputs.
-- LLM prompts or completions containing sensitive material.
+- ROS bags, MAVLink logs, or large simulation outputs.
+- Sensitive LLM prompts or completions.
 - Private keys.
 
-### 1.13.D Manifest format
+## 11.5 Manifest Format
 
 ```json
 {
@@ -731,63 +876,36 @@ Receipt / entitlement / provenance state
 }
 ```
 
-### 1.13.E pCloud and IPFS rules
+## 11.6 pCloud and IPFS Rules
 
 ```text
 Local source data
       │
       ├── Content hash
       ├── Signed manifest
-      ├── Corda receipt
+      ├── Corda receipt or approval state
       ├── Encrypted pCloud archive
       └── Private or encrypted IPFS distribution
 ```
 
-- Local data remains authoritative.
-- Encrypt before pCloud archival replication unless the approved platform encryption model covers the object.
-- Do not put private data, PII, payment data, private keys, raw telemetry, sensitive imagery, or proprietary technical designs on public IPFS.
-- Use a private IPFS swarm, controlled pinning, or encryption-before-IPFS for sensitive artifacts.
+- Local source data remains authoritative.
+- Encrypt before pCloud archival replication unless an explicitly approved
+  equivalent encryption control applies.
+- Do not place private data, PII, payment data, private keys, raw telemetry,
+  sensitive imagery, or proprietary technical designs on public IPFS.
+- Use a private IPFS swarm, controlled pinning, or encryption before IPFS for
+  sensitive artifacts.
 - Record content hash and CID separately.
 - Store only CIDs and encrypted archive references in Corda.
+- Archive replication occurs only through `ao-egress-archive`.
 
-***
+---
 
-*Retained from the repository README summary — implementation/state notes.*
+# 12. Host Installation and Configuration
 
-## 1.14 Ledger flow (§1.9)
+## 12.1 Installation Journal
 
-Domain event/artifact → SHA-256 content hash → signed manifest →
-ledger-ingestion gateway (mutual TLS, authorization, schema validation,
-signature verification, idempotency, audit) → Corda transaction → receipt/
-entitlement/provenance state.
-
-Corda transaction object types: sales orders, telemetry batches, map products,
-simulation results, and release artifacts. Corda never stores card data, full
-customer PII, raw telemetry, drone images, GeoTIFFs/point clouds, ROS bags,
-large simulation outputs, sensitive LLM data, or private keys. ONLINE - CORDA MANAGES SALES OF DIGITAL DATA, NOT 
-SALES OF PHYSICAL ITEMS LIKE BUILDINGS OR PRODUCTS. ON-SITE CORDA MANAGES ALL SALES IN ORDER TO ELIMINATE MARKUPS FOR CARD PROCESSING AND TO SUPPORT BLOCKCHAIN BASED MARKETING, USERS TRANSFER FUNDS FROM EXISTING PAYMENT SYSTEMS INTO USDC FOR USE WITH CORDA ON-SITE. LARGE SALES ARE MANAGED THROUGH ZELLE TO ELIMINATE TRANSACTION FEES. FINAL SALES USING OTHER SYSTEMS: PAYPAL/ZELLE/CARD-PROCESSING ARE FOLLOWED UP WITH A CONNECTION TO THE CORDA LEDGER.
-
-
-# Section 2 — Agentic AI Software Installation Instructions
-
-## 2.1 Mandatory Agent Rules
-
-The installation agent must:
-
-1. Inspect before changing.
-2. Preserve all existing data.
-3. Never format, repartition, delete, prune, or overwrite without explicit approval.
-4. Never install Docker daemon or Watchtower.
-5. Use Podman and Quadlet only.
-6. Never expose public ports without explicit approval.
-7. Never place secrets in scripts, logs, HTML, Git, pCloud Public Folder, or IPFS.
-8. Never use `--privileged` as a default.
-9. Use pinned image digests for operational services.
-10. Verify the photogrammetry drive before deploying WebODM.
-11. Record every command, version, output, and failure.
-12. Pause if an existing service, package, network, mount, port, or device conflicts with this plan.
-
-Create an install journal:
+Create the journal before installation activity:
 
 ```bash
 sudo install -d -m 0750 -o "$USER" -g "$USER" /ALWAYSON/logs/installation
@@ -795,21 +913,9 @@ touch /ALWAYSON/logs/installation/agent-install.log
 chmod 0640 /ALWAYSON/logs/installation/agent-install.log
 ```
 
-*Retained from the repository README summary — implementation/state notes.*
+## 12.2 Initial Non-Destructive Inventory
 
-## 2.2 Key rules (§2.1, §4)
-
-- Podman + Quadlet only. No Docker daemon, no Docker Compose, no Watchtower.
-- No public ports without explicit operator approval.
-- Pinned image digests for operational services.
-- Photogrammetry drive verified before any mapping operation (§2.3/§3.5).
-- Secrets never enter Git, logs, HTML, pCloud Public Folder, or IPFS.
-- Rootless Quadlet files live in `~/.config/containers/systemd/`. System-level
-  services are used only where host hardware requires it.
-
-## 2.3 Initial Non-Destructive Inventory
-
-Run before installing anything:
+Run before installing or changing anything:
 
 ```bash
 {
@@ -863,72 +969,39 @@ Run before installing anything:
   echo "===== Existing systemd services ====="
   systemctl --user list-unit-files --type=service 2>&1 || true
 
-  echo "===== Existing containers ====="
+  echo "===== Existing containers: current user ====="
   podman ps -a 2>&1 || true
 
-  echo "===== Existing Podman networks ====="
+  echo "===== Existing containers: system store ====="
+  sudo podman ps -a 2>&1 || true
+
+  echo "===== Existing Podman networks: current user ====="
   podman network ls 2>&1 || true
+
+  echo "===== Existing Podman networks: system store ====="
+  sudo podman network ls 2>&1 || true
 
   echo "===== Serial devices ====="
   ls -l /dev/serial/by-id/ 2>&1 || true
 } | tee -a /ALWAYSON/logs/installation/agent-install.log
 ```
 
-The agent must pause and report if:
+Pause and report if:
 
-- `/media/scottw/500GBPHOTOGRAM` is not mounted.
-- The mountpoint is an ordinary directory on the root filesystem.
-- Available mapping storage is below 100 GB.
-- Existing WebODM, Podman, Docker, Corda, PostgreSQL, ROS, or Gazebo services conflict.
+- The photogrammetry drive is not mounted.
+- The mountpoint is an ordinary root-filesystem directory.
+- Mapping storage is below 100 GB free.
+- Existing WebODM, Podman, Docker, Corda, PostgreSQL, ROS, Gazebo, or related
+  services conflict.
 - NVIDIA driver state is broken.
-- Rootless Podman/cgroups v2 does not work.
-- Existing firewall policy conflicts.
+- cgroups v2 or the selected Podman runtime mode does not work.
+- Firewall policy conflicts with intended isolation.
 - A proposed service port is already bound.
-- Heltec cannot be found using a stable `/dev/serial/by-id/` path.
+- Heltec cannot be found through a stable `/dev/serial/by-id/` path.
 
-## 2.4 Verify the Photogrammetry Drive
+## 12.3 Host Dependencies
 
-The agent must not mount, format, or repair the drive automatically.
-
-```bash
-findmnt -no SOURCE,FSTYPE,OPTIONS /media/scottw/500GBPHOTOGRAM
-df -hT /media/scottw/500GBPHOTOGRAM
-test -f /media/scottw/500GBPHOTOGRAM/.mounted-ok && echo "Marker present"
-```
-
-Once verified, create missing directories only:
-
-```bash
-sudo install -d -m 0750 \
-  /media/scottw/500GBPHOTOGRAM/incoming/drone \
-  /media/scottw/500GBPHOTOGRAM/incoming/operator \
-  /media/scottw/500GBPHOTOGRAM/incoming/quarantine \
-  /media/scottw/500GBPHOTOGRAM/validated \
-  /media/scottw/500GBPHOTOGRAM/rejected \
-  /media/scottw/500GBPHOTOGRAM/webodm/media \
-  /media/scottw/500GBPHOTOGRAM/webodm/projects \
-  /media/scottw/500GBPHOTOGRAM/webodm/nodeodm \
-  /media/scottw/500GBPHOTOGRAM/webodm/temp \
-  /media/scottw/500GBPHOTOGRAM/webodm/logs \
-  /media/scottw/500GBPHOTOGRAM/deliverables \
-  /media/scottw/500GBPHOTOGRAM/manifests/intake \
-  /media/scottw/500GBPHOTOGRAM/manifests/processing \
-  /media/scottw/500GBPHOTOGRAM/manifests/ledger-submissions \
-  /media/scottw/500GBPHOTOGRAM/exports/pcloud-staging \
-  /media/scottw/500GBPHOTOGRAM/exports/ipfs-staging \
-  /media/scottw/500GBPHOTOGRAM/backups/mapping-db \
-  /media/scottw/500GBPHOTOGRAM/retention/pending-review \
-  /media/scottw/500GBPHOTOGRAM/retention/eligible-for-archive \
-  /media/scottw/500GBPHOTOGRAM/tmp/processing
-
-sudo touch /media/scottw/500GBPHOTOGRAM/.mounted-ok
-```
-
-Do not assign ownership until the selected service-account model is reviewed.
-
-## 2.5 Install Host Dependencies
-
-After inventory review and user approval:
+After inventory review and explicit operator approval:
 
 ```bash
 sudo apt update
@@ -967,67 +1040,107 @@ test "$(stat -fc %T /sys/fs/cgroup)" = "cgroup2fs" && echo "cgroups v2 active"
 sudo aa-status || true
 ```
 
-Use rootless Podman for ordinary workloads. Rootless Quadlet files are normally stored in:
+---
+
+# 13. Podman Runtime and Quadlet Policy
+
+## 13.1 Rootless and System-Level Podman
+
+Ordinary application workloads should use rootless Podman and user-level
+Quadlet units.
+
+Rootless Quadlet definitions are normally stored in:
 
 ```text
 ~/.config/containers/systemd/
 ```
 
-System-level Quadlet files belong in:
+System-level Quadlet definitions are stored in:
 
 ```text
 /etc/containers/systemd/
 ```
 
-Use system-level services only where a narrowly scoped host hardware requirement makes rootless operation unsuitable. [wiki.archlinux](https://wiki.archlinux.org/title/Podman)
+System-level services are permitted only where a documented host-hardware,
+GPU, storage, networking, or service-management requirement makes rootless
+operation unsuitable.
 
-## 2.6 GPU Verification
+## 13.2 Approved Deviation: Mixed Podman Stores
 
-Inspect before changing drivers:
+**Architecture requirement:** Rootless Podman is the preferred default for
+ordinary workloads.
 
-```bash
-nvidia-smi
-ubuntu-drivers devices || true
-dpkg -l | grep -E 'nvidia|cuda' || true
-```
+**Current implementation:** Mapping smoke-test evidence indicates that at least
+some WebODM operations executed through the system/rootful Podman store. The
+evidence includes root-owned mapping backup artifacts and system-side container
+storage. An empty `podman ps -a` result from an operator shell does not mean
+system-store containers, images, volumes, or networks are absent.
 
-If no working driver exists, stop and select a driver version tested with the GTX 1080, installed kernel, desired CUDA/runtime requirements, and Podman GPU tooling. NVIDIA provides Ubuntu installation guidance including Ubuntu 26.04, but host-specific validation is mandatory. [docs.nvidia](https://docs.nvidia.com/datacenter/tesla/driver-installation-guide/latest/ubuntu.html)
+**Compensating controls:**
 
-After driver installation and reboot:
+- No `--privileged` containers.
+- Internal mapping network only.
+- Explicit bind mounts limited to approved mapping paths.
+- Pinned image digests.
+- systemd resource limits and restart policy.
+- Validated NVIDIA CDI access only where required.
+- No direct public listener.
+- Backup and restore evidence retained.
 
-```bash
-nvidia-smi
-ls -l /dev/nvidia* /dev/dri 2>/dev/null || true
-```
+**Resolution condition:** Before production declaration, record the approved
+steady-state model for every domain: rootless, system-level, or mixed. Record
+the unit owner, Quadlet location, storage path, network owner, GPU access
+method, and rationale.
 
-Before enabling GPU access for WebODM or LM Studio, complete a minimal non-production Podman GPU test and record:
+## 13.3 `/ALWAYSON` Layout
 
-- GPU model.
-- Driver version.
-- Kernel version.
-- Podman version.
-- NVIDIA container integration version.
-- Runtime image digest.
-- Test command and result.
-- CPU-only fallback result.
-
-## 2.7 Build `/ALWAYSON`
-
-```bash
-sudo install -d -m 0750 \
-  /ALWAYSON/{docs,quadlet,config,secrets,data,artifacts,ipfs,pcloud,backups,logs,scripts,tests,tmp}
-
-sudo install -d -m 0750 \
-  /ALWAYSON/quadlet/{networks,volumes,sales,payment,field,mapping,sim-vehicle,sim-fabrication,ledger,operations}
-
-sudo install -d -m 0750 \
-  /ALWAYSON/storefront/{source,build,releases,manifests,pcloud-public-folder}
-
-sudo install -d -m 0750 \
-  /ALWAYSON/data/{sales,payment,field,mapping,sim-vehicle,sim-fabrication,ledger,cache}
-
-sudo install -d -m 0750 \
-  /ALWAYSON/artifacts/{storefront-releases,drone-releases,telemetry-manifests,mapping-manifests,vehicle-simulation-manifests,fabrication-simulation-manifests,sales-receipts}
+```text
+/ALWAYSON/
+├── README.md
+├── VERSION
+├── docs/
+├── storefront/
+│   ├── source/
+│   ├── build/
+│   ├── releases/
+│   ├── manifests/
+│   └── pcloud-public-folder/
+├── quadlet/
+│   ├── networks/
+│   ├── volumes/
+│   ├── sales/
+│   ├── payment/
+│   ├── field/
+│   ├── mapping/
+│   ├── sim-vehicle/
+│   ├── sim-fabrication/
+│   ├── ledger/
+│   ├── archive/
+│   └── operations/
+├── config/
+│   ├── platform/
+│   ├── storefront/
+│   ├── sales/
+│   ├── payment/
+│   ├── drone/
+│   ├── field/
+│   ├── mapping/
+│   ├── sim-vehicle/
+│   ├── sim-fabrication/
+│   ├── ledger/
+│   ├── mastodon/
+│   ├── pcloud/
+│   └── ipfs/
+├── secrets/
+├── data/
+├── artifacts/
+├── ipfs/
+├── pcloud/
+├── backups/
+├── logs/
+├── scripts/
+├── tests/
+└── tmp/
 ```
 
 Initialize source control:
@@ -1050,133 +1163,90 @@ git add .gitignore
 git commit -m "Initialize ALWAYS ON configuration repository"
 ```
 
-## 2.8 Create Podman Networks
+## 13.4 Quadlet Network Template
 
-```bash
-for net in \
-  ao-sales \
-  ao-payment \
-  ao-field \
-  ao-mapping \
-  ao-sim-vehicle \
-  ao-sim-fabrication \
-  ao-ledger-ingest \
-  ao-ledger-core \
-  ao-data \
-  ao-admin; do
-  podman network exists "$net" || podman network create "$net"
-done
-
-podman network ls
+```ini
+# /ALWAYSON/quadlet/networks/ao-mapping.network
+[Network]
+NetworkName=ao-mapping
+Driver=bridge
+Internal=true
 ```
 
-The agent must record each CIDR and ensure services do not have unauthorized network attachments.
+## 13.5 Quadlet Service Template
 
-## 2.9 Safe Deployment Sequence
+```ini
+# /ALWAYSON/quadlet/mapping/webodm-web.container
+[Unit]
+Description=ALWAYS ON WebODM Web Service
+After=network-online.target
+Wants=network-online.target
 
-1. Host inventory, disk validation, firewall review, backup target validation.
-2. Podman, Quadlet, networks, accounts, secrets policy, monitoring baseline.
-3. Corda test environment and ledger-ingestion gateway.
-4. Heltec gateway, RNS/MeshChatX, raw packet logging.
-5. WebODM CPU-only stack and mapping intake/exporter.
-6. Vehicle simulation.
-7. Fabrication/kitchen simulation.
-8. pCloud storefront build/release process and hosted-payment webhook verifier.
-9. Sales API, receipt service, sales database, Corda alignment.
-10. Mastodon adapter, OpenClaw, and LM Studio in restricted mode.
-11. Encrypted pCloud archive and private/encrypted IPFS workflow.
-12. GPU enablement only after successful baseline validation.
+[Container]
+Image=REPLACE_WITH_APPROVED_IMAGE_DIGEST
+ContainerName=webodm-web
+Network=ao-mapping.network
+Volume=/media/scottw/500GBPHOTOGRAM/webodm/media:/webodm/app/media:Z
+Volume=/ALWAYSON/config/mapping/webodm:/config:ro,Z
+NoNewPrivileges=true
 
-At each stage, the agent must:
+[Service]
+Restart=on-failure
+RestartSec=15
+MemoryMax=12G
+CPUQuota=600%
+TimeoutStartSec=180
 
-- Capture versions and image digests.
-- Create and test health checks.
-- Confirm no unintended listening ports.
-- Confirm isolation boundaries.
-- Back up configuration.
-- Stop and report errors rather than broadening permissions.
-
-***
-
-# Section 3 — Software Configuration
-
-## 3.1 Root Folder Structure
-
-```text
-/ALWAYSON/
-├── README.md
-├── VERSION
-├── docs/
-│   ├── adr/
-│   ├── architecture/
-│   ├── runbooks/
-│   └── compliance/
-├── storefront/
-│   ├── source/
-│   ├── build/
-│   ├── releases/
-│   ├── manifests/
-│   └── pcloud-public-folder/
-├── quadlet/
-│   ├── networks/
-│   ├── volumes/
-│   ├── sales/
-│   ├── payment/
-│   ├── field/
-│   ├── mapping/
-│   ├── sim-vehicle/
-│   ├── sim-fabrication/
-│   ├── ledger/
-│   └── operations/
-├── config/
-│   ├── platform/
-│   ├── storefront/
-│   ├── sales/
-│   ├── payment/
-│   ├── drone/
-│   ├── field/
-│   ├── mapping/
-│   ├── sim-vehicle/
-│   ├── sim-fabrication/
-│   ├── ledger/
-│   ├── pcloud/
-│   └── ipfs/
-├── secrets/
-├── data/
-│   ├── sales/
-│   ├── payment/
-│   ├── field/
-│   ├── mapping/
-│   ├── sim-vehicle/
-│   ├── sim-fabrication/
-│   ├── ledger/
-│   └── cache/
-├── artifacts/
-│   ├── storefront-releases/
-│   ├── drone-releases/
-│   ├── telemetry-manifests/
-│   ├── mapping-manifests/
-│   ├── vehicle-simulation-manifests/
-│   ├── fabrication-simulation-manifests/
-│   └── sales-receipts/
-├── ipfs/
-├── pcloud/
-├── backups/
-├── logs/
-├── scripts/
-├── tests/
-└── tmp/
+[Install]
+WantedBy=default.target
 ```
 
-## 3.2 Version Matrix
+This is a structural template only. The exact image, API settings, mounts,
+service name, environment, and GPU configuration must be taken from the tested
+and approved WebODM version.
 
-Create:
+---
+
+# 14. Secrets, Service Identity, and Version Controls
+
+## 14.1 Secret Delivery
+
+Use Podman secrets or systemd credentials. Prefer file-based secret delivery
+rather than environment variables.
+
+| Secret | Authorized domain |
+|---|---|
+| Sales database password | Sales only |
+| Payment webhook secret | Payment verifier only |
+| Payment-provider API secret | Payment adapter only |
+| Mastodon OAuth credential | Community adapter only |
+| Local AI credential/configuration if required | AI service only |
+| Field radio key | Field only |
+| Drone signing key | Drone device only |
+| Corda certificates and keystores | Ledger core only |
+| Ledger client certificates | One distinct certificate per exporter/domain |
+| pCloud archive credential | Archive adapter only |
+| IPFS private-swarm/pinning credential | Archive adapter only |
+
+Example:
+
+```ini
+[Container]
+Secret=sales_db_password,target=/run/secrets/db_password,uid=10001,gid=10001,mode=0400
+```
+
+KDE Wallet may hold interactive operator credentials, but unattended production
+services must use systemd credentials, Podman secrets, or approved
+service-specific secret files. Secret rotation, revocation, expiration, and
+recovery procedures must be documented before production use.
+
+## 14.2 Version Matrix
+
+Maintain:
 
 ```text
 /ALWAYSON/config/platform/version-matrix.yaml
 ```
-
-Record:
 
 ```yaml
 host:
@@ -1216,222 +1286,13 @@ ledger:
   certificate_profile_version: ""
 ```
 
-Capture host facts with:
+---
 
-```bash
-uname -a
-systemd --version
-podman version
-podman info
-netplan version
-nvidia-smi
-sudo nft list ruleset
-sudo ufw status verbose
-```
+# 15. Sales, Mastodon, OpenClaw, and Local AI
 
-## 3.3 Quadlet Configuration
+## 15.1 Sales Database
 
-Store source-controlled definitions under:
-
-```text
-/ALWAYSON/quadlet/
-```
-
-Deploy approved copies or symbolic links to:
-
-```text
-/home/alwayson-ops/.config/containers/systemd/
-```
-
-Use a separate Quadlet directory tree for each domain.
-
-Example private mapping network:
-
-```ini
-# /ALWAYSON/quadlet/networks/ao-mapping.network
-[Network]
-NetworkName=ao-mapping
-Driver=bridge
-Internal=true
-```
-
-Example service structure:
-
-```ini
-# /ALWAYSON/quadlet/mapping/webodm-web.container
-[Unit]
-Description=ALWAYS ON WebODM Web Service
-After=network-online.target
-Wants=network-online.target
-
-[Container]
-Image=REPLACE_WITH_APPROVED_IMAGE_DIGEST
-ContainerName=webodm-web
-Network=ao-mapping.network
-Volume=/media/scottw/500GBPHOTOGRAM/webodm/media:/webodm/app/media:Z
-Volume=/ALWAYSON/config/mapping/webodm:/config:ro,Z
-NoNewPrivileges=true
-
-[Service]
-Restart=on-failure
-RestartSec=15
-MemoryMax=12G
-CPUQuota=600%
-TimeoutStartSec=180
-
-[Install]
-WantedBy=default.target
-```
-
-This is a structural template. Use exact image paths, API settings, environment variables, mounts, and service names from the selected tested WebODM version.
-
-## 3.4 Secrets Configuration
-
-Use Podman secrets or systemd credentials. Prefer secrets delivered as files rather than environment variables.
-
-| Secret | Authorized domain |
-|---|---|
-| Sales database password | Sales only |
-| Payment webhook secret | Payment verifier only |
-| Payment provider API secret | Payment adapter only |
-| Mastodon OAuth credential | Mastodon adapter only |
-| LM Studio/license/config credential if needed | AI service only |
-| Field radio key | Field only |
-| Drone signing key | Drone device only |
-| Corda certificates and keystores | Ledger core only |
-| Ledger client certificates | One separate certificate per exporter/domain |
-| pCloud archive credential | Archive domain only |
-| IPFS private-swarm/pinning credential | Archive domain only |
-
-Podman/Quadlet supports secrets integration through container-unit configuration. [docs.podman](https://docs.podman.io/en/latest/markdown/podman-systemd.unit.5.html)
-
-Example:
-
-```ini
-[Container]
-Secret=sales_db_password,target=/run/secrets/db_password,uid=10001,gid=10001,mode=0400
-```
-
-Never store secrets in Git, YAML examples, HTML, shell history, Corda payloads, pCloud Public Folder, IPFS, or logs.
-
-## 3.5 Photogrammetry Mount Preflight
-
-Create:
-
-```text
-/ALWAYSON/config/mapping/photogrammetry-volume.env
-```
-
-```bash
-PHOTOGRAM_MOUNT=/media/scottw/500GBPHOTOGRAM
-PHOTOGRAM_UUID=REPLACE_WITH_VERIFIED_UUID
-PHOTOGRAM_MIN_FREE_GB=100
-```
-
-Create:
-
-```text
-/ALWAYSON/scripts/validation/check-photogrammetry-mount.sh
-```
-
-```bash
-#!/usr/bin/env bash
-set -Eeuo pipefail
-IFS=$'\n\t'
-
-source /ALWAYSON/config/mapping/photogrammetry-volume.env
-
-source_device="$(findmnt -n -o SOURCE --target "$PHOTOGRAM_MOUNT" 2>/dev/null || true)"
-root_device="$(findmnt -n -o SOURCE --target /)"
-
-if [[ -z "$source_device" ]]; then
-  echo "ERROR: $PHOTOGRAM_MOUNT is not mounted" >&2
-  exit 20
-fi
-
-if [[ "$source_device" == "$root_device" ]]; then
-  echo "ERROR: $PHOTOGRAM_MOUNT resolves to the root filesystem" >&2
-  exit 21
-fi
-
-actual_uuid="$(findmnt -n -o UUID --target "$PHOTOGRAM_MOUNT" 2>/dev/null || true)"
-
-if [[ -n "${PHOTOGRAM_UUID:-}" && "$PHOTOGRAM_UUID" != "REPLACE_WITH_VERIFIED_UUID" && "$actual_uuid" != "$PHOTOGRAM_UUID" ]]; then
-  echo "ERROR: mounted UUID does not match expected UUID" >&2
-  exit 22
-fi
-
-if [[ ! -f "$PHOTOGRAM_MOUNT/.mounted-ok" ]]; then
-  echo "ERROR: mount marker missing" >&2
-  exit 23
-fi
-
-available_gb="$(df -BG --output=avail "$PHOTOGRAM_MOUNT" | tail -n 1 | tr -dc '0-9')"
-
-if (( available_gb < PHOTOGRAM_MIN_FREE_GB )); then
-  echo "ERROR: only ${available_gb}G free; minimum is ${PHOTOGRAM_MIN_FREE_GB}G" >&2
-  exit 24
-fi
-
-echo "OK: photogrammetry mount valid: ${source_device}; ${available_gb}G free"
-```
-
-The script must never mount, reformat, fsck, repair, delete, or create marker files on an unverified path.
-
-## 3.6 WebODM Configuration
-
-Maintain profiles:
-
-```text
-/ALWAYSON/config/mapping/processing-profiles/
-├── survey-orthomosaic.yaml
-├── terrain-dem.yaml
-├── inspection-high-detail.yaml
-├── quicklook-low-resource.yaml
-└── profile-schema.json
-```
-
-Each processing task must record:
-
-- Mission ID.
-- Source image manifest.
-- SHA-256 source hash.
-- WebODM and NodeODM image digest.
-- Processing profile name and hash.
-- CPU/GPU mode.
-- Start/end time.
-- Processing status.
-- Output hashes.
-- Operator approval state.
-- Ledger receipt ID.
-
-## 3.7 ROS/Gazebo Configuration
-
-### 3.7.A Vehicle
-
-```text
-Network:       ao-sim-vehicle
-ROS_DOMAIN_ID: 21
-GZ_PARTITION:  alwayson_vehicle_sim
-Data:          /ALWAYSON/data/sim-vehicle/
-Exports:       /ALWAYSON/data/sim-vehicle/exports/
-```
-
-### 3.7.B Fabrication
-
-```text
-Network:       ao-sim-fabrication
-ROS_DOMAIN_ID: 22
-GZ_PARTITION:  alwayson_fabrication_sim
-Data:          /ALWAYSON/data/sim-fabrication/
-Exports:       /ALWAYSON/data/sim-fabrication/exports/
-```
-
-Use separate DDS peers/interfaces where possible. Do not depend solely on ROS Domain IDs for security; they are one layer of isolation alongside distinct Podman networks, mounts, identities, and firewall policy.
-
-## 3.8 Sales and Mastodon Configuration
-
-Use a dedicated PostgreSQL sales database:
+Use a dedicated sales PostgreSQL database with separate roles:
 
 ```text
 salesdb
@@ -1459,73 +1320,56 @@ support_cases
 audit_events
 ```
 
-Mastodon adapter controls:
+## 15.2 Community and AI Controls
+
+Mastodon/community controls:
 
 - Dedicated OAuth registration.
-- Minimum scopes.
-- Outbound egress only to approved Mastodon host.
-- Rate limiting.
+- Minimum necessary scopes.
+- External access only through `ao-egress-community` when explicitly enabled.
+- Rate limits.
 - Separate approval workflow.
 - Immutable publication audit log.
 - No payment, field, mapping, simulation, or Corda-core access.
 
-OpenClaw defaults to draft generation. Human approval is mandatory for pricing, orders, shipping, warranties, financial topics, technical claims, safety guidance, and legal statements.
+OpenClaw defaults to draft generation. Human approval is required for pricing,
+orders, shipping, warranties, financial topics, technical claims, safety
+guidance, legal statements, and any external publication.
 
-## 3.9 Local Mastodon Server "300X3" (Tokodon + OpenClaw)
+## 15.3 Local 300X3 Mastodon Deployment
 
-The operator self-hosts Mastodon locally (rather than only posting outward) and
-operates it from the desktop with **Tokodon** (KDE client) and **OpenClaw**
-(npm, `~/.npm-global`). The instance is branded **300X3**
-(`LOCAL_DOMAIN=300x3`, handles read `@user@300x3`), with `WEB_DOMAIN=localhost`
-so the single operator origin is `http://localhost:3000`.
+The local Mastodon instance is branded **300X3** and is intended for local
+operator use through Tokodon and OpenClaw.
 
-### 3.9.A Isolation posture
+Architecture requirements:
 
-- Containers run on the internal `ao-sales` network (rootless Podman).
-- The only published ports bind **127.0.0.1 exclusively** (web `:3000`,
-  streaming `:4000`); `config/platform/listener-allowlist.yaml` stays empty.
-- No SMTP; the instance is local-only, not federated
-  (`config/mastodon/instance-policy.yaml`).
-- Email domains are validated against MX; because the internal network has no
-  DNS egress, local account email changes are applied with validation skipped
-  (documented local deviation). Operator mailbox: posteo.net.
+- Containers run in the internal sales/community environment.
+- Web and streaming ports bind to `127.0.0.1` only when enabled.
+- No federation or SMTP is enabled unless explicitly approved.
+- `localhost` is the supported loopback origin for clients.
+- No credentials, OAuth secrets, access tokens, or account passwords are
+  committed to Git or included in this README.
+- Production external deployment must use HTTPS. The loopback-only
+  `RAILS_FORCE_SSL=false` exception is permitted only for the documented local
+  validation environment.
 
-### 3.9.B Stack layout (test deployment under the operator store; Quadlet units in
-`quadlet/sales/` remain the production path under `alwayson-sales`)
+Known Mastodon implementation notes:
 
-| Component | Image / unit | Notes |
-|---|---|---|
-| postgres | digest-pinned (same as sales-db) | container-scoped `300x3-db` |
-| redis | digest-pinned (same as webodm broker) | `300x3-redis` |
-| web (puma) | `ghcr.io/mastodon/mastodon:v4.3.7` | `RAILS_FORCE_SSL=false` via patched `production.rb` (loopback-only deviation) |
-| streaming | `ghcr.io/mastodon/mastodon-streaming:v4.3.7` | separate image since v4.3 |
-| front proxy | `nginx:alpine` + `config/mastodon/nginx-300x3.conf` | single origin; rewrites `Host: localhost`; routes `/api/v1/streaming` |
+1. A loopback-only validation instance may require `RAILS_FORCE_SSL=false`;
+   production must retain TLS/HTTPS.
+2. Mastodon host validation requires the configured local or web domain. Use
+   `localhost` or an approved proxy host rewrite; do not substitute arbitrary
+   loopback host headers.
+3. OAuth password grant is unavailable in the current documented Mastodon
+   version. Use an operator-controlled local token path or an authorization-code
+   workflow.
+4. Newly created accounts may require explicit approval before API access.
 
-### 3.9.C Accounts, secrets, and posting
+---
 
-| Account | Email | Role |
-|---|---|---|
-| `300x3admin` | livework@posteo.net | Owner |
-| `300x3bot` (OpenClaw) | 300x3@posteo.net | posting bot |
+# 16. Scripts and Operational Standards
 
-All credentials live in KDE Wallet folder `ao-mastodon` (passwords, OAuth
-client id/secret for both OpenClaw and Tokodon, bot access token) mirrored to
-gitignored `/ALWAYSON/secrets/mastodon/`. Nothing secret is committed.
-
-- OpenClaw posting: skill `mastodon-post` → `scripts/mastodon/post.sh`
-  (private/draft by default; public posts need explicit operator approval per
-  §3.8).
-- Tokodon onboarding: Add Account → `http://localhost:3000` → OAuth.
-- Ops scripts: `scripts/mastodon/` (`deploy-mastodon.sh`,
-  `provision-openclaw-bot.sh`, `provision-mastodon-encryption.sh`,
-  `create-300x3-accounts.rb`, `post.sh`) and
-  `scripts/ops/kwallet-provision.sh`; runbook: `docs/runbooks/mastodon.md`.
-
-***
-
-# Section 4 — Scripts and Customization
-
-## 4.1 Scripts Structure
+## 16.1 Scripts Layout
 
 ```text
 /ALWAYSON/scripts/
@@ -1549,52 +1393,16 @@ gitignored `/ALWAYSON/secrets/mastodon/`. Nothing secret is committed.
 │   ├── check-ledger-ingest.sh
 │   └── capture-version-matrix.sh
 ├── mapping/
-│   ├── intake-imagery.sh
-│   ├── validate-imagery.sh
-│   ├── submit-webodm-task.sh
-│   ├── export-mapping-manifest.sh
-│   └── archive-mapping-deliverable.sh
 ├── radio/
-│   ├── detect-heltec.sh
-│   ├── validate-radio-profile.sh
-│   ├── test-lora-link.sh
-│   └── export-telemetry-manifest.sh
 ├── simulation/
-│   ├── run-vehicle-scenario.sh
-│   ├── export-vehicle-manifest.sh
-│   ├── run-fabrication-scenario.sh
-│   └── export-fabrication-manifest.sh
 ├── storefront/
-│   ├── build-storefront.sh
-│   ├── verify-storefront-release.sh
-│   ├── publish-pcloud-storefront.sh
-│   └── rollback-storefront-release.sh
 ├── ledger/
-│   ├── build-manifest.sh
-│   ├── sign-manifest.sh
-│   ├── submit-ledger-event.sh
-│   └── verify-ledger-receipt.sh
 ├── backup/
-│   ├── backup-postgres.sh
-│   ├── backup-corda.sh
-│   ├── backup-photogrammetry.sh
-│   ├── restic-run.sh
-│   └── verify-backup.sh
 ├── restore/
-│   ├── restore-sales-db-test.sh
-│   ├── restore-corda-test.sh
-│   ├── restore-mapping-artifact-test.sh
-│   ├── restore-simulation-artifact-test.sh
-│   └── verify-hashes-and-receipts.sh
 └── maintenance/
-    ├── report-disk-usage.sh
-    ├── report-container-status.sh
-    ├── report-image-digests.sh
-    ├── rotate-logs.sh
-    └── cleanup-approved-temp-data.sh
 ```
 
-## 4.2 Script Standards
+## 16.2 Script Standard
 
 Every script begins with:
 
@@ -1610,69 +1418,29 @@ Every script must:
 - Validate prerequisites.
 - Log in UTC.
 - Avoid secrets.
-- Support `--dry-run` for external or destructive operations.
-- Use lock files where concurrent invocation could corrupt data.
+- Support `--dry-run` for external or destructive activity.
+- Use locks where concurrent invocation could corrupt data.
 - Return meaningful exit codes.
 - Avoid `eval`.
-- Avoid `|| true` unless an expected failure is explicitly handled and logged.
-- Validate canonical paths before move/delete operations.
-- Verify the photogrammetry mount before mapping operations.
-- Refuse to delete files outside explicitly approved and validated directories.
+- Avoid unexamined `|| true`.
+- Validate canonical paths before move or delete activity.
+- Verify the photogrammetry mount before mapping activity.
+- Refuse to delete outside explicitly approved and validated paths.
 - Write an audit entry for operational changes.
 
-## 4.3 Required Customization Files
+---
 
-```text
-/ALWAYSON/config/
-├── platform/
-│   ├── version-matrix.yaml
-│   ├── host-policy.yaml
-│   └── backup-policy.yaml
-├── field/
-│   └── heltec-v3/
-│       └── radio-profile-us915.yaml
-├── drone/
-│   └── waveshare-lora/
-│       └── radio-profile-us915.yaml
-├── mapping/
-│   ├── photogrammetry-volume.env
-│   ├── resource-limits.yaml
-│   ├── retention-policy.yaml
-│   ├── access-policy.yaml
-│   └── processing-profiles/
-├── sim-vehicle/
-│   ├── worlds/
-│   ├── missions/
-│   └── safety-policy.yaml
-├── sim-fabrication/
-│   ├── worlds/
-│   ├── robot-arms/
-│   ├── safety-zones/
-│   ├── task-plans/
-│   └── facility-policy.yaml
-├── ledger/
-│   ├── manifest-schema.json
-│   ├── authorization-policy.yaml
-│   └── retention-policy.yaml
-├── storefront/
-│   ├── payment-links/
-│   ├── mastodon-links/
-│   ├── support-links/
-│   └── release-policy.yaml
-├── pcloud/
-│   └── replication-policy.yaml
-└── ipfs/
-    └── pinning-policy.yaml
-```
+# 17. Backup, Restore, Monitoring, and Completion Criteria
 
-## 4.4 Backup and Restore Policy
+## 17.1 Backup and Restore Policy
 
-Use a 3-2-1 strategy: three copies, two media types, one off-host/off-site copy.
+Use a 3-2-1 strategy: three copies, two media types, and one off-host/off-site
+copy.
 
 | Frequency | Required activity |
 |---|---|
-| Continuous or 15-minute, where enabled | Database WAL/archive strategy for critical recovery objectives |
-| Hourly incremental | Configurations, manifests, sales records, field telemetry, current project data |
+| Continuous or 15-minute where enabled | Database WAL/archive strategy for critical recovery objectives |
+| Hourly incremental | Configuration, manifests, sales records, field telemetry, current project data |
 | Daily | PostgreSQL dumps, Corda backup, mapping manifests, simulation exports, storefront releases |
 | Weekly | Repository integrity check and off-host copy validation |
 | Monthly | Isolated restore test |
@@ -1684,181 +1452,343 @@ Restore testing must:
 2. Validate database integrity.
 3. Recalculate artifact hashes.
 4. Compare hashes with stored manifests.
-5. Verify associated Corda receipt/manifests.
-6. Record operator, source backup ID, result, and exception notes.
-7. Alert on any failure.
+5. Verify associated Corda receipt/manifests where available.
+6. Record operator, source backup ID, result, and exceptions.
+7. Alert on failure.
 
-## 4.5 Monitoring Customization
+## 17.2 Monitoring
 
-Place monitoring in `ao-admin`; expose it only through VPN or authenticated administration access.
+Monitoring runs in `ao-admin` and is exposed only through VPN or authenticated
+administration access.
 
 Monitor at minimum:
 
-| Component | Metrics |
+| Component | Required metrics |
 |---|---|
-| Host | CPU, RAM, NVMe health, disk usage, temperature, GPU VRAM/temperature, kernel errors |
+| Host | CPU, RAM, storage health, disk usage, temperature, GPU state, kernel errors |
 | Podman/systemd | Unit state, restart loops, health, image digest |
-| Mapping | Queue depth, task failures, task duration, disk space, CPU/GPU use |
+| Mapping | Queue depth, failures, duration, disk space, CPU/GPU use |
 | Field | Packet rate, RSSI, SNR, retries, replay rejections, spool depth, gateway uptime |
-| Sales | Payment webhook failures, receipt failures, orders, API latency |
-| AI/Mastodon | Model latency, token/request counts, GPU use, approval queue, OAuth failures |
+| Sales | Payment-verification failures, receipt failures, orders, API latency |
+| AI/community | Model latency, request count, GPU use, approval queue, OAuth failures |
 | Vehicle simulation | Scenario success, SITL/ROS/Gazebo health, result export |
 | Fabrication simulation | Task state, collision/safety events, result export |
 | Ledger | Corda health, ingest failures, certificate expiry, backup age |
 | Backup | Last success, repository health, restore-test result, queue age |
 
-Alerts should cover disk pressure, backup failure, bad restore tests, container restart loops, unexpected exposed ports, failed payment verification, radio disconnection, WebODM backlog, GPU contention, expired Corda certificates, and denied cross-domain traffic.
+Alerts must cover disk pressure, backup failure, failed restore tests, container
+restart loops, unexpected listeners, failed payment verification, radio
+disconnection, WebODM backlog, GPU contention, expired certificates, and denied
+cross-domain traffic.
 
+## 17.3 Completion Evidence
 
-# Section 5 — Agent Completion Criteria
-
-The agent must not claim completion until it produces:
+No installation or deployment agent may claim completion until it produces:
 
 1. Host inventory report.
-2. Photogrammetry-drive report: mount source, UUID, filesystem type, free space, ownership, and permission validation.
-3. Installed package/version matrix.
-4. Podman rootless and Quadlet verification.
-5. GPU driver and container-runtime validation report.
-6. Podman network list and domain-isolation test results.
-7. Firewall and listening-port report for IPv4 and IPv6.
+2. Photogrammetry-drive report with mount source, UUID, filesystem, free space,
+   ownership, and permission validation.
+3. Installed package and version matrix.
+4. Rootless and/or system Podman/Quadlet verification.
+5. GPU driver and container-runtime validation.
+6. Podman network list and domain-isolation results.
+7. IPv4 and IPv6 firewall/listening-port report.
 8. WebODM CPU-only smoke-test result using the dedicated drive.
-9. Vehicle simulation smoke-test result.
-10. Fabrication simulation smoke-test result.
-11. Heltec stable serial-device detection and LoRa link-test result.
+9. Vehicle-simulation smoke-test result.
+10. Fabrication-simulation smoke-test result.
+11. Heltec stable serial-device detection and LoRa-link test result.
 12. Ledger-ingestion test and Corda receipt result.
 13. Sales receipt-manifest test without payment secrets.
 14. Backup execution result.
 15. At least one isolated restore-test result.
-16. A clear list of unresolved blockers, deviations, risks, and actions requiring human approval.
+16. A current list of unresolved blockers, deviations, risks, and actions
+    requiring human approval.
 
-This finalized structure preserves strict separation while allowing authorized, signed provenance records to link sales, telemetry, mapping, vehicle simulation, fabrication simulation, pCloud archives, IPFS artifacts, and Corda receipts.
-*Retained from the repository README summary — implementation/state notes.*
+---
 
+# 18. Approved Deviations and Open Decisions
 
-## Status
-See `VERSION`, `git log`, and `docs/compliance/installation-status.md`.
+## 18.1 Simulation Baseline Deviation
 
+**Decision:** ROS 2 Lyrical and Gazebo Sim 10.5.0 are the installed baseline.
 
-## Current status (as of 2026-08-25)
+**Status:** Approved on 2026-08-24.
 
-| item | Description | Status |
-|---|---|---|
-| 1 | Host inventory report | ✅ Done |
-| 2 | Photogrammetry-drive report | ✅ Done (UUID verified, dir tree created) |
-| 3 | Installed package/version matrix | ✅ Done |
-| 4 | Podman rootless + Quadlet | ✅ Done (rootless OK, 10 internal networks) |
-| 5 | GPU driver/runtime validation | ✅ Done (driver verified; CPU-only baseline proven; GPU enabled) |
-| 6 | Podman network list + isolation | ✅ Done (all Internal=true; isolation test passes) |
-| 7 | Firewall & listening-port report | ✅ Done (ufw active; :80/:1716 cleared) |
-| 8 | WebODM smoke test | ✅ Done (apt-76, 76 images, GPU-enabled, ortho produced) |
-| 9 | Vehicle simulation smoke test | ✅ Done (headless Gazebo 300 iterations, ROS↔GZ bridge) |
-| 10 | Fabrication simulation smoke test | ✅ Done (headless Gazebo 300 iterations, bridge) |
-| 11 | Heltec detection + LoRa link test | ⏸️ Deferred (Heltec V3 not connected) |
-| 12 | Ledger-ingest + Corda receipt | ⏸️ Corda 5.2.2 scaffolded; node deployment awaits operator key ceremony |
-| 13 | Sales receipt-manifest test | ⚠️ DB deployed (14 tables, 3 roles); payment/Mastodon/sales API pending |
-| 14 | Backup execution | ✅ Done (restic snapshot `548d9910`, encrypted) |
-| 15 | Isolated restore test | ✅ Done (file hash OK; DB 14/14 tables restored) |
-| 16 | Blockers/deviations/risks | ✅ Maintained in installation-status.md |
+**Rationale:** The installed and smoke-tested environment differs from an
+earlier Jazzy/Harmonic draft.
 
+**Required control:** Record versions, image digests, compatibility test
+results, and any future migration plan in the version matrix.
 
-### DETAILED WORK / ISSUES LIST
-(ALL DETAILEDWORK AND ISSUES(BUGS) ARE TO BE LISTED BELOW THIS HEADER WITH DEDICATED NUMBERING AND DATE FOUND.)
+## 18.2 Corda Database Placement Deviation
 
-BEFORE BEGINNING WORK ON THESE ISSUES, REVIEW THE 
-README: https://github.com/300x3/ALWAYSON/blob/main/README.md
-AND ITS LOCAL WORKING FOLDER:   /ALWAYSON
+**Decision:** `cordadb` is provisioned on the host PostgreSQL 18 cluster rather
+than a dedicated container-scoped PostgreSQL instance.
 
+**Status:** Approved and recorded in the ledger scaffold journal.
 
-### WORK 000010
+**Required control:** Document database roles, host-loopback binding, backup
+scope, restore procedure, and separation from sales/mapping databases.
 
- PROCEED WITH OPENING THE MASTODON SERVER IN THE TOKODON CLIENT, WHILE LOGGING IN AS 300X3@POSTEO.NET (ADMIN PERMISSION FOR THE SERVER) AND HAVING A CONVERSATION WITH THE OPENCLAW BOT WHICH MUST BE TIED TO A RUNNING LMS LLM (RUNNING LOCALLY)
+## 18.3 Corda Deployment Blocker
 
-### WORK 000020
- 
-2. FOCUS ON THE GRAPHIC USER INTERFACE SECTION AND IDENTIFY WHAT STILL NEEDS TO BE IMPLEMENTED.
+**Status:** Blocked.
 
-### WORK 000030
+**Condition:** Corda node deployment requires the operator key and certificate
+ceremony.
 
-3. REVIEW THESE ITEMS AND CONFIRM THEY ARE EITHER COMPLETE OR OUTSTANDING, IF OUTSTANDING PROCEED WITH THE RELATED WORK:
-  - Sales/payment/Mastodon: need payment-provider selection, pCloud credentials,Mastodon OAuth, and sales API implementation. "BIGCOMMERCE.COM" IS PREFERRED IN ORDER TO HAVE ACCESS TO MANY MARKETS ALONG WITH INVENTORY CONTROL, ETC. HOWEVER ITS REQUIREMENT FOR A MONTHLY PAYMENT IS PROHIBITIVE.
-  - Ledger: Corda node requires operator key/cert ceremony (§7 of runbook)
+**Rule:** Do not generate, replace, export, or activate production ledger keys
+without explicit operator approval and recorded ceremony output.
 
-### WORK 000040
-4. Backups: pCloud off-host replication pending credential provisioning, CONFIRM CREDENTIALS ARE AVAILABLE IN KDE WALLET.
+## 18.4 Payment Provider Decision
 
-### WORK 000050
-5. Field domain: Heltec V3 deferred pending physical connection, REQUEST THAT HELTEC V3 BE PLUGGED IN BY USB-C
+**Status:** Open.
 
-### ISSUE 000100 - Host runtime re-check (verified 2026-08-26)
+**Decision required:** Select a provider-hosted checkout/payment workflow.
+
+**Evaluation requirements:**
+
+- Card and PayPal support if desired.
+- Webhook signature verification.
+- Refund and dispute workflow.
+- Exportable accounting records.
+- Fee model and recurring cost.
+- Inventory/catalog integration if needed.
+- Data-processing and privacy terms.
+- Ability to operate from a static storefront.
+
+A marketplace-oriented platform such as BigCommerce may be evaluated, but its
+recurring cost, required features, and compatibility with the static pCloud
+storefront model must be documented before adoption.
+
+---
+
+# 19. Work Queue and Issue Log
+
+## WORK 000010 — Validate Tokodon, Local Mastodon, OpenClaw, and Local LLM
+
+**Status:** Blocked pending operator-led interactive login and confirmation.
+
+**Objective:** Validate that the local 300X3 Mastodon instance can be opened in
+Tokodon using the designated administrator account, and validate a local-only
+conversation workflow with the OpenClaw bot backed by an explicitly selected
+local LM Studio model.
+
+**Preconditions:**
+
+- Mastodon web and streaming services are healthy on loopback.
+- The administrator account is approved.
+- OAuth application credentials are present in the approved secret store.
+- A local LM Studio model is loaded and its local endpoint is verified.
+- The operator is present to complete interactive authentication and approve
+  OAuth actions or any publication.
+
+**Acceptance criteria:**
+
+- Tokodon connects using `localhost` or another explicitly approved origin.
+- OAuth completes without insecure-cookie or forced-HTTPS failure.
+- OpenClaw generates a local draft response through the configured local model.
+- No external publication occurs without explicit operator approval.
+- Logs contain no credentials, tokens, prompts, or sensitive content.
+
+## WORK 000020 — Graphic User Interface Review
+
+**Status:** Planned.
+
+**Objective:** Identify GUI components that remain unimplemented or lack an
+operator workflow.
+
+**Scope:**
+
+- WebODM operator workflow.
+- QGroundControl simulation workflow.
+- Gazebo visualization workflow.
+- Tokodon/Mastodon workflow.
+- Local LM Studio/OpenClaw workflow.
+- Sales/support administration workflow.
+- Monitoring dashboard.
+- Backup/restore status display.
+- Field gateway/link-quality display.
+
+**Acceptance criteria:**
+
+- Each GUI has a named operator purpose.
+- Each GUI has an access boundary.
+- Each GUI has a startup, health-check, and shutdown procedure.
+- Each GUI has a documented data source and no unauthorized cross-domain access.
+
+## WORK 000030 — Sales, Payment, Mastodon, and Ledger Readiness
+
+**Status:** In progress.
+
+**Outstanding items:**
+
+- Select payment provider.
+- Provision payment credentials through approved secret delivery.
+- Implement payment verifier and normalized event model.
+- Implement sales API and receipt/fulfillment workflow.
+- Provision pCloud credentials for archive replication.
+- Complete Mastodon OAuth validation.
+- Complete Corda operator key and certificate ceremony.
+
+**Acceptance criteria:**
+
+- No payment secret appears in Git, logs, HTML, or Corda.
+- A test payment event produces a verified normalized record.
+- A sales receipt manifest can be generated without exposing sensitive data.
+- Corda ingest receives only approved signed manifest data.
+- Mastodon/OpenClaw operation remains restricted to approved paths.
+
+## WORK 000040 — Off-Host Archive Credential Review
+
+**Status:** Blocked pending operator confirmation.
+
+**Objective:** Confirm whether required pCloud/archive credentials exist in the
+approved KDE Wallet location and/or approved service-secret store.
+
+**Rules:**
+
+- Do not print, copy, export, or expose credential values.
+- Confirm only credential presence, account purpose, expiration state, and
+  whether a service-specific secret can be provisioned.
+- Perform a non-destructive encrypted replication test only after approval.
+
+## WORK 000050 — Heltec V3 Connection and Field Link Test
+
+**Status:** Blocked pending physical hardware connection.
+
+**Operator action required:** Connect the Heltec WiFi LoRa 32 V3 by USB-C.
+
+**Acceptance criteria:**
+
+- Device appears at a stable `/dev/serial/by-id/` path.
+- Device identity and firmware state are recorded.
+- US915 radio profile is validated against the Raspberry Pi/Waveshare profile.
+- Link test records RSSI, SNR, packet loss, retry behavior, and replay defense.
+- No live flight-control command path is enabled during validation.
+
+## ISSUE 000100 — Host Runtime Re-Check
+
+**Status:** Verified 2026-08-26.
 
 | Item | Verified value |
 |---|---|
-| Kernel | 7.0.0-30-generic |
-| Podman | 5.7.0, rootless as `scottw`; all 10 `ao-*` networks present with `Internal=true` |
-| GPU | GTX 1080, driver 580.173.02; CDI devices registered (`nvidia.com/gpu=0`, `GPU-02377888…`) |
-| Simulation | ROS 2 lyrical (`/opt/ros/lyrical`), gz sim 10.5.0 |
-| Host data services | PostgreSQL 18.6 + Redis 8.0.5 running on loopback only (:5432/:6379) |
-| Photogrammetry drive | ext4 `/dev/sdb1`, UUID verified, 433.9G free of 457G |
+| Kernel | `7.0.0-30-generic` |
+| Podman | `5.7.0`; rootless operation as `scottw`; ten `ao-*` workload networks recorded |
+| GPU | GTX 1080; driver `580.173.02`; CDI devices registered |
+| Simulation | ROS 2 Lyrical at `/opt/ros/lyrical`; Gazebo Sim `10.5.0` |
+| Host data services | PostgreSQL `18.6` and Redis `8.0.5`, loopback-only |
+| Photogrammetry drive | ext4 `/dev/sdb1`; UUID verified; approximately 433.9 GB free of 457 GB |
 
-###  ISSUE 000200 - Container-store visibility note (networks shown, containers not)
+## ISSUE 000200 — Podman Store Visibility
 
-`podman ps -a` returning empty while the ten `ao-*` networks are listed is a **storage-isolation property of rootless/rootful Podman, not lost work**. Container/image/volume storage is strictly per user store (`~/.local/share/containers/storage` for rootless; `/var/lib/containers/storage` for the system store); networks are configuration and appear to whichever store created them.
+**Status:** Documented.
 
-The §5 smoke tests ran through the system-side store: the install journal records successful WebODM E2E runs on 2026-08-24/25 (`WEBODM E2E SMOKE6-V2`, `APT-76 FULL RUN`, `ORTHOPHOTO_SAVED`, ortho TIFF inspected at `500GBPHOTOGRAM/deliverables/apt76-orthophoto.tif`) and simulation smoke tests (`VEHICLE_SMOKE_OK`, `FABRICATION_SMOKE_OK`). The webodm DB dump retained under `/ALWAYSON/backups/postgres/webodm/` is owned by **root**, confirming the mapping stack executed via the system/rootful instance rather than the operator's rootless store — which is why `podman ps -a` from an operator shell shows no containers. The smoke-test evidence persists in the journal, backups, and drive deliverables regardless of container cleanup.
+Rootless and system/rootful Podman use separate stores. Container, image, and
+volume visibility depends on the invoking identity and storage location. An
+empty `podman ps -a` under an operator account does not prove that system-level
+containers are missing.
 
-###  ISSUE 000300 -  Photogrammetry tree addendum
+The mapping smoke-test evidence, retained backups, and orthophoto deliverables
+indicate that system/rootful WebODM activity occurred during validation. See
+the mixed-Podman deviation in Section 13.
 
-An empty stray directory `/media/scottw/500GBPHOTOGRAM/incom/` (a typo'd duplicate of `incoming/` created at bootstrap time, referenced by no script and no WebODM function) was identified during the 2026-08-26 review and **removed with operator approval the same day**. The drive tree now matches §2.3 exactly.
+## ISSUE 000300 — Photogrammetry Tree Addendum
 
-###  ISSUE 000400 -  Part-2 remediation log (2026-08-26)
+**Status:** Resolved 2026-08-26.
 
-1. **Podman socket bridges:** RESOLVED LIVE. v2.1 PID-file reconcile-loop
-   script installed via pkexec to `/usr/local/sbin/ao-podman-bridge.sh` and
-   restarted. Verified: all three bridges up, PIDs stable across multiple
-   cycles, mapping + sales confirmed working through the tunnels. Residual
-   issue: the ledger tunnel connects but the alwayson-ledger podman backend
-   EOFs — backend diagnostic pending one operator-run privileged command.
-2. **Quadlet sources pinned:** all six container units now carry the real
-   sha256 image digests recorded at deploy time (no more placeholder tags).
-   Secrets wiring (`Secret=`) remains intentionally absent until §3.4 secret
-   provisioning completes.
-3. **Listener policy converged:** allowlist history updated (:80 nginx purge
-   RESOLVED); :1716 KDE Connect regression RESOLVED — kdeconnect packages
-   purged via apt, daemon killed, autostart + D-Bus service + user config
-   removed; port 1716 confirmed clear.
-4. **GPU doc drift resolved** across README/version-matrix/installation-status:
-   toolkit 1.20.0 installed, CDI registered, GPU smoke passed.
-5. **cordadb-on-host-PG deviation** now documented here (ledger notes above).
-6. **Backup summary corrected** to match §4.4 / backup-policy.yaml (hourly =
-   incrementals; dumps are daily).
-7. version-matrix refreshed: kernel 7.0.0-30, Quadlet capability noted,
-   ArduPilot commit e57b8a47d3 filled; QGC/SB3 remain not-installed markers.
+The empty stray directory:
 
-### ISSUE 000500 - Architecture implementation deviations and pending decisions (consolidated 2026-08-28)
+```text
+/media/scottw/500GBPHOTOGRAM/incom/
+```
 
-The following implementation-state items were moved from architecture and configuration sections so the main document describes the intended system design while this issue records deployment-specific status and deviations.
+was identified as an unused typo duplicate of `incoming/` and removed with
+operator approval. The drive tree now matches the required structure.
 
-1. **Simulation baseline deviation:** ROS 2 `lyrical` and Gazebo `10.5.0` are the installed baseline instead of the originally drafted Jazzy/Harmonic pair. The operator-approved deviation was recorded on 2026-08-24 in `config/platform/version-matrix.yaml`.
-2. **Corda database placement deviation:** `cordadb` is provisioned on the host PostgreSQL 18 cluster rather than a dedicated container-scoped PostgreSQL instance. This was operator-approved and recorded in the ledger scaffold journal.
-3. **Corda node deployment blocker:** Corda node deployment remains pending the operator key and certificate ceremony.
+## ISSUE 000400 — Remediation Record
 
-## ISSUE 000600 - MASTODON SETUP
+**Status:** Partially resolved.
 
-1. `force_ssl = true` is hardcoded in Mastodon's `production.rb` — plain-http
-   clients get 301s to https and Secure cookies break OAuth. Patch honors
-   `RAILS_FORCE_SSL` (loopback-only; production keeps SSL).
-2. Mastodon rejects requests whose `Host` is neither `LOCAL_DOMAIN` nor
-   `WEB_DOMAIN` (403, empty body). `127.0.0.1` is **not** allowed; clients must
-   use `localhost`, or the proxy must rewrite `Host`.
-3. v4.3.7 disables the OAuth **password grant** — bot tokens are minted via
-   `Doorkeeper::AccessToken.create!` (operator-controlled local path) or the
-   normal browser authorization-code flow.
-4. New accounts may land `approved=false` ("Your login is currently pending
-   approval") — approve before API use.
+- Podman socket bridges: mapping and sales tunnels verified; ledger backend EOF
+  diagnosis remains pending an operator-run privileged command.
+- Quadlet image sources: six container units carry recorded SHA-256 image
+  digests.
+- Secret wiring: intentionally incomplete until secret provisioning is approved.
+- Listener policy: prior `:80` nginx and `:1716` KDE Connect exposure issues
+  resolved; current listener state must continue to be monitored.
+- GPU documentation: toolkit/CDI/smoke-test state reconciled with version
+  matrix.
+- Backup summary: aligned with hourly incremental and daily dump policy.
+- Version matrix: refreshed with kernel, Quadlet capability, and ArduPilot
+  commit information; QGroundControl and Stable-Baselines3 remain
+  not-installed markers where applicable.
 
-   
-   
+## ISSUE 000500 — Architecture and Deployment Decisions
+
+**Status:** Open and tracked.
+
+- Simulation baseline is ROS 2 Lyrical and Gazebo Sim 10.5.0.
+- `cordadb` currently uses host PostgreSQL 18 rather than a dedicated
+  container-scoped PostgreSQL instance.
+- Corda node deployment remains blocked pending the operator key/certificate
+  ceremony.
+- Mapping runtime model requires final designation as rootless, system-level,
+  or mixed.
+- Controlled ingress/egress adapters remain architecture requirements and must
+  be implemented before enabling external payment, archive, or community
+  connectivity.
+
+## ISSUE 000600 — Mastodon Setup
+
+**Status:** In progress.
+
+- Loopback validation may require `RAILS_FORCE_SSL=false`; production external
+  access must use HTTPS.
+- Mastodon host validation requires `localhost` or an approved configured host.
+- OAuth password grant is unavailable in the documented version; use an
+  operator-controlled local token path or authorization-code flow.
+- Newly created accounts may need explicit approval before API use.
+
 ---
-SIMULATION 
+
+# 20. Current Verification Evidence
+
+| Item | Evidence | Status |
+|---|---|---|
+| Host inventory | Inventory report completed | Complete |
+| Photogrammetry drive | UUID verified; directory tree created | Complete |
+| Package/version matrix | Captured and refreshed | Complete |
+| Rootless Podman and Quadlet | Verified; mixed-store deviation documented | Complete with deviation |
+| GPU runtime | Driver/CDI verified; CPU baseline and GPU smoke completed | Complete |
+| Domain network isolation | Internal workload networks and test verified | Complete |
+| Firewall and ports | UFW active; prior `:80` and `:1716` exposure cleared | Complete |
+| WebODM smoke test | `apt-76`; 76 images; GPU-enabled orthophoto produced | Complete |
+| Vehicle simulation | Headless Gazebo 300-iteration and ROS-Gazebo bridge test | Complete |
+| Fabrication simulation | Headless Gazebo 300-iteration and bridge test | Complete |
+| Heltec/LoRa | Deferred; physical Heltec V3 not connected | Blocked |
+| Corda receipt | Corda 5.2.2 scaffolded; key ceremony pending | Blocked |
+| Sales receipt manifest | Sales DB deployed; provider/API pending | Partial |
+| Backup | Encrypted restic snapshot `548d9910` completed | Complete |
+| Restore | File hash validated; database 14/14 tables restored | Complete |
+
+---
+
+# 21. Status References
+
+Review the following before changing the platform:
+
+```text
+README.md
+VERSION
+git log
+docs/compliance/installation-status.md
+/ALWAYSON/
+```
+
+The current repository README, local working folder, verification evidence,
+version matrix, and issue log must be reviewed before beginning new work.
+
+---
 
 ![SIMULATION](assets/SIMULATION.png)
