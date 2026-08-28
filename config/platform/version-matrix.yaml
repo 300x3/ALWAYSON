@@ -31,6 +31,20 @@ simulation:
   qgroundcontrol_version: ""
   sb3_version: ""
 
+sales:
+  mastodon:
+    local_domain: "300x3"
+    web_domain: "localhost"       # WEB_DOMAIN (operator desktop origin)
+    image_web: "ghcr.io/mastodon/mastodon:v4.3.7"          # tag (registry denies anon digest lookup)
+    image_streaming: "ghcr.io/mastodon/mastodon-streaming:v4.3.7"
+    image_sidekiq: "ghcr.io/mastodon/mastodon:v4.3.7"
+    image_nginx: "docker.io/library/nginx:alpine"
+    image_postgres: "docker.io/library/postgres@sha256:a65e6a841f6c4dbc4abda3d67fa3bc21824e9611064fcd82e87ea67aad60a0c3"
+    image_redis: "docker.io/library/redis@sha256:91d0f7e8c748ec7a4c2b4fb2c4f84edab794dd91d01e095e38dc906db9d684ab"
+    db_version: "17 (bundled in postgres digest above)"
+    streaming_version: "v4.3.7"
+    note: "Local test stack (containers 300x3-web/streaming/db/redis/sidekiq/proxy on ao-sales; ports 127.0.0.1:3000/4000). Mastodon images tag-pinned; pin digests for production promotion."
+
 ledger:
   corda_version: "5.2.2 (release-5.2.2.0, latest stable - operator selection 2026-08-24)"
   cordapp_hashes: ""

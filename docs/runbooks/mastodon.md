@@ -66,10 +66,12 @@ the Mastodon Web UI at `http://127.0.0.1:3000` (or Tokodon).
 
 ## 5. Tokodon (operator client)
 1. Launch Tokodon (KDE menu → Tokodon); "Add account".
-2. Enter server URL: `http://localhost:3000`  (the loopback publisher).
+2. Enter server URL: `http://localhost:3000`  (the loopback publisher; the
+   instance is branded **300X3** — LOCAL_DOMAIN=300x3, so the operator account
+   handle will read like `@admin@300x3`).
 3. Complete the OAuth authorization (registering an application in Mastodon).
    Tokodon stores its own credential via the KDE secret store; keep a copy of
-   the client id/secret in KWallet `ao-sales/mastodon-tokodon-client-*` if you
+   the client id/secret in KWallet ao-mastodon/tokodon-client-* if you
    prefer to reuse that application registration (see below).
 4. Posts/boosts/replies from Tokodon are the "operator client" feed.
    OpenClaw will talk to the same local HTTP API with a dedicated bot account.
@@ -77,14 +79,14 @@ the Mastodon Web UI at `http://127.0.0.1:3000` (or Tokodon).
 ### Optional: pre-registered Tokodon application
 Mastodon OAuth client credentials for Tokodon can be created ahead of time:
 ```bash
-curl -s -X POST http://127.0.0.1:3000/api/v1/apps \
+curl -s -X POST http://localhost:3000/api/v1/apps \
   -d 'client_name=Tokodon' -d 'redirect_uris=urn:ietf:wg:oauth:2.0:oob' \
   -d 'scopes=read write follow'
 ```
-Store `client_id`/`client_secret` in KWallet `ao-sales`:
+Store `client_id`/`client_secret` in KWallet `ao-mastodon`:
 ```bash
-/ALWAYSON/scripts/ops/kwallet-provision.sh put kdewallet ao-sales tokodon-client-id <id>
-/ALWAYSON/scripts/ops/kwallet-provision.sh put kdewallet ao-sales tokodon-client-secret <secret>
+/ALWAYSON/scripts/ops/kwallet-provision.sh put kdewallet ao-mastodon tokodon-client-id <id>
+/ALWAYSON/scripts/ops/kwallet-provision.sh put kdewallet ao-mastodon tokodon-client-secret <secret>
 ```
 
 ## 6. Ledger/adapter notes (Section 3.8 carried over)
@@ -95,7 +97,55 @@ Store `client_id`/`client_secret` in KWallet `ao-sales`:
 - Publication audit log stays immutable; mirror publishes in the
   `logs/audit.log` convention.
 
+## 7. Current local dev stack (live as of 2026-08-28)
+
+The running local stack is the `300x3-*` container set (rootless Podman on
+`ao-sales`) fronted by an `nginx:alpine` proxy — **distinct** from the production
+Quadlet units `ao-mastodon-*` documented in §Design, which remain scaffolded.
+
+- Web at `http://localhost:3000`. The `Host` header **must** be `localhost`, not
+  `127.0.0.1` — Mastodon's host authorization rejects other hosts with an empty
+  403. The proxy rewrites `Host: localhost` for all upstream requests.
+- Streaming at `127.0.0.1:4000` (separate `mastodon-streaming` image, v4.3.7,
+  routed by the proxy via `/api/v1/streaming`).
+- SSL: `RAILS_FORCE_SSL=false` via patched `production.rb`
+  (`config/mastodon/patches/production.rb`).
+- Operator OAuth client: **Tokodon** (running on display `:0`).
+
+### Bot token (password grant is disabled in Mastodon v4.3.7)
+
+Mint a token bound to an existing bot user via Doorkeeper (run inside the web
+container), then persist it with the wallet provisioner:
+
+```bash
+podman exec 300x3-web bin/rails runner \
+  "u=User.find_by(email:'300x3@posteo.net'); \
+   t=Doorkeeper::AccessToken.create!(application_id:Doorkeeper::Application.find_by(uid:'<client_id>').id, resource_owner_id:u.id, scopes:'read write'); \
+   puts t.token"
+```
+
+Persist the result as `MASTODON_ACCESS_TOKEN` and wallet `ao-mastodon/mastodon-access-token`
+(see `scripts/mastodon/provision-openclaw-bot.sh`).
+
+### OpenClaw smoke test
+
+```bash
+scripts/mastodon/post.sh "status text" --visibility private
+```
+
+Expect HTTP 200 with JSON containing the new status `id` (verify at
+`/api/v1/accounts/verify_credentials` → `statuses_count` increments).
+
+### Gotchas recap
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| 403 empty body on POST through proxy | `Host: 127.0.0.1` | use `localhost` (or proxy rewrites Host) |
+| 403 "pending approval" | account `approved=false` | set `approved=true` at creation |
+| OAuth "unsupported grant type: password" | v4.3.7 blocks it | mint via Doorkeeper (above) |
+
 ## Troubleshooting
+
 - Image pull denied → use a reviewed mirror; record digest in
   `config/platform/version-matrix.yaml` under new `mastodon:` block.
 - web can't reach db → confirm both on `ao-sales`, `DB_HOST=mastodon-db`.
