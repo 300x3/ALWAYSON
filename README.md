@@ -298,7 +298,7 @@ Ledger-ingestion gateway
 Corda receipt / entitlement transaction
 ```
 
-3DR’s published order information uses credit card or PayPal for immediate processing, with wire transfer handled separately. That is a sound model for the storefront: a standard provider processes payments; ALWAYS ON stores verified references and business receipt state, not card data. [docs.3dr](https://docs.3dr.com/es/orders-and-shipping/how-to-place-an-order-online/)
+3DR’s published order information uses credit card or PayPal for immediate processing, with wire transfer handled separately. That is a sound model for the storefront: a standard provider processes payments; ALWAYS ON stores verified references and business receipt state, not card data. [docs.3dr](https://docs.3dr.com/es/orders-and-shipping/how-to-place-an-order-online/) HOWEVER IT IS ALSO BASED ON A SUBSCRIPTION SERVICE, USE OF THAT SUBSCRIPTION SERVICE IS STILL GENERALLY NECESSARY IN ORDER TO MAINTAIN ACCESS TO BIG BOX STORE LISTINGS.
 
 ***
 
@@ -699,6 +699,8 @@ clouds, and generated results.
 ## 1.9 Corda, pCloud, and IPFS
 
 Corda is the private provenance, receipt, ownership, approval, and entitlement layer. It must not become a bulk datastore or real-time flight-control system. Corda’s model is intended for private transactions among relevant participants rather than universal public broadcast. [github](https://github.com/corda/corda)
+
+CORDA IS ALWAYS THE "SINGLE SOURCE OF TRUTH" AS AN ACCOUNTING LEDGER OF SALES FOR PHYSICAL AND DIGITAL GOODS. STANDARD RECEIPTS AND ZELLE/PAYPAL/DIRECT CARD PROCESSING ARE SYNCHRONIZED TO CORDA IN ORDER TO SUPPORT PREFERRED EXISTING CUSTOMER TRANSACTION METHODS. ZELLE & CORDA ITSELF ALLOW FOR TRANSACTIONS WITH ZERO ADDITIONAL FEES AND ARE RESERVED FOR ON-SITE OR LARGE TRANSACTIONS.
 
 ### Ledger flow
 
