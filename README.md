@@ -1880,9 +1880,23 @@ The agent must not claim completion until it produces:
 This finalized structure preserves strict separation while allowing authorized, signed provenance records to link sales, telemetry, mapping, vehicle simulation, fabrication simulation, pCloud archives, IPFS artifacts, and Corda receipts.
 *Retained from the repository README summary — implementation/state notes.*
 
-## Status
 
+
+
+
+## Status
 See `VERSION`, `git log`, and `docs/compliance/installation-status.md`.
+
+
+### AGENTIC LANGUAGE MODEL DIRECTION:
+1. REVIEW THIS README https://github.com/300x3/ALWAYSON/blob/main/README.md   AND ITS LOCAL WORKING FOLDER   /ALWAYSON   -    THEN PROCEED WITH OPENING THE MASTODON SERVER IN THE TOKODON CLIENT, WHILE LOGGING IN AS 300X3@POSTEO.NET (ADMIN PERMISSION FOR THE SERVER) AND HAVING A CONVERSATION WITH THE OPENCLAW BOT WHICH MUST BE TIED TO A RUNNING LMS LLM (RUNNING LOCALLY)
+2. REVIEW THIS README https://github.com/300x3/ALWAYSON/blob/main/README.md   AND ITS LOCAL WORKING FOLDER   /ALWAYSON   -    FOCUS ON THE GRAPHIC USER INTERFACE SECTION AND IDENTIFY WHAT STILL NEEDS TO BE IMPLEMENTED.
+3. REVIEW THESE ITEMS AND CONFIRM THEY ARE EITHER COMPLETE OR OUTSTANDING, IF OUTSTANDING PROCEED WITH THE RELATED WORK:
+  - Sales/payment/Mastodon: need payment-provider selection, pCloud credentials,Mastodon OAuth, and sales API implementation. "BIGCOMMERCE.COM" IS PREFERRED IN ORDER TO HAVE ACCESS TO MANY MARKETS ALONG WITH INVENTORY CONTROL, ETC. HOWEVER ITS REQUIREMENT FOR A MONTHLY PAYMENT IS PROHIBITIVE.
+  - Ledger: Corda node requires operator key/cert ceremony (§7 of runbook)
+4. Backups: pCloud off-host replication pending credential provisioning
+5. Field domain: Heltec V3 deferred pending physical connection, REQUEST THAT HELTEC V3 BE PLUGGED IN BY USB-C
+
 
 ## Current status (as of 2026-08-25)
 
@@ -1905,16 +1919,11 @@ See `VERSION`, `git log`, and `docs/compliance/installation-status.md`.
 | 15 | Isolated restore test | ✅ Done (file hash OK; DB 14/14 tables restored) |
 | 16 | Blockers/deviations/risks | ✅ Maintained in installation-status.md |
 
-### Outstanding items
-1. REVIEW THIS README https://github.com/300x3/ALWAYSON/blob/main/README.md   AND ITS LOCAL WORKING FOLDER   /ALWAYSON   -    THEN PROCEED WITH OPENING THE MASTODON SERVER IN THE TOKODON CLIENT, WHILE LOGGING IN AS 300X3@POSTEO.NET (ADMIN PERMISSION FOR THE SERVER) AND HAVING A CONVERSATION WITH THE OPENCLAW BOT WHICH MUST BE TIED TO A RUNNING LMS LLM (RUNNING LOCALLY)
-2. REVIEW THIS README https://github.com/300x3/ALWAYSON/blob/main/README.md   AND ITS LOCAL WORKING FOLDER   /ALWAYSON   -    FOCUS ON THE GRAPHIC USER INTERFACE SECTION AND IDENTIFY WHAT STILL NEEDS TO BE IMPLEMENTED.
-3. REVIEW THESE ITEMS AND CONFIRM THEY ARE EITHER COMPLETE OR OUTSTANDING, IF OUTSTANDING PROCEED WITH THE RELATED WORK:
-  - Sales/payment/Mastodon: need payment-provider selection, pCloud credentials,Mastodon OAuth, and sales API implementation. "BIGCOMMERCE.COM" IS PREFERRED IN ORDER TO HAVE ACCESS TO MANY MARKETS ALONG WITH INVENTORY CONTROL, ETC. HOWEVER ITS REQUIREMENT FOR A MONTHLY PAYMENT IS PROHIBITIVE.
-  - Ledger: Corda node requires operator key/cert ceremony (§7 of runbook)
-4. Backups: pCloud off-host replication pending credential provisioning
-5. Field domain: Heltec V3 deferred pending physical connection, REQUEST THAT HELTEC V3 BE PLUGGED IN BY USB-C
+### DETAILED ISSUES LIST:
+(ALL DETAILED ISSUES/BUGS ARE TO BE LISTED BELOW THIS HEADER WITH DEDICATED NUMBERING AND DATE FOUND.)
 
-### Host runtime re-check (verified 2026-08-26)
+
+### ISSUE 000100 - Host runtime re-check (verified 2026-08-26)
 
 | Item | Verified value |
 |---|---|
@@ -1925,17 +1934,17 @@ See `VERSION`, `git log`, and `docs/compliance/installation-status.md`.
 | Host data services | PostgreSQL 18.6 + Redis 8.0.5 running on loopback only (:5432/:6379) |
 | Photogrammetry drive | ext4 `/dev/sdb1`, UUID verified, 433.9G free of 457G |
 
-### Container-store visibility note (networks shown, containers not)
+###  ISSUE 000200 - Container-store visibility note (networks shown, containers not)
 
 `podman ps -a` returning empty while the ten `ao-*` networks are listed is a **storage-isolation property of rootless/rootful Podman, not lost work**. Container/image/volume storage is strictly per user store (`~/.local/share/containers/storage` for rootless; `/var/lib/containers/storage` for the system store); networks are configuration and appear to whichever store created them.
 
 The §5 smoke tests ran through the system-side store: the install journal records successful WebODM E2E runs on 2026-08-24/25 (`WEBODM E2E SMOKE6-V2`, `APT-76 FULL RUN`, `ORTHOPHOTO_SAVED`, ortho TIFF inspected at `500GBPHOTOGRAM/deliverables/apt76-orthophoto.tif`) and simulation smoke tests (`VEHICLE_SMOKE_OK`, `FABRICATION_SMOKE_OK`). The webodm DB dump retained under `/ALWAYSON/backups/postgres/webodm/` is owned by **root**, confirming the mapping stack executed via the system/rootful instance rather than the operator's rootless store — which is why `podman ps -a` from an operator shell shows no containers. The smoke-test evidence persists in the journal, backups, and drive deliverables regardless of container cleanup.
 
-### Photogrammetry tree addendum
+###  ISSUE 000300 -  Photogrammetry tree addendum
 
 An empty stray directory `/media/scottw/500GBPHOTOGRAM/incom/` (a typo'd duplicate of `incoming/` created at bootstrap time, referenced by no script and no WebODM function) was identified during the 2026-08-26 review and **removed with operator approval the same day**. The drive tree now matches §2.3 exactly.
 
-### Part-2 remediation log (2026-08-26)
+###  ISSUE 000400 -  Part-2 remediation log (2026-08-26)
 
 1. **Podman socket bridges:** RESOLVED LIVE. v2.1 PID-file reconcile-loop
    script installed via pkexec to `/usr/local/sbin/ao-podman-bridge.sh` and
