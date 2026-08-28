@@ -379,19 +379,7 @@ WebODM must refuse to start when:
 
 A standalone WebODM UI-plus-processing deployment commonly needs at least 16 GB RAM and 100 GB free storage; 500 GB is usable if retention, archival, job-concurrency limits, and disk alerts are enforced. [github](https://github.com/michaelquickct/WebODM-podman)
 
-***
-
-*Retained from the repository README summary — implementation/state notes.*
-
-## 1.7 Photogrammetry drive (§1.5, §3.5)
-
-Drive `/media/scottw/500GBPHOTOGRAM/` (ext4, UUID `498597d4-9fc8-42cf-8db7-4e71ede53267`)
-is the authoritative workspace for imagery intake, WebODM media, NodeODM
-intermediates, deliverables, manifests, and archive staging. Validation
-required before WebODM starts — mount presence, UUID match, `.mounted-ok`
-marker, and free-space threshold. Directory tree created per §2.3.
-
-## 1.8 Mapping Design
+## 1.7 Mapping Design
 
 ```text
 Authenticated drone/operator upload
@@ -446,11 +434,9 @@ Persistent locations:
 
 Begin with CPU-only WebODM validation. Permit GTX 1080 access only after container GPU runtime, driver compatibility, workload benefit, and CPU-only recovery procedures are proven.
 
-***
+## 1.8 Field and LoRa Architecture
 
-## 1.9 Field and LoRa Architecture
-
-### 1.9.A Drone-side system
+### 1.8.A Drone-side system
 
 ```text
 ArduPilot flight controller
@@ -468,7 +454,7 @@ Raspberry Pi 5
               LoRa RF link
 ```
 
-### 1.9.B Desktop-side gateway
+### 1.8.B Desktop-side gateway
 
 ```text
 Heltec WiFi LoRa 32 V3
@@ -518,6 +504,8 @@ The profiles must define identical or interoperable:
 - Airtime limits.
 
 Do not label the system LoRaWAN unless it implements an actual LoRaWAN device/gateway/network-server architecture.
+
+## 1.9 (_REMOVED_)
 
 ***
 
