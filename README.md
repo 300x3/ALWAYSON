@@ -1908,12 +1908,11 @@ See `VERSION`, `git log`, and `docs/compliance/installation-status.md`.
 ### Outstanding items
 1. REVIEW THIS README https://github.com/300x3/ALWAYSON/blob/main/README.md   AND ITS LOCAL WORKING FOLDER   /ALWAYSON   -    THEN PROCEED WITH OPENING THE MASTODON SERVER IN THE TOKODON CLIENT, WHILE LOGGING IN AS 300X3@POSTEO.NET (ADMIN PERMISSION FOR THE SERVER) AND HAVING A CONVERSATION WITH THE OPENCLAW BOT WHICH MUST BE TIED TO A RUNNING LMS LLM (RUNNING LOCALLY)
 2. REVIEW THIS README https://github.com/300x3/ALWAYSON/blob/main/README.md   AND ITS LOCAL WORKING FOLDER   /ALWAYSON   -    FOCUS ON THE GRAPHIC USER INTERFACE SECTION AND IDENTIFY WHAT STILL NEEDS TO BE IMPLEMENTED.
-
-- Sales/payment/Mastodon: need payment-provider selection, pCloud credentials,
-  Mastodon OAuth, and sales API implementation. "BIGCOMMERCE.COM" IS PREFERRED IN ORDER TO HAVE ACCESS TO MANY MARKETS ALONG WITH INVENTORY CONTROL, ETC. HOWEVER ITS REQUIREMENT FOR A MONTHLY PAYMENT IS PROHIBITIVE.
-- Ledger: Corda node requires operator key/cert ceremony (§7 of runbook)
-- Field domain: Heltec V3 deferred pending physical connection
-- Backups: pCloud off-host replication pending credential provisioning
+3. REVIEW THESE ITEMS AND CONFIRM THEY ARE EITHER COMPLETE OR OUTSTANDING, IF OUTSTANDING PROCEED WITH THE RELATED WORK:
+  - Sales/payment/Mastodon: need payment-provider selection, pCloud credentials,Mastodon OAuth, and sales API implementation. "BIGCOMMERCE.COM" IS PREFERRED IN ORDER TO HAVE ACCESS TO MANY MARKETS ALONG WITH INVENTORY CONTROL, ETC. HOWEVER ITS REQUIREMENT FOR A MONTHLY PAYMENT IS PROHIBITIVE.
+  - Ledger: Corda node requires operator key/cert ceremony (§7 of runbook)
+4. Backups: pCloud off-host replication pending credential provisioning
+5. Field domain: Heltec V3 deferred pending physical connection, REQUEST THAT HELTEC V3 BE PLUGGED IN BY USB-C
 
 ### Host runtime re-check (verified 2026-08-26)
 
