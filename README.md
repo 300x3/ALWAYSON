@@ -713,6 +713,21 @@ directories, and ledger client certificates. Use Git for SDF/URDF/world files;
 Git LFS or separate artifact repository for large meshes, textures, point
 clouds, and generated results.
 
+#1.8-A
+MENUS AND PHYSICAL INTELLIGENCE
+
+MENUS MUST EXIST FOR: 
+1. 3D PRINTER - FILAMENT
+2. LASER POWDER BED FUSION PRINTER - POWDER
+3. STORAGE (BINS OF PARTS ON CAROUSEL)
+4. FABRICATION (INDIVIDUAL PRODUCTS FABRICATED BY ROBOT ARMS IN CELLS)
+5. FRIDGE
+6. FREEZER
+7. PANTRY
+8. KITCHEN (MEALS OR CHEMISTRY PROJECTS)
+
+THESE MENUS ARE EXPECTED TO CHANGE OVER TIME, SIMULATIONS MUST DEVELOP PHYSICAL INTELLIGENCE THAT WORKS WITH EACH INDIVIDUAL MENU. EACH MENU ALSO ACTS AS AN INVENTORY OF MATERIALS.
+
 ## 1.9 Corda, pCloud, and IPFS
 
 Corda is the private provenance, receipt, ownership, approval, and entitlement layer. It must not become a bulk datastore or real-time flight-control system. Corda’s model is intended for private transactions among relevant participants rather than universal public broadcast. [github](https://github.com/corda/corda)
