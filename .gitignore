@@ -9,3 +9,4 @@ pcloud/restore-cache/
 *.log
 .env
 !config/mapping/photogrammetry-volume.env
+config/mastodon/patches/

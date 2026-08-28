@@ -9,7 +9,7 @@ https://archive.org/details/@scott_widmann
 # CURRENT PROJECT WEBSITE: 
 WWW.300X3.COM
 # ALWAYS ON
-## Final Architecture, Installation, Configuration, and Customization Report FOR "INFRASTRUCTURE AS A PLATFORM"
+## Final Architecture, Installation, Configuration, and Customization Report
 
 ## 1. System Purpose
 
@@ -712,21 +712,6 @@ IDs, Gazebo partitions, service identities, filesystem mounts, result
 directories, and ledger client certificates. Use Git for SDF/URDF/world files;
 Git LFS or separate artifact repository for large meshes, textures, point
 clouds, and generated results.
-
-#1.8-A
-MENUS AND PHYSICAL INTELLIGENCE
-
-MENUS MUST EXIST FOR: 
-1. 3D PRINTER - FILAMENT
-2. LASER POWDER BED FUSION PRINTER - POWDER
-3. STORAGE (BINS OF PARTS ON CAROUSEL)
-4. FABRICATION (INDIVIDUAL PRODUCTS FABRICATED BY ROBOT ARMS IN CELLS)
-5. FRIDGE
-6. FREEZER
-7. PANTRY
-8. KITCHEN (MEALS OR CHEMISTRY PROJECTS)
-
-THESE MENUS ARE EXPECTED TO CHANGE OVER TIME, SIMULATIONS MUST DEVELOP PHYSICAL INTELLIGENCE THAT WORKS WITH EACH INDIVIDUAL MENU. EACH MENU ALSO ACTS AS AN INVENTORY OF MATERIALS.
 
 ## 1.9 Corda, pCloud, and IPFS
 
@@ -1601,26 +1586,69 @@ Mastodon adapter controls:
 
 OpenClaw defaults to draft generation. Human approval is mandatory for pricing, orders, shipping, warranties, financial topics, technical claims, safety guidance, and legal statements.
 
+## 3.9 Local Mastodon Server "300X3" (Tokodon + OpenClaw)
 
+The operator self-hosts Mastodon locally (rather than only posting outward) and
+operates it from the desktop with **Tokodon** (KDE client) and **OpenClaw**
+(npm, `~/.npm-global`). The instance is branded **300X3**
+(`LOCAL_DOMAIN=300x3`, handles read `@user@300x3`), with `WEB_DOMAIN=localhost`
+so the single operator origin is `http://localhost:3000`.
 
-#3.9 GRAPHIC USER INTERFACE:
-VERIFY THAT A GUI IS AVAILABLE FOR EACH OF THE FOLLOWING PROGRAMS AND THAT EACH ARE TIED 1 TO 1 TO THE PODMAN NETWORK. THE GUI FOR EACH SOFTWARE MUST REPORT THE ACTUAL DETAILS FROM THE PODMAN MANAGED NETWORK.
+### Isolation posture
 
-- POSTGRESQL (REPORTING TOOL)
-- CORDA (REPORTING TOOL)
-- TOKODON (MASTODON)
-- QGROUNDCONTROL (VIEW OF EXISTING MISSIONS AND EXECUTION)
-- GAZEBO (SIMULATION 3D VIEWER AND ACCESS VIA HTML)
-- WEBODM (STANDARD GRAPHICAL INTERFACE VIA BROWSER)
-- FIREFOX (HTML FRONT END, VIEW WEBSITE)
-- LM STUDIO (REVISE LOADED LANGUAGE MODEL DETAILS)
-- OPENCLAW (MANAGE INTEGRATION AND LANGUAGE MODEL DETAILS + CONECTION TO MASTODON)
-- MESHCHATX (RNS, SEE NETWORK TRAFFIC AND CONDUCT PERSONAL CONVERSATIONS)
-- PCLOUD (MANAGE SYNCHRONIZATION PROCESS)
-- ORCASLICER (MAINSAIL + MOONRAKER) FOR VORON 0.2 WITH KLIPPER (MANAGE MULTIPLE PRINTERS AND VIEW/CONTROL 3D PRINTING PROCESS.)
-- PODMAN
-- PROPOSE ANY ADDITIONAL GUIS FOR INSTALLED SERVICES FOR ADMIN REVIEW AND APPROVAL.
+- Containers run on the internal `ao-sales` network (rootless Podman).
+- The only published ports bind **127.0.0.1 exclusively** (web `:3000`,
+  streaming `:4000`); `config/platform/listener-allowlist.yaml` stays empty.
+- No SMTP; the instance is local-only, not federated
+  (`config/mastodon/instance-policy.yaml`).
+- Email domains are validated against MX; because the internal network has no
+  DNS egress, local account email changes are applied with validation skipped
+  (documented local deviation). Operator mailbox: posteo.net.
 
+### Stack layout (test deployment under the operator store; Quadlet units in
+`quadlet/sales/` remain the production path under `alwayson-sales`)
+
+| Component | Image / unit | Notes |
+|---|---|---|
+| postgres | digest-pinned (same as sales-db) | container-scoped `300x3-db` |
+| redis | digest-pinned (same as webodm broker) | `300x3-redis` |
+| web (puma) | `ghcr.io/mastodon/mastodon:v4.3.7` | `RAILS_FORCE_SSL=false` via patched `production.rb` (loopback-only deviation) |
+| streaming | `ghcr.io/mastodon/mastodon-streaming:v4.3.7` | separate image since v4.3 |
+| front proxy | `nginx:alpine` + `config/mastodon/nginx-300x3.conf` | single origin; rewrites `Host: localhost`; routes `/api/v1/streaming` |
+
+### Gotchas recorded (these cost real debugging time)
+
+1. `force_ssl = true` is hardcoded in Mastodon's `production.rb` — plain-http
+   clients get 301s to https and Secure cookies break OAuth. Patch honors
+   `RAILS_FORCE_SSL` (loopback-only; production keeps SSL).
+2. Mastodon rejects requests whose `Host` is neither `LOCAL_DOMAIN` nor
+   `WEB_DOMAIN` (403, empty body). `127.0.0.1` is **not** allowed; clients must
+   use `localhost`, or the proxy must rewrite `Host`.
+3. v4.3.7 disables the OAuth **password grant** — bot tokens are minted via
+   `Doorkeeper::AccessToken.create!` (operator-controlled local path) or the
+   normal browser authorization-code flow.
+4. New accounts may land `approved=false` ("Your login is currently pending
+   approval") — approve before API use.
+
+### Accounts, secrets, and posting
+
+| Account | Email | Role |
+|---|---|---|
+| `300x3admin` | livework@posteo.net | Owner |
+| `300x3bot` (OpenClaw) | 300x3@posteo.net | posting bot |
+
+All credentials live in KDE Wallet folder `ao-mastodon` (passwords, OAuth
+client id/secret for both OpenClaw and Tokodon, bot access token) mirrored to
+gitignored `/ALWAYSON/secrets/mastodon/`. Nothing secret is committed.
+
+- OpenClaw posting: skill `mastodon-post` → `scripts/mastodon/post.sh`
+  (private/draft by default; public posts need explicit operator approval per
+  §3.8).
+- Tokodon onboarding: Add Account → `http://localhost:3000` → OAuth.
+- Ops scripts: `scripts/mastodon/` (`deploy-mastodon.sh`,
+  `provision-openclaw-bot.sh`, `provision-mastodon-encryption.sh`,
+  `create-300x3-accounts.rb`, `post.sh`) and
+  `scripts/ops/kwallet-provision.sh`; runbook: `docs/runbooks/mastodon.md`.
 
 ***
 
@@ -1765,8 +1793,6 @@ Every script must:
 └── ipfs/
     └── pinning-policy.yaml
 ```
-
-
 
 ## 4.4 Backup and Restore Policy
 

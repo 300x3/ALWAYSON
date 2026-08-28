@@ -171,22 +171,32 @@ operator accurate GUI access while preserving isolation:
   sales=1 running (sales-db). ledger empty (nothing staged).
 Runbook: docs/runbooks/container-visibility.md
 
-## Mastodon local self-host + KDE Wallet provisioning (2026-08-27)
+## Mastodon local self-host + KDE Wallet provisioning (2026-08-27 → live 2026-08-28)
 
-SDLC: scaffolded, NOT yet running (requires operator root TTY to pull image
-and enable the sales-user container set).
+Local test stack **LIVE** (operator root TTY not needed for the already-pulled
+image set; production Quadlet units `ao-mastodon-*` remain scaffolded/pending).
 
-- **Secrets:** KDE Wallet now stores the platform secrets (Section 3.4). All ten
-  `ao-*` domain folders created in `kdewallet`; writes/reads verified through
-  `org.kde.kwalletd6` (`kwallet-provision.sh` round-trip passed).
-- **Mastodon secret values generated + stored** in `ao-mastodon`
-  (`secret-key-base`, `otp-secret`, `db-password`) and mirrored to gitignored
-  `/ALWAYSON/secrets/mastodon/mastodon.env`.
-- **Deployment scaffold:** 5 Quadlet units
-  (`quadlet/sales/ao-mastodon-{db,redis,web,sidekiq,streaming}.container`) on the
-  internal `ao-sales` network; web/streaming bind ONLY 127.0.0.1 (no public
-  listener). Operator client: **Tokodon** (installed, `/usr/bin/tokodon`).
-  Docs: `config/mastodon/instance-policy.yaml`, `docs/runbooks/mastodon.md`.
-- **Pending (operator root TTY):** pull `mastodon/mastodon:v4.3.7` (or mirror),
-  `daemon-reload`, start units, `bin/rails db:prepare`, create Owner via tootctl,
-  then add the account in Tokodon (http://localhost:3000).
+- **Secrets:** KDE Wallet `ao-mastodon` holds the platform secrets (§3.4). All
+  `ao-*` folders created; `kwallet-provision.sh` round-trip verified.
+- **Live containers** (rootless Podman on `ao-sales`): `300x3-db` (postgres
+  digest `a65e6a84…`), `300x3-redis` (`91d0f7e8…`), `300x3-web`,
+  `300x3-sidekiq`, `300x3-streaming`, `300x3-proxy` (`nginx:alpine`).
+- **Ports:** web `127.0.0.1:3000`, streaming `127.0.0.1:4000` only — no public
+  listener (allowlist empty).
+- **Proxy:** `config/mastodon/nginx-300x3.conf` rewrites `Host: localhost`
+  (Mastodon rejects `Host: 127.0.0.1` → 403) and routes `/api/v1/streaming`.
+- **SSL:** `RAILS_FORCE_SSL=false` via patched `production.rb`
+  (`config/mastodon/patches/`, gitignored copy of Mastodon source).
+- **Accounts:** Owner `300x3admin` (livework@posteo.net); bot `300x3bot`
+  (300x3@posteo.net). Password grant disabled in v4.3.7 → bot token minted via
+  `Doorkeeper::AccessToken.create!` stored in KWallet/env.
+- **Operator client:** Tokodon launched on `:0` → "Add Account" @
+  `http://localhost:3000`. Tokodon OAuth app pre-registered (in `ao-mastodon`).
+- **OpenClaw integration:** `scripts/mastodon/post.sh` verified → POST 200,
+  acct `300x3bot`. Skill `mastodon-post` active.
+- **Version matrix:** `config/platform/version-matrix.yaml` — new
+  `sales.mastodon` block (image digests listed).
+- Docs: `docs/runbooks/mastodon.md`; env template `config/mastodon/mastodon.env.example`.
+
+Remaining: operator may promote to the production Quadlet units under
+`alwayson-sales`, or keep as-is for local dev.
