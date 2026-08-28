@@ -1491,7 +1491,7 @@ operates it from the desktop with **Tokodon** (KDE client) and **OpenClaw**
 (`LOCAL_DOMAIN=300x3`, handles read `@user@300x3`), with `WEB_DOMAIN=localhost`
 so the single operator origin is `http://localhost:3000`.
 
-### Isolation posture
+### 3.9.A Isolation posture
 
 - Containers run on the internal `ao-sales` network (rootless Podman).
 - The only published ports bind **127.0.0.1 exclusively** (web `:3000`,
@@ -1502,7 +1502,7 @@ so the single operator origin is `http://localhost:3000`.
   DNS egress, local account email changes are applied with validation skipped
   (documented local deviation). Operator mailbox: posteo.net.
 
-### Stack layout (test deployment under the operator store; Quadlet units in
+### 3.9.B Stack layout (test deployment under the operator store; Quadlet units in
 `quadlet/sales/` remain the production path under `alwayson-sales`)
 
 | Component | Image / unit | Notes |
@@ -1513,7 +1513,7 @@ so the single operator origin is `http://localhost:3000`.
 | streaming | `ghcr.io/mastodon/mastodon-streaming:v4.3.7` | separate image since v4.3 |
 | front proxy | `nginx:alpine` + `config/mastodon/nginx-300x3.conf` | single origin; rewrites `Host: localhost`; routes `/api/v1/streaming` |
 
-### Accounts, secrets, and posting
+### 3.9.C Accounts, secrets, and posting
 
 | Account | Email | Role |
 |---|---|---|
