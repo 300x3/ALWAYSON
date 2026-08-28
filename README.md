@@ -10,7 +10,9 @@ https://archive.org/details/@scott_widmann
 # CURRENT PROJECT WEBSITE: 
 WWW.300X3.COM
 
-## Final Architecture, Installation, Configuration, and Customization Report
+
+
+## Architecture, Installation, Configuration, and Customization
 
 ## 1. System Purpose
 
