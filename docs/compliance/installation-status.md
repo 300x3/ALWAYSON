@@ -19,9 +19,12 @@ Date: 2026-08-24 · Operator host: Kubuntu/Ubuntu 26.04 LTS workstation
 
 1. ~~nginx on :80~~ — RESOLVED: stopped and disabled at operator direction; port 80 clear.
    keep+allowlist, repurpose as ALWAYS ON ingress, or stop.
-2. **KDE Connect on *:1716** — RESOLVED 2026-08-24 (autostart hidden, daemon stopped)
-   but RECURRED as of 2026-08-26 (:1716 listening again after update/reboot).
-   Apply a durable disable or grant an explicit allowlist entry.
+2. ~~**KDE Connect on *:1716**~~ — RESOLVED 2026-08-28: verified the kdeconnect
+   package, binary, autostart entry, user unit, and process are all absent on
+   the current host; :1716 confirmed not listening. The 2026-08-26 recurrence
+   no longer reproduces. Residual control (operator-run, requires sudo):
+   `sudo ufw deny 1716/tcp comment 'KDE Connect guard'` — pending.
+   Re-verify after any system update that reintroduces kdeconnect.
 3. **Existing PostgreSQL 18 cluster + Redis** on host loopback — PARTIALLY DECIDED
    2026-08-24: WebODM uses container-scoped db/broker on ao-mapping; sales-db runs
    container-scoped postgres@pinned digest under alwayson-sales; **cordadb provisioned
