@@ -1,6 +1,7 @@
 ![ALWAYS ON — WEBSITEMAIN](assets/WEBSITEMAIN.png)
 
-
+# PROJECT NAME:
+ALWAYS ON
 # APPLICABLE LICENSE: 
 WWW.CREATIVECOMMONS.ORG (CC-BY-NC-SA)
 PROJECT START ~2010 (BUILDING) ~2012 (DRONE) ~2023 (LINUX SYSTEMS)
@@ -8,7 +9,7 @@ PROJECT START ~2010 (BUILDING) ~2012 (DRONE) ~2023 (LINUX SYSTEMS)
 https://archive.org/details/@scott_widmann
 # CURRENT PROJECT WEBSITE: 
 WWW.300X3.COM
-# ALWAYS ON
+
 ## Final Architecture, Installation, Configuration, and Customization Report
 
 ## 1. System Purpose
@@ -59,9 +60,6 @@ Podman is the only container runtime. Containers are managed through systemd Qua
 | Monitoring | Prometheus-compatible metrics, alerts, systemd/Podman health checks, protected administration access |
 | Backup | PostgreSQL/Corda-aware backups, restic or equivalent encrypted backup, scheduled restore testing |
 
-WebODM supports a Podman deployment path, though its standard tooling may expect Docker-compatible commands that Podman can provide.  ROS 2 lyrical and Gazebo 10.5.0 are the installed simulation baseline (operator-approved deviation from the originally drafted Jazzy/Harmonic pair, recorded 2026-08-24 in `config/platform/version-matrix.yaml`). [docs.webodm](https://docs.webodm.org/tutorials/using-podman/)
-
-*Retained from the repository README summary — implementation/state notes.*
 
 ## Host facts (§1.1, §2.2)
 
@@ -134,20 +132,23 @@ Fabrication ROS/Gazebo ───────────────────
 
 The public pCloud site has no direct route to the Kubuntu host’s field, mapping, simulation, database, AI, Podman, or Corda-core services.
 
-## 1.3 Isolation Domains
+## 1.3 Domains (strict isolation)
 
-| Domain | Services | Public exposure | Permitted output |
-|---|---|---:|---|
-| Sales/AI | Sales API, sales DB, Mastodon adapter, OpenClaw, LM Studio | No direct host exposure by default | Signed order, receipt, entitlement manifests |
-| Payment | Provider webhook verifier, payment adapter | No | Verified payment state only |
-| Field | Heltec gateway, RNS, MeshChatX, telemetry spool, mission-release service | No | Signed telemetry and mission manifests |
-| Mapping | WebODM, NodeODM, Redis, mapping DB, imagery intake/exporter | VPN/operator only if required | Signed mapping-deliverable manifests |
-| Vehicle simulation | ROS 2, Gazebo, ArduPilot SITL, MAVLink, QGroundControl simulation, SB3 | No | Signed vehicle-simulation manifests |
-| Fabrication simulation | ROS 2, Gazebo, robot/facility model services | No | Signed facility-simulation manifests |
-| Ledger ingest | Mutual TLS API, validation, signature checks, audit, Corda client | No | Corda receipt IDs/statuses |
-| Ledger core | Corda node, Corda DB, certificate/keystore material | No | None directly |
-| Archive | pCloud replication, private/encrypted IPFS staging/pinning | No | Archive/replication manifests |
-| Administration | Metrics, logs, alerting, backup control | VPN or allowlisted only | Operational reports |
+| Podman network | Purpose | Public exposure | Permitted output |
+|---|---|---|---|
+| `ao-sales` | Sales API, sales PostgreSQL, Mastodon adapter, OpenClaw, LM Studio | No direct host exposure by default | Signed order/receipt/entitlement manifests |
+| `ao-payment` | Provider webhook verifier, payment adapter | No | Verified payment state only |
+| `ao-field` | Heltec gateway, RNS/MeshChatX, telemetry spool, mission-release service | No | Signed telemetry and mission manifests |
+| `ao-mapping` | WebODM, NodeODM, Redis, mapping DB, imagery intake/exporter | VPN/operator only if required | Signed mapping-deliverable manifests |
+| `ao-sim-vehicle` | ROS 2, Gazebo, ArduPilot SITL, MAVLink, QGroundControl sim | No | Signed vehicle-simulation manifests |
+| `ao-sim-fabrication` | ROS 2, Gazebo, robot-arm cells, 3D printer, LPBF, facility model | No | Signed fabrication-simulation manifests |
+| `ao-ledger-ingest` | Mutual TLS validation gateway, authorization, audit | No | Corda receipt IDs/statuses |
+| `ao-ledger-core` | Corda node, Corda PostgreSQL, certificate/keystore material | No | None directly |
+| `ao-data` | Shared data plumbing (narrow) | No | Controlled references only |
+| `ao-admin` | Monitoring/backups — VPN or allowlisted only | VPN/allowlist only | Operational reports |
+
+**All networks are `Internal=true`.** CIDRs recorded in
+`config/platform/network-cidrs.yaml`.
 
 ### Prohibited paths
 
@@ -184,39 +185,8 @@ All cross-domain requests require mutual TLS, a dedicated service certificate, s
 
 *Retained from the repository README summary — implementation/state notes.*
 
-## Domains (strict isolation — §1.3)
 
-| Podman network | Purpose | Public exposure | Permitted output |
-|---|---|---|---|
-| `ao-sales` | Sales API, sales PostgreSQL, Mastodon adapter, OpenClaw, LM Studio | No direct host exposure by default | Signed order/receipt/entitlement manifests |
-| `ao-payment` | Provider webhook verifier, payment adapter | No | Verified payment state only |
-| `ao-field` | Heltec gateway, RNS/MeshChatX, telemetry spool, mission-release service | No | Signed telemetry and mission manifests |
-| `ao-mapping` | WebODM, NodeODM, Redis, mapping DB, imagery intake/exporter | VPN/operator only if required | Signed mapping-deliverable manifests |
-| `ao-sim-vehicle` | ROS 2, Gazebo, ArduPilot SITL, MAVLink, QGroundControl sim | No | Signed vehicle-simulation manifests |
-| `ao-sim-fabrication` | ROS 2, Gazebo, robot-arm cells, 3D printer, LPBF, facility model | No | Signed fabrication-simulation manifests |
-| `ao-ledger-ingest` | Mutual TLS validation gateway, authorization, audit | No | Corda receipt IDs/statuses |
-| `ao-ledger-core` | Corda node, Corda PostgreSQL, certificate/keystore material | No | None directly |
-| `ao-data` | Shared data plumbing (narrow) | No | Controlled references only |
-| `ao-admin` | Monitoring/backups — VPN or allowlisted only | VPN/allowlist only | Operational reports |
 
-**All networks are `Internal=true`.** CIDRs recorded in
-`config/platform/network-cidrs.yaml`.
-
-### Prohibited cross-domain paths (§1.3)
-
-Sales/AI never reaches MAVLink, ArduPilot, ROS, Gazebo, LoRa, RNS, MeshChatX,
-WebODM workers, raw imagery, or Corda core. Payment never reaches OpenClaw,
-LM Studio, Mastodon, field, mapping, or simulation services. Simulation never
-touches live machinery, sales, payments, or Corda core. Public internet never
-reaches PostgreSQL, Redis, WebODM workers, LM Studio, Corda, ROS, MAVLink,
-Gazebo, QGroundControl, RNS, or MeshChatX.
-
-### Approved data paths (§1.3)
-
-Sales/Payment/Field/Mapping/Simulation event manifests → ledger-ingestion
-gateway → Corda transaction → receipt/entitlement/provenance state. All
-cross-domain requests require mutual TLS, signed payloads, schema validation,
-timestamp, nonce, idempotency key, and audit record.
 
 ## 1.4 Public Storefront
 
@@ -807,11 +777,6 @@ customer PII, raw telemetry, drone images, GeoTIFFs/point clouds, ROS bags,
 large simulation outputs, sensitive LLM data, or private keys. ONLINE - CORDA MANAGES SALES OF DIGITAL DATA, NOT 
 SALES OF PHYSICAL ITEMS LIKE BUILDINGS OR PRODUCTS. ON-SITE CORDA MANAGES ALL SALES IN ORDER TO ELIMINATE MARKUPS FOR CARD PROCESSING AND TO SUPPORT BLOCKCHAIN BASED MARKETING, USERS TRANSFER FUNDS FROM EXISTING PAYMENT SYSTEMS INTO USDC FOR USE WITH CORDA ON-SITE. LARGE SALES ARE MANAGED THROUGH ZELLE TO ELIMINATE TRANSACTION FEES. FINAL SALES USING OTHER SYSTEMS: PAYPAL/ZELLE/CARD-PROCESSING ARE FOLLOWED UP WITH A CONNECTION TO THE CORDA LEDGER.
 
-Deployment deviation (operator-approved 2026-08-23/24): the Corda database
-(`cordadb`) is provisioned on the **host PostgreSQL 18 cluster** rather than a
-dedicated container-scoped instance — matching the ledger-scaffold journal note
-"provisioning cordadb on host PostgreSQL (operator-approved reuse)". Corda node
-deployment itself remains held pending the operator key/certificate ceremony.
 
 # Section 2 — Agentic AI Software Installation Instructions
 
@@ -1601,20 +1566,6 @@ so the single operator origin is `http://localhost:3000`.
 | streaming | `ghcr.io/mastodon/mastodon-streaming:v4.3.7` | separate image since v4.3 |
 | front proxy | `nginx:alpine` + `config/mastodon/nginx-300x3.conf` | single origin; rewrites `Host: localhost`; routes `/api/v1/streaming` |
 
-### Gotchas recorded (these cost real debugging time)
-
-1. `force_ssl = true` is hardcoded in Mastodon's `production.rb` — plain-http
-   clients get 301s to https and Secure cookies break OAuth. Patch honors
-   `RAILS_FORCE_SSL` (loopback-only; production keeps SSL).
-2. Mastodon rejects requests whose `Host` is neither `LOCAL_DOMAIN` nor
-   `WEB_DOMAIN` (403, empty body). `127.0.0.1` is **not** allowed; clients must
-   use `localhost`, or the proxy must rewrite `Host`.
-3. v4.3.7 disables the OAuth **password grant** — bot tokens are minted via
-   `Doorkeeper::AccessToken.create!` (operator-controlled local path) or the
-   normal browser authorization-code flow.
-4. New accounts may land `approved=false` ("Your login is currently pending
-   approval") — approve before API use.
-
 ### Accounts, secrets, and posting
 
 | Account | Email | Role |
@@ -1866,21 +1817,9 @@ This finalized structure preserves strict separation while allowing authorized, 
 *Retained from the repository README summary — implementation/state notes.*
 
 
-
-
-
 ## Status
 See `VERSION`, `git log`, and `docs/compliance/installation-status.md`.
 
-
-### AGENTIC LANGUAGE MODEL DIRECTION:
-1. REVIEW THIS README https://github.com/300x3/ALWAYSON/blob/main/README.md   AND ITS LOCAL WORKING FOLDER   /ALWAYSON   -    THEN PROCEED WITH OPENING THE MASTODON SERVER IN THE TOKODON CLIENT, WHILE LOGGING IN AS 300X3@POSTEO.NET (ADMIN PERMISSION FOR THE SERVER) AND HAVING A CONVERSATION WITH THE OPENCLAW BOT WHICH MUST BE TIED TO A RUNNING LMS LLM (RUNNING LOCALLY)
-2. REVIEW THIS README https://github.com/300x3/ALWAYSON/blob/main/README.md   AND ITS LOCAL WORKING FOLDER   /ALWAYSON   -    FOCUS ON THE GRAPHIC USER INTERFACE SECTION AND IDENTIFY WHAT STILL NEEDS TO BE IMPLEMENTED.
-3. REVIEW THESE ITEMS AND CONFIRM THEY ARE EITHER COMPLETE OR OUTSTANDING, IF OUTSTANDING PROCEED WITH THE RELATED WORK:
-  - Sales/payment/Mastodon: need payment-provider selection, pCloud credentials,Mastodon OAuth, and sales API implementation. "BIGCOMMERCE.COM" IS PREFERRED IN ORDER TO HAVE ACCESS TO MANY MARKETS ALONG WITH INVENTORY CONTROL, ETC. HOWEVER ITS REQUIREMENT FOR A MONTHLY PAYMENT IS PROHIBITIVE.
-  - Ledger: Corda node requires operator key/cert ceremony (§7 of runbook)
-4. Backups: pCloud off-host replication pending credential provisioning
-5. Field domain: Heltec V3 deferred pending physical connection, REQUEST THAT HELTEC V3 BE PLUGGED IN BY USB-C
 
 
 ## Current status (as of 2026-08-25)
@@ -1904,9 +1843,34 @@ See `VERSION`, `git log`, and `docs/compliance/installation-status.md`.
 | 15 | Isolated restore test | ✅ Done (file hash OK; DB 14/14 tables restored) |
 | 16 | Blockers/deviations/risks | ✅ Maintained in installation-status.md |
 
-### DETAILED ISSUES LIST:
-(ALL DETAILED ISSUES/BUGS ARE TO BE LISTED BELOW THIS HEADER WITH DEDICATED NUMBERING AND DATE FOUND.)
 
+### DETAILED WORK / ISSUES LIST
+(ALL DETAILEDWORK AND ISSUES(BUGS) ARE TO BE LISTED BELOW THIS HEADER WITH DEDICATED NUMBERING AND DATE FOUND.)
+
+BEFORE BEGINNING WORK ON THESE ISSUES, REVIEW THE 
+README: https://github.com/300x3/ALWAYSON/blob/main/README.md
+AND ITS LOCAL WORKING FOLDER:   /ALWAYSON
+
+
+### WORK 000010
+
+ PROCEED WITH OPENING THE MASTODON SERVER IN THE TOKODON CLIENT, WHILE LOGGING IN AS 300X3@POSTEO.NET (ADMIN PERMISSION FOR THE SERVER) AND HAVING A CONVERSATION WITH THE OPENCLAW BOT WHICH MUST BE TIED TO A RUNNING LMS LLM (RUNNING LOCALLY)
+
+### WORK 000020
+ 
+2. FOCUS ON THE GRAPHIC USER INTERFACE SECTION AND IDENTIFY WHAT STILL NEEDS TO BE IMPLEMENTED.
+
+### WORK 000030
+
+3. REVIEW THESE ITEMS AND CONFIRM THEY ARE EITHER COMPLETE OR OUTSTANDING, IF OUTSTANDING PROCEED WITH THE RELATED WORK:
+  - Sales/payment/Mastodon: need payment-provider selection, pCloud credentials,Mastodon OAuth, and sales API implementation. "BIGCOMMERCE.COM" IS PREFERRED IN ORDER TO HAVE ACCESS TO MANY MARKETS ALONG WITH INVENTORY CONTROL, ETC. HOWEVER ITS REQUIREMENT FOR A MONTHLY PAYMENT IS PROHIBITIVE.
+  - Ledger: Corda node requires operator key/cert ceremony (§7 of runbook)
+
+### WORK 000040
+4. Backups: pCloud off-host replication pending credential provisioning, CONFIRM CREDENTIALS ARE AVAILABLE IN KDE WALLET.
+
+### WORK 000050
+5. Field domain: Heltec V3 deferred pending physical connection, REQUEST THAT HELTEC V3 BE PLUGGED IN BY USB-C
 
 ### ISSUE 000100 - Host runtime re-check (verified 2026-08-26)
 
@@ -1953,12 +1917,31 @@ An empty stray directory `/media/scottw/500GBPHOTOGRAM/incom/` (a typo'd duplica
 7. version-matrix refreshed: kernel 7.0.0-30, Quadlet capability noted,
    ArduPilot commit e57b8a47d3 filled; QGC/SB3 remain not-installed markers.
 
+### ISSUE 000500 - Architecture implementation deviations and pending decisions (consolidated 2026-08-28)
 
+The following implementation-state items were moved from architecture and configuration sections so the main document describes the intended system design while this issue records deployment-specific status and deviations.
+
+1. **Simulation baseline deviation:** ROS 2 `lyrical` and Gazebo `10.5.0` are the installed baseline instead of the originally drafted Jazzy/Harmonic pair. The operator-approved deviation was recorded on 2026-08-24 in `config/platform/version-matrix.yaml`.
+2. **Corda database placement deviation:** `cordadb` is provisioned on the host PostgreSQL 18 cluster rather than a dedicated container-scoped PostgreSQL instance. This was operator-approved and recorded in the ledger scaffold journal.
+3. **Corda node deployment blocker:** Corda node deployment remains pending the operator key and certificate ceremony.
+
+## ISSUE 000600 - MASTODON SETUP
+
+1. `force_ssl = true` is hardcoded in Mastodon's `production.rb` — plain-http
+   clients get 301s to https and Secure cookies break OAuth. Patch honors
+   `RAILS_FORCE_SSL` (loopback-only; production keeps SSL).
+2. Mastodon rejects requests whose `Host` is neither `LOCAL_DOMAIN` nor
+   `WEB_DOMAIN` (403, empty body). `127.0.0.1` is **not** allowed; clients must
+   use `localhost`, or the proxy must rewrite `Host`.
+3. v4.3.7 disables the OAuth **password grant** — bot tokens are minted via
+   `Doorkeeper::AccessToken.create!` (operator-controlled local path) or the
+   normal browser authorization-code flow.
+4. New accounts may land `approved=false` ("Your login is currently pending
+   approval") — approve before API use.
+
+   
+   
 ---
 SIMULATION 
 
 ![SIMULATION](assets/SIMULATION.png)
-
-
-
-
