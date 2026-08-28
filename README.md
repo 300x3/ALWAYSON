@@ -34,23 +34,6 @@ The host is a Kubuntu 26 LTS-class workstation with an AMD CPU and EVGA NVIDIA G
 
 Podman is the only container runtime. Containers are managed through systemd Quadlet definitions rather than fragile shell wrappers or Docker Compose. Quadlet provides declarative systemd integration for Podman-managed containers, volumes, networks, and pods. [redhat](https://www.redhat.com/en/blog/quadlet-podman)
 
-***
-
-*Retained from the repository README summary — implementation/state notes.*
-
-# ALWAYS ON
-
-SUPPORTING SERVER SOFTWARE INTEGRATION FOR AUTOMATED: LIVE/WORK BUILDING + DRONE/VEHICLE. 
-INCLUDES BASIC SETUP FOR AUTOMATED LEARNING VIA SIMULATION AS WELL AS ON-SITE BLOCKCHAIN BASED
-ACCOUNTING.
-
-Compartmentalized, on-premises platform for drone telemetry/communications,
-photogrammetry/mapping, vehicle and fabrication simulation, static public
-sales content, hosted payment processing (STANDARD RECEIPTS/CARDS AND BIG BOX MARKETS), Mastodon-based customer support,
-LM Studio/OpenClaw AI assistance, and Corda-backed provenance, receipts,
-entitlement, and data-integrity records; with encrypted pCloud archival
-replication and controlled IPFS artifact distribution.
-
 # Section 1 — Final Architecture
 
 ## 1.1 Platform Baseline
