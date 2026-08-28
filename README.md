@@ -426,6 +426,11 @@ of the production payment flow unless separately approved, documented for legal
 and accounting treatment, and implemented with appropriate controls. They must
 not be described as mechanisms for bypassing payment-processing fees.
 
+**Approved 2026-08-28 (§18.4):** Zelle is approved for direct US payments using
+the manual-reconciliation path: operator verifies receipt out-of-band, creates
+an auditable reference record, and only then may a receipt manifest proceed to
+`ao-ledger-ingest`. No automated Zelle verification exists.
+
 ## 7.3 Sales and Receipt Sequence
 
 ```text
@@ -1543,24 +1548,29 @@ without explicit operator approval and recorded ceremony output.
 
 ## 18.4 Payment Provider Decision
 
-**Status:** Open.
+**Status:** Decided 2026-08-28.
 
-**Decision required:** Select a provider-hosted checkout/payment workflow.
+**Decision:** PayPal (hosted checkout, provider-signed webhooks) plus **Zelle**
+for direct US payments, used from an operator-built custom HTML storefront.
+The storefront HTML will be developed externally (lovable.dev) and linked into
+this project; it remains static and is served from the pCloud Public Folder.
 
-**Evaluation requirements:**
+**Controls required before enabling:**
 
-- Card and PayPal support if desired.
-- Webhook signature verification.
-- Refund and dispute workflow.
-- Exportable accounting records.
-- Fee model and recurring cost.
-- Inventory/catalog integration if needed.
-- Data-processing and privacy terms.
-- Ability to operate from a static storefront.
+- PayPal: hosted checkout only; signature-verified webhook via
+  `ao-ingress-payment` -> `ao-payment` verifier; credentials via §14.1 secret
+  delivery; no PayPal secret material in the repo, logs, or pCloud.
+- Zelle: manual reconciliation path only (equivalent to the wire-transfer
+  policy in §7.2): operator-verified receipt, auditable reference record,
+  explicit operator approval per §7.2. Zelle provides no public webhooks/API,
+  so no automated verification is permitted until a documented control exists.
+- Storefront: static HTML only; no server-side code in the pCloud Public
+  Folder; all dynamic behavior goes through the payment and community
+  adapters. Evaluate the lovable.dev-produced HTML against §4 data policy and
+  the prohibited-paths list before linking.
 
-A marketplace-oriented platform such as BigCommerce may be evaluated, but its
-recurring cost, required features, and compatibility with the static pCloud
-storefront model must be documented before adoption.
+The prior provider-evaluation draft is retained at
+`docs/compliance/payment-provider-evaluation.md` for record.
 
 ---
 
