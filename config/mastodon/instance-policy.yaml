@@ -6,7 +6,7 @@ mastodon:
   hosting: "local, self-hosted, containerized on the internal ao-sales network"
   operator_client: "Tokodon (KDE, /usr/bin/tokodon) - on the operator desktop"
   protocol: "http only on 127.0.0.1:3000 loopback - NO public listener (listener-allowlist stays empty)"
-  local_domain: "localhost"
+  local_domain: "300x3"   # server branded 300X3 (operator web site www.300x3.com)
   public_federation: false            # offline/local instance; not on the fediverse
   approved_pub_host: null             # no outbound posting to external hosts yet
 
