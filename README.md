@@ -202,6 +202,17 @@ mapping, simulation, database, AI, Podman, or Corda-core services.
 | Archive | Encrypted off-host replication and controlled IPFS workflow | Local restic backup and restore validation complete | Partially implemented | Provision pCloud/archive credentials and test replication |
 | Backup and restore | Encrypted backup plus recurring restore testing | Encrypted restic snapshot and isolated restore test complete | Implemented | Automate recurring schedule |
 
+
+## 3.3 DATABASES
+
+PostgreSQL 18 host cluster, loopback-only
+├── salesdb       # Authoritative sales system
+├── cordadb       # Corda core persistence
+├── mappingdb     # WebODM mapping persistence
+├── grafana       # Optional; Grafana private metadata
+├── metabase      # Optional; Metabase private metadata
+└── postgres      # Administrative/maintenance database
+
 ---
 
 # 4. Security, Isolation, and Data Policy
