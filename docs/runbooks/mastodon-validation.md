@@ -21,7 +21,35 @@ Root cause of "blocked": the `ao-mastodon-*` user units belong to the
 `alwayson-sales` service account and are not installed/enabled in its systemd
 session. All management commands for that account require operator sudo.
 
-## Operator session checklist (interactive, sudo required)
+## Progress 2026-08-28 (agent session, pkexec)
+
+- Quadlet units installed into
+  `/home/alwayson-sales/.config/containers/systemd/sales/` and aligned with the
+  deployed environment:
+  - `EnvironmentFile=%h/secrets/mastodon.env` (env mirrored from
+    `/ALWAYSON/secrets/mastodon/mastodon.env`, owned `alwayson-sales`, 0600;
+    repo units updated — the sales account cannot read `/ALWAYSON/secrets`).
+  - Network references corrected to `ao-sales-network.network` /
+    `ao-sales-network.service` (the actually deployed network unit).
+  - db image reference aligned to `docker.io/library/postgres@sha256:a65e…`.
+- `systemctl --user daemon-reload` completed in the sales session.
+- `ao-sales-db` and `ao-sales-network` confirmed running.
+- **Image pull FAILED** (runbook §2): `docker.io/mastodon/mastodon:v4.3.7`
+  anonymous pull denied; `mirror.gcr.io` has no such manifest.
+
+## Remaining operator step (authenticated TTY)
+
+```bash
+pkexec bash   # or any authenticated root shell
+su -s /bin/bash alwayson-sales
+podman login docker.io        # once, if rate-limited
+podman pull docker.io/mastodon/mastodon:v4.3.7
+exit
+systemctl --user enable --now ao-mastodon-db ao-mastodon-redis \
+  ao-mastodon-web ao-mastodon-sidekiq ao-mastodon-streaming
+```
+Then resume the checklist at step 2 (health verification).
+
 
 1. **Bring up the stack** (per `docs/runbooks/mastodon.md` §2–3):
    ```bash

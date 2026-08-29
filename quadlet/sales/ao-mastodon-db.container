@@ -2,14 +2,14 @@
 # ALWAYS ON Mastodon PostgreSQL - container-scoped on ao-sales (no host PG reuse)
 [Unit]
 Description=ALWAYS ON Mastodon PostgreSQL (mastodon-db)
-After=network-online.target ao-sales.network
-Wants=network-online.target ao-sales.network
+After=network-online.target ao-sales-network.service
+Wants=network-online.target ao-sales-network.service
 
 [Container]
 Image=docker.io/library/postgres@sha256:a65e6a841f6c4dbc4abda3d67fa3bc21824e9611064fcd82e87ea67aad60a0c3
 ContainerName=mastodon-db
-Network=ao-sales.network
-EnvironmentFile=/ALWAYSON/secrets/mastodon/mastodon.env
+Network=ao-sales-network.network
+EnvironmentFile=%h/secrets/mastodon.env
 NoNewPrivileges=true
 HealthCmd=pg_isready -U mastodon
 HealthInterval=30s

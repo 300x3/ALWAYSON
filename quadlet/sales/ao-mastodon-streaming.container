@@ -2,14 +2,14 @@
 # ALWAYS ON Mastodon streaming API - loopback-only (127.0.0.1:4000)
 [Unit]
 Description=ALWAYS ON Mastodon Streaming
-After=ao-mastodon-redis.service ao-sales.network
+After=ao-mastodon-redis.service ao-sales-network.service
 Wants=ao-mastodon-redis.service
 
 [Container]
 Image=docker.io/mastodon/mastodon:v4.3.7
 ContainerName=mastodon-streaming
-Network=ao-sales.network
-EnvironmentFile=/ALWAYSON/secrets/mastodon/mastodon.env
+Network=ao-sales-network.network
+EnvironmentFile=%h/secrets/mastodon.env
 PublishPort=127.0.0.1:4000:4000
 NoNewPrivileges=true
 Exec=/bin/sh -c "node ./streaming/index.js"
