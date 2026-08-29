@@ -1,0 +1,192 @@
+# ALWAYS ON — GUI Boundary Matrix (Section 6.A machine-readable inventory)
+# Implements WORK 000020 (Graphic User Interface Review).
+# Authority: README Section 6.A. This file is the implementation inventory;
+# it does not redefine, weaken, or replace Section 6.A.
+# Last verified: 2026-08-29 on the development workstation.
+
+matrix:
+  version: 1
+  reviewed: "2026-08-29"
+  podman_networks_verified:
+    - ao-admin
+    - ao-data
+    - ao-field
+    - ao-ledger-core
+    - ao-ledger-ingest
+    - ao-mapping
+    - ao-payment
+    - ao-sales
+    - ao-sim-fabrication
+    - ao-sim-vehicle
+
+entries:
+
+  - id: webodm-operator
+    scope_item: "WebODM operator workflow"
+    gui: "WebODM browser UI (host browser, loopback)"
+    purpose: "Operate photogrammetry processing: upload image sets, run WebODM tasks, review orthophoto output."
+    runtime_placement:
+      browser: "host; no Podman network attachment"
+      containers: [ao-webodm-web, ao-webodm-worker, ao-webodm-broker, ao-webodm-db, ao-nodeodm]
+    podman_network: ao-mapping
+    no_access_networks: [ao-admin, ao-data, ao-field, ao-ledger-core, ao-ledger-ingest, ao-payment, ao-sales, ao-sim-fabrication, ao-sim-vehicle]
+    data_source: "Dedicated photogrammetry volume on /media/scottw/500GBPHOTOGRAM/"
+    access_boundary: "Loopback WebODM listener only; VPN/authenticated remote access requires separate approval."
+    startup: "systemctl --user start ao-webodm-web.service ao-webodm-worker.service ao-webodm-broker.service ao-webodm-db.service ao-nodeodm.service"
+    health_check: "systemctl --user is-active ao-webodm-web.service && curl -fsS http://127.0.0.1:<approved-webodm-port>/ (loopback only)"
+    shutdown: "systemctl --user stop ao-webodm-web.service ao-webodm-worker.service ao-webodm-broker.service ao-nodeodm.service (leave ao-webodm-db.service or stop with worker awareness)"
+    status: "implemented_with_deviation"
+    status_notes: "Smoke test apt-76 (76 images, GPU orthophoto) passed. Final rootless/system/mixed designation still required (ISSUE 000500)."
+
+  - id: qgroundcontrol-simulation
+    scope_item: "QGroundControl simulation workflow"
+    gui: "QGroundControl host application (AppImage: ~/Applications/QGroundControl-x86_64.AppImage; installed, unvalidated)"
+    purpose: "Simulated-vehicle mission planning and monitoring against ArduPilot SITL via MAVLink router."
+    runtime_placement:
+      app: "host; no Podman network attachment"
+      simulation: "ArduPilot SITL + MAVLink router in ao-sim-vehicle"
+    podman_network: ao-sim-vehicle
+    no_access_networks: [ao-admin, ao-data, ao-field, ao-ledger-core, ao-ledger-ingest, ao-mapping, ao-payment, ao-sales, ao-sim-fabrication]
+    data_source: "SITL MAVLink endpoint on approved loopback UDP/TCP port; ROS_DOMAIN_ID=21; GZ_PARTITION=alwayson_vehicle_sim"
+    access_boundary: "Host app connects only to the local SITL/router endpoint. Must never reach live flight controllers, field radios, or real telemetry."
+    startup: "Run AppImage locally; start vehicle simulation stack (quadlet definitions pending in /ALWAYSON/quadlet/sim-vehicle/)"
+    health_check: "QGC status indicator shows simulated vehicle heartbeats; MAVLink router process alive"
+    shutdown: "Close QGC before stopping SITL/MAVLink router"
+    status: "planned"
+    status_notes: "Headless vehicle simulation and ROS-Gazebo bridge verified; interactive QGC workflow unvalidated."
+
+  - id: gazebo-vehicle-visualization
+    scope_item: "Gazebo visualization workflow (vehicle)"
+    gui: "Gazebo Sim 10.5.0 client (host, when visualization enabled)"
+    purpose: "Visual inspection of vehicle simulation worlds, sensors, and fault scenarios."
+    runtime_placement:
+      gui: "host; no Podman network attachment"
+      simulation: "ROS 2 Lyrical / Gazebo Sim 10.5.0 services in ao-sim-vehicle"
+    podman_network: ao-sim-vehicle
+    no_access_networks: [ao-admin, ao-data, ao-field, ao-ledger-core, ao-ledger-ingest, ao-mapping, ao-payment, ao-sales, ao-sim-fabrication]
+    data_source: "Vehicle sim Gazebo transport/ROS 2 topics; ROS_DOMAIN_ID=21; GZ_PARTITION=alwayson_vehicle_sim"
+    access_boundary: "GUI client joins only the vehicle-sim DDS/Gazebo partition; no other network membership."
+    startup: "Launch gz sim client with GZ_PARTITION=alwayson_vehicle_sim while headless server is running"
+    health_check: "Client renders world; topic echo on /clock and vehicle odom succeeds"
+    shutdown: "Close client; server continues headless run independently"
+    status: "planned"
+    status_notes: "Headless 300-iteration runtime verified; separate DDS/interface policy still required (Section 6.A.1 row 4)."
+
+  - id: gazebo-fabrication-visualization
+    scope_item: "Gazebo visualization workflow (fabrication)"
+    gui: "Gazebo Sim 10.5.0 client (host, when visualization enabled)"
+    purpose: "Visual inspection of robot cells, storage/kitchen models, and safety-zone scenarios."
+    runtime_placement:
+      gui: "host; no Podman network attachment"
+      simulation: "ROS 2 Lyrical / Gazebo Sim 10.5.0 services in ao-sim-fabrication"
+    podman_network: ao-sim-fabrication
+    no_access_networks: [ao-admin, ao-data, ao-field, ao-ledger-core, ao-ledger-ingest, ao-mapping, ao-payment, ao-sales, ao-sim-vehicle]
+    data_source: "Fabrication sim Gazebo transport/ROS 2 topics; ROS_DOMAIN_ID=22; GZ_PARTITION=alwayson_fabrication_sim"
+    access_boundary: "GUI client joins only the fabrication-sim DDS/Gazebo partition."
+    startup: "Launch gz sim client with GZ_PARTITION=alwayson_fabrication_sim while headless server is running"
+    health_check: "Client renders world; fabrication task topics respond"
+    shutdown: "Close client; server continues headless run independently"
+    status: "planned"
+    status_notes: "Headless 300-iteration runtime verified."
+
+  - id: tokodon-mastodon
+    scope_item: "Tokodon/Mastodon workflow"
+    gui: "Tokodon host client (/usr/bin/tokodon, installed) + Mastodon web (loopback)"
+    purpose: "Operator administration of the local 300X3 Mastodon instance and community follow-up review."
+    runtime_placement:
+      client: "host; no Podman network attachment"
+      containers: [ao-mastodon-web, ao-mastodon-streaming, ao-mastodon-sidekiq, ao-mastodon-db, ao-mastodon-redis, ao-sales-nginx-proxy]
+    podman_network: ao-sales
+    no_access_networks: [ao-admin, ao-data, ao-field, ao-ledger-core, ao-ledger-ingest, ao-mapping, ao-payment, ao-sim-fabrication, ao-sim-vehicle]
+    data_source: "Local Mastodon web/streaming on loopback (verified listeners 127.0.0.1:3000 via nginx proxy, 127.0.0.1:4000 streaming); host PostgreSQL 127.0.0.1:5432 and Redis 127.0.0.1:6379 loopback-only"
+    access_boundary: "Tokodon uses approved localhost origin; external publication only through ao-egress-community when enabled."
+    startup: "systemctl --user start ao-mastodon-db.service ao-mastodon-redis.service ao-mastodon-sidekiq.service ao-mastodon-web.service ao-mastodon-streaming.service (proxy as configured); then launch Tokodon"
+    health_check: "Loopback HTTP 200 on web/streaming origins; systemctl --user is-active for all five units; ISSUE 000600 loopback SSL caveats apply"
+    shutdown: "Quit Tokodon; systemctl --user stop mastodon units (web, streaming, sidekiq, then db/redis)"
+    status: "in_progress"
+    status_notes: "Service stack deployed (containers present, currently exited); Tokodon/OAuth validation remains under WORK 000010."
+
+  - id: lmstudio-openclaw
+    scope_item: "Local LM Studio/OpenClaw workflow"
+    gui: "LM Studio host desktop app; OpenClaw restricted support service"
+    purpose: "Local-LLM-assisted support drafting; no external publication without explicit operator approval."
+    runtime_placement:
+      lmstudio: "host; no Podman network attachment while host-local"
+      openclaw: "ao-sales only if containerized"
+    podman_network: ao-sales
+    no_access_networks: [ao-admin, ao-data, ao-field, ao-ledger-core, ao-ledger-ingest, ao-mapping, ao-payment, ao-sim-fabrication, ao-sim-vehicle]
+    data_source: "Approved loopback inference endpoint; candidate unexplained loopback listeners (127.0.0.1:8000, 127.0.0.1:18789) must be positively identified before use (ISSUE 000100 discipline)"
+    access_boundary: "Loopback inference only or narrow authenticated bridge; endpoint and container/host boundary require formalization."
+    startup: "Operator launches LM Studio, loads approved model; OpenClaw starts only after boundary formalization"
+    health_check: "Inference endpoint answers on loopback; OpenClaw draft generation succeeds locally"
+    shutdown: "Quit LM Studio; stop OpenClaw unit if running"
+    status: "in_progress"
+    status_notes: "Blocked on interactive validation under WORK 000010."
+
+  - id: sales-support-admin
+    scope_item: "Sales/support administration workflow"
+    gui: "Metabase (ao-admin) for routine reporting; DBeaver host client for exceptional SQL"
+    purpose: "Order, receipt, fulfillment, entitlement, return, and support-case reporting and controlled administration."
+    runtime_placement:
+      metabase: "container in ao-admin (not yet deployed)"
+      dbeaver: "host; no Podman network attachment"
+    podman_network: ao-admin
+    no_access_networks: [ao-data, ao-field, ao-ledger-core, ao-ledger-ingest, ao-mapping, ao-payment, ao-sales, ao-sim-fabrication, ao-sim-vehicle]
+    data_source: "Read-only reporting views/projections over Sales PostgreSQL (loopback-only, 127.0.0.1:5432) via dedicated least-privilege reporting identities; roles per Section 15.1"
+    access_boundary: "ao-admin receives only approved narrow reporting-view/projection paths; never superuser/owner/migration/backup/payment/Corda credentials; ao-data is not a bypass."
+    startup: "systemctl --user start ao-metabase.service (unit not yet created); DBeaver launched by operator as needed"
+    health_check: "Metabase loopback listener + DB health endpoint; DBeaver connects with reporting identity only"
+    shutdown: "systemctl --user stop ao-metabase.service; close DBeaver"
+    status: "planned"
+    status_notes: "No Metabase container deployed; reporting roles/views required (Section 6.A.1 row 14)."
+
+  - id: monitoring-dashboard
+    scope_item: "Monitoring dashboard"
+    gui: "Grafana (ao-admin) + Prometheus-compatible collectors"
+    purpose: "Operational dashboards and alerts per Section 17.2 (host, Podman, mapping, field, sales, ledger, backup)."
+    runtime_placement:
+      grafana: "container in ao-admin (not yet deployed)"
+      exporters: "individual approved exporter/relay/push paths"
+    podman_network: ao-admin
+    no_access_networks: [ao-data, ao-field, ao-ledger-core, ao-ledger-ingest, ao-mapping, ao-payment, ao-sales, ao-sim-fabrication, ao-sim-vehicle]
+    data_source: "Approved metrics/status paths only; never a general database, shell, container-management, or control path"
+    access_boundary: "ao-admin only; exposed exclusively through VPN or authenticated administration access"
+    startup: "systemctl --user start ao-grafana.service and collector units (not yet created)"
+    health_check: "Grafana /api/health on loopback; collectors reporting; alert rules loaded"
+    shutdown: "systemctl --user stop grafana and collector units"
+    status: "planned"
+    status_notes: "Not deployed; required before production declaration (Section 17.2)."
+
+  - id: backup-status
+    scope_item: "Backup/restore status display"
+    gui: "CLI (restic) today; protected Grafana dashboard when monitoring is deployed"
+    purpose: "Backup last-success age, repository health, restore-test results, queue age (Section 17.2)."
+    runtime_placement:
+      cli: "host; no Podman network attachment"
+      dashboard: "ao-admin once deployed"
+    podman_network: ao-admin
+    no_access_networks: [ao-data, ao-field, ao-ledger-core, ao-ledger-ingest, ao-mapping, ao-payment, ao-sales, ao-sim-fabrication, ao-sim-vehicle]
+    data_source: "restic snapshots (latest verified: 548d9910), restore-test records, backup-policy.yaml"
+    access_boundary: "Credentials confined to backup roles; no GUI receives archive credentials (Section 14.1)"
+    startup: "Operator-run: restic snapshots --latest 10; scheduled jobs per backup-policy.yaml"
+    health_check: "Snapshot age within policy; monthly restore test recorded"
+    shutdown: "n/a (CLI / scheduled jobs)"
+    status: "planned"
+    status_notes: "Backup and one restore test complete; no dedicated GUI display yet."
+
+  - id: field-link-quality
+    scope_item: "Field gateway/link-quality display"
+    gui: "MeshChatX AppImage (~/Applications/ReticulumMeshChatX-v4.8.5-linux-x86_64.AppImage, installed); link-quality display via protected Grafana when deployed"
+    purpose: "Field-link visibility: packet rate, RSSI, SNR, retries, replay rejections, spool depth (Section 17.2)."
+    runtime_placement:
+      appimage: "host; no Podman network attachment"
+      gateway: "Heltec gateway service in ao-field when deployed"
+    podman_network: ao-field
+    no_access_networks: [ao-admin, ao-data, ao-ledger-core, ao-ledger-ingest, ao-mapping, ao-payment, ao-sales, ao-sim-fabrication, ao-sim-vehicle]
+    data_source: "Desktop gateway serial framing/health metrics from /dev/serial/by-id/ Heltec V3 path"
+    access_boundary: "USB serial and radio only; metrics exported to ao-admin by narrow exporter only"
+    startup: "Connect Heltec V3; verify stable /dev/serial/by-id path; start gateway service (not yet deployed)"
+    health_check: "Gateway unit active; signed packets acknowledged; RSSI/SNR within expected range"
+    shutdown: "Stop gateway service before disconnecting Heltec"
+    status: "blocked"
+    status_notes: "Physical Heltec V3 not connected; WORK 000050."
