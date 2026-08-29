@@ -9,7 +9,7 @@
 
 ---
 
-# Architecture, Installation, Configuration, Operations, and Status
+**Architecture, Installation, Configuration, Operations, and Status**
 
 ## Document Status and Reading Guide
 
@@ -65,7 +65,7 @@ and ledger services must not share broad networks, credentials, writable
 storage, databases, or unrestricted host access.
 
 The current workstation is a development, integration, and validation host. It
-uses Kubuntu 26 LTS-class software, an AMD CPU, and an EVGA NVIDIA GTX 1080.
+uses Kubuntu 26.04 LTS software, an AMD CPU, and an EVGA NVIDIA GTX 1080.
 Future compute-intensive production workloads may move to an immersion-cooled
 server rack and a Raspberry Pi edge-computing cluster.
 
@@ -86,7 +86,7 @@ orchestration, or a Docker daemon.
 
 | Area | Architecture requirement |
 |---|---|
-| Host OS | Kubuntu 26 LTS-class workstation |
+| Host OS | Kubuntu 26.04 LTS workstation |
 | Current CPU/GPU | AMD CPU and EVGA NVIDIA GTX 1080 |
 | Future compute | Immersion-cooled server rack and Raspberry Pi edge cluster |
 | Container engine | Podman only |
@@ -137,7 +137,7 @@ orchestration, or a Docker daemon.
                     ┌─────────────────────────────────────┐
                     │ pCloud Public Folder                │
                     │ Static storefront only              │
-                    │ Products -  Docs -  Legal -  Links     │
+                    │ Products - Docs - Legal - Links     │
                     └─────────┬───────────────┬───────────┘
                               │               │
                 Hosted checkout               │ Community/support links
@@ -145,8 +145,8 @@ orchestration, or a Docker daemon.
                               ▼               ▼
                  ┌────────────────────────────────────────┐
                  │ CONTROLLED INGRESS / EGRESS ADAPTERS    │
-                 │ Payment ingress -  Archive egress        │
-                 │ Community egress -  Build/update path    │
+                 │ Payment ingress - Archive egress       │
+                 │ Community egress - Build/update path   │
                  └───────────────┬────────────────────────┘
                                  │
            ┌─────────────────────┼─────────────────────┐
@@ -162,14 +162,14 @@ orchestration, or a Docker daemon.
          ▼                     ▼
              ┌──────────────────────────────────────────┐
              │ LEDGER-INGEST DOMAIN                     │
-             │ mTLS -  authorization -  schema validation │
-             │ signatures -  idempotency -  audit          │
+             │ mTLS - authorization - schema validation │
+             │ signatures - idempotency - audit         │
              └──────────────────┬───────────────────────┘
                                 │
                                 ▼
              ┌──────────────────────────────────────────┐
              │ LEDGER-CORE DOMAIN                       │
-             │ Corda node -  Corda database -  PKI        │
+             │ Corda node - Corda database - PKI        │
              └──────────────────────────────────────────┘
 
 Drone Pi 5 + Waveshare ─ LoRa ─ Heltec V3 ─► FIELD DOMAIN ─────┐
@@ -331,25 +331,6 @@ policy, minimal permissions, and connection logging.
 
 ---
 
-# 6. Component Boundary Matrix
-
-| Component | Owning domain | Inputs accepted | Outputs allowed | Persistent data | External connectivity |
-|---|---|---|---|---|---|
-| Sales API | `ao-sales` | Verified payment state and approved support requests | Signed receipt/entitlement manifests | Sales PostgreSQL | None directly |
-| Payment verifier | `ao-payment` | Provider webhook or approved relay event | Verified normalized payment event | Minimal event and audit record | Through `ao-ingress-payment` only |
-| Mapping intake | `ao-mapping` | Authenticated imagery upload | Validated image-set reference | Intake, validation, quarantine record | None directly |
-| WebODM/NodeODM | `ao-mapping` | Validated mapping task input | Processing output to mapping exporter | Dedicated photogrammetry volume | None directly |
-| Field gateway | `ao-field` | USB serial LoRa frames | Normalized telemetry manifest | Raw packet store and telemetry spool | USB serial and radio only |
-| Vehicle simulator | `ao-sim-vehicle` | Approved scenario/model artifact | Signed simulation manifest | Vehicle simulation data path | None directly |
-| Fabrication simulator | `ao-sim-fabrication` | Approved facility/task model | Signed simulation manifest | Fabrication simulation data path | None directly |
-| Ledger ingestion | `ao-ledger-ingest` | Signed mTLS manifests | Receipt/status response | Audit and idempotency state | Only to ledger core |
-| Ledger core | `ao-ledger-core` | Ledger-ingestion gateway requests only | No direct public output | Corda state and PKI | None directly |
-| Archive adapter | `ao-egress-archive` | Approved encrypted archive bundle | Replication result/status | Staging and transfer log | Outbound only |
-| Community adapter | `ao-egress-community` | Approved publication or support request | Remote delivery/status response | Publication audit log | Outbound only |
-
-d rules that belong to Sections 4, 5, 7–19, and instead references them.
-
-text
 # 6. Component Boundaries, GUI Reporting Tools, and Operator Access
 
 ## 6.1 Component Boundary Matrix
