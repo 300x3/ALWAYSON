@@ -10,3 +10,6 @@ pcloud/restore-cache/
 .env
 !config/mapping/photogrammetry-volume.env
 config/mastodon/patches/
+config/platform/monitoring/grafana.env
+ALWAYSON/secrets/
+logs/operations/
