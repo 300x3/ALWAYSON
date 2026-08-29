@@ -35,7 +35,7 @@ When the current implementation differs from an architecture requirement, the
 difference must be recorded in **Approved Deviations and Open Decisions** with
 a rationale, compensating controls, owner, and resolution condition.
 
-**Last consolidated review:** 2026-08-28
+**Last consolidated review:** 2026-08-29
 
 ---
 
@@ -1692,7 +1692,10 @@ local LM Studio model.
 
 ## WORK 000020 — Graphic User Interface Review
 
-**Status:** Planned.
+**Status:** In progress. First full review pass completed and recorded in the
+machine-readable inventory `config/platform/gui-boundary-matrix.yaml`
+(2026-08-29), covering all nine scope items below. Remaining work: implement
+the planned GUI deployments and close the in-progress/blocked items.
 
 **Objective:** Identify GUI components that remain unimplemented or lack an
 operator workflow ACCORDING TO SECTION 6.A OF THIS README.
@@ -1715,6 +1718,31 @@ operator workflow ACCORDING TO SECTION 6.A OF THIS README.
 - Each GUI has an access boundary.
 - Each GUI has a startup, health-check, and shutdown procedure.
 - Each GUI has a documented data source and no unauthorized cross-domain access.
+
+**Review findings (2026-08-29):**
+
+- WebODM UI: implemented with deviation (smoke test apt-76 passed); operator
+  workflow recorded with startup/health/shutdown procedures.
+- QGroundControl: AppImage installed
+  (`~/Applications/QGroundControl-x86_64.AppImage`) but workflow unvalidated;
+  sim-vehicle Quadlet directory still empty.
+- Gazebo visualization (vehicle and fabrication): headless runtimes verified;
+  GUI clients planned; separate DDS/interface policy still required.
+- Tokodon/Mastodon: Tokodon installed; Mastodon Quadlet stack deployed
+  (containers currently exited); loopback listeners 3000 (nginx proxy) and 4000
+  (streaming) verified; OAuth validation blocked under WORK 000010.
+- LM Studio/OpenClaw: in progress; unexplained loopback listeners
+  (`127.0.0.1:8000`, `127.0.0.1:18789`) recorded for positive identification.
+- Sales/support administration: planned; Metabase not deployed; reporting
+  roles/views per Section 15.1 required.
+- Monitoring dashboard: planned; Grafana/collectors not deployed.
+- Backup/restore status: CLI-only (restic snapshot `548d9910` verified);
+  dashboard display planned.
+- Field gateway/link-quality: blocked under WORK 000050 (Heltec V3 not
+  connected); MeshChatX AppImage installed.
+- Every entry declares its Podman network mapping (or explicit no-attachment),
+  no-access network list, data source, and procedures; no entry grants
+  cross-domain access or an `ao-admin` broad membership.
 
 ## WORK 000030 — Sales, Payment, Mastodon, and Ledger Readiness
 
@@ -1858,6 +1886,7 @@ operator approval. The drive tree now matches the required structure.
 | Host inventory | Inventory report completed | Complete |
 | Photogrammetry drive | UUID verified; directory tree created | Complete |
 | Package/version matrix | Captured and refreshed | Complete |
+| GUI boundary matrix (WORK 000020) | `config/platform/gui-boundary-matrix.yaml` created; 10 entries validated (YAML), covering all Section 6.A scope items | Partial |
 | Rootless Podman and Quadlet | Verified; mixed-store deviation documented | Complete with deviation |
 | GPU runtime | Driver/CDI verified; CPU baseline and GPU smoke completed | Complete |
 | Domain network isolation | Internal workload networks and test verified | Complete |
