@@ -1,0 +1,3 @@
+# Named volume for Metabase application database (H2) and config
+[Volume]
+VolumeName=ao-metabase-data

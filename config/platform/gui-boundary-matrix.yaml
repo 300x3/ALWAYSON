@@ -137,8 +137,8 @@ entries:
     startup: "systemctl --user start ao-metabase.service (unit not yet created); DBeaver launched by operator as needed"
     health_check: "Metabase loopback listener + DB health endpoint; DBeaver connects with reporting identity only"
     shutdown: "systemctl --user stop ao-metabase.service; close DBeaver"
-    status: "planned"
-    status_notes: "No Metabase container deployed; reporting roles/views required (Section 6.A.1 row 14)."
+    status: "in_progress"
+    status_notes: "Metabase deployed (loopback 127.0.0.1:3002, H2 app DB in ao-metabase-data volume). Sales-DB connection deliberately NOT wired: awaits dedicated read-only reporting role on host PostgreSQL (Section 15.1) via pkexec-post-deploy.sh."
 
   - id: monitoring-dashboard
     scope_item: "Monitoring dashboard"
@@ -154,8 +154,8 @@ entries:
     startup: "systemctl --user start ao-grafana.service and collector units (not yet created)"
     health_check: "Grafana /api/health on loopback; collectors reporting; alert rules loaded"
     shutdown: "systemctl --user stop grafana and collector units"
-    status: "planned"
-    status_notes: "Not deployed; required before production declaration (Section 17.2)."
+    status: "implemented"
+    status_notes: "Deployed as user Quadlet units on ao-admin (Internal bridge 10.89.9.0/24); loopback listeners 127.0.0.1:9090 (Prometheus, self+node-host scrape up) and 127.0.0.1:3001 (Grafana, Prometheus datasource provisioned). node-exporter healthy; units enabled via default.target.wants.
 
   - id: backup-status
     scope_item: "Backup/restore status display"

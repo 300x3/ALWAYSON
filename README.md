@@ -1692,10 +1692,10 @@ local LM Studio model.
 
 ## WORK 000020 — Graphic User Interface Review
 
-**Status:** In progress. First full review pass completed and recorded in the
-machine-readable inventory `config/platform/gui-boundary-matrix.yaml`
-(2026-08-29), covering all nine scope items below. Remaining work: implement
-the planned GUI deployments and close the in-progress/blocked items.
+**Status:** In progress — Part A delivered; admin-plane monitoring/Metabase
+deployed. Remaining scope (WebODM/QGroundControl/Gazebo interactive GUIs, sales
+DB reporting integration, field link test) awaits the `pkexec` post-deploy
+authorization step documented in `quadlet/operations/pkexec-post-deploy.sh`.
 
 **Objective:** Identify GUI components that remain unimplemented or lack an
 operator workflow ACCORDING TO SECTION 6.A OF THIS README.
@@ -1899,6 +1899,10 @@ operator approval. The drive tree now matches the required structure.
 | Sales receipt manifest | Sales DB deployed; provider/API pending | Partial |
 | Backup | Encrypted restic snapshot `548d9910` completed | Complete |
 | Restore | File hash validated; database 14/14 tables restored | Complete |
+| GUI boundary matrix (WORK 000020) | `config/platform/gui-boundary-matrix.yaml`; 10 entries reviewed | Partial |
+| Monitoring stack (ao-admin) | Prometheus + node_exporter + Grafana deployed as user Quadlet units on `ao-admin` (10.89.9.0/24); loopback listeners 127.0.0.1:9090 and 127.0.0.1:3001 verified; self and node-host scrape `up` | Complete |
+| Metabase reporting (ao-admin) | Deployed and healthy (127.0.0.1:3002, API /api/health 200); sales-DB read-only role pending pkexec-post-deploy.sh | Partial |
+| WebODM operator workflow restart | Stack in quadlet/mapping/ (system store); restart deferred to pkexec-post-deploy.sh | Partial |
 
 ---
 

@@ -1,0 +1,26 @@
+# /ALWAYSON/quadlet/operations/ao-grafana.container
+# Section 17.2 dashboard. ao-admin only; loopback-published (VPN/auth remote
+# access requires separate approval).
+[Unit]
+Description=ALWAYS ON Grafana (ao-admin)
+After=network-online.target ao-prometheus.service
+Requires=ao-prometheus.service
+
+[Container]
+Image=docker.io/grafana/grafana-oss:11.6.0
+ContainerName=ao-grafana
+Network=ao-admin.network
+Volume=/ALWAYSON/config/platform/monitoring/grafana/provisioning:/etc/grafana/provisioning:ro,Z
+Volume=ao-grafana-data:/var/lib/grafana:Z
+EnvironmentFile=/ALWAYSON/config/platform/monitoring/grafana.env
+PublishPort=127.0.0.1:3001:3000
+NoNewPrivileges=true
+DropCapability=all
+
+
+[Service]
+MemoryMax=1G
+Restart=on-failure
+
+[Install]
+WantedBy=default.target
