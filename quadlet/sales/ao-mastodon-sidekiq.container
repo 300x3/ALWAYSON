@@ -2,14 +2,14 @@
 # ALWAYS ON Mastodon background workers
 [Unit]
 Description=ALWAYS ON Mastodon Sidekiq
-After=ao-mastodon-db.service ao-mastodon-redis.service ao-sales.network
+After=ao-mastodon-db.service ao-mastodon-redis.service ao-sales-network.service
 Wants=ao-mastodon-db.service ao-mastodon-redis.service
 
 [Container]
 Image=docker.io/mastodon/mastodon:v4.3.7
 ContainerName=mastodon-sidekiq
-Network=ao-sales.network
-EnvironmentFile=/ALWAYSON/secrets/mastodon/mastodon.env
+Network=ao-sales-network.network
+EnvironmentFile=%h/secrets/mastodon.env
 NoNewPrivileges=true
 Exec=/bin/sh -c "bundle exec sidekiq -q default -q push -q pull_request -q mailers -q scheduler"
 

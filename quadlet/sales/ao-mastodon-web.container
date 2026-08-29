@@ -3,14 +3,14 @@
 # NO public port opened (listener-allowlist stays empty); operator uses Tokodon/SSH.
 [Unit]
 Description=ALWAYS ON Mastodon Web
-After=ao-mastodon-db.service ao-mastodon-redis.service ao-sales.network
+After=ao-mastodon-db.service ao-mastodon-redis.service ao-sales-network.service
 Wants=ao-mastodon-db.service ao-mastodon-redis.service
 
 [Container]
 Image=docker.io/mastodon/mastodon:v4.3.7
 ContainerName=mastodon-web
-Network=ao-sales.network
-EnvironmentFile=/ALWAYSON/secrets/mastodon/mastodon.env
+Network=ao-sales-network.network
+EnvironmentFile=%h/secrets/mastodon.env
 PublishPort=127.0.0.1:3000:3000
 NoNewPrivileges=true
 Exec=/bin/sh -c "bundle exec rails s -p 3000 -b 0.0.0.0"
