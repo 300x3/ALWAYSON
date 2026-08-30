@@ -1,0 +1,428 @@
+The concept is strong: an on-premises, containerized operations hub that closes the loop between field telemetry, imagery, AI-assisted customer communications, mapping, and simulation. The current document needs a feasibility pass, removal of duplicated material, and a safer deployment model—especially around systemd, Podman updates, public exposure, and service boundaries.
+
+Below is a cohesive rewrite that treats the proposal as an implementation strategy rather than a copy-paste-ready installer. It also corrects several technical assumptions: use Podman Quadlet rather than hand-built user unit files and stored shell commands; do not expose ROS/MAVLink or database/ledger RPC ports publicly; use Podman’s native auto-update mechanism rather than Watchtower; and separate WebODM’s supported multi-container deployment from a “folder automatically triggers processing” assumption. Podman’s supported Quadlet workflow integrates containers with systemd, and `podman-auto-update` can pull/restart explicitly labeled services on a timer.  WebODM is designed for drone imagery products such as orthomosaics, point clouds, elevation models, and textured models, but its deployment needs appropriate memory/CPU planning.  LM Studio now supports an official headless/service deployment model and CLI-controlled server operation. [docs.podman](https://docs.podman.io/en/v5.0.1/markdown/podman-systemd.unit.5.html)
+
+***
+
+# ALWAYS ON
+## On-Premises Drone Operations, Mapping, Simulation, and Customer Platform
+
+## Executive Summary
+
+**ALWAYS ON** is an on-premises operations platform for a drone-focused business. It runs continuously on a dedicated Linux workstation and brings together field telemetry, image ingestion, photogrammetry, simulation, local AI inference, operational records, and customer-facing communications.
+
+Raspberry Pi–based field nodes collect telemetry through LoRa or LoRaWAN-compatible radios and transfer mission imagery over Wi-Fi when bandwidth is available. The host receives, stores, validates, and routes those inputs to the appropriate services. Imagery enters a controlled processing queue for mapping and reconstruction; simulation services evaluate mission plans and vehicle behavior; and a local language-model service supports internal automation and carefully constrained customer communications.
+
+The design goal is not “one container per idea.” It is a reliable, auditable platform with clear trust boundaries:
+
+- Public-facing applications are limited to a reverse proxy and explicitly approved web services.
+- Telemetry, databases, simulation middleware, inference endpoints, and control interfaces remain private.
+- Each workload has a defined owner, storage location, backup method, health check, resource limit, and update policy.
+- Automation improves uptime without allowing untested upstream releases to disrupt flight, mapping, payment, or customer operations.
+
+The initial deployment target is a Kubuntu workstation with Podman running rootless containers under systemd management. The architecture is suitable for a technically managed small operation, prototype environment, or lab deployment. It should not be treated as a production payment, regulatory-record, or flight-safety system until its legal, operational, security, and reliability requirements have been independently validated.
+
+## Scope and Operating Principles
+
+### Primary capabilities
+
+- Receive low-bandwidth drone telemetry through a host-connected LoRa radio or a dedicated LoRaWAN gateway.
+- Receive mission imagery over authenticated Wi-Fi or a controlled upload endpoint.
+- Produce photogrammetry outputs through WebODM or an ODM-compatible processing service.
+- Run local LLM inference through LM Studio Core in headless mode.
+- Support a narrowly scoped AI agent for internal summaries, alerts, support drafts, and Mastodon publishing workflows.
+- Run Gazebo, ArduPilot, ROS 2, and Stable-Baselines3 workloads for non-production simulation, autonomy development, and log analysis.
+- Maintain operational records, audit logs, backup snapshots, and configuration history.
+
+### Non-goals for the first release
+
+- Autonomous customer payments or payment settlement through an experimental ledger stack.
+- Direct internet exposure of ROS, MAVLink, LoRa gateway internals, PostgreSQL, LM Studio, or Corda RPC interfaces.
+- Unattended “latest tag” updates for core operational services.
+- Treating Mastodon as an order-management platform or authoritative customer database.
+- Running flight-critical control loops through a public internet service.
+
+## Architecture
+
+### Host platform
+
+| Component | Initial standard |
+|---|---|
+| Host OS | Supported Kubuntu LTS release, kept on a defined patch cadence |
+| Container engine | Rootless Podman |
+| Service management | systemd with Quadlet container, network, volume, and pod definitions |
+| External ingress | Traefik, Caddy, or NGINX reverse proxy |
+| Internal DNS/service discovery | Podman network aliases and explicit environment configuration |
+| Persistent storage | Dedicated data volumes or mounted filesystem paths with backups |
+| Observability | systemd journal, Podman logs, health checks, metrics, and disk monitoring |
+| Backup target | Encrypted local external storage and/or approved off-site repository |
+
+Podman Quadlet is preferred because it makes containers first-class systemd-managed services, rather than relying on shell scripts that reconstruct `podman run` commands. Quadlet also supports explicit update behavior for compatible services. [docs.podman](https://docs.podman.io/en/v5.0.1/markdown/podman-systemd.unit.5.html)
+
+### Network zones
+
+| Zone | Purpose | Internet exposure |
+|---|---|---|
+| Edge network | Reverse proxy and selected web applications | Yes, only through TLS |
+| Application network | WebODM, AI agent, internal APIs, application services | No direct public access |
+| Data network | PostgreSQL, Redis, object/file storage | No direct public access |
+| Telemetry network | LoRa/LoRaWAN ingestion and message routing | No direct public access |
+| Simulation network | ROS 2, Gazebo, MAVLink, ArduPilot, training workloads | No direct public access |
+| Management network | SSH, dashboards, host administration | VPN or allowlisted access only |
+
+A container should join only the networks it requires. For example, the reverse proxy joins the edge and application networks; PostgreSQL joins only the data network; simulation containers remain isolated from customer-facing workloads.
+
+### Core service roles
+
+| Service area | Preferred role | Exposure | Notes |
+|---|---|---|---|
+| Reverse proxy | TLS termination, routing, access logs, rate limiting | Public 80/443 only | Use automatic certificates only after DNS and domain ownership are verified |
+| Customer/community frontend | Mastodon or separate web storefront | Public through proxy | Treat Mastodon as community/support, not the primary commerce database |
+| Operational database | PostgreSQL | Internal only | Use separate databases and roles per application |
+| Cache/queue | Redis or supported queue backend | Internal only | Never expose Redis publicly |
+| Mapping | WebODM plus supported worker/node components | Through proxy or VPN | WebODM uses a multi-service design; plan CPU, RAM, and storage accordingly |
+| Telemetry gateway | LoRa/LoRaWAN bridge and message normalizer | Internal only | Validate whether the radio stack is raw LoRa, LoRaWAN, or vendor-specific before implementation |
+| AI inference | LM Studio Core or equivalent local inference server | Internal only | Authenticate and restrict callers; resource-limit model workloads |
+| AI agent | OpenClaw or custom service | Internal only | Use approval gates for external posts, financial actions, or customer commitments |
+| Simulation | ArduPilot, Gazebo, ROS 2, SB3 | Internal only | Separate development/simulation state from operational services |
+| Ledger/records | Conventional order/payment system initially; optional Corda evaluation | Internal only | Do not expose RPC or web administration interfaces directly |
+
+## Data Flows
+
+### Telemetry path
+
+1. A field node records position, health, mission state, sensor data, and event messages.
+2. The node transmits compact telemetry through LoRa or LoRaWAN.
+3. A dedicated gateway service validates device identity, timestamps packets, detects duplicates, and stores raw records.
+4. A normalization service publishes approved telemetry to internal consumers such as dashboards, alerting, and the AI summarization workflow.
+5. The original packet and normalized event are retained according to the data-retention policy.
+
+The implementation must decide whether the radio system is raw LoRa, LoRaWAN, Meshtastic-like mesh messaging, or another protocol. Those are not interchangeable: they use different gateway software, security models, frequency plans, and message formats.
+
+### Imagery and mapping path
+
+1. The drone lands or enters a trusted Wi-Fi zone.
+2. A transfer client uploads imagery and mission metadata to a per-mission staging area.
+3. A validation process checks file integrity, available disk space, metadata completeness, and mission ownership.
+4. An ingestion service creates a WebODM project and task through its supported interface.
+5. WebODM processes imagery and produces deliverables such as orthomosaics, point clouds, elevation models, or textured models. [github](https://github.com/WebODM/WebODM)
+6. Completed deliverables move to a read-only results location, with status returned to the operator and customer-facing system as appropriate.
+
+Do not assume that simply placing JPEG or RAW files in a shared directory automatically starts WebODM processing. Build an explicit ingestion adapter that calls the supported application/API workflow and records task IDs, source files, processing options, outputs, and failures.
+
+### AI and communications path
+
+1. Internal services generate structured events, such as “mapping job completed,” “telemetry anomaly,” or “customer support request received.”
+2. The AI agent receives only the minimum necessary event data.
+3. It calls the local LM Studio service for a draft, classification, summary, or response.
+4. A policy layer determines whether the action is internal-only, requires operator approval, or may be posted automatically.
+5. Mastodon publishing uses scoped OAuth credentials stored in a secrets manager or protected systemd credential store.
+
+LM Studio’s current tooling supports headless operation and service control through its CLI, making it a more appropriate fit than attempting to package a desktop GUI application into an ad hoc inference container. [lmstudio](https://lmstudio.ai/blog/0.4.0)
+
+### Simulation path
+
+1. A mission configuration is copied into a versioned simulation workspace.
+2. ArduPilot SITL, Gazebo, ROS 2 nodes, and any SB3 training/evaluation services start on the simulation network.
+3. Simulation outputs include mission logs, trajectory files, vehicle state, test parameters, and pass/fail results.
+4. Results are written to a host-mounted, versioned output directory such as `/srv/always-on/results/<run-id>/`.
+5. Only approved mission parameters progress from simulation to field-test preparation.
+
+ROS discovery, MAVLink, and simulation ports must remain private. They are development and control-plane interfaces, not public application APIs.
+
+## Security and Reliability Model
+
+### Exposure policy
+
+Public exposure is limited to:
+
+- TCP 80, redirected to HTTPS where appropriate.
+- TCP 443 for approved web routes.
+- VPN access for administration, remote dashboards, or trusted operator access.
+
+The following remain internal-only:
+
+- PostgreSQL.
+- Redis.
+- LM Studio API.
+- Corda RPC or administrative interfaces.
+- LoRa gateway administrative interfaces.
+- ROS 2 middleware.
+- MAVLink UDP endpoints.
+- Gazebo transport.
+- WebODM worker and NodeODM interfaces.
+- Podman service socket.
+- Host metrics endpoints, unless protected through VPN and authentication.
+
+### Identity and secrets
+
+- Create a separate Linux service account only where it provides meaningful filesystem and operational isolation.
+- Prefer rootless Podman containers owned by a dedicated deployment user, rather than mixing `/etc/systemd/user` files, root provisioning, and `systemctl --user` commands in one script.
+- Use root-owned system services for host-level requirements such as radio drivers, firewall management, and mounted encrypted storage.
+- Use `systemd` credentials, a secrets manager, or protected environment files for API tokens, database passwords, and OAuth credentials.
+- Do not embed passwords such as `StrongPass!` in deployment scripts, source files, terminal history, or version control.
+- Use separate PostgreSQL roles and databases per application instead of one broadly shared database and account.
+
+### Update policy
+
+Automatic updates are appropriate only for low-risk, well-tested services. For operational workloads, use pinned image digests or versioned tags and promote updates through a staging workflow.
+
+Podman provides native auto-update support for labeled, systemd-managed services, including a supplied timer. It pulls changed images and restarts the corresponding services.  Use this selectively: [docs.podman](https://docs.podman.io/en/v5.0.1/markdown/podman-auto-update.1.html)
+
+| Workload class | Update policy |
+|---|---|
+| Reverse proxy and monitoring | Automatic updates may be acceptable after validation |
+| AI agent and noncritical web services | Scheduled updates with rollback plan |
+| WebODM, databases, and queues | Staged manual updates, backup first |
+| Simulation stack | Version-pinned environments to preserve repeatability |
+| Flight-adjacent telemetry/control services | Manual, tested release process only |
+| Ledger/payment services | Formal change control, backup, migration test, and rollback plan |
+
+Do not use Watchtower for this Podman-centric deployment. It is primarily designed around Docker socket behavior and undermines the goal of having a single, reviewable systemd/Podman lifecycle.
+
+### Health and recovery
+
+Each service must have:
+
+- A health endpoint or command.
+- Restart policy and restart-rate limit.
+- Resource limits for CPU, memory, and open files.
+- A persistent volume declaration where state is required.
+- A backup classification.
+- A dependency declaration only when startup ordering is genuinely necessary.
+- A documented rollback procedure.
+
+A service being “running” is not equivalent to being healthy. The acceptance test should verify application-level behavior, including database connectivity, queue processing, API responsiveness, and expected output generation.
+
+## Implementation Strategy
+
+### Phase 0 — Design validation
+
+**Duration:** 2–5 days
+
+- Confirm the host hardware, GPU support, RAM, NVMe capacity, and backup capacity.
+- Choose one supported Kubuntu release and record exact package versions.
+- Define the radio protocol and hardware architecture.
+- Decide whether Mastodon is external, self-hosted, or replaced with a conventional storefront/helpdesk.
+- Decide whether Corda is a real business requirement or an exploratory component.
+- Create a threat model covering public users, field nodes, operators, lost drones, compromised credentials, and supply-chain updates.
+- Define data classes: telemetry, imagery, customer information, credentials, payment records, simulation data, and logs.
+
+**Exit criteria:** Architecture decisions are recorded, domains and trust boundaries are known, and every planned component has an owner and purpose.
+
+### Phase 1 — Host foundation
+
+**Duration:** 1–2 days
+
+- Install Podman, Quadlet support, firewall tooling, storage monitoring, and required host drivers.
+- Configure automatic security updates for the host separately from container updates.
+- Establish a dedicated deployment account with lingering enabled if rootless user services must start at boot.
+- Create `/srv/always-on/` storage hierarchy for configuration, incoming imagery, processed outputs, database backups, logs, and simulation results.
+- Configure firewall rules with default-deny inbound policy.
+- Set up encrypted backup storage and perform one restore test.
+
+**Exit criteria:** The host reboots cleanly, the deployment account’s services start as intended, and backup/restore works for a test volume.
+
+### Phase 2 — Networking, ingress, and observability
+
+**Duration:** 1–2 days
+
+- Define Quadlet-managed internal networks.
+- Deploy the reverse proxy with TLS, access logs, rate limits, and authentication where needed.
+- Expose only approved HTTPS routes.
+- Add baseline monitoring for disk use, memory pressure, container restarts, failed systemd units, and backup age.
+- Configure centralized logs or a structured journal retention policy.
+
+**Exit criteria:** External scanning confirms that only the approved ingress ports are reachable, and an operator can identify a failed service from logs and metrics.
+
+### Phase 3 — Data and mapping services
+
+**Duration:** 2–4 days
+
+- Deploy PostgreSQL with separate databases, roles, persistent storage, scheduled backups, and restore validation.
+- Deploy Redis only if required by the selected application stack.
+- Deploy WebODM using its supported component model.
+- Build a controlled imagery-ingestion service that creates processing tasks and records status.
+- Establish mission directory conventions and output retention rules.
+
+WebODM’s official materials describe it as a drone-image processing platform that can generate mapping and 3D reconstruction products; capacity planning should account for its stated resource needs, including a recommended 16 GB RAM baseline for installation guidance. [github](https://github.com/WebODM/WebODM)
+
+**Exit criteria:** A known image set is uploaded, processed, archived, and retrievable with complete job status and logs.
+
+### Phase 4 — Telemetry gateway
+
+**Duration:** 2–4 days
+
+- Install and validate the radio hardware and host driver.
+- Implement gateway authentication, device registration, packet logging, and duplicate handling.
+- Persist raw packets before downstream processing.
+- Build a normalized telemetry schema and test message delivery.
+- Simulate loss, duplicate packets, malformed packets, and delayed delivery.
+
+**Exit criteria:** A field node can send telemetry that is received, authenticated, stored, normalized, and visible in an internal operational view.
+
+### Phase 5 — AI and communications
+
+**Duration:** 2–3 days
+
+- Install LM Studio Core or headless LM Studio service.
+- Select and version-pin the model(s) used for each function.
+- Set GPU/CPU/RAM limits and concurrency limits.
+- Deploy the AI agent with narrowly scoped permissions.
+- Require explicit approval for public posts, financial statements, pricing, legal commitments, or safety-related guidance during the first release.
+- Store OAuth credentials securely and rotate them on a defined schedule.
+
+**Exit criteria:** The system can generate internal mission summaries and customer-response drafts, while public posting remains policy-controlled and fully logged.
+
+### Phase 6 — Simulation and autonomy development
+
+**Duration:** 3–5 days
+
+- Deploy version-pinned ROS 2, Gazebo, ArduPilot SITL, and SB3 environments.
+- Use a reproducible scenario definition for each mission test.
+- Store simulation parameters, environment versions, and results with every run.
+- Validate MAVLink telemetry only on the simulation network.
+- Define promotion rules from simulation to bench testing and then field testing.
+
+**Exit criteria:** A representative mission executes in simulation, exports structured results, and can be rerun with the same configuration.
+
+### Phase 7 — Automation and operational hardening
+
+**Duration:** 2–3 days
+
+- Add health checks and restart behavior for all service units.
+- Enable Podman auto-update only for approved, low-risk workloads.
+- Create a staging or test profile for image upgrades of critical services.
+- Set database backup, retention, and restore drills.
+- Add disk quotas or threshold alerts for imagery and simulation output.
+- Document emergency shutdown, credential revocation, restore, and rollback procedures.
+
+**Exit criteria:** Failure injection confirms controlled recovery from a container crash, a full disk warning, a failed update, and a database restore event.
+
+## Deployment Pattern
+
+### Recommended service definition approach
+
+Use one Quadlet definition per container or pod, plus explicit network and volume definitions. Do not store arbitrary shell commands in `/etc/pod_run_commands` and then execute them through `exec $cmd`; that pattern introduces quoting errors, makes reviews difficult, and can become a command-injection risk.
+
+A typical service should declare:
+
+- Fully qualified and pinned image reference.
+- Container name.
+- Network membership.
+- Volume mounts.
+- Read-only root filesystem where practical.
+- User and group mapping.
+- Environment files or systemd credentials.
+- Health check.
+- CPU and memory limits.
+- Explicit port exposure only when necessary.
+- Auto-update label only if approved.
+
+Quadlet is intended to generate systemd services from declarative container-unit files, which is a cleaner lifecycle model than maintaining manually generated units. [docs.podman](https://docs.podman.io/en/v5.0.1/markdown/podman-systemd.unit.5.html)
+
+### Example operational layout
+
+```text
+/srv/always-on/
+├── config/
+│   ├── reverse-proxy/
+│   ├── telemetry/
+│   ├── webodm/
+│   ├── ai-agent/
+│   └── simulation/
+├── data/
+│   ├── postgres/
+│   ├── redis/
+│   ├── incoming-images/
+│   ├── webodm-media/
+│   └── telemetry/
+├── results/
+│   ├── mapping/
+│   └── simulation/
+├── backups/
+│   ├── postgres/
+│   ├── configurations/
+│   └── manifests/
+└── logs/
+```
+
+Use stable host paths or named Podman volumes for persistent state. Never depend on a container’s writable layer for database data, mission imagery, model files, or simulation output.
+
+## Acceptance Criteria
+
+The platform is accepted only when all of the following are demonstrated and recorded.
+
+### Reliability
+
+- Core services start automatically after a host reboot.
+- Core services run for at least 72 hours under representative workload without manual restarts.
+- A controlled container failure triggers expected recovery without corrupting persistent data.
+- Alerting identifies service failures, low disk space, backup failures, and repeated restart loops.
+
+### Drone operations
+
+- A registered field node transmits telemetry that is authenticated, timestamped, stored, and visible to authorized operators.
+- A mission image set uploads through the approved path and produces a tracked WebODM processing task.
+- Mapping outputs are stored in the assigned mission results location with traceable source metadata.
+- Simulation completes at least one representative mission and writes structured logs to the results directory.
+
+### AI and communications
+
+- LM Studio responds only on the internal application network.
+- The AI agent can generate internal summaries and audited draft messages.
+- External Mastodon posts require approval unless a specific, low-risk automated-post rule has been documented and tested.
+- OAuth tokens and database credentials never appear in logs, unit files, shell history, or source control.
+
+### Security
+
+- External scanning finds only the approved ingress ports.
+- TLS is enforced for public routes.
+- Databases, Redis, ROS, MAVLink, LM Studio, LoRa administration, and container-engine interfaces are not externally reachable.
+- Containers use least-privilege user mappings, minimal mounts, and resource limits.
+- A backup restoration drill successfully restores a database and selected mission results.
+
+## Key Risks and Controls
+
+| Risk | Impact | Control |
+|---|---|---|
+| “Latest” image update breaks a core service | Operational outage or data incompatibility | Pin versions; test updates; use auto-update only for low-risk services |
+| LLM resource contention | Mapping, telemetry, or host responsiveness degraded | Set memory/CPU/GPU limits, queue requests, and isolate inference workloads |
+| Disk exhaustion from imagery or logs | Processing failure and host instability | Capacity alerts, retention policy, quotas, and backup/export workflow |
+| Public exposure of control interfaces | Compromise of simulation, data, or potentially field operations | Reverse proxy only; private networks; VPN/allowlist administration |
+| Radio packet loss or replay | Incomplete or misleading telemetry | Message IDs, timestamps, acknowledgments, deduplication, local edge buffering |
+| Shared database credentials | Cross-service compromise | Separate DB roles, secrets management, least privilege |
+| AI agent publishes incorrect content | Reputational or contractual harm | Approval gates, content policy, audit logs, constrained tool permissions |
+| Payment/ledger overreach | Legal, financial, and compliance risk | Use established payment providers initially; keep Corda as a separately evaluated project |
+
+## Delivery Milestones
+
+| Milestone | Deliverable |
+|---|---|
+| M0 | Architecture decision record, threat model, hardware and storage plan |
+| M1 | Hardened host, Podman/Quadlet base, firewall, backup restore test |
+| M2 | Reverse proxy, private networks, logging, monitoring, and alerts |
+| M3 | PostgreSQL, imagery ingestion, and validated WebODM processing |
+| M4 | Authenticated LoRa/LoRaWAN telemetry ingestion and storage |
+| M5 | Internal LM Studio service and policy-controlled AI agent |
+| M6 | Reproducible ArduPilot/Gazebo/ROS 2 simulation workflow |
+| M7 | Recovery testing, update policy, security review, and runbook |
+| M8 | End-to-end acceptance demonstration and operational handoff |
+
+## Immediate Next Actions
+
+1. Replace the proposed installation script with declarative Quadlet files and an environment-specific configuration repository.
+
+2. Choose the exact telemetry protocol and radio hardware before selecting or writing the gateway service.
+
+3. Separate customer communications from payment processing: keep Mastodon as a community channel, and use a conventional order/payment workflow unless there is a documented reason to deploy Corda.
+
+4. Deploy PostgreSQL, WebODM, and the imagery-ingestion adapter first; this establishes the highest-value field-data loop.
+
+5. Run LM Studio as an internal headless service and place the AI agent behind policy controls, approval gates, and audit logging. [lmstudio](https://lmstudio.ai/blog/0.4.0)
+
+6. Keep ROS, Gazebo, MAVLink, and all simulation interfaces entirely internal.
+
+7. Implement backups and restoration testing before enabling automated updates or accepting operational data.
+
+8. Add automated update capability only after a staging path, pinned releases, health checks, rollback procedures, and service ownership are in place. Podman’s native update workflow is the appropriate baseline for systemd-managed Podman services. [docs.podman](https://docs.podman.io/en/v5.0.1/markdown/podman-auto-update.1.html)
