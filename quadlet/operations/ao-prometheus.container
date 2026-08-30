@@ -1,0 +1,22 @@
+# /ALWAYSON/quadlet/operations/ao-prometheus.container
+# Section 17.2 monitoring collector. ao-admin only; loopback-published.
+[Unit]
+Description=ALWAYS ON Prometheus (ao-admin)
+After=network-online.target
+
+[Container]
+Image=docker.io/prom/prometheus:v3.4.1
+ContainerName=ao-prometheus
+Network=ao-admin.network
+Volume=/ALWAYSON/config/platform/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro,Z
+PublishPort=127.0.0.1:9090:9090
+NoNewPrivileges=true
+DropCapability=all
+
+
+[Service]
+MemoryMax=1G
+Restart=on-failure
+
+[Install]
+WantedBy=default.target

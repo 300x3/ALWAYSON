@@ -9,7 +9,7 @@
 
 ---
 
-# Architecture, Installation, Configuration, Operations, and Status
+**Architecture, Installation, Configuration, Operations, and Status**
 
 ## Document Status and Reading Guide
 
@@ -35,7 +35,7 @@ When the current implementation differs from an architecture requirement, the
 difference must be recorded in **Approved Deviations and Open Decisions** with
 a rationale, compensating controls, owner, and resolution condition.
 
-**Last consolidated review:** 2026-08-28
+**Last consolidated review:** 2026-08-29
 
 ---
 
@@ -65,7 +65,7 @@ and ledger services must not share broad networks, credentials, writable
 storage, databases, or unrestricted host access.
 
 The current workstation is a development, integration, and validation host. It
-uses Kubuntu 26 LTS-class software, an AMD CPU, and an EVGA NVIDIA GTX 1080.
+uses Kubuntu 26.04 LTS software, an AMD CPU, and an EVGA NVIDIA GTX 1080.
 Future compute-intensive production workloads may move to an immersion-cooled
 server rack and a Raspberry Pi edge-computing cluster.
 
@@ -86,7 +86,7 @@ orchestration, or a Docker daemon.
 
 | Area | Architecture requirement |
 |---|---|
-| Host OS | Kubuntu 26 LTS-class workstation |
+| Host OS | Kubuntu 26.04 LTS workstation |
 | Current CPU/GPU | AMD CPU and EVGA NVIDIA GTX 1080 |
 | Future compute | Immersion-cooled server rack and Raspberry Pi edge cluster |
 | Container engine | Podman only |
@@ -137,7 +137,7 @@ orchestration, or a Docker daemon.
                     ┌─────────────────────────────────────┐
                     │ pCloud Public Folder                │
                     │ Static storefront only              │
-                    │ Products -  Docs -  Legal -  Links     │
+                    │ Products - Docs - Legal - Links     │
                     └─────────┬───────────────┬───────────┘
                               │               │
                 Hosted checkout               │ Community/support links
@@ -145,8 +145,8 @@ orchestration, or a Docker daemon.
                               ▼               ▼
                  ┌────────────────────────────────────────┐
                  │ CONTROLLED INGRESS / EGRESS ADAPTERS    │
-                 │ Payment ingress -  Archive egress        │
-                 │ Community egress -  Build/update path    │
+                 │ Payment ingress - Archive egress       │
+                 │ Community egress - Build/update path   │
                  └───────────────┬────────────────────────┘
                                  │
            ┌─────────────────────┼─────────────────────┐
@@ -162,14 +162,14 @@ orchestration, or a Docker daemon.
          ▼                     ▼
              ┌──────────────────────────────────────────┐
              │ LEDGER-INGEST DOMAIN                     │
-             │ mTLS -  authorization -  schema validation │
-             │ signatures -  idempotency -  audit          │
+             │ mTLS - authorization - schema validation │
+             │ signatures - idempotency - audit         │
              └──────────────────┬───────────────────────┘
                                 │
                                 ▼
              ┌──────────────────────────────────────────┐
              │ LEDGER-CORE DOMAIN                       │
-             │ Corda node -  Corda database -  PKI        │
+             │ Corda node - Corda database - PKI        │
              └──────────────────────────────────────────┘
 
 Drone Pi 5 + Waveshare ─ LoRa ─ Heltec V3 ─► FIELD DOMAIN ─────┐
@@ -201,6 +201,17 @@ mapping, simulation, database, AI, Podman, or Corda-core services.
 | Mastodon and OpenClaw | Restricted local support/community workflow | Local stack in progress; OAuth/client issues recorded | In progress | Complete Tokodon and local LLM validation |
 | Archive | Encrypted off-host replication and controlled IPFS workflow | Local restic backup and restore validation complete | Partially implemented | Provision pCloud/archive credentials and test replication |
 | Backup and restore | Encrypted backup plus recurring restore testing | Encrypted restic snapshot and isolated restore test complete | Implemented | Automate recurring schedule |
+
+
+## 3.3 DATABASES
+
+PostgreSQL 18 host cluster, loopback-only
+├── salesdb       # Authoritative sales system
+├── cordadb       # Corda core persistence
+├── mappingdb     # WebODM mapping persistence
+├── grafana       # Optional; Grafana private metadata
+├── metabase      # Optional; Metabase private metadata
+└── postgres      # Administrative/maintenance database
 
 ---
 
@@ -331,7 +342,9 @@ policy, minimal permissions, and connection logging.
 
 ---
 
-# 6. Component Boundary Matrix
+# 6. Component Boundaries, GUI Reporting Tools, and Operator Access
+
+## 6.1 Component Boundary Matrix
 
 | Component | Owning domain | Inputs accepted | Outputs allowed | Persistent data | External connectivity |
 |---|---|---|---|---|---|
@@ -346,6 +359,102 @@ policy, minimal permissions, and connection logging.
 | Ledger core | `ao-ledger-core` | Ledger-ingestion gateway requests only | No direct public output | Corda state and PKI | None directly |
 | Archive adapter | `ao-egress-archive` | Approved encrypted archive bundle | Replication result/status | Staging and transfer log | Outbound only |
 | Community adapter | `ao-egress-community` | Approved publication or support request | Remote delivery/status response | Publication audit log | Outbound only |
+
+## 6.A GUI Reporting Tools and Podman Network Mapping
+
+This subsection is an **architecture requirement**. It defines the required
+relationship between operator GUIs, reporting tools, dashboards, desktop
+clients, external provider dashboards, workload domains, and Podman networks.
+
+WORK 000020 implements, documents, validates, and provides evidence for this
+requirement. It does not redefine, weaken, or replace it.
+
+An **associated domain** identifies the operator workflow a tool serves. It does
+not grant broad Podman-network membership, database access, host access, shared
+storage, shared credentials, or cross-domain control. A host desktop
+application, host browser, or external provider dashboard has no Podman network
+attachment unless it is itself implemented as a container attached to that
+network.
+
+`ao-admin` is the protected administration, monitoring, and reporting plane. It
+may host Grafana for operational dashboards and alerts, Metabase for FOSS
+accounting/database-heavy reporting, and narrowly authorized administration
+tools. It must not become a shared universal network. `ao-data` remains narrow
+controlled data plumbing, not a default GUI, shared-database, or reporting
+network.
+
+### 6.A.1 GUI ↔ Podman Network Mapping
+
+| # | GUI / workflow | Software or service | Podman network mapping — all ten `ao-*` networks | Approved access path | Status |
+|---:|---|---|---|---|---|
+| 1 | Mastodon web / Tokodon client | Mastodon web, streaming, Sidekiq, database, Redis; Tokodon host client | **Associated:** `ao-sales`. **Actual attachment:** Mastodon containers: `ao-sales` only; Tokodon: none. **No access:** `ao-admin`, `ao-data`, `ao-field`, `ao-ledger-core`, `ao-ledger-ingest`, `ao-mapping`, `ao-payment`, `ao-sim-fabrication`, `ao-sim-vehicle`. | Approved `localhost` Mastodon web/streaming origin; loopback-only publication when enabled. | In progress; local service model exists. Tokodon/OAuth validation remains under WORK 000010. |
+| 2 | WebODM browser UI | WebODM web application, worker, broker, database, NodeODM; host browser | **Associated:** `ao-mapping`. **Actual attachment:** WebODM components: `ao-mapping` only; browser: none. **No access:** `ao-admin`, `ao-data`, `ao-field`, `ao-ledger-core`, `ao-ledger-ingest`, `ao-payment`, `ao-sales`, `ao-sim-fabrication`, `ao-sim-vehicle`. | Approved loopback WebODM listener; VPN/authenticated access only if separately approved. | Implemented with deviation; smoke test and UI path verified. Final rootless/system/mixed designation remains required. |
+| 3 | QGroundControl simulation client | QGroundControl host app; ArduPilot SITL and MAVLink router | **Associated:** `ao-sim-vehicle`. **Actual attachment:** QGroundControl: none; simulation services: `ao-sim-vehicle` only. **No access:** `ao-admin`, `ao-data`, `ao-field`, `ao-ledger-core`, `ao-ledger-ingest`, `ao-mapping`, `ao-payment`, `ao-sales`, `ao-sim-fabrication`. | Approved local SITL/MAVLink-router endpoint; `ROS_DOMAIN_ID=21`; `GZ_PARTITION=alwayson_vehicle_sim`. | Planned GUI workflow; headless vehicle simulation and ROS-Gazebo bridge verified. |
+| 4 | Gazebo visualization — vehicle | ROS 2 Lyrical and Gazebo Sim 10.5.0 | **Associated:** `ao-sim-vehicle`. **Actual attachment:** Host GUI: none; simulation services: `ao-sim-vehicle` only. **No access:** `ao-admin`, `ao-data`, `ao-field`, `ao-ledger-core`, `ao-ledger-ingest`, `ao-mapping`, `ao-payment`, `ao-sales`, `ao-sim-fabrication`. | Approved vehicle ROS/Gazebo visualization path; separate DDS/interface policy remains required. | Planned GUI; headless runtime verified. |
+| 5 | Gazebo visualization — fabrication | ROS 2 Lyrical and Gazebo Sim 10.5.0 | **Associated:** `ao-sim-fabrication`. **Actual attachment:** Host GUI: none; simulation services: `ao-sim-fabrication` only. **No access:** `ao-admin`, `ao-data`, `ao-field`, `ao-ledger-core`, `ao-ledger-ingest`, `ao-mapping`, `ao-payment`, `ao-sales`, `ao-sim-vehicle`. | Approved fabrication ROS/Gazebo visualization path; `ROS_DOMAIN_ID=22`; `GZ_PARTITION=alwayson_fabrication_sim`. | Planned GUI; headless runtime verified. |
+| 6 | LM Studio / OpenClaw support chat | LM Studio host-local model server; OpenClaw restricted support service | **Associated:** `ao-sales`. **Actual attachment:** LM Studio: none while host-local; OpenClaw: `ao-sales` only if containerized. **No access:** `ao-admin`, `ao-data`, `ao-field`, `ao-ledger-core`, `ao-ledger-ingest`, `ao-mapping`, `ao-payment`, `ao-sim-fabrication`, `ao-sim-vehicle`. | Host desktop use; approved loopback inference endpoint or narrow authenticated bridge only. | In progress; endpoint and container/host boundary require formalization under WORK 000010. |
+| 7 | Grafana operational monitoring dashboard | Grafana plus Prometheus-compatible metrics collector/exporters | **Associated:** `ao-admin`. **Actual attachment:** Grafana and metrics collector containers: `ao-admin` only. **No broad attachment:** `ao-data`, `ao-field`, `ao-ledger-core`, `ao-ledger-ingest`, `ao-mapping`, `ao-payment`, `ao-sales`, `ao-sim-fabrication`, `ao-sim-vehicle`. Read-only metrics/status collection occurs only through documented narrow exporter, relay, scrape, or push paths. | VPN or authenticated, allowlisted administration access only. | Planned; implements Section 17.2 operational monitoring and alerting requirements. |
+| 8 | Metabase accounting, sales, and database-heavy reporting GUI | Metabase preferred FOSS BI/reporting service; Apache Superset or Redash may be evaluated only through a documented approved decision | **Associated:** `ao-admin`. **Actual attachment:** Metabase container: `ao-admin` only. **No broad attachment:** `ao-data`, `ao-field`, `ao-ledger-core`, `ao-ledger-ingest`, `ao-mapping`, `ao-payment`, `ao-sales`, `ao-sim-fabrication`, `ao-sim-vehicle`. Metabase receives only approved read-only reporting connections, views, or projections. | VPN or authenticated, allowlisted administration access. Dedicated least-privilege reporting identities use approved loopback/tunnel/bridge paths. | Planned. Implement after reporting views, reporting identities, and sales/payment workflow are approved. |
+| 9 | Sales, receipt, fulfillment, entitlement, return, and approved support reporting | Metabase dashboards, saved questions, filters, exports, and approved SQL models; optional DBeaver host client for exceptional analysis | **Associated:** `ao-admin` reporting plane; sales data remains authoritative in the sales system. **Actual attachment:** Metabase: `ao-admin` only; DBeaver host client: none. **No broad attachment:** `ao-data`, `ao-field`, `ao-ledger-core`, `ao-ledger-ingest`, `ao-mapping`, `ao-payment`, `ao-sales`, `ao-sim-fabrication`, `ao-sim-vehicle`. | Metabase uses approved read-only reporting views and identities. DBeaver uses an explicit purpose-limited loopback or approved tunneled connection. | Planned after sales API, payment verifier, reporting schema/views, and payment-provider workflow are implemented. |
+| 10 | Ledger provenance, receipt, entitlement, approval, release, and ingestion reporting | Metabase for approved ledger reporting; Grafana for Corda/ingest health; Corda-supported management/API/CLI for administration | **Associated:** `ao-admin` reporting plane; approved data originates through `ao-ledger-ingest`. **Actual attachment:** Metabase/Grafana: `ao-admin` only; ledger-ingestion service: `ao-ledger-ingest`; Corda core: `ao-ledger-core`. **No broad attachment:** `ao-data`, `ao-field`, `ao-mapping`, `ao-payment`, `ao-sales`, `ao-sim-fabrication`, `ao-sim-vehicle`; no browser GUI in `ao-ledger-core`. | VPN or authenticated administration access. Metabase reads approved reporting views/projections through a dedicated reporting identity; Grafana receives supported metrics/status only. | Planned/blocked pending key/certificate ceremony, Corda status/metrics configuration, and approved reporting projection. |
+| 11 | Backup/restore status display | Restic plus approved status scripts, Grafana panels, or protected dashboard | **Associated:** `ao-admin`. **Actual attachment:** Dashboard/status service: `ao-admin` only; host-local tool: none. **No broad attachment:** `ao-data`, `ao-field`, `ao-ledger-core`, `ao-ledger-ingest`, `ao-mapping`, `ao-payment`, `ao-sales`, `ao-sim-fabrication`, `ao-sim-vehicle`; approved job/status artifacts only. | Same protected administration boundary as Grafana and Metabase. | Planned; backup and isolated restore evidence already exist. |
+| 12 | Field gateway / link-quality display | Heltec V3 gateway service; local display and/or approved Grafana-derived metrics | **Associated:** `ao-field`. **Actual attachment:** Gateway: `ao-field` only; host display: none; Grafana: `ao-admin` only. **No access:** `ao-data`, `ao-ledger-core`, `ao-ledger-ingest`, `ao-mapping`, `ao-payment`, `ao-sales`, `ao-sim-fabrication`, `ao-sim-vehicle`; `ao-admin` receives derived metrics only. | Approved USB serial/local diagnostic display or protected Grafana dashboard. | Blocked under WORK 000050 pending Heltec V3 connection. |
+| 13 | Ledger/Corda console and maintenance | Corda-supported management API/CLI and approved diagnostic tooling; not Metabase | **Associated:** `ao-ledger-ingest` and `ao-ledger-core`. **Actual attachment:** Management/status client: documented narrow path only; ingestion: `ao-ledger-ingest`; Corda core: `ao-ledger-core`; optional dashboard: `ao-admin`. **No access:** `ao-data`, `ao-field`, `ao-mapping`, `ao-payment`, `ao-sales`, `ao-sim-fabrication`, `ao-sim-vehicle`; no browser GUI deployed inside ledger core. | Narrow approved operator-management path after key/certificate ceremony; no public access. | Blocked pending Section 18.3 ceremony and current ledger backend diagnosis. |
+| 14 | PostgreSQL reporting, schema inspection, and controlled administration | DBeaver host client preferred for expert SQL; optional pgAdmin in `ao-admin`; Metabase for routine reporting | **Associated:** Approved host-loopback data administration and `ao-admin` reporting. **Actual attachment:** DBeaver: none; optional pgAdmin/Metabase: `ao-admin` only. **No implied attachment:** `ao-data` does not grant general database access; no broad membership in `ao-field`, `ao-ledger-core`, `ao-ledger-ingest`, `ao-mapping`, `ao-payment`, `ao-sales`, `ao-sim-fabrication`, or `ao-sim-vehicle`. | Explicit loopback or approved narrow tunnel/bridge using a dedicated least-privilege database identity. | Planned. PostgreSQL is loopback-only; formal reporting/maintenance roles and views are required. |
+| 15 | Redis diagnostic client | Optional Redis Insight or equivalent; not a routine reporting tool | **Associated:** Approved Redis diagnostics only. **Actual attachment:** Host desktop client: none; optional web GUI: `ao-admin` only. **No broad attachment:** All workload networks unless a separate explicit diagnostic endpoint/path is approved. | Explicit loopback or approved narrow diagnostic path using a scoped Redis ACL identity. | Optional/planned only if diagnostic value justifies deployment. |
+| 16 | Payment-provider dashboard | Selected external provider hosted dashboard | **Associated:** Provider-hosted payment administration. **Actual attachment:** None. The provider dashboard is not a Podman service. **No access:** No attachment to `ao-admin`, `ao-data`, `ao-field`, `ao-ledger-core`, `ao-ledger-ingest`, `ao-mapping`, `ao-payment`, `ao-sales`, `ao-sim-fabrication`, or `ao-sim-vehicle`. | Provider-authenticated browser workflow. | Blocked/open pending payment-provider selection. |
+| 17 | No GUI — controlled data services | Host PostgreSQL 18.6, Redis 8.0.5, and explicitly approved data paths | **Associated:** `ao-data` only where narrow controlled plumbing is required. **Actual attachment:** Only individually approved components. **No GUI access:** `ao-data` is not a general GUI/database network and does not imply access to `ao-admin`, `ao-field`, `ao-ledger-core`, `ao-ledger-ingest`, `ao-mapping`, `ao-payment`, `ao-sales`, `ao-sim-fabrication`, or `ao-sim-vehicle`. | Host services remain loopback-only; administration/reporting uses dedicated host or `ao-admin` identities and paths. | Implemented as intentional GUI-less controlled plumbing. |
+| 18 | No GUI — payment verifier | Provider webhook verifier and payment adapter | **Associated:** `ao-payment`. **Actual attachment:** Payment verifier: `ao-payment` only; approved payment-ingress adapter only when implemented. **No access:** `ao-admin`, `ao-data`, `ao-field`, `ao-ledger-core`, `ao-ledger-ingest`, `ao-mapping`, `ao-sales`, `ao-sim-fabrication`, `ao-sim-vehicle`; `ao-admin` may receive derived health metrics only. | Provider-hosted checkout and provider dashboard; local verifier has no GUI. | Blocked/open pending provider decision under Section 18.4. |
+
+### 6.A.2 Reporting Tool Roles
+
+| Tool | Primary purpose | Mandatory boundary |
+|---|---|---|
+| **Metabase** | FOSS accounting-style and database-heavy reporting: sales, orders, receipts, fulfillment, entitlements, returns, approved support summaries, ledger/provenance projections, saved questions, dashboards, filters, and exports | Runs in `ao-admin`; accesses only approved read-only reporting views/projections using dedicated reporting identities; never receives superuser, database-owner, application-owner, migration, backup, payment-provider, or Corda-key credentials. |
+| **Grafana** | Operational monitoring: metrics, service health, alerts, queue depth, latency, resource use, storage, GPU state, backup age, restore-test status, certificate expiry, and ingest failures | Runs in `ao-admin`; consumes only approved metrics/status paths; never becomes a general database, shell, container-management, or control path. |
+| **Corda management/API/CLI** | Corda lifecycle, configuration, certificate-aware administration, and controlled maintenance | Uses a documented narrow management path after the required ceremony; it is not replaced by Metabase or Grafana. |
+| **DBeaver / optional pgAdmin** | Exceptional SQL analysis, schema inspection, backup/restore validation, and controlled database maintenance | Uses an explicit least-privilege identity and loopback or approved narrow tunnel/bridge; it is not the routine accounting/reporting surface. |
+| **Payment-provider dashboard** | Provider-authoritative charges, refunds, disputes, payouts, exports, and reconciliation | External provider service; no Podman network attachment and no replacement of local verified-event controls. |
+
+Metabase may report on approved Corda-derived business and provenance data only
+through a deliberate read-only reporting projection, approved views, supported
+status interface, or ledger-ingestion audit/status records. Metabase must not
+become the primary interface to Corda internal persistence tables, administer
+Corda, receive Corda private keys/keystores, or create a broad route into
+`ao-ledger-core`.
+
+### 6.A.3 Conformance Requirements
+
+All current and future GUI, dashboard, reporting, database-administration, and
+operator-access implementations must comply with this subsection and Sections
+4, 5, 14, and 17.
+
+- Every tool must have a named operator purpose, actual runtime placement,
+  approved data/status source, documented access path, and explicit
+  implementation status.
+- Every containerized GUI must have documented Podman-network membership,
+  listener policy, service owner, image digest, authentication method, and
+  least-privilege identity.
+- Every host desktop GUI and provider dashboard must be recorded as having no
+  Podman network attachment unless it is actually containerized.
+- Reporting identities must enforce read-only access in the underlying database
+  or service. A GUI read-only setting is not sufficient.
+- `ao-admin` receives only approved narrow exporter, status, reporting-view,
+  projection, API, relay, tunnel, or push paths. It must not join every
+  workload network.
+- `ao-data` is not a shared database, general reporting network, or
+  authorization bypass.
+- No GUI may add a public listener, broad host networking, unrestricted Podman
+  socket access, `--privileged`, shared writable storage, or unrelated-domain
+  secret merely to simplify deployment or troubleshooting.
+- Any material deviation requires an approved deviation record under Section
+  18 before production declaration.
+
+The machine-readable implementation inventory for this requirement is:
+
+```text
+/ALWAYSON/config/platform/gui-boundary-matrix.yaml
+```
 
 ---
 
@@ -1604,10 +1713,13 @@ local LM Studio model.
 
 ## WORK 000020 — Graphic User Interface Review
 
-**Status:** Planned.
+**Status:** In progress — Part A delivered; admin-plane monitoring/Metabase
+deployed. Remaining scope (WebODM/QGroundControl/Gazebo interactive GUIs, sales
+DB reporting integration, field link test) awaits the `pkexec` post-deploy
+authorization step documented in `quadlet/operations/pkexec-post-deploy.sh`.
 
 **Objective:** Identify GUI components that remain unimplemented or lack an
-operator workflow.
+operator workflow ACCORDING TO SECTION 6.A OF THIS README.
 
 **Scope:**
 
@@ -1627,6 +1739,31 @@ operator workflow.
 - Each GUI has an access boundary.
 - Each GUI has a startup, health-check, and shutdown procedure.
 - Each GUI has a documented data source and no unauthorized cross-domain access.
+
+**Review findings (2026-08-29):**
+
+- WebODM UI: implemented with deviation (smoke test apt-76 passed); operator
+  workflow recorded with startup/health/shutdown procedures.
+- QGroundControl: AppImage installed
+  (`~/Applications/QGroundControl-x86_64.AppImage`) but workflow unvalidated;
+  sim-vehicle Quadlet directory still empty.
+- Gazebo visualization (vehicle and fabrication): headless runtimes verified;
+  GUI clients planned; separate DDS/interface policy still required.
+- Tokodon/Mastodon: Tokodon installed; Mastodon Quadlet stack deployed
+  (containers currently exited); loopback listeners 3000 (nginx proxy) and 4000
+  (streaming) verified; OAuth validation blocked under WORK 000010.
+- LM Studio/OpenClaw: in progress; unexplained loopback listeners
+  (`127.0.0.1:8000`, `127.0.0.1:18789`) recorded for positive identification.
+- Sales/support administration: planned; Metabase not deployed; reporting
+  roles/views per Section 15.1 required.
+- Monitoring dashboard: planned; Grafana/collectors not deployed.
+- Backup/restore status: CLI-only (restic snapshot `548d9910` verified);
+  dashboard display planned.
+- Field gateway/link-quality: blocked under WORK 000050 (Heltec V3 not
+  connected); MeshChatX AppImage installed.
+- Every entry declares its Podman network mapping (or explicit no-attachment),
+  no-access network list, data source, and procedures; no entry grants
+  cross-domain access or an `ao-admin` broad membership.
 
 ## WORK 000030 — Sales, Payment, Mastodon, and Ledger Readiness
 
@@ -1770,6 +1907,7 @@ operator approval. The drive tree now matches the required structure.
 | Host inventory | Inventory report completed | Complete |
 | Photogrammetry drive | UUID verified; directory tree created | Complete |
 | Package/version matrix | Captured and refreshed | Complete |
+| GUI boundary matrix (WORK 000020) | `config/platform/gui-boundary-matrix.yaml` created; 10 entries validated (YAML), covering all Section 6.A scope items | Partial |
 | Rootless Podman and Quadlet | Verified; mixed-store deviation documented | Complete with deviation |
 | GPU runtime | Driver/CDI verified; CPU baseline and GPU smoke completed | Complete |
 | Domain network isolation | Internal workload networks and test verified | Complete |
@@ -1782,6 +1920,10 @@ operator approval. The drive tree now matches the required structure.
 | Sales receipt manifest | Sales DB deployed; provider/API pending | Partial |
 | Backup | Encrypted restic snapshot `548d9910` completed | Complete |
 | Restore | File hash validated; database 14/14 tables restored | Complete |
+| GUI boundary matrix (WORK 000020) | `config/platform/gui-boundary-matrix.yaml`; 10 entries reviewed | Partial |
+| Monitoring stack (ao-admin) | Prometheus + node_exporter + Grafana deployed as user Quadlet units on `ao-admin` (10.89.9.0/24); loopback listeners 127.0.0.1:9090 and 127.0.0.1:3001 verified; self and node-host scrape `up` | Complete |
+| Metabase reporting (ao-admin) | Deployed and healthy (127.0.0.1:3002, API /api/health 200); sales-DB read-only role pending pkexec-post-deploy.sh | Partial |
+| WebODM operator workflow restart | Stack in quadlet/mapping/ (system store); restart deferred to pkexec-post-deploy.sh | Partial |
 
 ---
 

@@ -1,0 +1,27 @@
+# /ALWAYSON/quadlet/operations/ao-metabase.container
+# Section 6.A.2 reporting tool. ao-admin only; loopback-published.
+# Sales-DB connection is deliberately NOT configured here: it requires the
+# dedicated read-only reporting identity (Section 15.1) and the host
+# PostgreSQL listen-address decision; see pkexec-post-deploy.sh.
+[Unit]
+Description=ALWAYS ON Metabase (ao-admin)
+After=network-online.target
+
+[Container]
+Image=docker.io/metabase/metabase:v0.54.1
+Entrypoint=["/opt/java/openjdk/bin/java","-jar","/app/metabase.jar"]
+Environment=MB_DB_FILE=/metabase.db/metabase.db
+ContainerName=ao-metabase
+Network=ao-admin.network
+Volume=ao-metabase-data:/metabase.db:Z
+PublishPort=127.0.0.1:3002:3000
+NoNewPrivileges=true
+DropCapability=all
+
+
+[Service]
+MemoryMax=2G
+Restart=on-failure
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,24 @@
+# /ALWAYSON/quadlet/operations/ao-node-exporter.container
+# Host metrics exporter. Attached to ao-admin ONLY; exposes metrics to
+# Prometheus over the internal bridge; no published port.
+[Unit]
+Description=ALWAYS ON node exporter (ao-admin)
+After=network-online.target
+
+[Container]
+Image=docker.io/prom/node-exporter:v1.9.1
+ContainerName=ao-node-exporter
+Network=ao-admin.network
+Volume=/:/host:ro
+SecurityLabelDisable=true
+NoNewPrivileges=true
+DropCapability=all
+Exec=--path.rootfs=/host
+
+
+[Service]
+MemoryMax=256M
+Restart=on-failure
+
+[Install]
+WantedBy=default.target
