@@ -18,6 +18,7 @@ HealthCmd=pg_isready
 HealthInterval=30s
 
 [Service]
+ExecStartPre=/ALWAYSON/scripts/operations/fetch-kwallet-secret.sh %h/secrets/webodm.env webodm-postgres-password
 Restart=on-failure
 RestartSec=15
 MemoryMax=4G

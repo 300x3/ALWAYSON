@@ -9,7 +9,7 @@ Wants=network-online.target ao-sales-network.service
 Image=docker.io/library/postgres@sha256:a65e6a841f6c4dbc4abda3d67fa3bc21824e9611064fcd82e87ea67aad60a0c3
 ContainerName=mastodon-db
 Network=ao-sales-network.network
-EnvironmentFile=%h/secrets/mastodon.env
+EnvironmentFile=%h/secrets/mastodon-db.env
 NoNewPrivileges=true
 HealthCmd=pg_isready -U mastodon
 HealthInterval=30s
@@ -17,6 +17,7 @@ Volume=mastodon-dbdata:/var/lib/postgresql/data:Z
 
 [Service]
 WorkingDirectory=%h
+ExecStartPre=/ALWAYSON/scripts/operations/fetch-kwallet-secret.sh %h/secrets/mastodon-db.env mastodon-db-password
 Restart=on-failure
 RestartSec=15
 MemoryMax=2G

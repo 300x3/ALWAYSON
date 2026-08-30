@@ -7,7 +7,7 @@ Wants=network-online.target
 [Container]
 Image=postgres@sha256:a65e6a841f6c4dbc4abda3d67fa3bc21824e9611064fcd82e87ea67aad60a0c3
 ContainerName=sales-db
-Network=ao-sales.network
+Network=ao-sales-network.network
 Volume=%h/webodm/sales-dbdata:/var/lib/postgresql/data:Z
 EnvironmentFile=%h/secrets/sales-db.env
 Environment=POSTGRES_DB=salesdb
@@ -17,6 +17,7 @@ HealthCmd=pg_isready
 HealthInterval=30s
 
 [Service]
+ExecStartPre=/ALWAYSON/scripts/operations/fetch-kwallet-secret.sh %h/secrets/sales-db.env sales-db-password
 Restart=on-failure
 RestartSec=15
 MemoryMax=2G
