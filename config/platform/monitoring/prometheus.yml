@@ -1,0 +1,14 @@
+# ALWAYS ON - Prometheus configuration (ao-admin plane, Section 17.2)
+# Internal-only: scrapes only approved exporter paths on ao-admin.
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ['localhost:9090']
+
+  - job_name: node-host
+    static_configs:
+      - targets: ['ao-node-exporter:9100']

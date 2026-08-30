@@ -1,0 +1,3 @@
+# Named volume for Grafana provisioning-independent state (dashboards, users)
+[Volume]
+VolumeName=ao-grafana-data
