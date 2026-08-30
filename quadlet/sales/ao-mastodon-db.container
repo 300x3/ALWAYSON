@@ -16,6 +16,7 @@ HealthInterval=30s
 Volume=mastodon-dbdata:/var/lib/postgresql/data:Z
 
 [Service]
+WorkingDirectory=%h
 Restart=on-failure
 RestartSec=15
 MemoryMax=2G

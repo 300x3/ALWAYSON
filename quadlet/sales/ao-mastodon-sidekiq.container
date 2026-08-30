@@ -6,7 +6,7 @@ After=ao-mastodon-db.service ao-mastodon-redis.service ao-sales-network.service
 Wants=ao-mastodon-db.service ao-mastodon-redis.service
 
 [Container]
-Image=docker.io/mastodon/mastodon:v4.3.7
+Image=ghcr.io/mastodon/mastodon@sha256:76436bccad38f134cb9a5a6e9c83445915790fc12caf60e3a8ee9cbef8376a56
 ContainerName=mastodon-sidekiq
 Network=ao-sales-network.network
 EnvironmentFile=%h/secrets/mastodon.env
@@ -14,6 +14,7 @@ NoNewPrivileges=true
 Exec=/bin/sh -c "bundle exec sidekiq -q default -q push -q pull_request -q mailers -q scheduler"
 
 [Service]
+WorkingDirectory=%h
 Restart=on-failure
 RestartSec=15
 MemoryMax=4G

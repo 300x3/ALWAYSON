@@ -26,7 +26,7 @@ genenv() {
   ao_require_cmds openssl
   install -d -m 0700 -o scottw -g scottw /ALWAYSON/secrets/mastodon
   local K O P
-  K=$(test -f "$SEC" && sed -n 's/^MASTODON_SECRET_KEY_BASE=//p' "$SEC" | tail -1 || true)
+  K=$(test -f "$SEC" && sed -n 's/^SECRET_KEY_BASE=//p' "$SEC" | tail -1 || true)
   K=${K:-$(openssl rand -hex 64)}
   O=$(test -f "$SEC" && sed -n 's/^OTP_SECRET=//p' "$SEC" | tail -1 || true)
   O=${O:-$(openssl rand -hex 32)}
@@ -38,7 +38,7 @@ genenv() {
 LOCAL_DOMAIN=localhost
 SINGLE_USER_MODE=false
 DEFAULT_LOCALE=en
-MASTODON_SECRET_KEY_BASE=$K
+SECRET_KEY_BASE=$K
 OTP_SECRET=$O
 # rails database wiring (mastodon app)
 DB_HOST=mastodon-db
