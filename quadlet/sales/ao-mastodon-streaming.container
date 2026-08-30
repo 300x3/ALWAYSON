@@ -6,7 +6,7 @@ After=ao-mastodon-redis.service ao-sales-network.service
 Wants=ao-mastodon-redis.service
 
 [Container]
-Image=ghcr.io/mastodon/mastodon@sha256:76436bccad38f134cb9a5a6e9c83445915790fc12caf60e3a8ee9cbef8376a56
+Image=ghcr.io/mastodon/mastodon-streaming:v4.3.7
 ContainerName=mastodon-streaming
 Network=ao-sales-network.network
 EnvironmentFile=%h/secrets/mastodon.env
