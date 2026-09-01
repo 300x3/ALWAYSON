@@ -36,7 +36,7 @@ When the current implementation differs from an architecture requirement, the
 difference must be recorded in **Approved Deviations and Open Decisions** with
 a rationale, compensating controls, owner, and resolution condition.
 
-**Last consolidated review:** 2026-08-29
+**Last consolidated review:** 2026-08-31
 
 ---
 
@@ -194,7 +194,7 @@ mapping, simulation, database, AI, Podman, or Corda-core services.
 | Host platform | Kubuntu, Podman, Quadlet, protected administration | Host inventory and base platform verified | Implemented | Maintain version matrix |
 | Domain isolation | Separate workload networks with explicit approved paths | Ten internal workload networks and isolation test verified | Implemented | Add narrow adapters only as required |
 | Mapping | Dedicated mapping domain and photogrammetry drive | GPU-enabled WebODM smoke test completed; orthophoto produced | Implemented with deviation | Formalize steady-state rootless/system model |
-| Field and LoRa | Raspberry Pi 5, Waveshare LoRa, Heltec V3 gateway | Heltec V3 not connected; no live link test | Blocked | Connect Heltec V3 by USB-C |
+| Field and LoRa | Raspberry Pi 5, Waveshare LoRa, Heltec V3 gateway | Heltec V3 connected; stable `/dev/heltec-v3` + `/dev/serial/by-id` path, udev rule, and detection verified 2026-08-31; serial probe received packets; gateway service not deployed; no live link test | In progress | Deploy ao-field gateway; complete WORK 000050 link-test criteria |
 | Vehicle simulation | Isolated ROS/Gazebo/ArduPilot SITL domain | Headless Gazebo and ROS-Gazebo bridge smoke test passed | Implemented | Add scenario and QGroundControl validation as needed |
 | Fabrication simulation | Isolated ROS/Gazebo facility domain | Headless simulation smoke test passed | Implemented | Expand facility models and safety scenarios |
 | Ledger | Corda core behind mTLS ingestion gateway | Corda 5.2.2 scaffolded | Blocked | Complete operator key and certificate ceremony |
@@ -399,7 +399,7 @@ network.
 | 9 | Sales, receipt, fulfillment, entitlement, return, and approved support reporting | Metabase dashboards, saved questions, filters, exports, and approved SQL models; optional DBeaver host client for exceptional analysis | **Associated:** `ao-admin` reporting plane; sales data remains authoritative in the sales system. **Actual attachment:** Metabase: `ao-admin` only; DBeaver host client: none. **No broad attachment:** `ao-data`, `ao-field`, `ao-ledger-core`, `ao-ledger-ingest`, `ao-mapping`, `ao-payment`, `ao-sales`, `ao-sim-fabrication`, `ao-sim-vehicle`. | Metabase uses approved read-only reporting views and identities. DBeaver uses an explicit purpose-limited loopback or approved tunneled connection. | Planned after sales API, payment verifier, reporting schema/views, and payment-provider workflow are implemented. |
 | 10 | Ledger provenance, receipt, entitlement, approval, release, and ingestion reporting | Metabase for approved ledger reporting; Grafana for Corda/ingest health; Corda-supported management/API/CLI for administration | **Associated:** `ao-admin` reporting plane; approved data originates through `ao-ledger-ingest`. **Actual attachment:** Metabase/Grafana: `ao-admin` only; ledger-ingestion service: `ao-ledger-ingest`; Corda core: `ao-ledger-core`. **No broad attachment:** `ao-data`, `ao-field`, `ao-mapping`, `ao-payment`, `ao-sales`, `ao-sim-fabrication`, `ao-sim-vehicle`; no browser GUI in `ao-ledger-core`. | VPN or authenticated administration access. Metabase reads approved reporting views/projections through a dedicated reporting identity; Grafana receives supported metrics/status only. | Planned/blocked pending key/certificate ceremony, Corda status/metrics configuration, and approved reporting projection. |
 | 11 | Backup/restore status display | Restic plus approved status scripts, Grafana panels, or protected dashboard | **Associated:** `ao-admin`. **Actual attachment:** Dashboard/status service: `ao-admin` only; host-local tool: none. **No broad attachment:** `ao-data`, `ao-field`, `ao-ledger-core`, `ao-ledger-ingest`, `ao-mapping`, `ao-payment`, `ao-sales`, `ao-sim-fabrication`, `ao-sim-vehicle`; approved job/status artifacts only. | Same protected administration boundary as Grafana and Metabase. | Planned; backup and isolated restore evidence already exist. |
-| 12 | Field gateway / link-quality display | Heltec V3 gateway service; local display and/or approved Grafana-derived metrics | **Associated:** `ao-field`. **Actual attachment:** Gateway: `ao-field` only; host display: none; Grafana: `ao-admin` only. **No access:** `ao-data`, `ao-ledger-core`, `ao-ledger-ingest`, `ao-mapping`, `ao-payment`, `ao-sales`, `ao-sim-fabrication`, `ao-sim-vehicle`; `ao-admin` receives derived metrics only. | Approved USB serial/local diagnostic display or protected Grafana dashboard. | Blocked under WORK 000050 pending Heltec V3 connection. |
+| 12 | Field gateway / link-quality display | Heltec V3 gateway service; local display and/or approved Grafana-derived metrics | **Associated:** `ao-field`. **Actual attachment:** Gateway: `ao-field` only; host display: none; Grafana: `ao-admin` only. **No access:** `ao-data`, `ao-ledger-core`, `ao-ledger-ingest`, `ao-mapping`, `ao-payment`, `ao-sales`, `ao-sim-fabrication`, `ao-sim-vehicle`; `ao-admin` receives derived metrics only. | Approved USB serial/local diagnostic display or protected Grafana dashboard. | In progress; Heltec V3 connection and stable serial path verified 2026-08-31; gateway service deployment pending under WORK 000050. |
 | 13 | Ledger/Corda console and maintenance | Corda-supported management API/CLI and approved diagnostic tooling; not Metabase | **Associated:** `ao-ledger-ingest` and `ao-ledger-core`. **Actual attachment:** Management/status client: documented narrow path only; ingestion: `ao-ledger-ingest`; Corda core: `ao-ledger-core`; optional dashboard: `ao-admin`. **No access:** `ao-data`, `ao-field`, `ao-mapping`, `ao-payment`, `ao-sales`, `ao-sim-fabrication`, `ao-sim-vehicle`; no browser GUI deployed inside ledger core. | Narrow approved operator-management path after key/certificate ceremony; no public access. | Blocked pending Section 18.3 ceremony and current ledger backend diagnosis. |
 | 14 | PostgreSQL reporting, schema inspection, and controlled administration | DBeaver host client preferred for expert SQL; optional pgAdmin in `ao-admin`; Metabase for routine reporting | **Associated:** Approved host-loopback data administration and `ao-admin` reporting. **Actual attachment:** DBeaver: none; optional pgAdmin/Metabase: `ao-admin` only. **No implied attachment:** `ao-data` does not grant general database access; no broad membership in `ao-field`, `ao-ledger-core`, `ao-ledger-ingest`, `ao-mapping`, `ao-payment`, `ao-sales`, `ao-sim-fabrication`, or `ao-sim-vehicle`. | Explicit loopback or approved narrow tunnel/bridge using a dedicated least-privilege database identity. | Planned. PostgreSQL is loopback-only; formal reporting/maintenance roles and views are required. |
 | 15 | Redis diagnostic client | Optional Redis Insight or equivalent; not a routine reporting tool | **Associated:** Approved Redis diagnostics only. **Actual attachment:** Host desktop client: none; optional web GUI: `ao-admin` only. **No broad attachment:** All workload networks unless a separate explicit diagnostic endpoint/path is approved. | Explicit loopback or approved narrow diagnostic path using a scoped Redis ACL identity. | Optional/planned only if diagnostic value justifies deployment. |
@@ -1862,21 +1862,27 @@ operator workflow ACCORDING TO SECTION 6.A OF THIS README.
   workflow recorded with startup/health/shutdown procedures.
 - QGroundControl: AppImage installed
   (`~/Applications/QGroundControl-x86_64.AppImage`) but workflow unvalidated;
-  sim-vehicle Quadlet directory still empty.
+  sim-vehicle Quadlet definition created (`quadlet/sim-vehicle/ao-ardupilot-sitl.container`,
+  SITL service not yet validated); interactive QGC workflow requires MAVProxy
+  (not installed).
 - Gazebo visualization (vehicle and fabrication): headless runtimes verified;
   GUI clients planned; separate DDS/interface policy still required.
-- Tokodon/Mastodon: Tokodon installed; Mastodon Quadlet stack deployed
-  (containers currently exited); loopback listeners 3000 (nginx proxy) and 4000
-  (streaming) verified; OAuth validation blocked under WORK 000010.
+- Tokodon/Mastodon: Tokodon installed; Mastodon stack runs under the
+  alwayson-sales store (db/redis/sidekiq healthy; web 127.0.0.1:3000,
+  streaming 127.0.0.1:4000, streaming health 200); duplicate desktop-user
+  Quadlet units disabled 2026-08-31 after a loopback port conflict
+  (see ISSUE 000600); OAuth validation blocked under WORK 000010.
 - LM Studio/OpenClaw: in progress; unexplained loopback listeners
   (`127.0.0.1:8000`, `127.0.0.1:18789`) recorded for positive identification.
-- Sales/support administration: planned; Metabase not deployed; reporting
-  roles/views per Section 15.1 required.
-- Monitoring dashboard: planned; Grafana/collectors not deployed.
+- Sales/support administration: Metabase deployed and healthy
+  (127.0.0.1:3002); reporting roles/views per Section 15.1 required.
+- Monitoring dashboard: Prometheus + node_exporter + Grafana deployed
+  (127.0.0.1:9090 and 127.0.0.1:3001).
 - Backup/restore status: CLI-only (restic snapshot `548d9910` verified);
   dashboard display planned.
-- Field gateway/link-quality: blocked under WORK 000050 (Heltec V3 not
-  connected); MeshChatX AppImage installed.
+- Field gateway/link-quality: Heltec V3 connected and detection verified
+  2026-08-31; gateway service deployment and LoRa link test remain open
+  under WORK 000050; MeshChatX AppImage installed.
 - Every entry declares its Podman network mapping (or explicit no-attachment),
   no-access network list, data source, and procedures; no entry grants
   cross-domain access or an `ao-admin` broad membership.
@@ -1919,9 +1925,17 @@ approved KDE Wallet location and/or approved service-secret store.
 
 ## WORK 000050 — Heltec V3 Connection and Field Link Test
 
-**Status:** Blocked pending physical hardware connection.
+**Status:** In progress. Hardware connected and detection verified 2026-08-31.
 
-**Operator action required:** Connect the Heltec WiFi LoRa 32 V3 by USB-C.
+**Completed 2026-08-31:** Device connected by USB-C; enumerated at stable
+`/dev/serial/by-id/usb-Silicon_Labs_CP2102_USB_to_UART_Bridge_Controller_0001-if00-port0`
+with `/dev/heltec-v3` udev symlink (rule installed at
+`/etc/udev/rules.d/99-alwayson-heltec.rules` from
+`config/field/heltec-v3/udev/`, includes `ID_MM_DEVICE_IGNORE` and dialout
+0660). `scripts/radio/detect-heltec.sh` returns OK. Serial probe at
+115200 8N1 received c0-framed packets (radio passing traffic). Bridge
+identity: Silicon Labs CP2102 (10c4:ea60), serial 0001. Firmware state not
+yet recorded.
 
 **Acceptance criteria:**
 
@@ -2041,11 +2055,25 @@ operator approval. The drive tree now matches the required structure.
 - Controlled ingress/egress adapters remain architecture requirements and must
   be implemented before enabling external payment, archive, or community
   connectivity.
+- Unattended Quadlet services currently source secrets from KDE Wallet at
+  startup (`scripts/operations/fetch-kwallet-secret.sh` writes service-specific
+  0600 env files for mastodon-db, sales-db, and webodm-db). Section 14.1 states
+  unattended production services must use systemd credentials, Podman secrets,
+  or approved service-specific secret files; record an approved deviation with
+  compensating controls or migrate to Podman secrets/systemd credentials before
+  production declaration.
 
 ## ISSUE 000600 — Mastodon Setup
 
 **Status:** In progress.
 
+- Resolved 2026-08-31: duplicate Mastodon Quadlet stack under the desktop
+  user crash-looped against the authoritative alwayson-sales store
+  (rootlessport bind conflict on 127.0.0.1:3000/4000, restart counter 160+).
+  Desktop-user units disabled and moved to
+  `~/.config/containers/systemd/disabled/`; scottw-store DB dumped to
+  `/ALWAYSON/backups/mastodon/` before teardown; sales-store stack (3
+  accounts) confirmed authoritative per `scripts/mastodon/deploy-mastodon.sh`.
 - Loopback validation may require `RAILS_FORCE_SSL=false`; production external
   access must use HTTPS.
 - Mastodon host validation requires `localhost` or an approved configured host.
@@ -2070,7 +2098,7 @@ operator approval. The drive tree now matches the required structure.
 | WebODM smoke test | `apt-76`; 76 images; GPU-enabled orthophoto produced | Complete |
 | Vehicle simulation | Headless Gazebo 300-iteration and ROS-Gazebo bridge test | Complete |
 | Fabrication simulation | Headless Gazebo 300-iteration and bridge test | Complete |
-| Heltec/LoRa | Deferred; physical Heltec V3 not connected | Blocked |
+| Heltec/LoRa detection | Heltec V3 connected; stable by-id + `/dev/heltec-v3` path, udev rule installed, `detect-heltec.sh` OK, serial probe received c0-framed packets 2026-08-31; LoRa-link test pending ao-field gateway | Partial |
 | Corda receipt | Corda 5.2.2 scaffolded; key ceremony pending | Blocked |
 | Sales receipt manifest | Sales DB deployed; provider/API pending | Partial |
 | Backup | Encrypted restic snapshot `548d9910` completed | Complete |
@@ -2078,6 +2106,7 @@ operator approval. The drive tree now matches the required structure.
 | GUI boundary matrix (WORK 000020) | `config/platform/gui-boundary-matrix.yaml`; 10 entries reviewed | Partial |
 | Monitoring stack (ao-admin) | Prometheus + node_exporter + Grafana deployed as user Quadlet units on `ao-admin` (10.89.9.0/24); loopback listeners 127.0.0.1:9090 and 127.0.0.1:3001 verified; self and node-host scrape `up` | Complete |
 | Metabase reporting (ao-admin) | Deployed and healthy (127.0.0.1:3002, API /api/health 200); sales-DB read-only role pending pkexec-post-deploy.sh | Partial |
+| Mastodon local stack (ao-sales) | alwayson-sales store 5/5 containers healthy; web 127.0.0.1:3000 and streaming 127.0.0.1:4000 loopback verified; duplicate desktop-user units disabled 2026-08-31 (ISSUE 000600) | Complete (local, pre-federation) |
 | WebODM operator workflow restart | Stack in quadlet/mapping/ (system store); restart deferred to pkexec-post-deploy.sh | Partial |
 
 ---
