@@ -46,7 +46,12 @@ ao_lock() {
 
 ao_dry_run_init() {
   AO_DRY_RUN=0
-  [[ "${1:-}" == "--dry-run" ]] && AO_DRY_RUN=1
+  # NOTE: do not use a bare `[[ ]] && ...` here — under `set -e` a false
+  # result would silently terminate calling scripts (bug fixed 2026-08-31).
+  if [[ "${1:-}" == "--dry-run" ]]; then
+    AO_DRY_RUN=1
+  fi
+  return 0
 }
 
 ao_run() {

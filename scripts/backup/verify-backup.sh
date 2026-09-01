@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 # ALWAYS ON - verify-backup.sh: weekly repository integrity check (Section 4.4).
 set -Eeuo pipefail
 IFS=$'\n\t'

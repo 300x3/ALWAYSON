@@ -201,7 +201,7 @@ mapping, simulation, database, AI, Podman, or Corda-core services.
 | Sales and payment | Hosted payment flow and verified events | Sales DB deployed; payment provider and API pending | Planned | Select provider and implement verifier/API |
 | Mastodon and OpenClaw | Restricted local support/community workflow | Local stack in progress; OAuth/client issues recorded | In progress | Complete Tokodon and local LLM validation |
 | Archive | Encrypted off-host replication and controlled IPFS workflow | Local restic backup and restore validation complete | Partially implemented | Provision pCloud/archive credentials and test replication |
-| Backup and restore | Encrypted backup plus recurring restore testing | Encrypted restic snapshot and isolated restore test complete | Implemented | Automate recurring schedule |
+| Backup and restore | Encrypted backup plus recurring restore testing | Encrypted restic snapshot and isolated restore test complete; recurring schedule automated 2026-08-31 (nightly restic 03:30, nightly DB dumps 03:00, weekly verify) | Implemented | Schedule recurring restore tests |
 
 
 ## 3.3 DATABASES
@@ -1855,9 +1855,13 @@ The prior provider-evaluation draft is retained at
 **Precondition check 2026-08-31:** Mastodon web and streaming healthy on
 loopback (web 200 via `http://localhost:3000`; streaming health 200 on
 `127.0.0.1:4000`); Tokodon OAuth client credentials and administrator account
-material present in KDE Wallet `ao-mastodon` (Section 14.1.1). Remaining
-preconditions: LM Studio model loaded with verified endpoint; operator
-presence for interactive authentication and approval.
+material present in KDE Wallet `ao-mastodon` (Section 14.1.1); LM Studio
+server running headless on `127.0.0.1:1234` with model `ibm/granite-3.2-8b`
+loaded (verification default — final model selection remains the operator's);
+REST API is auth-enforced (Bearer token required; obtain the token from the
+LM Studio Developer tab and store it in the KDE Wallet `ao-sales` folder for
+OpenClaw wiring). Remaining precondition: operator presence for interactive
+authentication and approval.
 
 **Objective:** Validate that the local 300X3 Mastodon instance can be opened in
 Tokodon using the designated administrator account, and validate a local-only
@@ -1884,9 +1888,11 @@ local LM Studio model.
 ## WORK 000020 — Graphic User Interface Review
 
 **Status:** In progress — Part A delivered; admin-plane monitoring/Metabase
-deployed. Remaining scope (WebODM/QGroundControl/Gazebo interactive GUIs, sales
-DB reporting integration, field link test) awaits the `pkexec` post-deploy
-authorization step documented in `quadlet/operations/pkexec-post-deploy.sh`.
+deployed; pkexec-post-deploy executed 2026-08-31 (WebODM system-store recovery
+correctly a no-op — the stack is rootless; `metaread` role exists). Remaining
+scope (QGC interactive workflow, sales DB reporting grants pending the
+ao-admin→ao-sales path decision, field link test, Gazebo GUI clients) is
+tracked in the outstanding items below.
 
 **Objective:** Identify GUI components that remain unimplemented or lack an
 operator workflow ACCORDING TO SECTION 6.A OF THIS README.
@@ -1915,10 +1921,14 @@ operator workflow ACCORDING TO SECTION 6.A OF THIS README.
 - WebODM UI: implemented with deviation (smoke test apt-76 passed); operator
   workflow recorded with startup/health/shutdown procedures.
 - QGroundControl: AppImage installed
-  (`~/Applications/QGroundControl-x86_64.AppImage`) but workflow unvalidated;
-  sim-vehicle Quadlet definition created (`quadlet/sim-vehicle/ao-ardupilot-sitl.container`,
-  SITL service not yet validated); interactive QGC workflow requires MAVProxy
-  (not installed).
+  (`~/Applications/QGroundControl-x86_64.AppImage`) but interactive workflow
+  unvalidated; sim-vehicle Quadlet definition created
+  (`quadlet/sim-vehicle/ao-ardupilot-sitl.container`, containerized variant not
+  deployed). Host `ao-ardupilot-sitl.service` MAVLink telemetry validated
+  2026-08-31: HEARTBEAT (sysid 1, MAV_TYPE_QUADROTOR, ArduPilot) received over
+  `tcp:127.0.0.1:5760` via pymavlink; broken unit flags (`--console`,
+  unsupported `--out`) removed — QGC connects via TCP 5760 (autoconnect);
+  optional UDP 14550/14551 bridging deferred to MAVProxy (not installed).
 - Gazebo visualization (vehicle and fabrication): headless runtimes verified;
   GUI clients planned; separate DDS/interface policy still required.
 - Tokodon/Mastodon: Tokodon installed; Mastodon stack runs under the
@@ -1926,10 +1936,10 @@ operator workflow ACCORDING TO SECTION 6.A OF THIS README.
   streaming 127.0.0.1:4000, streaming health 200); duplicate desktop-user
   Quadlet units disabled 2026-08-31 after a loopback port conflict
   (see ISSUE 000600); OAuth validation blocked under WORK 000010.
-- LM Studio/OpenClaw: in progress; loopback listeners positively identified
-  2026-08-31: `127.0.0.1:8000` = WebODM webapp (ao-mapping store);
-  `127.0.0.1:18789` = OpenClaw gateway (host `openclaw-gateway.service`).
-  LM Studio host-local endpoint not yet running/verified.
+- LM Studio/OpenClaw: LM Studio server running headless on `127.0.0.1:1234`
+  (`ibm/granite-3.2-8b` loaded); REST API auth-enforced. OpenClaw gateway on
+  `127.0.0.1:18789` (`openclaw-gateway.service`). OpenClaw-to-LM-Studio wiring
+  requires the LM Studio API token (operator, Developer tab → KDE Wallet).
 - Sales/support administration: Metabase deployed and healthy
   (127.0.0.1:3002); reporting roles/views per Section 15.1 required.
 - Monitoring dashboard: Prometheus + node_exporter + Grafana deployed
@@ -2001,8 +2011,11 @@ with `/dev/heltec-v3` udev symlink (rule installed at
 `config/field/heltec-v3/udev/`, includes `ID_MM_DEVICE_IGNORE` and dialout
 0660). `scripts/radio/detect-heltec.sh` returns OK. Serial probe at
 115200 8N1 received c0-framed packets (radio passing traffic). Bridge
-identity: Silicon Labs CP2102 (10c4:ea60), serial 0001. Firmware state not
-yet recorded.
+identity: Silicon Labs CP2102 (10c4:ea60), serial 0001. Firmware state
+recorded 2026-08-31 via `rnodeconf --info`: **RNode firmware 1.85**, EEPROM
+checksum valid, device signature unverified (self-built RNode; signing via
+`rnodeconf` is an operator option — reflashing/bootstrap requires explicit
+operator approval).
 
 **Acceptance criteria:**
 
@@ -2168,12 +2181,14 @@ operator approval. The drive tree now matches the required structure.
 | Heltec/LoRa detection | Heltec V3 connected; stable by-id + `/dev/heltec-v3` path, udev rule installed, `detect-heltec.sh` OK, serial probe received c0-framed packets 2026-08-31; LoRa-link test pending ao-field gateway | Partial |
 | Corda receipt | Corda 5.2.2 scaffolded; key ceremony pending | Blocked |
 | Sales receipt manifest | Sales DB deployed; provider/API pending | Partial |
-| Backup | Encrypted restic snapshot `548d9910` completed | Complete |
+| Backup | Encrypted restic snapshot `548d9910` completed; recurring schedule automated 2026-08-31 (restic nightly 03:30 timer, weekly integrity verify Sun 04:30, nightly domain DB dumps 03:00 for mastodon/sales/webodm); verification snapshot `32be2a1c` saved | Complete |
 | Restore | File hash validated; database 14/14 tables restored | Complete |
 | Monitoring stack (ao-admin) | Prometheus + node_exporter + Grafana deployed as user Quadlet units on `ao-admin` (10.89.9.0/24); loopback listeners 127.0.0.1:9090 and 127.0.0.1:3001 verified; self and node-host scrape `up` | Complete |
-| Metabase reporting (ao-admin) | Deployed and healthy (127.0.0.1:3002, API /api/health 200); sales-DB read-only role pending pkexec-post-deploy.sh | Partial |
+| Metabase reporting (ao-admin) | Deployed and healthy (127.0.0.1:3002, API /api/health 200); `metaread` role exists; read-only grants pending — sales data is container-scoped (sales-db), so an approved ao-admin→ao-sales reporting path must be decided first | Partial |
 | Mastodon local stack (ao-sales) | alwayson-sales store 5/5 containers healthy; web 127.0.0.1:3000 and streaming 127.0.0.1:4000 loopback verified; duplicate desktop-user units disabled 2026-08-31 (ISSUE 000600) | Complete (local, pre-federation) |
-| WebODM operator workflow restart | Stack in quadlet/mapping/ (system store); restart deferred to pkexec-post-deploy.sh | Partial |
+| WebODM operator workflow restart | Stack is rootless (scottw/mapping store); system-store recovery step correctly found no system-store containers — no action needed | Complete |
+| ArduPilot SITL MAVLink | ao-ardupilot-sitl.service flags fixed; HEARTBEAT (sysid 1, QUADROTOR, ArduPilot) validated over tcp:127.0.0.1:5760 via pymavlink | Complete |
+| Heltec firmware | RNode firmware 1.85 recorded via rnodeconf; EEPROM valid; signature unverified (operator signing option) | Partial |
 
 ---
 
