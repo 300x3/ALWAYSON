@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ALWAYS ON - kwallet-provision.sh
-# Manage secrets in the operator KDE Wallet (kwalletd6) per Section 3.4 /
+# Manage secrets in the operator KDE Wallet (kwalletd6) per Section 14.1.1 /
 # docs/runbooks/secrets.md. Run THIS FROM THE INTERACTIVE PLASMA SESSION
 # (the wallet must be unlocked; normally auto-unlocks with your login).
 #
