@@ -1852,6 +1852,13 @@ The prior provider-evaluation draft is retained at
 
 **Status:** Blocked pending operator-led interactive login and confirmation.
 
+**Precondition check 2026-08-31:** Mastodon web and streaming healthy on
+loopback (web 200 via `http://localhost:3000`; streaming health 200 on
+`127.0.0.1:4000`); Tokodon OAuth client credentials and administrator account
+material present in KDE Wallet `ao-mastodon` (Section 14.1.1). Remaining
+preconditions: LM Studio model loaded with verified endpoint; operator
+presence for interactive authentication and approval.
+
 **Objective:** Validate that the local 300X3 Mastodon instance can be opened in
 Tokodon using the designated administrator account, and validate a local-only
 conversation workflow with the OpenClaw bot backed by an explicitly selected
@@ -1919,8 +1926,10 @@ operator workflow ACCORDING TO SECTION 6.A OF THIS README.
   streaming 127.0.0.1:4000, streaming health 200); duplicate desktop-user
   Quadlet units disabled 2026-08-31 after a loopback port conflict
   (see ISSUE 000600); OAuth validation blocked under WORK 000010.
-- LM Studio/OpenClaw: in progress; unexplained loopback listeners
-  (`127.0.0.1:8000`, `127.0.0.1:18789`) recorded for positive identification.
+- LM Studio/OpenClaw: in progress; loopback listeners positively identified
+  2026-08-31: `127.0.0.1:8000` = WebODM webapp (ao-mapping store);
+  `127.0.0.1:18789` = OpenClaw gateway (host `openclaw-gateway.service`).
+  LM Studio host-local endpoint not yet running/verified.
 - Sales/support administration: Metabase deployed and healthy
   (127.0.0.1:3002); reporting roles/views per Section 15.1 required.
 - Monitoring dashboard: Prometheus + node_exporter + Grafana deployed
@@ -1940,13 +1949,16 @@ operator workflow ACCORDING TO SECTION 6.A OF THIS README.
 
 **Outstanding items:**
 
-- Select payment provider.
-- Provision payment credentials through approved secret delivery.
+- ~~Select payment provider.~~ Decided 2026-08-28: PayPal hosted checkout
+  plus Zelle (Section 18.4).
+- Provision payment credentials through approved secret delivery (KDE Wallet
+  `ao-payment` folder provisioned per Section 14.1.1; entry not yet stored).
 - Implement payment verifier and normalized event model.
 - Implement sales API and receipt/fulfillment workflow.
-- Provision pCloud credentials for archive replication.
-- Complete Mastodon OAuth validation.
-- Complete Corda operator key and certificate ceremony.
+- Provision pCloud credentials for archive replication (wallet-side
+  confirmation complete under WORK 000040: `ao-archive` empty).
+- Complete Mastodon OAuth validation (WORK 000010).
+- Complete Corda operator key and certificate ceremony (Section 18.3).
 
 **Acceptance criteria:**
 
@@ -2158,7 +2170,6 @@ operator approval. The drive tree now matches the required structure.
 | Sales receipt manifest | Sales DB deployed; provider/API pending | Partial |
 | Backup | Encrypted restic snapshot `548d9910` completed | Complete |
 | Restore | File hash validated; database 14/14 tables restored | Complete |
-| GUI boundary matrix (WORK 000020) | `config/platform/gui-boundary-matrix.yaml`; 10 entries reviewed | Partial |
 | Monitoring stack (ao-admin) | Prometheus + node_exporter + Grafana deployed as user Quadlet units on `ao-admin` (10.89.9.0/24); loopback listeners 127.0.0.1:9090 and 127.0.0.1:3001 verified; self and node-host scrape `up` | Complete |
 | Metabase reporting (ao-admin) | Deployed and healthy (127.0.0.1:3002, API /api/health 200); sales-DB read-only role pending pkexec-post-deploy.sh | Partial |
 | Mastodon local stack (ao-sales) | alwayson-sales store 5/5 containers healthy; web 127.0.0.1:3000 and streaming 127.0.0.1:4000 loopback verified; duplicate desktop-user units disabled 2026-08-31 (ISSUE 000600) | Complete (local, pre-federation) |
