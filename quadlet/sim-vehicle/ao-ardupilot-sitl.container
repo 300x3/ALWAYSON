@@ -1,0 +1,25 @@
+# /ALWAYSON/quadlet/sim-vehicle/ao-ardupilot-sitl.container
+# ALWAYS ON ArduPilot SITL (Copter) - Section 11 vehicle simulation
+# NOTE: SITL runs on host via systemd service (not containerized) due to
+# real-time constraints. The ao-sim-vehicle network is reserved for future
+# containerized simulation services (ROS-Gazebo bridge, etc.)
+[Unit]
+Description=ALWAYS ON ArduPilot SITL (Vehicle Simulation)
+After=network-online.target
+Wants=network-online.target
+
+[Container]
+Image=ghcr.io/ardupilot/ardupilot-sitl:latest
+ContainerName=ardupilot-sitl
+Network=ao-sim-vehicle.network
+NoNewPrivileges=true
+Exec=/bin/bash -c "sim_vehicle.py -v ArduCopter --console --map --out=0.0.0.0:14550"
+
+[Service]
+Restart=on-failure
+RestartSec=15
+MemoryMax=2G
+TimeoutStartSec=300
+
+[Install]
+WantedBy=default.target

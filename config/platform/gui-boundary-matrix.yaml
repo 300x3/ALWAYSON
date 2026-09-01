@@ -52,8 +52,8 @@ entries:
     startup: "Run AppImage locally; start vehicle simulation stack (quadlet definitions pending in /ALWAYSON/quadlet/sim-vehicle/)"
     health_check: "QGC status indicator shows simulated vehicle heartbeats; MAVLink router process alive"
     shutdown: "Close QGC before stopping SITL/MAVLink router"
-    status: "planned"
-    status_notes: "Headless vehicle simulation and ROS-Gazebo bridge verified; interactive QGC workflow unvalidated."
+    status: "partial"
+    status_notes: "ArduPilot SITL binary built at ~/ardupilot/build/sitl/bin/arducopter. Interactive QGC workflow requires MAVProxy (not installed). Quadlet definition created but service not yet validated."
 
   - id: gazebo-vehicle-visualization
     scope_item: "Gazebo visualization workflow (vehicle)"
