@@ -6,6 +6,7 @@
 **Project origin:** Building ~2010 · Drone ~2012 · Linux systems ~2023  
 **Supporting project plan:** https://archive.org/details/@scott_widmann  
 **Current project website:** https://www.300x3.com
+**CREATED WITH:** BLUEBEAM AND LIBREDRAW, WWW.PERPLEXITY.AI, WWW.CLINE.BOT
 
 ---
 
