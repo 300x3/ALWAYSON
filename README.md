@@ -1356,6 +1356,53 @@ services must use systemd credentials, Podman secrets, or approved
 service-specific secret files. Secret rotation, revocation, expiration, and
 recovery procedures must be documented before production use.
 
+### 14.1.1 KDE Wallet Secret Management (Implemented)
+
+KDE Wallet is the operator-side secret and credential store for this host.
+This subsection records the implemented integration; the Section 14.1 policy
+above remains authoritative, and the unattended-delivery deviation is tracked
+in Section 18 (Open Decisions).
+
+Runtime and tooling:
+
+- Wallet daemon: `kwalletd6` (also registers the `org.kde.kwalletd5` D-Bus
+  name for compatibility; both names refer to the same daemon). Wallet:
+  `kdewallet`, auto-unlocked with the operator's Plasma login.
+- Management CLI: `scripts/ops/kwallet-provision.sh` (`create-folders`,
+  `put`, `get`). Run only from the interactive Plasma session while the
+  wallet is unlocked.
+- Boot-time delivery: `scripts/operations/fetch-kwallet-secret.sh` runs as a
+  Quadlet `ExecStartPre`, waits for the desktop session and kwalletd (max
+  ~60s), reads the required entries, and writes a service-specific `0600`
+  env file under the unit owner's `~/secrets/` for the unit to consume via
+  `--env-file`. Used by `ao-mastodon-db`, `ao-sales-db`, and
+  `ao-webodm-db` (verified at boot; see the installation journal).
+
+Wallet layout (folder: purpose):
+
+| Folder | Purpose |
+|---|---|
+| `ALWAYSON` | Boot-time delivery entries consumed by Quadlet units |
+| `ao-mastodon` | Local 300X3 Mastodon application secrets (Section 15.3) and Tokodon/OpenClaw OAuth material (WORK 000010) |
+| `ao-sales`, `ao-payment`, `ao-field`, `ao-mapping`, `ao-ledger`, `ao-archive`, `ao-admin`, `ao-sim-vehicle`, `ao-sim-fabrication` | Per-domain credential folders matching the Section 14.1 authorized-domain table (provisioned empty 2026-08-31) |
+
+Current entry inventory (names only; values never in Git, logs, or docs):
+
+| Folder | Entries |
+|---|---|
+| `ALWAYSON` | `mastodon-db-password`, `sales-db-password`, `webodm-postgres-password` |
+| `ao-mastodon` | `mastodon-secret-key-base`, `mastodon-otp-secret`, `mastodon-db-password`, `mastodon-ar-deterministic-key`, `mastodon-ar-primary-key`, `mastodon-ar-derivation-salt`, `mastodon-admin-password`, `tokodon-client-id`, `tokodon-client-secret`, `openclaw-bot-client-id`, `openclaw-bot-client-secret`, `openclaw-bot-access-token`, `openclaw-bot-password`, `roundtrip`/`roundtrip2` (test artifacts) |
+
+Rules:
+
+- Never print, copy, export, or log entry values; confirm presence only
+  (same rule as WORK 000040). Presence checks use the D-Bus
+  `entryList`/`hasEntry` methods on `org.kde.kwalletd6`.
+- Entries are named per service and per purpose; domain folders enforce the
+  Section 14.1 authorized-domain boundaries.
+- Rotation, revocation, expiration, and recovery procedures must be
+  documented before production use (Section 14.1 requirement).
+
 ## 14.2 Version Matrix
 
 Maintain:
@@ -1911,7 +1958,15 @@ operator workflow ACCORDING TO SECTION 6.A OF THIS README.
 
 ## WORK 000040 — Off-Host Archive Credential Review
 
-**Status:** Blocked pending operator confirmation.
+**Status:** In progress. Wallet-side confirmation completed 2026-08-31.
+
+**Completed 2026-08-31:** Presence-only check (D-Bus `entryList`/`hasFolder`,
+no values read) confirms the KDE Wallet contains **no** pCloud/archive
+credentials: the `ao-archive` domain folder exists (provisioned empty
+2026-08-31 per Section 14.1.1) with zero entries. Credential values must be
+provisioned into `ao-archive` via `scripts/ops/kwallet-provision.sh` before
+the encrypted replication test. The operator must still confirm whether
+credentials exist outside the wallet and approve the replication test.
 
 **Objective:** Confirm whether required pCloud/archive credentials exist in the
 approved KDE Wallet location and/or approved service-secret store.
