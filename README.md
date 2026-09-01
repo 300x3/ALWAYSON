@@ -6,6 +6,7 @@
 **Project origin:** Building ~2010 · Drone ~2012 · Linux systems ~2023  
 **Supporting project plan:** https://archive.org/details/@scott_widmann  
 **Current project website:** https://www.300x3.com
+**CREATED WITH:** BLUEBEAM AND LIBREDRAW (PDF PROJECT PLAN), WWW.PERPLEXITY.AI, WWW.CLINE.BOT
 
 ---
 
@@ -1480,6 +1481,121 @@ Known Mastodon implementation notes:
    workflow.
 4. Newly created accounts may require explicit approval before API access.
 
+## 15.4 Federation Publication of the Local 300X3 Instance
+
+**Category:** Planned. Approved design for joining the fediverse as the
+300X3 instance so that public posts from the local deployment appear on
+external Mastodon servers, including `mastodon.social`.
+
+Federation is a mutual, inbound-and-outbound protocol: remote servers
+(including `mastodon.social`) must reach this instance over the public
+internet using HTTPS, and this instance must be able to deliver outbound
+activity to remote inboxes. The current loopback-only configuration
+(Section 15.3) is a prerequisite-compliant validation stage and must not
+federate.
+
+### 15.4.1 Architecture Requirements
+
+| Area | Architecture requirement |
+|---|---|
+| Public instance domain | A dedicated subdomain of the operator-controlled domain, e.g. `social.300x3.com` |
+| TLS | Required for all federation traffic; plaintext HTTP federation is prohibited |
+| Inbound reachability | No router port-forward of the workstation; public reachability must be provided by an approved tunnel or reverse-proxy front (VPS reverse proxy, Cloudflare Tunnel, or Tailscale Funnel) |
+| Outbound reachability | Federation delivery (Sidekiq) uses HTTPS/443 through `ao-egress-community` only when explicitly enabled |
+| Isolation | The instance keeps its internal `ao-sales` network placement, container-scoped PostgreSQL and Redis, and loopback-bound internal ports; only the tunnel/edge component is publicly exposed |
+| Secrets | Certificates, tunnel credentials, and any DNS API tokens live in the approved secret store / KDE Wallet `ao-mastodon`; never in Git or this README |
+| Policy | `config/mastodon/instance-policy.yaml` must be updated to `public_federation: true`, an explicit `approved_pub_host`, and a documented egress statement at the time federation is enabled |
+| Operator duties | Public-instance moderation, report handling, and blocklist management become operator responsibilities on enablement |
+
+### 15.4.2 Domain and Mastodon Identity Configuration
+
+Environment changes in `mastodon.env` (deployed copy; template in
+`config/mastodon/mastodon.env.example`):
+
+```text
+LOCAL_DOMAIN=social.300x3.com
+LOCAL_HTTPS=true
+RAILS_FORCE_SSL=true
+```
+
+- Changing `LOCAL_DOMAIN` changes every account handle (for example,
+  `@admin@300x3` becomes `@admin@social.300x3.com`). This change must be
+  made before any accounts of record exist; it is cheapest during the
+  current development stage.
+- Optional `WEB_DOMAIN` split: `LOCAL_DOMAIN=300x3` with
+  `WEB_DOMAIN=social.300x3.com` keeps short handles (`@admin@300x3.com`)
+  while serving from the subdomain. This requires a WebFinger redirect
+  path on the apex domain (`300x3.com/.well-known/webfinger`) and is only
+  to be used if handle branding is explicitly approved.
+- The loopback-only `RAILS_FORCE_SSL=false` deviation documented in
+  Section 15.3 and ISSUE 000600 is retired once this section is
+  implemented.
+
+### 15.4.3 Edge, TLS, and Network Path
+
+```text
+Remote fediverse servers (e.g. mastodon.social)
+        │  HTTPS 443
+        ▼
+Public edge (approved tunnel or VPS reverse proxy)
+  - terminates DNS for social.300x3.com
+        │  encrypted private path
+        ▼
+Workstation nginx (nginx-300x3.conf extended)
+  - listen 443 ssl; Let's Encrypt certificate (DNS-01 preferred)
+  - port 80 only as ACME/redirect listener
+        │
+        ├── /api/v1/streaming → 300x3-streaming:4000  (wss from clients)
+        └── /                  → 300x3-web:3000
+```
+
+TLS requirements:
+
+- Certificate issuance via Let's Encrypt; DNS-01 challenge preferred so
+  that inbound port 80 forwarding is not required.
+- Certificate renewal must be automated or operator-scheduled and must
+  not depend on secret values outside the approved store.
+- The nginx proxy must set `X-Forwarded-Proto https` so Rails generates
+  HTTPS URLs and Secure cookies.
+
+Outbound delivery path:
+
+- Sidekiq delivers public activities to remote inboxes over HTTPS/443.
+- Egress is restricted to `ao-egress-community` (Section 3) with HTTPS as
+  the only approved protocol; no broad network membership.
+- Rate and retry behavior are Mastodon defaults; no relay subscription is
+  approved unless explicitly decided.
+
+### 15.4.4 Federation Enablement Sequence
+
+1. Provision `social.300x3.com` DNS and the approved public edge path.
+2. Issue and install the TLS certificate; extend
+   `config/mastodon/nginx-300x3.conf` with the 443 server block.
+3. Apply the Section 15.4.2 environment changes and restart the Mastodon
+   stack units.
+4. Enable `ao-egress-community` scoped to HTTPS/443 for the Sidekiq
+   service identity only.
+5. Update `config/mastodon/instance-policy.yaml` per Section 15.4.1 and
+   record the decision in Section 18.
+6. Bootstrap discovery: from Tokodon on the local instance, follow at
+   least one account on `mastodon.social`. Remote servers do not index
+   this instance until first contact occurs.
+7. Validate public-post delivery to `mastodon.social` and reply/boost
+   round-trips back to the local instance.
+
+### 15.4.5 Operational Boundaries After Enablement
+
+- Only `public` visibility federates; `unlisted`, `private`, and
+  `direct` do not appear on remote servers' explore pages. The OpenClaw
+  draft-by-default and human-approval controls (Sections 3.8 and 15.2)
+  remain mandatory for all public publication.
+- `post.sh` public-post guard remains the script-level approval gate.
+- Federated deletion is best-effort: remote servers may retain cached
+  copies. Content published under this section must be treated as
+  practically irreversible.
+- Publication audit logging (immutable, Section 15.2) must include the
+  remote-delivery outcome for federated statuses.
+
 ---
 
 # 16. Scripts and Operational Standards
@@ -1814,6 +1930,45 @@ approved KDE Wallet location and/or approved service-secret store.
 - US915 radio profile is validated against the Raspberry Pi/Waveshare profile.
 - Link test records RSSI, SNR, packet loss, retry behavior, and replay defense.
 - No live flight-control command path is enabled during validation.
+
+## WORK 000060 — Federation Publication of the Local 300X3 Mastodon Instance
+
+**Status:** Blocked pending operator decision on the public edge path and
+provisioning of domain, certificate, and tunnel credentials.
+
+**Objective:** Implement the approved federation design documented in
+**README Section 15.4** ("Federation Publication of the Local 300X3
+Instance") so that public posts from the local instance federate to
+external servers including `mastodon.social`.
+
+**Scope:** This work item implements Section 15.4 and must not redefine
+its architecture. All technical requirements, the enablement sequence,
+and operational boundaries are specified there; see in particular
+Section 15.4.1 (architecture requirements), 15.4.2 (domain and identity
+configuration), 15.4.3 (edge, TLS, and network path), 15.4.4 (enablement
+sequence), and 15.4.5 (operational boundaries).
+
+**Outstanding items:**
+
+- Operator approval of the public edge path (tunnel versus VPS reverse
+  proxy) per Section 15.4.1.
+- DNS provisioning for the public instance domain per Section 15.4.2.
+- Certificate issuance and automation per Section 15.4.3.
+- Scoped enablement of `ao-egress-community` for Sidekiq federation
+  delivery per Section 15.4.3.
+- Policy and deviation-record updates per Sections 15.4.1 and 18.
+
+**Acceptance criteria:**
+
+- All steps of the Section 15.4.4 enablement sequence are completed in
+  order and evidenced.
+- A public post from the local instance is visible on `mastodon.social`,
+  and a reply or boost round-trip is received locally.
+- No credential, certificate key, or tunnel secret appears in Git, logs,
+  or this README.
+- `config/mastodon/instance-policy.yaml` reflects the Section 15.4.1
+  requirements, and Section 18 records the retirement of the loopback
+  `RAILS_FORCE_SSL=false` deviation for the federated deployment.
 
 ## ISSUE 000100 — Host Runtime Re-Check
 
