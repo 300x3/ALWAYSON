@@ -10,6 +10,22 @@ fi
 
 OUTPUT_FILE="$1"
 shift
+# Wait for the desktop session + kwalletd to be available (max ~60s),
+# so we never D-Bus-activate kwalletd headless at login (which crashes
+# kwalletd6 with "could not connect to display" -> SIGABRT).
+kwallet_ready() {
+    busctl --user list 2>/dev/null | grep -qE '(^|[[:space:]])org\.kde\.kwalletd5([[:space:]]|$)'
+}
+for _i in $(seq 1 30); do
+    if kwallet_ready; then
+        break
+    fi
+    sleep 2
+done
+if ! kwallet_ready; then
+    echo "ERROR: org.kde.kwalletd5 not available on the session bus after 60s" >&2
+    exit 1
+fi
 
 fetch_secret() {
     local entry="$1"
