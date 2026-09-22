@@ -465,7 +465,7 @@ The machine-readable implementation inventory for this requirement is:
 ## 7.1 Storefront Boundary
 
 The public storefront is static HTML hosted in the pCloud Public Folder. 
-HTML project github: https://github.com/300x3/voron-creations-hub
+HTML project github: https://github.com/300x3/HTML-300X3
 
 ```text
 pCloud Public Folder
