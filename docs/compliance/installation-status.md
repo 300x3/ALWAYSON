@@ -188,15 +188,18 @@ image set; production Quadlet units `ao-mastodon-*` remain scaffolded/pending).
   listener (allowlist empty).
 - **Proxy:** `config/mastodon/nginx-300x3.conf` rewrites `Host: localhost`
   (Mastodon rejects `Host: 127.0.0.1` → 403) and routes `/api/v1/streaming`.
-- **SSL:** `RAILS_FORCE_SSL=false` via patched `production.rb`
-  (`config/mastodon/patches/`, gitignored copy of Mastodon source).
-- **Accounts:** Owner `300x3admin` (livework@posteo.net); bot `300x3bot`
+- **SSL:** `RAILS_FORCE_SSL=true` + `LOCAL_HTTPS=true` enforced at the
+  Cloudflare Tunnel edge since 2026-09-22 (WORK 000060; loopback exception retired).
+- **Accounts (renamed 2026-09-22):** Owner `admin` (`admin@300x3.com`);
+  bot `bot` (`bot@300x3.com`) — formerly `300x3admin`/`300x3bot` with
+  posteo addresses (kept as history above)
   (300x3@posteo.net). Password grant disabled in v4.3.7 → bot token minted via
   `Doorkeeper::AccessToken.create!` stored in KWallet/env.
-- **Operator client:** Tokodon launched on `:0` → "Add Account" @
-  `http://localhost:3000`. Tokodon OAuth app pre-registered (in `ao-mastodon`).
+- **Operator client:** Tokodon → "Add Account" @
+  `https://300x3.com` (federated apex origin; loopback `http://localhost:3000`
+  applies to pre-2026-09-22 history only). Tokodon OAuth app pre-registered (in `ao-mastodon`).
 - **OpenClaw integration:** `scripts/mastodon/post.sh` verified → POST 200,
-  acct `300x3bot`. Skill `mastodon-post` active.
+  acct `bot` (formerly `300x3bot`). Skill `mastodon-post` active.
 - **Version matrix:** `config/platform/version-matrix.yaml` — new
   `sales.mastodon` block (image digests listed).
 - Docs: `docs/runbooks/mastodon.md`; env template `config/mastodon/mastodon.env.example`.

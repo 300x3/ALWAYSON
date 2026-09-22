@@ -33,8 +33,8 @@ simulation:
 
 sales:
   mastodon:
-    local_domain: "300x3"
-    web_domain: "localhost"       # WEB_DOMAIN (operator desktop origin)
+    local_domain: "300x3.com"
+    web_domain: null              # single-domain apex deployment (WEB_DOMAIN removed 2026-09-22)
     image_web: "ghcr.io/mastodon/mastodon:v4.3.7"          # tag (registry denies anon digest lookup)
     image_streaming: "ghcr.io/mastodon/mastodon-streaming:v4.3.7"
     image_sidekiq: "ghcr.io/mastodon/mastodon:v4.3.7"
@@ -43,7 +43,7 @@ sales:
     image_redis: "docker.io/library/redis@sha256:91d0f7e8c748ec7a4c2b4fb2c4f84edab794dd91d01e095e38dc906db9d684ab"
     db_version: "17 (bundled in postgres digest above)"
     streaming_version: "v4.3.7"
-    note: "Local test stack (containers 300x3-web/streaming/db/redis/sidekiq/proxy on ao-sales; ports 127.0.0.1:3000/4000). Mastodon images tag-pinned; pin digests for production promotion."
+    note: "Federated apex deployment: LOCAL_DOMAIN=300x3.com served via Cloudflare Tunnel alwayson-mastodon (WORK 000060 2026-09-22); origin ports stay 127.0.0.1:3000/4000; HTTPS enforced (RAILS_FORCE_SSL=true). Mastodon images tag-pinned; pin digests for production promotion."
 
 ledger:
   corda_version: "5.2.2 (release-5.2.2.0, latest stable - operator selection 2026-08-24)"

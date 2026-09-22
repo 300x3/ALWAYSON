@@ -66,24 +66,27 @@ Then resume the checklist at step 2 (health verification).
    Run migrations if needed: `podman exec mastodon-web bin/rails db:prepare`.
 3. **Start LM Studio desktop**, load the approved model, enable the local
    server (verify `curl http://127.0.0.1:1234/v1/models`).
-4. **Tokodon login:** add account with server URL `http://localhost:3000`
-   (or the approved `300x3` origin per instance-policy). If OAuth fails on
-   insecure-cookie/HTTPS redirect, confirm `LOCAL_HTTPS=false`,
-   `RAILS_FORCE_SSL=false` on loopback (ISSUE 000600) and use the
-   authorization-code flow — password grant is unavailable in v4.3.
-5. **Approve accounts/API access** for the admin and bot accounts if flagged
-   (`tootctl accounts approve <name>`).
-6. **OpenClaw local conversation:** with the bot token from
-   `secrets/mastodon/openclaw-mastodon.env`, exchange a local-only direct
-   message and confirm a locally generated draft response from the LM Studio
-   model. **No external publication** — `approved_pub_host: null`.
+4. **Tokodon login:** add account with server URL `https://300x3.com`
+   (federated apex origin via Cloudflare Tunnel, WORK 000060 2026-09-22).
+   Historical: loopback `http://localhost:3000` with
+   `RAILS_FORCE_SSL=false` applied before the tunnel edge went live; the
+   loopback SSL deviation is now retired (Section 18.5) — use the
+   authorization-code flow; password grant is unavailable in v4.3.
+5. **Approve accounts/API access** for the `admin` and `bot` accounts if flagged
+   (`tootctl accounts approve admin|bot`).
+6. **OpenClaw conversation:** with the bot token from
+   `secrets/mastodon/openclaw-mastodon.env`, exchange a direct
+   message and confirm a generated draft response from the LM Studio
+   model. **No external publication without explicit operator approval**
+   (`public_federation: true` but outbound delivery requires the
+   `ao-egress-community` Sidekiq path + human approval).
 7. **Post-validation evidence:** record results in README §20; confirm logs
    contain no credentials, tokens, or prompts.
 
 ## Acceptance criteria (from README §19 / WORK 000010)
 
-- [ ] Tokodon connects via localhost/approved origin
-- [ ] OAuth completes without insecure-cookie or forced-HTTPS failure
+- [ ] Tokodon connects via the approved public origin (`https://300x3.com`)
+- [ ] OAuth completes (HTTPS enforced; loopback `RAILS_FORCE_SSL=false` exception retired 2026-09-22)
 - [ ] OpenClaw drafts a response through the configured local model
 - [ ] No external publication occurs
 - [ ] Logs clean of sensitive content

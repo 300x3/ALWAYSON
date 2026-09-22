@@ -15,8 +15,8 @@ umask 077
 cat > "$ENV" <<EOF
 # ALWAYS ON OpenClaw -> Mastodon bot credential (generated; gitignored;
 # mirrored in KDE Wallet ao-mastodon).
-MASTODON_SERVER=http://localhost:3000
-MASTODON_BOT_HANDLE=300x3bot
+MASTODON_SERVER=https://300x3.com
+MASTODON_BOT_HANDLE=bot
 MASTODON_BOT_EMAIL=300x3@posteo.net
 MASTODON_BOT_PASSWORD=$BOTPASS
 # MASTODON_ACCESS_TOKEN=   # fill after stack is up (tootctl or OAuth)
