@@ -94,7 +94,7 @@ orchestration, or a Docker daemon.
 | Container engine | Podman only |
 | Container lifecycle | systemd and Podman Quadlet |
 | Public website | Static HTML in pCloud Public Folder |
-| Payments | Provider-hosted checkout and verified payment events; no local card handling |
+| Payments | Provider-hosted checkout and verified payment events; no local card handling; local stablecoin processing |
 | Sales and support | Sales API, PostgreSQL, Mastodon integration, OpenClaw, and LM Studio |
 | Drone compute | Raspberry Pi 5 with Waveshare SX1262-class LoRa top-hat |
 | Drone autopilot | 3DR N1 connected to Raspberry Pi 5 by MAVLink |
