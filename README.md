@@ -524,18 +524,15 @@ normalized business state.
 | Hosted card checkout | Standard online transactions | Provider-hosted checkout, signature-verified webhook, no local card handling |
 | Hosted PayPal checkout | Optional provider-supported checkout | Provider-controlled flow and verified event |
 | Wire transfer | Approved high-value transactions | Manual reconciliation, operator approval, auditable reference record |
-| Other payment methods | Disabled by default | Requires documented provider terms, accounting treatment, refund process, and explicit operator approval |
+| Other payment methods | ARE TO BE PROCESSED BY CORDA - SPECIFICALLY STABLECOIN IN RELATION TO COINBASE OR SIMILAR | Requires documented provider terms, accounting treatment, refund process, and explicit operator approval |   
 
-Corda does not accept payment cards and does not replace payment-provider,
-banking, tax, consumer-protection, accounting, refund, or other legal
-obligations. Corda may record approved receipt, fulfillment, entitlement, or
+Corda IS THE CENTRAL SOURCE OF TRUTH FOR ALL FINANCIAL LEDGER INFORMATION AND IS LINKED TO POSTGRESQL ADDITIONAL DATABASE DETAILS ON A PER TRANSACTION AND PER SERIAL NUMBER BASIS. CORDA does not accept payment cards and does not replace payment-provider,
+banking, tax, consumer-protection, accounting, refund,  Corda DOES record approved receipt, fulfillment, entitlement, or
 provenance state after a payment event has been verified or manually
-reconciled.
+reconciled. CORDA MUST INCLUDE ALL RELATED TRANSACTION DATA TYPICAL TO FINANCIAL AND PAYMENTS INDUSTRY INCLUDING ALL LEDGER DETAILS AND BE QUERY-ABLE BY THE AUTHORIZED REPORTING SERVICE - METABASE / GRAFANA.
 
-Zelle, USDC, cryptocurrency, or other alternative payment methods are not part
-of the production payment flow unless separately approved, documented for legal
-and accounting treatment, and implemented with appropriate controls. They must
-not be described as mechanisms for bypassing payment-processing fees.
+PAYPAL, Zelle, AND STABLE COIN (USDC OR SIMILAR) are THE STANDARD PAYMENT METHODS FOR THE PROJECT AND CORDA MUST 
+VERIFY ALL PAYMENTS MADE WITH THEM
 
 **Approved 2026-08-28 (§18.4):** Zelle is approved for direct US payments using
 the manual-reconciliation path: operator verifies receipt out-of-band, creates
