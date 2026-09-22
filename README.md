@@ -1968,7 +1968,7 @@ operator workflow ACCORDING TO SECTION 6.A OF THIS README.
 **Outstanding items:**
 
 - ~~Select payment provider.~~ Decided 2026-08-28: PayPal hosted checkout
-  plus Zelle (Section 18.4).
+  plus Zelle AND COINBASE PAYMENTS WITH CORDA AS LEDGER OF ALL CONTRACTS/SALES AND DETAILS. (Section 18.4).
 - Provision payment credentials through approved secret delivery (KDE Wallet
   `ao-payment` folder provisioned per Section 14.1.1; entry not yet stored).
 - Implement payment verifier and normalized event model.
