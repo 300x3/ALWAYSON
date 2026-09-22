@@ -971,6 +971,8 @@ Receipt, entitlement, provenance, or approval state
 - Sensitive LLM prompts or completions.
 - Private keys.
 
+(BUT IT DOES STORE SERIAL NUMBERS AND UNIQUE IDS THAT ALLOW IT TO LINK ITS DATA TO ALL OTHER RELAVENT DATA  IN THE POSTGRESQL DATABASES.)
+
 ## 11.5 Manifest Format
 
 ```json
