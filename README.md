@@ -796,7 +796,7 @@ The profiles must define identical or explicitly interoperable values for:
 - Airtime limits.
 
 Do not describe this system as LoRaWAN unless it implements a true LoRaWAN
-device, gateway, and network-server architecture.
+device, gateway, and network-server architecture. THE SYSTEM IS PRIMARILY AN R-NODE BASED RETICULUM NETWORK STACK MESH WITH SET MHZ MATCH BETWEEN HELTEC V3 AND PI HAT: SX1262 LoRaWAN Node Module Expansion Board for Raspberry Pi, 868/915Mhz, GNSS, CB antenna
 
 ---
 
