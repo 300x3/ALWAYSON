@@ -114,11 +114,11 @@ orchestration, or a Docker daemon.
 
 | Area | Verified current value |
 |---|---|
-| Kernel | `7.0.0-30-generic` |
+| Kernel | `7.0.0-31-generic` |
 | Podman | `5.7.0` |
 | Podman networks | Ten `ao-*` networks present; internal workload-domain isolation verified |
 | GPU | EVGA NVIDIA GTX 1080 |
-| NVIDIA driver | `580.173.02` |
+| NVIDIA driver | `580.178.04` |
 | NVIDIA integration | CDI devices registered, including `nvidia.com/gpu=0` |
 | Simulation stack | ROS 2 Lyrical at `/opt/ros/lyrical`; Gazebo Sim `10.5.0` |
 | Host PostgreSQL | PostgreSQL `18.6`, loopback-only |
@@ -2079,9 +2079,9 @@ sequence), and 15.4.5 (operational boundaries).
 
 | Item | Verified value |
 |---|---|
-| Kernel | `7.0.0-30-generic` |
+| Kernel | `7.0.0-31-generic` |
 | Podman | `5.7.0`; rootless operation as `scottw`; ten `ao-*` workload networks recorded |
-| GPU | GTX 1080; driver `580.173.02`; CDI devices registered |
+| GPU | GTX 1080; driver `580.178.04`; CDI devices registered |
 | Simulation | ROS 2 Lyrical at `/opt/ros/lyrical`; Gazebo Sim `10.5.0` |
 | Host data services | PostgreSQL `18.6` and Redis `8.0.5`, loopback-only |
 | Photogrammetry drive | ext4 `/dev/sdb1`; UUID verified; approximately 433.9 GB free of 457 GB |

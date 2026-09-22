@@ -1,6 +1,6 @@
 host:
   os_release: "Ubuntu 26.04 LTS"
-  kernel: "7.0.0-30-generic"
+  kernel: "7.0.0-31-generic"
   systemd: "259"
   podman: "5.7.0"
   quadlet_capability: "Quadlet systemd generator functional in podman 5.7.0 (user scope)"
@@ -10,7 +10,7 @@ host:
 
 gpu:
   model: "EVGA NVIDIA GTX 1080 (GP104)"
-  nvidia_driver: "580.173.02"
+  nvidia_driver: "580.178.04"
   container_runtime_integration: "nvidia-container-toolkit 1.20.0 installed 2026-08-25; CDI devices registered for operator store (nvidia.com/gpu=0); GPU-enabled WebODM smoke run passed; formal Section 2.8 step-12 validation record pending"
   cuda_runtime_image_digest: ""
 
