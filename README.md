@@ -1566,109 +1566,152 @@ guidance, legal statements, and any external publication.
 
 ## 15.3 Local 300X3 Mastodon Deployment
 
-The local Mastodon instance is branded **300X3** and is intended for local
-operator use through Tokodon and OpenClaw.
+The 300X3 Mastodon instance (Mastodon 4.3.7, containerized on `ao-sales` in the
+`alwayson-sales` rootless store) is served publicly at **`https://300x3.com`**
+through an approved Cloudflare Tunnel edge (Section 18.5). Operators use
+Tokodon and OpenClaw on the desktop against the same origin.
 
 Architecture requirements:
 
-- Containers run in the internal sales/community environment.
-- Web and streaming ports bind to `127.0.0.1` only when enabled.
-- No federation or SMTP is enabled unless explicitly approved.
-- `localhost` is the supported loopback origin for clients.
-- No credentials, OAuth secrets, access tokens, or account passwords are
-  committed to Git or included in this README.
-- Production external deployment must use HTTPS. The loopback-only
-  `RAILS_FORCE_SSL=false` exception is permitted only for the documented local
-  validation environment.
+- Containers run in the internal sales/community environment (`ao-sales`,
+  `Internal=true`).
+- Origin web and streaming ports remain bound to `127.0.0.1` only
+  (`mastodon-web` :3000, `mastodon-streaming` :4000); the sole public
+  exposure is the `cloudflared` ingress of tunnel `alwayson-mastodon`
+  (systemd user unit `cloudflared-alwayson.service`).
+- Instance identity: `LOCAL_DOMAIN=300x3.com`; all local handles are
+  `user@300x3.com`. Accounts of record: **`admin`**
+  (admin@300x3.com, Owner) and **`bot`** (bot@300x3.com) — renamed from
+  `300x3admin`/`300x3bot` and migrated to `@300x3.com` addresses on
+  2026-09-22, before public cutover.
+- HTTPS is mandatory: `LOCAL_HTTPS=true`, `RAILS_FORCE_SSL=true`. The
+  loopback-only `RAILS_FORCE_SSL=false` exception is **retired** as of
+  2026-09-22 (Section 18.5); direct loopback Host headers other than
+  `300x3.com` are rejected (403) by design.
+- Open registration is enabled with the approval gate
+  (`tootctl settings registrations approved` → `registrations: true`,
+  `approval_required: true`); operator moderation duties apply
+  (Section 15.4.1).
+- Federation is governed exclusively by Section 15.4 / WORK 000060.
+- No credentials, OAuth secrets, access tokens, account passwords, or
+  tunnel secrets are committed to Git or included in this README; tunnel
+  id/origin cert/credentials JSON live in KDE Wallet `ao-mastodon`.
 
 Known Mastodon implementation notes:
 
-1. A loopback-only validation instance may require `RAILS_FORCE_SSL=false`;
-   production must retain TLS/HTTPS.
-2. Mastodon host validation requires the configured local or web domain. Use
-   `localhost` or an approved proxy host rewrite; do not substitute arbitrary
-   loopback host headers.
-3. OAuth password grant is unavailable in the current documented Mastodon
-   version. Use an operator-controlled local token path or an authorization-code
+1. ~~Loopback-only `RAILS_FORCE_SSL=false` exception~~ — retired
+   2026-09-22; production-style TLS/HTTPS is now enforced at the edge
+   (Section 18.5).
+2. Mastodon host validation accepts the configured `LOCAL_DOMAIN`
+   (`300x3.com`) only; the tunnel sets `Host: 300x3.com` and
+   `X-Forwarded-Proto: https`, which cloudflared supplies — do not
+   substitute arbitrary loopback host headers (403).
+3. OAuth password grant is unavailable in the current Mastodon version;
+   use an operator-controlled local token path or an authorization-code
    workflow.
-4. Newly created accounts may require explicit approval before API access.
+4. New registrations require explicit operator approval before account
+   activation (`approval_required: true`).
 
 ## 15.4 Federation Publication of the Local 300X3 Instance
 
-**Category:** Planned. Approved design for joining the fediverse as the
-300X3 instance so that public posts from the local deployment appear on
-external Mastodon servers, including `mastodon.social`.
+**Category:** In progress (WORK 000060; started 2026-09-22). Approved design
+for joining the fediverse as the 300X3 instance so that public posts from the
+local deployment appear on external Mastodon servers, including
+`mastodon.social`.
 
 Federation is a mutual, inbound-and-outbound protocol: remote servers
 (including `mastodon.social`) must reach this instance over the public
 internet using HTTPS, and this instance must be able to deliver outbound
-activity to remote inboxes. The current loopback-only configuration
-(Section 15.3) is a prerequisite-compliant validation stage and must not
-federate.
+activity to remote inboxes. The former loopback-only validation stage
+(Section 15.3) has been superseded: the Cloudflare Tunnel edge
+(`alwayson-mastodon`) is live and the identity migration to
+`LOCAL_DOMAIN=300x3.com` is applied; apex DNS cutover and the scoped
+Sidekiq egress path remain before first federated contact (Section 15.4.4).
 
 ### 15.4.1 Architecture Requirements
 
 | Area | Architecture requirement |
 |---|---|
-| Public instance domain | A dedicated subdomain of the operator-controlled domain, e.g. `social.300x3.com` |
-| TLS | Required for all federation traffic; plaintext HTTP federation is prohibited |
-| Inbound reachability | No router port-forward of the workstation; public reachability must be provided by an approved tunnel or reverse-proxy front (VPS reverse proxy, Cloudflare Tunnel, or Tailscale Funnel) |
-| Outbound reachability | Federation delivery (Sidekiq) uses HTTPS/443 through `ao-egress-community` only when explicitly enabled |
-| Isolation | The instance keeps its internal `ao-sales` network placement, container-scoped PostgreSQL and Redis, and loopback-bound internal ports; only the tunnel/edge component is publicly exposed |
-| Secrets | Certificates, tunnel credentials, and any DNS API tokens live in the approved secret store / KDE Wallet `ao-mastodon`; never in Git or this README |
-| Policy | `config/mastodon/instance-policy.yaml` must be updated to `public_federation: true`, an explicit `approved_pub_host`, and a documented egress statement at the time federation is enabled |
-| Operator duties | Public-instance moderation, report handling, and blocklist management become operator responsibilities on enablement |
+| Public instance domain | A dedicated hostname of the operator-controlled domain. **Operator decision 2026-09-22:** serve the apex `300x3.com` (existing Cloudflare zone; no new domains registered); `www.300x3.com` continues to redirect to the pCloud storefront |
+| TLS | Required for all federation traffic; plaintext HTTP federation is prohibited. Cloudflare edge terminates TLS for tunnel-routed hostnames (Section 18.5) |
+| Inbound reachability | No router port-forward of the workstation; public reachability provided by the approved **Cloudflare Tunnel** edge (`cloudflared`, Free plan — $0/month), outbound-only connections |
+| Outbound reachability | Federation delivery (Sidekiq) uses HTTPS/443 through `ao-egress-community` only when explicitly enabled — **still outstanding** |
+| Isolation | The instance keeps its internal `ao-sales` network placement, container-scoped PostgreSQL and Redis, and loopback-bound origin ports; only the tunnel connector is publicly exposed |
+| Secrets | Tunnel credentials JSON, origin certificate, DNS/API material live in KDE Wallet `ao-mastodon`; never in Git or this README |
+| Policy | `config/mastodon/instance-policy.yaml` updated to `public_federation: true`, `approved_pub_host: 300x3.com`, and a documented egress statement at enablement |
+| Operator duties | Public-instance moderation, report handling, and blocklist management are active operator responsibilities (open registration + approval gate enabled 2026-09-22) |
 
 ### 15.4.2 Domain and Mastodon Identity Configuration
 
-Environment changes in `mastodon.env` (deployed copy; template in
-`config/mastodon/mastodon.env.example`):
+Environment changes applied to `mastodon.env` (deployed copy under
+`/home/alwayson-sales/secrets/`; template in
+`config/mastodon/mastodon.env.example`) on **2026-09-22**:
 
 ```text
-LOCAL_DOMAIN=social.300x3.com
+LOCAL_DOMAIN=300x3.com
 LOCAL_HTTPS=true
 RAILS_FORCE_SSL=true
+# WEB_DOMAIN removed - single-domain apex deployment
 ```
 
-- Changing `LOCAL_DOMAIN` changes every account handle (for example,
-  `@admin@300x3` becomes `@admin@social.300x3.com`). This change must be
-  made before any accounts of record exist; it is cheapest during the
-  current development stage.
-- Optional `WEB_DOMAIN` split: `LOCAL_DOMAIN=300x3` with
-  `WEB_DOMAIN=social.300x3.com` keeps short handles (`@admin@300x3.com`)
-  while serving from the subdomain. This requires a WebFinger redirect
-  path on the apex domain (`300x3.com/.well-known/webfinger`) and is only
-  to be used if handle branding is explicitly approved.
+- Operator decision 2026-09-22: users are `user@300x3.com` (apex identity;
+  no new domains registered). Accounts renamed accordingly:
+  `300x3admin` → **`admin`** (admin@300x3.com) and `300x3bot` →
+  **`bot`** (bot@300x3.com); emails set to matching `@300x3.com`
+  addresses (confirmed + approved). WebFinger for both handles returns
+  200 with `https://300x3.com` profile URLs.
+- The `WEB_DOMAIN` split previously contemplated
+  (`LOCAL_DOMAIN=300x3` + subdomain serve path) is **not used**: the apex
+  serves Mastodon directly and `www.300x3.com` keeps the storefront
+  redirect. No apex WebFinger redirect path is required.
+- Email delivery: `300x3.com` has no MX record yet — addresses were set
+  at the database level; enabling **Cloudflare Email Routing** for
+  `admin@`/`bot@` (forward to the operator mailbox) is required so
+  future profile saves pass Mastodon's MX validation and password-reset
+  mail can be delivered. Free feature; pending in the dashboard.
 - The loopback-only `RAILS_FORCE_SSL=false` deviation documented in
-  Section 15.3 and ISSUE 000600 is retired once this section is
-  implemented.
+  Section 15.3 and ISSUE 000600 is **retired** as of 2026-09-22
+  (recorded in Section 18.5).
 
 ### 15.4.3 Edge, TLS, and Network Path
 
+Implemented path (2026-09-22, operator-approved Cloudflare Tunnel variant;
+workstation-nginx + Let's Encrypt variant below superseded — see
+Section 18.5):
+
 ```text
-Remote fediverse servers (e.g. mastodon.social)
+Remote fediverse servers / browsers
         │  HTTPS 443
         ▼
-Public edge (approved tunnel or VPS reverse proxy)
-  - terminates DNS for social.300x3.com
-        │  encrypted private path
+Cloudflare edge (300x3.com, Free plan - TLS terminated here)
+        │  outbound-only tunnel (QUIC), connector authenticated by
+        │  credentials JSON in ~/.cloudflared (mirrored: KDE Wallet ao-mastodon)
         ▼
-Workstation nginx (nginx-300x3.conf extended)
-  - listen 443 ssl; Let's Encrypt certificate (DNS-01 preferred)
-  - port 80 only as ACME/redirect listener
+cloudflared (systemd user unit cloudflared-alwayson.service)
+  - sets Host: 300x3.com, X-Forwarded-Proto: https
         │
-        ├── /api/v1/streaming → 300x3-streaming:4000  (wss from clients)
-        └── /                  → 300x3-web:3000
+        ├── path ^/api/v1/streaming → 127.0.0.1:4000 (mastodon-streaming; wss)
+        └── /                       → 127.0.0.1:3000 (mastodon-web)
+```
+
+```text
+Superseded design (retained for history): workstation nginx
+  - listen 443 ssl; Let's Encrypt certificate (DNS-01)
+  - port 80 only as ACME/redirect listener
+  Not required with the tunnel path: edge TLS is provided by Cloudflare
+  and the origin stays loopback-only (Section 18.5).
 ```
 
 TLS requirements:
 
-- Certificate issuance via Let's Encrypt; DNS-01 challenge preferred so
-  that inbound port 80 forwarding is not required.
-- Certificate renewal must be automated or operator-scheduled and must
-  not depend on secret values outside the approved store.
-- The nginx proxy must set `X-Forwarded-Proto https` so Rails generates
-  HTTPS URLs and Secure cookies.
+- TLS is mandatory at the edge for all federation traffic (satisfied by
+  Cloudflare edge termination for the tunnel-routed apex hostname).
+- Tunnel credentials and origin certificate are stored 0400 under
+  `~/.cloudflared/` and mirrored to KDE Wallet `ao-mastodon`; never in
+  Git or this README. Revoke by deleting/re-creating the tunnel.
+- `X-Forwarded-Proto: https` is supplied by cloudflared so Rails
+  generates HTTPS URLs and Secure cookies (validated: instance JSON
+  reports `streaming_api: wss://300x3.com`).
 
 Outbound delivery path:
 
@@ -1680,20 +1723,35 @@ Outbound delivery path:
 
 ### 15.4.4 Federation Enablement Sequence
 
-1. Provision `social.300x3.com` DNS and the approved public edge path.
-2. Issue and install the TLS certificate; extend
-   `config/mastodon/nginx-300x3.conf` with the 443 server block.
-3. Apply the Section 15.4.2 environment changes and restart the Mastodon
-   stack units.
-4. Enable `ao-egress-community` scoped to HTTPS/443 for the Sidekiq
-   service identity only.
-5. Update `config/mastodon/instance-policy.yaml` per Section 15.4.1 and
-   record the decision in Section 18.
-6. Bootstrap discovery: from Tokodon on the local instance, follow at
-   least one account on `mastodon.social`. Remote servers do not index
-   this instance until first contact occurs.
-7. Validate public-post delivery to `mastodon.social` and reply/boost
-   round-trips back to the local instance.
+Status as of 2026-09-22 (WORK 000060):
+
+1. **Done (edge)** — Cloudflare Tunnel `alwayson-mastodon` created;
+   `cloudflared` installed; ingress validated; connector registered
+   (4+ edge locations); systemd user unit enabled.
+2. **Pending (operator dashboard)** — swap the apex `300x3.com` DNS
+   records (delete existing A/AAAA + scope the storefront Redirect Rule
+   to `www` only) then `cloudflared tunnel route dns alwayson-mastodon
+   300x3.com`; also enable Email Routing for `admin@`/`bot@`
+   (Section 15.4.2). TLS certificate issuance is handled at the Cloudflare
+   edge — no Let's Encrypt step needed (Section 18.5).
+3. **Done** — Section 15.4.2 environment changes applied and the
+   `alwayson-sales` Mastodon units restarted (identity `300x3.com`,
+   HTTPS enforced, handles `admin`/`bot`, emails `@300x3.com`,
+   registrations open with approval).
+4. **Pending** — enable `ao-egress-community` scoped to HTTPS/443 for the
+   Sidekiq service identity only (federation outbound delivery); the
+   `ao-sales` network is `Internal=true` and cannot deliver remote
+   inboxes until this path exists.
+5. **Done** — `config/mastodon/instance-policy.yaml` updated
+   (`public_federation: true`, `approved_pub_host: 300x3.com`, egress
+   statement); decision recorded in Section 18.5.
+6. **Pending (after step 2)** — bootstrap discovery: from Tokodon signed
+   in at `https://300x3.com`, follow at least one account on
+   `mastodon.social`. Remote servers do not index this instance until
+   first contact occurs.
+7. **Pending** — validate public-post delivery to `mastodon.social` and
+   reply/boost round-trips back to the local instance; then submit
+   `300x3.com` to the joinmastodon.org directory (operator-approved).
 
 ### 15.4.5 Operational Boundaries After Enablement
 
@@ -1909,6 +1967,42 @@ this project; it remains static and is served from the pCloud Public Folder.
 The prior provider-evaluation draft is retained at
 `docs/compliance/payment-provider-evaluation.md` for record.
 
+## 18.5 Mastodon Federation Edge and Identity Decision
+
+**Status:** Decided and applied 2026-09-22 (WORK 000060).
+
+**Decision (operator):**
+
+- Serve Mastodon publicly at the **apex `300x3.com`** on the existing
+  Cloudflare zone — no new domains registered; `www.300x3.com` keeps the
+  pCloud storefront redirect.
+- Edge = **Cloudflare Tunnel** (`cloudflared`, named tunnel
+  `alwayson-mastodon`); Cloudflare **Free plan — $0/month recurring**
+  (DNS, tunnel, and edge TLS are free features; no paid Zero Trust seats
+  or add-ons authorized).
+- User identities are **`user@300x3.com`** (accounts of record:
+  `admin`, `bot`); open registration enabled with approval gate.
+- TLS terminates at the Cloudflare edge; the origin remains
+  loopback-only.
+
+**Approved deviation from Section 15.4.3:** the workstation
+nginx + Let's Encrypt (DNS-01) certificate path is **not used** — edge
+TLS is provided by Cloudflare for the tunnel-routed hostname, so no ACME
+challenge, port-80 listener, or certificate renewal runs on the
+workstation. Compensating controls: outbound-only tunnel connections
+authenticated by 0400 credentials JSON (mirrored to KDE Wallet
+`ao-mastodon`), origin ports bound to `127.0.0.1` only, `Host:
+300x3.com` and `X-Forwarded-Proto: https` set by cloudflared, and UFW
+default-deny inbound unchanged.
+
+**Retired deviation:** the loopback-only `RAILS_FORCE_SSL=false`
+exception from Section 15.3 / ISSUE 000600 is retired — deployed env now
+carries `LOCAL_HTTPS=true`, `RAILS_FORCE_SSL=true`.
+
+**Resolution condition:** federation acceptance per WORK 000060
+(public post visible on `mastodon.social` + reply/boost round-trip) after
+apex DNS cutover and the `ao-egress-community` Sidekiq path are in place.
+
 ---
 
 # 19. Work Queue and Issue Log
@@ -1927,9 +2021,11 @@ mirror the static export to the pCloud Public Folder.
 
 ## WORK 000010 — Validate Tokodon, Local Mastodon, OpenClaw, and Local LLM
 
-**Status:** Blocked pending operator-led interactive login and confirmation.
+**Status:** In progress — server side complete 2026-09-22 (WORK 000060 identity
+`user@300x3.com` + HTTPS edge live); operator-led interactive login at the
+**public origin** outstanding.
 
-**Precondition check 2026-08-31:** Mastodon web and streaming healthy on
+**Precondition check 2026-08-31 (historical loopback stage):** Mastodon web and streaming healthy on
 loopback (web 200 via `http://localhost:3000`; streaming health 200 on
 `127.0.0.1:4000`); Tokodon OAuth client credentials and administrator account
 material present in KDE Wallet `ao-mastodon` (Section 14.1.1); LM Studio
@@ -1937,18 +2033,27 @@ server running headless on `127.0.0.1:1234` with model `ibm/granite-3.2-8b`
 loaded (verification default — final model selection remains the operator's);
 REST API is auth-enforced (Bearer token required; obtain the token from the
 LM Studio Developer tab and store it in the KDE Wallet `ao-sales` folder for
-OpenClaw wiring). Remaining precondition: operator presence for interactive
-authentication and approval.
+OpenClaw wiring).
 
-**Objective:** Validate that the local 300X3 Mastodon instance can be opened in
-Tokodon using the designated administrator account, and validate a local-only
-conversation workflow with the OpenClaw bot backed by an explicitly selected
-local LM Studio model.
+**Update 2026-09-22 (WORK 000060):** identity is now `LOCAL_DOMAIN=300x3.com`
+with HTTPS enforced at the Cloudflare Tunnel edge; accounts of record are
+**`admin`** (admin@300x3.com) and **`bot`** (bot@300x3.com). Tokodon login
+now targets the public origin `https://300x3.com` (normal HTTPS OAuth —
+the loopback `RAILS_FORCE_SSL=false` exception is retired). Remaining
+precondition: apex DNS cutover (operator dashboard), then operator presence
+for interactive authentication and approval.
+
+**Objective:** Validate that the 300X3 Mastodon instance at
+`https://300x3.com` can be opened in
+Tokodon using the designated administrator account (`admin`), and validate a
+conversation workflow with the OpenClaw bot (`bot`) backed by an explicitly
+selected local LM Studio model.
 
 **Preconditions:**
 
-- Mastodon web and streaming services are healthy on loopback.
-- The administrator account is approved.
+- Mastodon web and streaming services are healthy (loopback origins verified;
+  public origin pending apex DNS cutover).
+- The `admin` account is approved.
 - OAuth application credentials are present in the approved secret store.
 - A local LM Studio model is loaded and its local endpoint is verified.
 - The operator is present to complete interactive authentication and approve
@@ -1956,8 +2061,8 @@ local LM Studio model.
 
 **Acceptance criteria:**
 
-- Tokodon connects using `localhost` or another explicitly approved origin.
-- OAuth completes without insecure-cookie or forced-HTTPS failure.
+- Tokodon connects using the approved public origin (`https://300x3.com`).
+- OAuth completes over HTTPS (normal flow).
 - OpenClaw generates a local draft response through the configured local model.
 - No external publication occurs without explicit operator approval.
 - Logs contain no credentials, tokens, prompts, or sensitive content.
@@ -2105,8 +2210,10 @@ operator approval).
 
 ## WORK 000060 — Federation Publication of the Local 300X3 Mastodon Instance
 
-**Status:** Blocked pending operator decision on the public edge path and
-provisioning of domain, certificate, and tunnel credentials.
+**Status:** In progress since 2026-09-22 — server-level identity,
+edge tunnel, and policy complete; apex DNS cutover (operator dashboard)
+and `ao-egress-community` Sidekiq path outstanding, then federation
+bootstrap and validation.
 
 **Objective:** Implement the approved federation design documented in
 **README Section 15.4** ("Federation Publication of the Local 300X3
@@ -2120,15 +2227,41 @@ Section 15.4.1 (architecture requirements), 15.4.2 (domain and identity
 configuration), 15.4.3 (edge, TLS, and network path), 15.4.4 (enablement
 sequence), and 15.4.5 (operational boundaries).
 
+**Completed 2026-09-22:**
+
+- Edge decision: Cloudflare Tunnel, apex `300x3.com`, Free plan ($0);
+  recorded in Section 18.5.
+- `cloudflared` installed; tunnel `alwayson-mastodon` created; ingress
+  validated (`/api/v1/streaming` → :4000, `/` → :3000); connector
+  registered at 4+ edge locations; `cloudflared-alwayson.service`
+  enabled; tunnel id/origin cert/credentials JSON mirrored to KDE Wallet
+  `ao-mastodon` (never Git).
+- Identity applied: `LOCAL_DOMAIN=300x3.com`, `LOCAL_HTTPS=true`,
+  `RAILS_FORCE_SSL=true`, `WEB_DOMAIN` removed; stack restarted; loopback
+  SSL deviation retired.
+- Accounts renamed/migrated: **`admin`** (admin@300x3.com) and
+  **`bot`** (bot@300x3.com); WebFinger 200 for both; registrations open
+  with approval gate; OpenClaw env points at `bot` /
+  `https://300x3.com`.
+- `config/mastodon/instance-policy.yaml` set to `public_federation:
+  true`, `approved_pub_host: 300x3.com`, tunnel egress statement.
+- Tunnel-path validation (Host/XFP simulation): instance 200 with
+  `uri: 300x3.com`, `streaming_api: wss://300x3.com`.
+
 **Outstanding items:**
 
-- Operator approval of the public edge path (tunnel versus VPS reverse
-  proxy) per Section 15.4.1.
-- DNS provisioning for the public instance domain per Section 15.4.2.
-- Certificate issuance and automation per Section 15.4.3.
+- Operator dashboard: delete apex A/AAAA records, scope storefront
+  Redirect Rule to `www` only, then `cloudflared tunnel route dns
+  alwayson-mastodon 300x3.com`; enable Cloudflare Email Routing for
+  `admin@`/`bot@` (Section 15.4.2 MX requirement).
 - Scoped enablement of `ao-egress-community` for Sidekiq federation
-  delivery per Section 15.4.3.
-- Policy and deviation-record updates per Sections 15.4.1 and 18.
+  delivery per Section 15.4.3 (required before any remote delivery —
+  `ao-sales` is `Internal=true`).
+- Tokodon normal login at `https://300x3.com` (operator session) and
+  federation bootstrap: follow a `mastodon.social` account, validate
+  public post delivery + reply/boost round-trip.
+- joinmastodon.org directory listing (operator-approved, after
+  validation).
 
 **Acceptance criteria:**
 
@@ -2223,21 +2356,32 @@ operator approval. The drive tree now matches the required structure.
 
 ## ISSUE 000600 — Mastodon Setup
 
-**Status:** In progress.
+**Status:** In progress — federation cutover pending (WORK 000060).
 
 - Resolved 2026-08-31: duplicate Mastodon Quadlet stack under the desktop
   user crash-looped against the authoritative alwayson-sales store
   (rootlessport bind conflict on 127.0.0.1:3000/4000, restart counter 160+).
   Desktop-user units disabled and moved to
   `~/.config/containers/systemd/disabled/`; scottw-store DB dumped to
-  `/ALWAYSON/backups/mastodon/` before teardown; sales-store stack (3
-  accounts) confirmed authoritative per `scripts/mastodon/deploy-mastodon.sh`.
-- Loopback validation may require `RAILS_FORCE_SSL=false`; production external
-  access must use HTTPS.
-- Mastodon host validation requires `localhost` or an approved configured host.
+  `/ALWAYSON/backups/mastodon/` before teardown; sales-store stack
+  confirmed authoritative per `scripts/mastodon/deploy-mastodon.sh`.
+- ~~Loopback validation may require `RAILS_FORCE_SSL=false`~~ — retired
+  2026-09-22: deployed env enforces `RAILS_FORCE_SSL=true` /
+  `LOCAL_HTTPS=true` behind the Cloudflare Tunnel edge (Section 18.5).
+- Mastodon host validation now accepts `300x3.com` only (former
+  `localhost` host header rejected with 403 by design); tunnel supplies
+  `Host: 300x3.com` + `X-Forwarded-Proto: https`.
 - OAuth password grant is unavailable in the documented version; use an
   operator-controlled local token path or authorization-code flow.
-- Newly created accounts may need explicit approval before API use.
+- New registrations require explicit approval
+  (`approval_required: true`); operator moderation duties active
+  (Section 15.4.1).
+- Accounts of record renamed 2026-09-22: `admin` (admin@300x3.com),
+  `bot` (bot@300x3.com) — supersede any earlier `300x3admin` /
+  `300x3bot` references.
+- `300x3.com` lacks MX records until Cloudflare Email Routing is enabled
+  (Section 15.4.2); emails were set at the database level and future
+  profile saves will fail MX validation until routing exists.
 
 ---
 
@@ -2264,6 +2408,7 @@ operator approval. The drive tree now matches the required structure.
 | Monitoring stack (ao-admin) | Prometheus + node_exporter + Grafana deployed as user Quadlet units on `ao-admin` (10.89.9.0/24); loopback listeners 127.0.0.1:9090 and 127.0.0.1:3001 verified; self and node-host scrape `up` | Complete |
 | Metabase reporting (ao-admin) | Deployed and healthy (127.0.0.1:3002, API /api/health 200); `metaread` role exists; read-only grants pending — sales data is container-scoped (sales-db), so an approved ao-admin→ao-sales reporting path must be decided first | Partial |
 | Mastodon local stack (ao-sales) | alwayson-sales store 5/5 containers healthy; web 127.0.0.1:3000 and streaming 127.0.0.1:4000 loopback verified; duplicate desktop-user units disabled 2026-08-31 (ISSUE 000600) | Complete (local, pre-federation) |
+| Mastodon federation edge (WORK 000060) | Cloudflare Tunnel `alwayson-mastodon` connector registered (4+ edges), `cloudflared-alwayson.service` active, ingress validated; identity `LOCAL_DOMAIN=300x3.com` + HTTPS enforced; accounts `admin`/`bot` renamed with `@300x3.com` emails; WebFinger 200; registrations open+approval; tunnel-path Host/XFP checks 200 (`uri: 300x3.com`, `wss://300x3.com`); secrets in wallet only | Partial — apex DNS cutover, Email Routing, `ao-egress-community`, and federated round-trip pending |
 | WebODM operator workflow restart | Stack is rootless (scottw/mapping store); system-store recovery step correctly found no system-store containers — no action needed | Complete |
 | ArduPilot SITL MAVLink | ao-ardupilot-sitl.service flags fixed; HEARTBEAT (sysid 1, QUADROTOR, ArduPilot) validated over tcp:127.0.0.1:5760 via pymavlink | Complete |
 | Heltec firmware | RNode firmware 1.85 recorded via rnodeconf; EEPROM valid; signature unverified (operator signing option) | Partial |

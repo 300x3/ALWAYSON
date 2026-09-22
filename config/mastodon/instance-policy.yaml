@@ -1,14 +1,19 @@
-# ALWAYS ON - Mastodon local instance policy (Section 3.8).
+# ALWAYS ON - Mastodon instance policy (Sections 3.8, 15.3, 15.4, 18.5).
 # The project specifies Mastodon as a customer/community follow-up adapter.
-# This operator chose to SELF-HOST MASTODON LOCALLY and pair it with Tokodon
-# (KDE Mastodon client) on the desktop.
+# This operator chose to SELF-HOST MASTODON locally (containerized) and pair
+# it with Tokodon (KDE Mastodon client) on the desktop.
+# 2026-09-22 (WORK 000060): published via Cloudflare Tunnel at the apex.
 mastodon:
-  hosting: "local, self-hosted, containerized on the internal ao-sales network"
-  operator_client: "Tokodon (KDE, /usr/bin/tokodon) - on the operator desktop"
-  protocol: "http only on 127.0.0.1:3000 loopback - NO public listener (listener-allowlist stays empty)"
-  local_domain: "300x3"   # server branded 300X3 (operator web site www.300x3.com)
-  public_federation: false            # offline/local instance; not on the fediverse
-  approved_pub_host: null             # no outbound posting to external hosts yet
+  hosting: "self-hosted, containerized on the internal ao-sales network (alwayson-sales rootless store); sole public exposure = Cloudflare Tunnel edge"
+  operator_client: "Tokodon (KDE, /usr/bin/tokodon) - on the operator desktop, origin https://300x3.com"
+  protocol: "https://300x3.com at the Cloudflare edge (TLS terminated there, Free plan $0); origin ports stay 127.0.0.1:3000 / 127.0.0.1:4000 loopback-only; tunnel alwayson-mastodon (cloudflared-alwayson.service) is the only public path"
+  local_domain: "300x3.com"   # apex identity; handles user@300x3.com; www keeps storefront redirect
+  public_federation: true            # WORK 000060 in progress 2026-09-22; edge live, DNS cutover + ao-egress-community pending before first remote contact
+  approved_pub_host: "300x3.com"     # federation delivery restricted to HTTPS/443 via ao-egress-community (path pending)
+  accounts_of_record:
+    admin: "admin@300x3.com (Owner; renamed from 300x3admin 2026-09-22)"
+    bot:   "bot@300x3.com (renamed from 300x3bot 2026-09-22)"
+  registrations: "open with approval gate (approval_required: true) - operator moderation duties per Section 15.4.1"
 
   containment:
     network: "ao-sales (Internal=true)"
@@ -17,8 +22,9 @@ mastodon:
     ui_api_ports:
       web:       "127.0.0.1:3000"
       streaming: "127.0.0.1:4000"
-    egress: "none beyond loopback (self-contained local instance)"
-    operator_access: "Tokodon OAuth + SSH tunnel (no opened host port)"
+    edge: "cloudflared ingress: ^/api/v1/streaming -> :4000, / -> :3000 (Host/XFP set by cloudflared)"
+    egress: "federation delivery requires ao-egress-community (HTTPS/443, Sidekiq identity) - PENDING before first remote contact"
+    operator_access: "Tokodon OAuth at https://300x3.com (no opened host port)"
 
   services:
     - mastodon-web
@@ -26,6 +32,7 @@ mastodon:
     - mastodon-streaming
     - mastodon-redis (container-scoped)
     - mastodon-db    (container-scoped postgres)
+    - cloudflared-alwayson.service (systemd user unit, tunnel connector)
 
   mastodon_adapter_controls:   # carried over from Section 3.8
     outbound_egress_only_to_approved_host: true
@@ -36,3 +43,6 @@ mastodon:
     secret_key_base: "wallet:ao-mastodon/mastodon-secret-key-base"
     otp_secret:      "wallet:ao-mastodon/mastodon-otp-secret"
     db_password:     "wallet:ao-mastodon/mastodon-db-password"
+    tunnel_id:       "wallet:ao-mastodon/cloudflare-tunnel-id"
+    origin_cert:     "wallet:ao-mastodon/cloudflare-origin-cert-pem"
+    tunnel_credentials: "wallet:ao-mastodon/cloudflare-tunnel-credentials-json"

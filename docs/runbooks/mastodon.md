@@ -1,12 +1,14 @@
-# ALWAYS ON — Mastodon (local instance) Runbook
+# ALWAYS ON — Mastodon Runbook (federated apex deployment, WORK 000060 2026-09-22)
 
 Scope: operator chose to **self-host Mastodon locally** (rather than only
 posting to an external host) and to operate it from the desktop with
 **Tokodon** (KDE Mastodon client, already installed at `/usr/bin/tokodon`).
-This stays inside the project's isolation model: the stack is containerized on
+Public origin is **`https://300x3.com`** via Cloudflare Tunnel edge
+(`alwayson-mastodon`); the stack stays containerized on
 the internal `ao-sales` network; Web/Streaming publish **only to 127.0.0.1**
-(`PublishPort=127.0.0.1:3000` / `:4000`). **No public listener is opened**
-(`listener-allowlist` stays empty).
+(`PublishPort=127.0.0.1:3000` / `:4000`). **No public port is opened on the
+workstation** — the tunnel connector is the only public path
+(`listener-allowlist` stays empty of inbound host ports).
 
 ## Design
 - db:      `quadlet/sales/ao-mastodon-db.container`      (postgres, container-scoped, does NOT touch host PG18)
@@ -62,24 +64,25 @@ podman exec mastodon-web bin/tootctl accounts create admin \
 # (deploy script stores the generated owner password in ao-mastodon)
 ```
 Create support/bot accounts similarly (role Admin), and set avatars/bio via
-the Mastodon Web UI at `http://127.0.0.1:3000` (or Tokodon).
+the Mastodon Web UI at `https://300x3.com` (or Tokodon).
 
 ## 5. Tokodon (operator client)
 1. Launch Tokodon (KDE menu → Tokodon); "Add account".
-2. Enter server URL: `http://localhost:3000`  (the loopback publisher; the
-   instance is branded **300X3** — LOCAL_DOMAIN=300x3, so the operator account
-   handle will read like `@admin@300x3`).
+2. Enter server URL: `https://300x3.com` (the federated apex origin;
+   identity `LOCAL_DOMAIN=300x3.com`, so handles read `@admin@300x3.com` /
+   `@bot@300x3.com`).
 3. Complete the OAuth authorization (registering an application in Mastodon).
    Tokodon stores its own credential via the KDE secret store; keep a copy of
    the client id/secret in KWallet ao-mastodon/tokodon-client-* if you
    prefer to reuse that application registration (see below).
 4. Posts/boosts/replies from Tokodon are the "operator client" feed.
-   OpenClaw will talk to the same local HTTP API with a dedicated bot account.
+   OpenClaw talks to the same origin over HTTPS with a dedicated bot account.
 
 ### Optional: pre-registered Tokodon application
-Mastodon OAuth client credentials for Tokodon can be created ahead of time:
+Mastodon OAuth client credentials for Tokodon can be created ahead of time
+(against the public origin):
 ```bash
-curl -s -X POST http://localhost:3000/api/v1/apps \
+curl -s -X POST https://300x3.com/api/v1/apps \
   -d 'client_name=Tokodon' -d 'redirect_uris=urn:ietf:wg:oauth:2.0:oob' \
   -d 'scopes=read write follow'
 ```
@@ -90,27 +93,29 @@ Store `client_id`/`client_secret` in KWallet `ao-mastodon`:
 ```
 
 ## 6. Ledger/adapter notes (Section 3.8 carried over)
-- Outbound egress only to approved host. For this instance it is local; keep
-  `approved_pub_host: null`.
+- Outbound egress only to approved host (`approved_pub_host: 300x3.com`;
+  delivery path requires the scoped `ao-egress-community` Sidekiq route,
+  WORK 000060 outstanding).
 - Any OpenClaw post must be draft-by-default; human approval mandatory for
   pricing/orders/shipping/warranty/financial/technical safety/legal.
 - Publication audit log stays immutable; mirror publishes in the
   `logs/audit.log` convention.
 
-## 7. Current local dev stack (live as of 2026-08-28)
+## 7. Current federated deployment (live as of 2026-09-22, WORK 000060)
 
-The running local stack is the `300x3-*` container set (rootless Podman on
-`ao-sales`) fronted by an `nginx:alpine` proxy — **distinct** from the production
-Quadlet units `ao-mastodon-*` documented in §Design, which remain scaffolded.
+The running stack is the `alwayson-sales` Quadlet set (`ao-mastodon-{db,
+redis,web,sidekiq,streaming}`) on `ao-sales`, served publicly at
+`https://300x3.com` via Cloudflare Tunnel `alwayson-mastodon`.
 
-- Web at `http://localhost:3000`. The `Host` header **must** be `localhost`, not
-  `127.0.0.1` — Mastodon's host authorization rejects other hosts with an empty
-  403. The proxy rewrites `Host: localhost` for all upstream requests.
-- Streaming at `127.0.0.1:4000` (separate `mastodon-streaming` image, v4.3.7,
-  routed by the proxy via `/api/v1/streaming`).
-- SSL: `RAILS_FORCE_SSL=false` via patched `production.rb`
-  (`config/mastodon/patches/production.rb`).
-- Operator OAuth client: **Tokodon** (running on display `:0`).
+- Web origin `127.0.0.1:3000` (loopback-only). The `Host` header **must** be
+  `300x3.com` — the tunnel supplies it (other hosts → empty 403 by design).
+- Streaming origin `127.0.0.1:4000` (separate `mastodon-streaming` image, v4.3.7,
+  routed by the tunnel ingress via `^/api/v1/streaming`).
+- TLS: enforced at the edge (`RAILS_FORCE_SSL=true`, `LOCAL_HTTPS=true`);
+  the loopback-only `RAILS_FORCE_SSL=false` exception is retired (Section 18.5).
+- Operator OAuth client: **Tokodon** at `https://300x3.com`.
+- Accounts of record: `admin` (admin@300x3.com), `bot` (bot@300x3.com);
+  registrations open with approval gate.
 
 ### Bot token (password grant is disabled in Mastodon v4.3.7)
 

@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
-# mastodon-post.sh - post a status to the local ALWAYS ON Mastodon "300X3".
+# mastodon-post.sh - post a status to the ALWAYS ON Mastodon "300X3".
+# Origin: https://300x3.com (Cloudflare Tunnel edge; WORK 000060).
+# Env override MASTODON_SERVER is honored; loopback default kept for
+# pre-cutover diagnostics only.
 # Reads credentials from /ALWAYSON/secrets/mastodon/openclaw-mastodon.env
 # (gitignored; mirrored in KDE Wallet ao-mastodon).
 # Usage: mastodon-post.sh "status text" [--visibility public|private|unlisted]
