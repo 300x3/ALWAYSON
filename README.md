@@ -894,7 +894,7 @@ Vehicle and fabrication simulation domains require separate:
 - Git repositories or clearly separated repository subtrees.
 - Artifact manifests.
 
-Use LOCAL FOLDER STORAGE AT ( /media/scottw/1TBSAMSUNGDATA/ ) AT THE GAZEBO SUBFOLDER (VERIFY ITS LOCATION WITH THE USER) for SDF, URDF/Xacro, world files, robot definitions, safety zones,
+Use LOCAL FOLDER STORAGE AT /ALWAYSON  AT THE GAZEBO SUBFOLDER (VERIFY ITS LOCATION WITH THE USER) for SDF, URDF/Xacro, world files, robot definitions, safety zones,
 task plans, and launch configurations. Use Git LFS or a separate artifact
 repository for large meshes, textures, point clouds, and generated results.
 
