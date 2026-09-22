@@ -822,13 +822,16 @@ ROS_DOMAIN_ID=21
 GZ_PARTITION=alwayson_vehicle_sim
 ```
 
-Vehicle profiles may model separate or modular configurations, including:
+Vehicle profiles MUST ALLOW FOR SWITCHING BETWEEN THE FOLLOWING, IDEALLY AT RAPID SPEED:
 
-- Multirotor or bicopter profile.
+- bicopter profile.
 - Fixed-wing VTOL tailsitter profile.
-- Rover or quadcycle profile.
+- RoveR (QUADCYCLE) profile.
 - Dual-rotating underwater/submersible profile.
-- Wind, terrain, obstacles, routing, takeoff, and landing.
+- BOAT MAST/SAIL CONTROL PROFILE
+- BOAT BOW/STERN THRUSTER PROFILE
+- BOAT BOW/STERN AIRBOAT FAN PROFILE
+- Wind, terrain, obstacles, routing, takeoff, and landing EVENTS
 - Camera, GPS, IMU, barometer, rangefinder, battery, and MAVLink behavior.
 - GPS loss, packet loss, actuator faults, sensor drift, and failsafe handling.
 
