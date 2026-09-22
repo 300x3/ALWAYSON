@@ -8,7 +8,7 @@ Date: 2026-08-24 · Operator host: Kubuntu/Ubuntu 26.04 LTS workstation
 |---|---|---|
 | 1 | Host inventory report | ✅ `logs/installation/agent-install.log` |
 | 2 | Photogrammetry-drive report | ✅ /dev/sdb1 ext4 UUID 498597d4-9fc8-42cf-8db7-4e71ede53267, 435G free, dir tree + .mounted-ok created, validation script passes |
-| 3 | Installed package/version matrix | ✅ `config/platform/version-matrix.yaml` (systemd 259, podman 5.7.0, NVIDIA 580.173.02) |
+| 3 | Installed package/version matrix | ✅ `config/platform/version-matrix.yaml` (systemd 259, podman 5.7.0, NVIDIA 580.178.04) |
 | 4 | Podman rootless + Quadlet verification | ✅ rootless OK, cgroups v2, linger enabled, 10 networks Internal=true |
 | 5 | GPU driver/container-runtime report | ✅ driver working; nvidia-container-toolkit 1.20.0 installed 2026-08-25; CDI devices registered (`nvidia-ctk cdi list` verified 2026-08-26); GPU-enabled WebODM ortho run passed |
 | 6 | Podman network list + isolation test | ✅ `config/platform/network-cidrs.yaml`; check-network-isolation.sh PASS |
