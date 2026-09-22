@@ -653,11 +653,12 @@ ownership, explicit groups, and ACLs only when necessary.
 Authenticated drone or operator upload
       │
       ▼
-Imagery-ingest service
+TELEMMETRY DATA INGEST TO IMAGERY-INGEST SERVICE FROM 3DR N1    (AUTOPILOT MODULE)
+Imagery-ingest service FROM RASPBERRY PI CAMERA AND SENSOR   (COMPANION COMPUTER)
       ├── File type validation
       ├── SHA-256 checksum
       ├── EXIF and metadata validation
-      ├── Mission association
+      ├── Mission association (FOR AUTOPILOT MODULE TELEMMETRY DATA INCORPORATION TO EXIF AND WEBODM PROJECT NAME)
       ├── Storage quota check
       ├── File-count validation
       └── Quarantine on failure
