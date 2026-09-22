@@ -44,7 +44,8 @@ a rationale, compensating controls, owner, and resolution condition.
 
 ALWAYS ON is a compartmentalized, on-premises platform supporting an automated
 approximately 160-square-foot modular live/fabricate facility and an
-accompanying modular micro-aircraft carrier.
+accompanying modular micro-aircraft carrier. Both of which grow to generally any
+size / quantity.
 
 The platform supports:
 
