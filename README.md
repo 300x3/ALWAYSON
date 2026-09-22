@@ -1805,14 +1805,14 @@ results, and any future migration plan in the version matrix.
 **Decision:** `cordadb` is provisioned on the host PostgreSQL 18 cluster rather
 than a dedicated container-scoped PostgreSQL instance.
 
-**Status:** Approved and recorded in the ledger scaffold journal.
+**Status:** Approved and recorded in the ledger scaffold journal. 2026.09.21 - THE INTENT IS TO HAVE DEDICATED DATABASES WITHIN POSTGRESQL AND TO BE ABLE TO RELATE BETWEEN THEM VIA RECEIPT NUMBER, SERIAL NUMBER, DATE AND TIME STAMPING, ETC. A DEDICATED CORDA DATABASE IS STILL PREFERRED.
 
 **Required control:** Document database roles, host-loopback binding, backup
 scope, restore procedure, and separation from sales/mapping databases.
 
 ## 18.3 Corda Deployment Blocker
 
-**Status:** Blocked.
+**Status:** Blocked. MUST BE ADDRESSED BEFORE ADDITIONAL CORDA DEVELOPMENT
 
 **Condition:** Corda node deployment requires the operator key and certificate
 ceremony.
@@ -1825,7 +1825,7 @@ without explicit operator approval and recorded ceremony output.
 **Status:** Decided 2026-08-28.
 
 **Decision:** PayPal (hosted checkout, provider-signed webhooks) plus **Zelle**
-for direct US payments, used from an operator-built custom HTML storefront.
+for direct US payments PLUS COINBASE STABLECOIN (USDC), used from an operator-built custom HTML storefront.
 The storefront HTML will be developed externally (lovable.dev) and linked into
 this project; it remains static and is served from the pCloud Public Folder.
 
