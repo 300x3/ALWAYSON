@@ -2002,7 +2002,8 @@ approved KDE Wallet location and/or approved service-secret store.
 
 ## WORK 000050 — Heltec V3 Connection and Field Link Test
 
-**Status:** In progress. Hardware connected and detection verified 2026-08-31.
+**Status:** RADIOS OPERATIONAL 2026.09.21 (TWO RADIOS, "PEOPLE" FOR PUBLIC USE AND "DRONE" FOR PRIVATE DRONE/IOT DIRECTIONS.
+VERIFY THE WORK AND UPDATE THE README.
 
 **Completed 2026-08-31:** Device connected by USB-C; enumerated at stable
 `/dev/serial/by-id/usb-Silicon_Labs_CP2102_USB_to_UART_Bridge_Controller_0001-if00-port0`
