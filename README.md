@@ -1849,6 +1849,12 @@ The prior provider-evaluation draft is retained at
 
 # 19. Work Queue and Issue Log
 
+## work 000005 - UPDATE README WITH ACTUAL FRONTEND WEBSITE DETAILS
+UPDATE THIS README, SECTION 7.1 TO INCLUDE THE ACTUAL FRONTEND WEBSITE DETAILS AS 
+LISTED HERE: https://github.com/300x3/HTML-300X3   INCLUDING THE WEBSITE LAYOUT, AND
+PLAN TO INTEGRATE A SALES LINK BEHIND / WITHIN THE MODAL FOR EVERY ITEM LISTED IN "EQUIPMENT"
+"BUILDING" "VEHICLE" SECTIONS.
+
 ## WORK 000010 — Validate Tokodon, Local Mastodon, OpenClaw, and Local LLM
 
 **Status:** Blocked pending operator-led interactive login and confirmation.
