@@ -1632,7 +1632,8 @@ Sidekiq egress path remain before first federated contact (Section 15.4.4).
 
 | Area | Architecture requirement |
 |---|---|
-| Public instance domain | A dedicated hostname of the operator-controlled domain. **Operator decision 2026-09-22:** serve the apex `300x3.com` (existing Cloudflare zone; no new domains registered); `www.300x3.com` continues to redirect to the pCloud storefront |
+| Public instance domain | Identity stays `LOCAL_DOMAIN=300x3.com` (apex; handles `user@300x3.com`). No new domains registered (existing Cloudflare zone only) |
+| Storefront preservation | `www.300x3.com` (root `/`) **remains the pCloud static website** (existing filedn redirect untouched). Mastodon is **not** deployed under a `/mastodon` subpath (Mastodon requires its own hostname for WebFinger/federation) — instead `www.300x3.com/mastodon*` is an edge redirect (Cloudflare Redirect Rule, higher priority than the storefront rule) pointing at the apex instance `https://300x3.com/` as the forum access point |
 | TLS | Required for all federation traffic; plaintext HTTP federation is prohibited. Cloudflare edge terminates TLS for tunnel-routed hostnames (Section 18.5) |
 | Inbound reachability | No router port-forward of the workstation; public reachability provided by the approved **Cloudflare Tunnel** edge (`cloudflared`, Free plan — $0/month), outbound-only connections |
 | Outbound reachability | Federation delivery (Sidekiq) uses HTTPS/443 through `ao-egress-community` only when explicitly enabled — **still outstanding** |
@@ -1662,8 +1663,22 @@ RAILS_FORCE_SSL=true
   200 with `https://300x3.com` profile URLs.
 - The `WEB_DOMAIN` split previously contemplated
   (`LOCAL_DOMAIN=300x3` + subdomain serve path) is **not used**: the apex
-  serves Mastodon directly and `www.300x3.com` keeps the storefront
-  redirect. No apex WebFinger redirect path is required.
+  serves Mastodon directly and `www.300x3.com` (root) keeps the pCloud
+  storefront. No apex WebFinger redirect path is required.
+- Operator request 2026-09-22: keep `www.300x3.com` as the storefront while
+  offering **`www.300x3.com/mastodon` as the forum access point**. Mastodon
+  cannot be served from a subpath (federation requires root paths
+  `/.well-known/webfinger`, `/users/`, `/inbox`, `/api/`,
+  `/oauth/*` at the `LOCAL_DOMAIN` hostname). Therefore:
+  - Mastodon serves **only** at the apex `https://300x3.com/`;
+  - the operator publishes the friendly entry link
+    `https://www.300x3.com/mastodon` → 302 → `https://300x3.com/`
+    (Cloudflare Redirect Rule on the `www` hostname, expression
+    `http.host eq "www.300x3.com" and starts_with(http.request.uri.path,
+    "/mastodon")`, priority above the storefront rule; no origin change);
+  - Tokodon / federation / OAuth always use the apex origin
+    `https://300x3.com` directly (never the `/mastodon` link, which is
+    human-navigation only).
 - Email delivery: `300x3.com` has no MX record yet — addresses were set
   at the database level; enabling **Cloudflare Email Routing** for
   `admin@`/`bot@` (forward to the operator mailbox) is required so
@@ -1728,10 +1743,17 @@ Status as of 2026-09-22 (WORK 000060):
 1. **Done (edge)** — Cloudflare Tunnel `alwayson-mastodon` created;
    `cloudflared` installed; ingress validated; connector registered
    (4+ edge locations); systemd user unit enabled.
-2. **Pending (operator dashboard)** — swap the apex `300x3.com` DNS
-   records (delete existing A/AAAA + scope the storefront Redirect Rule
-   to `www` only) then `cloudflared tunnel route dns alwayson-mastodon
-   300x3.com`; also enable Email Routing for `admin@`/`bot@`
+2. **Pending (operator dashboard)** — apex DNS cutover for the tunnel:
+   delete the existing apex (`@`) A/AAAA records, then `cloudflared tunnel
+   route dns alwayson-mastodon 300x3.com`. Storefront handling (all
+   Cloudflare Redirect Rules on existing hostnames — no new domains):
+   (a) keep the existing `www.300x3.com/*` → filedn storefront rule for
+   the site root (it must NOT match `/mastodon*`); (b) add a HIGHER-priority
+   rule `http.host eq "www.300x3.com" and
+   starts_with(http.request.uri.path, "/mastodon")` → 302 to
+   `https://300x3.com/` so `www.300x3.com/mastodon` is the friendly forum
+   entry link (human navigation only; Tokodon/federation use the apex
+   directly). Also enable Email Routing for `admin@`/`bot@`
    (Section 15.4.2). TLS certificate issuance is handled at the Cloudflare
    edge — no Let's Encrypt step needed (Section 18.5).
 3. **Done** — Section 15.4.2 environment changes applied and the
