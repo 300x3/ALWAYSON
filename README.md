@@ -534,10 +534,7 @@ reconciled. CORDA MUST INCLUDE ALL RELATED TRANSACTION DATA TYPICAL TO FINANCIAL
 PAYPAL, Zelle, AND STABLE COIN (USDC OR SIMILAR) are THE STANDARD PAYMENT METHODS FOR THE PROJECT AND CORDA MUST 
 VERIFY ALL PAYMENTS MADE WITH THEM WHILE DOCUMENTING THOSE TRANSACTIONS WITHIN A SECURE BLOCKCHAIN AND LEDGER.
 
-**Approved 2026-08-28 (§18.4):** Zelle is approved for direct US payments using
-the manual-reconciliation path: operator verifies receipt out-of-band, creates
-an auditable reference record, and only then may a receipt manifest proceed to
-`ao-ledger-ingest`. No automated Zelle verification exists.
+**Approved 2026-08-28 (§18.4):** ZELLE PROCESSING IS THE SAME AS PAYPAL AND COINBASE/STABLECOIN PROCESSING, THE EXISTING AUTHENTICATION METHOD FOR EACH PAYMENT SERVICE IS TO BE VERIFIED BY CORDA IN SOME MANNER.
 
 ## 7.3 Sales and Receipt Sequence
 
