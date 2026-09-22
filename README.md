@@ -893,7 +893,7 @@ Vehicle and fabrication simulation domains require separate:
 - Git repositories or clearly separated repository subtrees.
 - Artifact manifests.
 
-Use Git for SDF, URDF/Xacro, world files, robot definitions, safety zones,
+Use LOCAL FOLDER STORAGE AT ( /media/scottw/1TBSAMSUNGDATA/ ) AT THE GAZEBO SUBFOLDER (VERIFY ITS LOCATION WITH THE USER) for SDF, URDF/Xacro, world files, robot definitions, safety zones,
 task plans, and launch configurations. Use Git LFS or a separate artifact
 repository for large meshes, textures, point clouds, and generated results.
 
@@ -906,7 +906,7 @@ repository for large meshes, textures, point clouds, and generated results.
 Corda is the authoritative ledger for approved business provenance, receipt,
 entitlement, fulfillment-approval, and release-approval records.
 
-Corda is not the authoritative store for domain-operational source data.
+Corda is not the authoritative store for domain-operational source data (THAT DATA IS TO BE STORED IN THE RELATED POSTGRESQL DATABASE.)
 
 | Domain | Authoritative operational data |
 |---|---|
