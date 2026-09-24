@@ -114,7 +114,7 @@ orchestration, or a Docker daemon.
 
 | Area | Verified current value |
 |---|---|
-| Kernel | `7.0.0-31-generic` |
+| Kernel | `7.0.0-34-generic` |
 | Podman | `5.7.0` |
 | Podman networks | Ten `ao-*` networks present; internal workload-domain isolation verified |
 | GPU | EVGA NVIDIA GTX 1080 |
@@ -126,6 +126,17 @@ orchestration, or a Docker daemon.
 | Mapping drive | ext4 `/dev/sdb1`; UUID verified; approximately 433.9 GB free of 457 GB |
 | Mapping mount | `/media/scottw/500GBPHOTOGRAM/` |
 | Current runtime model | Mixed rootless and system/rootful Podman evidence; see approved deviation section |
+| Desktop OS | Ubuntu 26.04.1 LTS (`resolute`) userland with the Kubuntu desktop |
+| Reticulum executable | Standalone RNS `1.4.2` available at `/home/scottw/.local/bin/rnsd`; no standalone `rnsd` process was running during the 2026-09-24 review |
+| Active Reticulum runtime | Embedded in the MeshChatX native backend and initialized from `/home/scottw/.reticulum/config` |
+| MeshChatX deployment | Native headless backend at `/home/scottw/Applications/meshchatx-native/ReticulumMeshChatX` |
+| MeshChatX version evidence | Desktop metadata declares `4.9.1`; the running backend version was not independently established during the review |
+| MeshChatX executable verification | SHA-256 `4f403e52b0a5722a49d433f23660b14b43a779fb3cc9a5a90b8f150d77f18890` matches `backend-manifest.json` |
+| MeshChatX repository artifact | `reticulum_meshchatx-4.8.4-py3-none-any.whl`; stored in the MeshChatX repository-server identity and not the verified running artifact |
+| MeshChatX Reticulum config | `/home/scottw/.reticulum/` |
+| MeshChatX state and logs | `/home/scottw/.reticulum-meshchatx/` |
+| MeshChatX local UI | `127.0.0.1:18000` |
+| Reticulum public gateway listener | `0.0.0.0:4242`; binding verified, while firewall policy and packet reachability remain unverified |
 
 ---
 
@@ -196,7 +207,7 @@ mapping, simulation, database, AI, Podman, or Corda-core services.
 | Host platform | Kubuntu, Podman, Quadlet, protected administration | Host inventory and base platform verified | Implemented | Maintain version matrix |
 | Domain isolation | Separate workload networks with explicit approved paths | Ten internal workload networks and isolation test verified | Implemented | Add narrow adapters only as required |
 | Mapping | Dedicated mapping domain and photogrammetry drive | GPU-enabled WebODM smoke test completed; orthophoto produced | Implemented with deviation | Formalize steady-state rootless/system model |
-| Field and LoRa | Raspberry Pi 5, Waveshare LoRa, Heltec V3 gateway | Heltec V3 connected; stable `/dev/heltec-v3` + `/dev/serial/by-id` path, udev rule, and detection verified 2026-08-31; serial probe received packets; gateway service not deployed; no live link test | In progress | Deploy ao-field gateway; complete WORK 000050 link-test criteria |
+| Field, Reticulum, and LoRa | Raspberry Pi 5, Waveshare LoRa, Heltec V3 gateway, RNS/Reticulum, and MeshChatX | Both Heltec LoRa 32 V3/SX1262 RNodes are functional and initialized by MeshChatX; `PEOPLE-RADIO` uses 915 MHz/125 kHz and `DRONE-RADIO` uses 917 MHz/250 kHz; 32 interfaces are configured and none are explicitly disabled; RF feedback is observable on both radio bands and requires characterization; end-to-end telemetry, link-quality, and resilience acceptance tests remain pending | In progress | Measure and classify feedback on each band; record RSSI/SNR, noise floor, packet loss, airtime, retries, and cross-band isolation; complete RF telemetry and fail-safe validation |
 | Vehicle simulation | Isolated ROS/Gazebo/ArduPilot SITL domain | Headless Gazebo and ROS-Gazebo bridge smoke test passed | Implemented | Add scenario and QGroundControl validation as needed |
 | Fabrication simulation | Isolated ROS/Gazebo facility domain | Headless simulation smoke test passed | Implemented | Expand facility models and safety scenarios |
 | Ledger | Corda core behind mTLS ingestion gateway | Corda 5.2.2 scaffolded | Blocked | Complete operator key and certificate ceremony |
@@ -830,6 +841,130 @@ Heltec gateway service
        ├── Telemetry normalization
        └── Signed telemetry-manifest exporter
 ```
+The current host uses two separate raw-LoRa/Reticulum interfaces:
+
+| Interface | Hardware | Frequency | Bandwidth | SF | CR | TX power | Mode |
+|---|---|---:|---:|---:|---:|---:|---|
+| `PEOPLE-RADIO` | Heltec LoRa 32 V3, SX1262, RNode firmware 1.85 | 915 MHz | 125 kHz | 7 | 5 | 17 dBm | `selected_interface_mode = 1` |
+| `DRONE-RADIO` | Heltec LoRa 32 V3, SX1262, RNode firmware 1.85 | 917 MHz | 250 kHz | 7 | 5 | 17 dBm | `mode = internal`; `selected_interface_mode = 7`; `discoverable = no` |
+
+The different frequencies and airtimes intentionally separate the public
+people-facing radio from the private drone/IoT radio. They must not be treated as
+interchangeable interfaces or combined into one RF channel without an approved
+frequency plan.
+
+The live host configuration is under `/home/scottw/.reticulum/`. MeshChatX runs
+headlessly at `127.0.0.1:18000`. Its embedded Reticulum runtime is initialized
+from `/home/scottw/.reticulum/config`, while MeshChatX identity, repository, and
+application state are stored under `/home/scottw/.reticulum-meshchatx/`.
+
+Both RNodes are functional and initialize successfully in the active MeshChatX
+process. This confirms local device detection, serial access, and RNode
+configuration. RF feedback is observable on both configured bands:
+
+| Radio | Configured band | Operational state | Remaining observation |
+|---|---:|---|---|
+| `PEOPLE-RADIO` | 915 MHz | Functional | Characterize feedback observed on this band |
+| `DRONE-RADIO` | 917 MHz | Functional | Characterize feedback observed on this band |
+
+“Feedback” is an operator observation, not yet a diagnosed fault. Potential
+categories include self-feedback, nearby RF activity, interference, harmonics,
+spurious transmission, antenna coupling, or reflected energy. Do not change
+power, frequency, bandwidth, spreading factor, coding rate, antenna, or
+transmit mode until the source and severity are measured.
+
+Both CP2102 bridges expose the same USB serial descriptor
+`Silicon_Labs_CP2102_USB_to_UART_Bridge_Controller_0001`. Device identity must
+therefore be resolved through the stable PCI/USB `by-path` location and the
+recorded SX1262 MAC address. The USB serial descriptor alone is not a unique
+radio identity.
+
+## 9.3 Reticulum Interface Inventory
+
+As reviewed on 2026-09-24, `/home/scottw/.reticulum/config` contained 32
+configured interfaces:
+
+- Modified: `2026-09-24 10:43:59-07:00`.
+- Size: `7942` bytes.
+- SHA-256: `2df6a8d9fc2037d9e316ac910ec1721c3b5b6af5e301a50b0e92656226cc4098`.
+- 29 enabled `TCPClientInterface` connections.
+- Two enabled `RNodeInterface` entries: `PEOPLE-RADIO` and `DRONE-RADIO`.
+- One enabled `BackboneInterface` named `Public Gateway`.
+- No interface explicitly labeled or configured as disabled.
+
+The configured TCP client interfaces are:
+
+- DX.PE Los Angeles Backbone
+- ViscousBits
+- Panic Public PDX
+- KetronKlassik Oakland Gateway
+- hownotbrowncrow
+- CenTex1
+- jsreed5.org Reticulum Entrypoint
+- Unbound Hive TCP
+- NecroNet RNS Gateway
+- fools-gold-gateway
+- CDQ-Drummondville
+- Washmesh Gateway
+- RazzTech Gateway
+- Minuteman RNS West
+- rns.amilia.zip
+- Montgomery
+- GhostMesh ATL IPv6
+- CCLLC-Net Public TCP Gateway
+- CORE - Central Ohio Radio Enthusiasts
+- Mitigomish Public Gateway
+- MattInTech Backbone
+- rns.quacksradio.com
+- Red Nova Gateway
+- SCR
+- GhostMesh WTX IPv4IPv6
+- Parallel RNS-1 Public Hub
+- thefossrant us-east-1
+- topkeksec
+- Simply Equipped US Cloud
+
+“Enabled” records configuration intent only. It does not prove that an interface
+is connected, reachable, or carrying traffic. Current startup evidence includes
+successful peering and announces as well as timeouts, unreachable-network errors,
+connection refusals, and reconnect loops. Historical radio logs also contain
+`Could not detect device`, `Radio state mismatch`, and retry cycles; the current
+process later initialized both radios, so those historical events must not be
+reported as the current state without a fresh capture. Discovered interfaces
+also appear at runtime and are not a one-to-one match with the static
+configuration.
+
+The configuration fingerprint identifies only the reviewed static inventory. It
+does not identify the runtime state of discovered interfaces.
+
+Future interface reports must distinguish:
+
+| Field | Required meaning |
+|---|---|
+| Interface name | Stable configured or discovered name |
+| Type | TCP client, RNode, backbone, or other transport |
+| Enabled | Configuration intent |
+| Initialized | Device detection and interface configuration completed |
+| Connected | Current socket/interface state |
+| Operational | Recent traffic with no fatal state |
+| Reachable | Successful traffic or peer exchange |
+| Last error | Most recent failure, if any |
+| Last checked | Timestamp of evidence |
+
+## 9.4 Operational Security
+
+The MeshChatX web interface is restricted to `127.0.0.1:18000`.
+
+The Reticulum `Public Gateway` is configured to listen on `0.0.0.0:4242`.
+Because this listener binds all local IPv4 interfaces, it is not
+loopback-restricted. Whether it is reachable from the LAN or Internet depends
+on firewall and upstream controls, which could not be verified without root
+privileges during the review. The host had `192.168.87.135/24` on `wlp3s0`,
+making `192.168.87.135:4242` a potential LAN path unless blocked. This does not
+prove successful external access. A loopback-only web UI does not make the
+underlying Reticulum gateway private.
+
+## 9.5 Radio Profile Requirements
 
 Both radio ends must be verified as compatible US915 hardware variants.
 Matching SX1262-family radio chips do not guarantee protocol compatibility.
@@ -860,7 +995,11 @@ The profiles must define identical or explicitly interoperable values for:
 - Airtime limits.
 
 Do not describe this system as LoRaWAN unless it implements a true LoRaWAN
-device, gateway, and network-server architecture. THE SYSTEM IS PRIMARILY AN R-NODE BASED RETICULUM NETWORK STACK MESH WITH SET MHZ MATCH BETWEEN HELTEC V3 AND PI HAT: SX1262 LoRaWAN Node Module Expansion Board for Raspberry Pi, 868/915Mhz, GNSS, CB antenna. ALONGSIDE AN ACTUAL LORAWAN RNS MESHCHATX PUBLIC DISCUSSION FORUM. THE TWO ARE ISOLATED FROM EACHOTHER VIA TWO DIFFERENT RADIO BANDS AND SEPARATE SETTINGS FOR EITHER NETWORK.
+device, gateway, and network-server architecture. The field implementation is
+primarily an RNode-based Reticulum mesh. The Heltec V3 and Raspberry Pi/Waveshare
+radios must use matched, approved US915 channel plans. Any separate LoRaWAN or
+public-discussion service must use different radio bands and settings and remain
+isolated from the field telemetry mesh.
 
 ---
 
@@ -1162,6 +1301,24 @@ Run before installing or changing anything:
   echo "===== Existing Podman networks: system store ====="
   sudo podman network ls 2>&1 || true
 
+  echo "===== Reticulum and MeshChatX ====="
+  command -v rnsd || true
+  rnsd --version 2>&1 || true
+  pgrep -a -f 'rnsd|ReticulumMeshChatX' || true
+  ss -ltnp 2>/dev/null | grep -E '(:18000|:4242)' || true
+
+  if [ -f "$HOME/.reticulum/config" ]; then
+    echo "--- Reticulum configuration ---"
+    grep -nE '^\[\[|^type =|^(interface_enabled|enabled) =|^target_host =|^target_port =|^port =|^mode =' \
+      "$HOME/.reticulum/config"
+  fi
+
+  if [ -d "$HOME/.reticulum-meshchatx/logs" ]; then
+    echo "--- Recent MeshChatX errors and warnings ---"
+    tail -n 500 "$HOME/.reticulum-meshchatx/logs/meshchatx.log" \
+      | grep -Ei 'error|warning|disabled|interface|umsgpack' || true
+  fi
+
   echo "===== Serial devices ====="
   ls -l /dev/serial/by-id/ 2>&1 || true
 } | tee -a /ALWAYSON/logs/installation/agent-install.log
@@ -1179,6 +1336,14 @@ Pause and report if:
 - Firewall policy conflicts with intended isolation.
 - A proposed service port is already bound.
 - Heltec cannot be found through a stable `/dev/serial/by-id/` path.
+- MeshChatX or Reticulum is unexpectedly absent after installation approval.
+- The Reticulum configuration contains an interface not present in the approved
+  inventory.
+- A supposedly enabled interface repeatedly fails without a documented
+  compensating control.
+- The Reticulum gateway listener is reachable from an unapproved network.
+- MeshChatX reports persistence, cryptographic-state, or repository-integrity
+  errors.
 
 ## 12.3 Host Dependencies
 
@@ -1506,6 +1671,42 @@ simulation:
   ardupilot_commit: ""
   qgroundcontrol_version: ""
   sb3_version: ""
+field_chat:
+  standalone_rnsd_version: "1.4.2"
+  standalone_rnsd_executable: "/home/scottw/.local/bin/rnsd"
+  standalone_rnsd_running: false
+  active_reticulum_runtime: "embedded in MeshChatX native backend"
+  active_embedded_rns_version: "unverified"
+  reticulum_config: "/home/scottw/.reticulum/config"
+  reticulum_config_sha256: "2df6a8d9fc2037d9e316ac910ec1721c3b5b6af5e301a50b0e92656226cc4098"
+  meshchatx_launcher_metadata_version: "4.9.1"
+  meshchatx_running_version: "unverified"
+  meshchatx_executable: "/home/scottw/Applications/meshchatx-native/ReticulumMeshChatX"
+  meshchatx_executable_sha256: "4f403e52b0a5722a49d433f23660b14b43a779fb3cc9a5a90b8f150d77f18890"
+  meshchatx_manifest_sha256_match: true
+  meshchatx_storage: "/home/scottw/.reticulum-meshchatx"
+  meshchatx_local_ui: "127.0.0.1:18000"
+  reticulum_public_listener: "0.0.0.0:4242"
+  repository_cached_artifact: "reticulum_meshchatx-4.8.4-py3-none-any.whl"
+  repository_cached_artifact_running: false
+  people_radio:
+    hardware: "Heltec WiFi LoRa 32 V3 / SX1262"
+    rnode_firmware: "1.85"
+    frequency_hz: 915000000
+    bandwidth_hz: 125000
+    spreading_factor: 7
+    coding_rate: 5
+    txpower_dbm: 17
+  drone_radio:
+    hardware: "Heltec WiFi LoRa 32 V3 / SX1262"
+    rnode_firmware: "1.85"
+    frequency_hz: 917000000
+    bandwidth_hz: 250000
+    spreading_factor: 7
+    coding_rate: 5
+    txpower_dbm: 17
+    mode: "internal"
+    discoverable: false
 
 ledger:
   corda_version: ""
@@ -1528,6 +1729,12 @@ sales_api_role
 sales_migration_role
 sales_backup_role
 ```
+
+The desktop metadata reports MeshChatX `4.9.1`. The native executable hash
+matches `backend-manifest.json`, but its running version was not independently
+established. A `reticulum_meshchatx-4.8.4-py3-none-any.whl` artifact also exists
+in the local MeshChatX repository-server identity and is not the verified
+running artifact.
 
 Core tables:
 
@@ -2150,9 +2357,9 @@ operator workflow ACCORDING TO SECTION 6.A OF THIS README.
   (127.0.0.1:9090 and 127.0.0.1:3001).
 - Backup/restore status: CLI-only (restic snapshot `548d9910` verified);
   dashboard display planned.
-- Field gateway/link-quality: Heltec V3 connected and detection verified
-  2026-08-31; gateway service deployment and LoRa link test remain open
-  under WORK 000050; MeshChatX AppImage installed.
+- Field gateway/link-quality: two Heltec V3 radios detected and enabled in
+  Reticulum; gateway service deployment and end-to-end LoRa link test remain
+  open under WORK 000050; MeshChatX native headless backend 4.9.1 running.
 - Every entry declares its Podman network mapping (or explicit no-attachment),
   no-access network list, data source, and procedures; no entry grants
   cross-domain access or an `ao-admin` broad membership.
@@ -2206,29 +2413,60 @@ approved KDE Wallet location and/or approved service-secret store.
 
 ## WORK 000050 — Heltec V3 Connection and Field Link Test
 
-**Status:** RADIOS OPERATIONAL 2026.09.21 (TWO RADIOS, "PEOPLE" FOR PUBLIC USE AND "DRONE" FOR PRIVATE DRONE/IOT DIRECTIONS.
-VERIFY THE WORK AND UPDATE THE README.
+**Status:** PARTIAL — both local RNodes are functional and initialize
+successfully. RF feedback is observable on both configured bands, but its source
+and severity have not been characterized. End-to-end field-link, telemetry,
+interference, and fail-safe acceptance testing remain outstanding.
 
-**Completed 2026-08-31:** Device connected by USB-C; enumerated at stable
-`/dev/serial/by-id/usb-Silicon_Labs_CP2102_USB_to_UART_Bridge_Controller_0001-if00-port0`
-with `/dev/heltec-v3` udev symlink (rule installed at
-`/etc/udev/rules.d/99-alwayson-heltec.rules` from
-`config/field/heltec-v3/udev/`, includes `ID_MM_DEVICE_IGNORE` and dialout
-0660). `scripts/radio/detect-heltec.sh` returns OK. Serial probe at
-115200 8N1 received c0-framed packets (radio passing traffic). Bridge
-identity: Silicon Labs CP2102 (10c4:ea60), serial 0001. Firmware state
-recorded 2026-08-31 via `rnodeconf --info`: **RNode firmware 1.85**, EEPROM
-checksum valid, device signature unverified (self-built RNode; signing via
-`rnodeconf` is an operator option — reflashing/bootstrap requires explicit
-operator approval).
+**Completed 2026-08-31:**
 
-**Acceptance criteria:**
+- One Heltec WiFi LoRa 32 V3 was connected by USB-C.
+- Stable USB identification and the `/dev/heltec-v3` udev symlink were verified.
+- The udev rule was installed at
+  `/etc/udev/rules.d/99-alwayson-heltec.rules`.
+- `scripts/radio/detect-heltec.sh` returned `OK`.
+- A 115200 8N1 serial probe received `c0`-framed RNode traffic.
+- RNode firmware 1.85, valid EEPROM state, and CP2102 bridge identity were
+  recorded.
 
-- Device appears at a stable `/dev/serial/by-id/` path.
-- Device identity and firmware state are recorded.
-- US915 radio profile is validated against the Raspberry Pi/Waveshare profile.
-- Link test records RSSI, SNR, packet loss, retry behavior, and replay defense.
-- No live flight-control command path is enabled during validation.
+**Additional implementation verified 2026-09-21 through 2026-09-24:**
+
+- Two Heltec LoRa 32 V3/SX1262 radios are recorded in
+  `/home/scottw/.reticulum/radio-ids.txt`.
+- Both `PEOPLE-RADIO` and `DRONE-RADIO` are confirmed functional; their
+  current serial paths exist and the active MeshChatX process initialized both
+  interfaces successfully.
+- Feedback has been observed on both configured radio bands.
+- The feedback has not yet been classified as self-coupling, external
+  interference, harmonic/spurious transmission, antenna coupling, reflected
+  energy, or another condition.
+- MeshChatX is running headlessly at `127.0.0.1:18000`; its embedded Reticulum
+  runtime was initialized from `/home/scottw/.reticulum/config`.
+- Reticulum log evidence shows peer establishment and mesh announcements.
+
+**Outstanding acceptance criteria:**
+
+- Validate the Raspberry Pi/Waveshare profile against both Heltec profiles.
+- Prove unicast and broadcast traffic over each RF path.
+- Capture baseline noise floor and signal levels with each RNode idle.
+- Repeat measurements while each radio transmits.
+- Record whether feedback appears in-band, on the adjacent radio band, or
+  through harmonics/spurious emissions.
+- Measure isolation between the 915 MHz and 917 MHz RNode paths.
+- Record RSSI, SNR, packet-loss percentage, retry behavior, and airtime.
+- Test with antennas disconnected or replaced only under approved RF safety and
+  hardware procedures.
+- Do not increase transmit power or alter channel parameters until the source
+  of the feedback is understood.
+- Verify duplicate/replay rejection and signed telemetry-manifest export.
+- Verify fail-safe behavior when a radio, serial path, or Reticulum peer is lost.
+- Confirm that no live flight-control command path is enabled during testing.
+- Classify or formally accept the historical
+  `No module named 'umsgpack'` bounded-ratchet persistence error.
+- Review the `0.0.0.0:4242` Reticulum gateway listener against the field-domain
+  firewall policy.
+- Capture a timestamped connected/disabled/error report for all 32 configured
+  interfaces.
 
 ## WORK 000060 — Federation Publication of the Local 300X3 Mastodon Instance
 
@@ -2406,6 +2644,87 @@ operator approval. The drive tree now matches the required structure.
   profile saves will fail MX validation until routing exists.
 
 ---
+## ISSUE 000700 — MeshChatX Reticulum Interface, RF, and Persistence Status
+
+**Status:** OPEN — PARTIAL VERIFICATION
+
+### Interface finding
+
+The active Reticulum configuration contains 32 interfaces and no interface
+explicitly configured as disabled:
+
+- 29 TCP clients with `interface_enabled = true`.
+- `PEOPLE-RADIO` and `DRONE-RADIO` with `interface_enabled = true`.
+- `Public Gateway` with `enabled = yes`.
+
+The MeshChatX web interface is bound to `127.0.0.1:18000`. The Reticulum
+Backbone interface is bound to `0.0.0.0:4242`. Binding was verified; firewall
+policy and packet reachability were not verified without root privileges.
+
+“Enabled” describes configuration intent only. It does not prove that an
+interface is connected, reachable, carrying traffic, or suitable for a particular
+service. Discovered interfaces are not a one-to-one match with the static file.
+
+### RF feedback on both RNode bands
+
+Both RNodes are functional and initialized successfully. Feedback is observable
+on both the 915 MHz and 917 MHz paths, but it has not been classified as a
+hardware fault, interference, self-coupling, harmonic/spurious transmission,
+antenna coupling, reflected energy, or normal local RF activity.
+
+Required characterization:
+
+1. Idle noise-floor and signal measurements for each radio.
+2. Transmit-state spectrum and power measurements for each radio.
+3. In-band and adjacent-band feedback identification.
+4. Separation of 915 MHz and 917 MHz path behavior.
+5. Controlled antenna changes only under approved RF procedures.
+6. Packet delivery, retries, RSSI, SNR, and airtime with and without the
+   feedback source.
+7. A documented decision to mitigate, accept, or monitor the condition.
+
+### Historical persistence defect
+
+The current log contains 12,364 occurrences of:
+
+```text
+Bounded ratchet persist failed: No module named 'umsgpack'
+```
+
+The final occurrence is immediately before newer MeshChatX startup events at
+2026-09-24 16:29:19Z and 16:51:04Z. No `umsgpack` error was observed after
+those newer starts in the reviewed log. The defect remains open, but continuous
+recurrence in the current native process has not been established.
+
+Before production use, verify whether the native bundle omitted a dependency,
+ratchet state is lost between restarts, session continuity is affected, and a
+controlled restart preserves the expected state without errors.
+
+### Reproducible status report
+
+Save timestamped reports under:
+
+```text
+/ALWAYSON/artifacts/field-chat/reticulum-interface-status-YYYYMMDD-HHMMSS.txt
+```
+
+Each report must include config and executable hashes, process identity,
+listeners, static and discovered interfaces, enabled/initialized/connected/
+operational/reachable state, peer or announce activity, last error, and last
+check time.
+
+### Required closure evidence
+
+- Timestamped status for every configured interface.
+- Successful traffic test through each retained interface.
+- Documented decision for every unavailable public peer.
+- Firewall and packet-reachability review for TCP/4242.
+- RF feedback characterization and disposition.
+- Root-cause or formal acceptance of the historical `umsgpack` errors.
+- Controlled-restart verification that MeshChatX state persists.
+- Independently verified running MeshChatX and embedded-RNS versions.
+
+---
 
 # 20. Current Verification Evidence
 
@@ -2434,6 +2753,16 @@ operator approval. The drive tree now matches the required structure.
 | WebODM operator workflow restart | Stack is rootless (scottw/mapping store); system-store recovery step correctly found no system-store containers — no action needed | Complete |
 | ArduPilot SITL MAVLink | ao-ardupilot-sitl.service flags fixed; HEARTBEAT (sysid 1, QUADROTOR, ArduPilot) validated over tcp:127.0.0.1:5760 via pymavlink | Complete |
 | Heltec firmware | RNode firmware 1.85 recorded via rnodeconf; EEPROM valid; signature unverified (operator signing option) | Partial |
+| Reticulum executable | Standalone RNS 1.4.2 available at `/home/scottw/.local/bin/rnsd`; active Reticulum runtime is embedded in MeshChatX | Complete with embedded version pending |
+| MeshChatX deployment | Native headless backend running since 2026-09-24 11:02 local time; local UI bound to `127.0.0.1:18000`; desktop metadata declares 4.9.1 | Complete with running-version verification pending |
+| Reticulum interface configuration | 29 TCP clients use `interface_enabled = true`; two RNodes use `interface_enabled = true`; one Backbone uses `enabled = yes`; zero explicitly disabled | Complete |
+| Reticulum runtime participation | Logs show auto-connections, peering, announces, and LXMF/Nomad network announcements | Partial — per-interface health not yet captured |
+| Reticulum connectivity | Startup logs contain timeouts, network-unreachable errors, connection refusals, and reconnect cycles for named and discovered interfaces | Partial |
+| Reticulum public gateway | MeshChatX is bound to `0.0.0.0:4242`; the host had `192.168.87.135/24` on Wi-Fi | Partial — binding verified; firewall and packet reachability not verified |
+| Two-radio Reticulum initialization | Both serial paths exist and MeshChatX logged both RNodes as configured and powered up on 2026-09-24 | Complete |
+| RNode band feedback | Functional feedback observed on both 915 MHz and 917 MHz paths | Issue — source and severity uncharacterized |
+| MeshChatX cryptographic-state persistence | 12,364 historical `umsgpack` errors; error block ends before newer 16:29Z and 16:51Z startup entries | Issue — controlled-restart test required |
+| MeshChatX version provenance | Desktop metadata declares 4.9.1; executable hash matches the local manifest; running version remains unverified; repository cache contains a 4.8.4 wheel | Partial |
 
 ---
 
