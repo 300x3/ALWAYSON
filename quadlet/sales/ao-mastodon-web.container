@@ -10,6 +10,7 @@ Wants=ao-mastodon-db.service ao-mastodon-redis.service
 Image=ghcr.io/mastodon/mastodon@sha256:76436bccad38f134cb9a5a6e9c83445915790fc12caf60e3a8ee9cbef8376a56
 ContainerName=mastodon-web
 Network=ao-sales-network.network
+Network=ao-egress-community.network
 EnvironmentFile=%h/secrets/mastodon.env
 PublishPort=127.0.0.1:3000:3000
 NoNewPrivileges=true
