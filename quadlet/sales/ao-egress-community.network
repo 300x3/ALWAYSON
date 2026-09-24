@@ -1,0 +1,7 @@
+# /ALWAYSON/quadlet/sales/ao-egress-community.network
+[Network]
+NetworkName=ao-egress-community
+Driver=bridge
+Internal=false
+DNS=1.1.1.1
+DNS=9.9.9.9
