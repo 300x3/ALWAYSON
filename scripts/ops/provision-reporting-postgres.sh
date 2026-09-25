@@ -7,11 +7,17 @@ HBA=/etc/postgresql/18/main/pg_hba.conf
 umask 077
 # The reporting containers share only PostgreSQL's Unix socket directory.
 # Add role-specific SCRAM rules rather than enabling passwordless local access.
+# Host rules are scoped to loopback. They previously covered 10.42.0.0/16,
+# which authorised the socat bridge that published this cluster on the eno1
+# physical NIC; that bridge was removed 2026-09-25, so the LAN range was
+# dropped and only loopback remains.
 for rule in \
   'local metabase metabase_app scram-sha-256' \
   'local grafana grafana_app scram-sha-256' \
-  'host metabase metabase_app 10.42.0.0/16 scram-sha-256' \
-  'host grafana grafana_app 10.42.0.0/16 scram-sha-256'; do
+  'host metabase metabase_app 127.0.0.1/32 scram-sha-256' \
+  'host grafana grafana_app 127.0.0.1/32 scram-sha-256' \
+  'host metabase metabase_app ::1/128 scram-sha-256' \
+  'host grafana grafana_app ::1/128 scram-sha-256'; do
   if ! grep -Fqx "$rule" "$HBA"; then
     printf '%s\n' "$rule" >>"$HBA"
   fi

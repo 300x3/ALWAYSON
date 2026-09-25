@@ -12,6 +12,16 @@ DO $do$ BEGIN
   IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname='sales_backup_role') THEN
     CREATE ROLE sales_backup_role LOGIN;
   END IF;
+  -- Section 15.1 names five roles. The read-only reporting role and the
+  -- administrative role were missing from the original bootstrap; added
+  -- 2026-09-25. sales_reporting_role is the identity Metabase/Grafana use,
+  -- and it reaches only the approved reporting views (Section 6.A.2).
+  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname='sales_reporting_role') THEN
+    CREATE ROLE sales_reporting_role LOGIN;
+  END IF;
+  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname='sales_admin_role') THEN
+    CREATE ROLE sales_admin_role LOGIN;
+  END IF;
 END $do$;
 
 SELECT 'CREATE DATABASE salesdb OWNER sales_migration_role'
@@ -175,8 +185,150 @@ CREATE TABLE IF NOT EXISTS sale_contract_lines (
   UNIQUE (contract_id, serial_number)
 );
 
+-- Section 11.2.1 cross-system correlation model. The primary business tuple is
+-- serial_number + receipt_number + event_timestamp_utc. The fuller record below
+-- adds source-event identity so records can be joined across domains by the
+-- correlation tuple rather than by free-text names or presentation labels.
+CREATE TABLE IF NOT EXISTS correlation_records (
+  id                  bigserial PRIMARY KEY,
+  correlation_id      text NOT NULL,
+  serial_number       text NOT NULL,
+  receipt_number      text NOT NULL,
+  event_timestamp_utc timestamptz NOT NULL,
+  event_type          text NOT NULL,
+  source_domain       text NOT NULL CHECK (source_domain IN (
+                        'sales','payment','fulfillment','ledger','mapping','field',
+                        'simulation','release','support')),
+  source_record_id    text NOT NULL,
+  schema_version      text NOT NULL DEFAULT '1.0',
+  content_hash_sha256 char(64) NOT NULL,
+  created_at          timestamptz NOT NULL DEFAULT now(),
+  -- Idempotency for Section 11.2 precondition 5: re-ingesting the same source
+  -- event must not create a duplicate correlation record.
+  UNIQUE (source_domain, source_record_id, event_timestamp_utc)
+);
+
+CREATE INDEX IF NOT EXISTS correlation_records_correlation_idx
+  ON correlation_records (correlation_id);
+CREATE INDEX IF NOT EXISTS correlation_records_tuple_idx
+  ON correlation_records (serial_number, receipt_number, event_timestamp_utc);
+
+-- Section 11.2.2 mandatory Corda entry evidence. A sale is not eligible for
+-- Corda submission unless sale_request, payment_validation and
+-- funds_transfer_verification are all validated for the same correlation_id.
+-- This table holds evidence metadata and hashes; it never holds raw payment
+-- credentials or unrestricted email content (Section 11.3).
+CREATE TABLE IF NOT EXISTS sale_evidence (
+  evidence_id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  correlation_id      text NOT NULL,
+  evidence_type       text NOT NULL CHECK (evidence_type IN (
+                        'sale_request','payment_validation','funds_transfer_verification')),
+  provider            text NOT NULL CHECK (provider IN (
+                        'website','paypal','zelle','coinbase','bank','manual_reconciliation')),
+  source_reference    text NOT NULL,
+  received_at_utc     timestamptz NOT NULL DEFAULT now(),
+  validated_by        text,
+  content_hash_sha256 char(64) NOT NULL,
+  status              text NOT NULL DEFAULT 'received' CHECK (status IN (
+                        'received','validated','rejected','superseded')),
+  -- Correlation fields carried alongside the evidence so the three evidence
+  -- classes can be resolved to one business correlation record.
+  serial_number       text,
+  receipt_number      text,
+  created_at          timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (correlation_id, evidence_type, content_hash_sha256)
+);
+
+CREATE INDEX IF NOT EXISTS sale_evidence_correlation_idx
+  ON sale_evidence (correlation_id);
+CREATE INDEX IF NOT EXISTS sale_evidence_status_idx
+  ON sale_evidence (status);
+
 -- Section 3.8 role grants: API runtime vs migrations vs backups
 GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA public TO sales_api_role;
 GRANT SELECT ON ALL TABLES IN SCHEMA public TO sales_backup_role;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE ON TABLES TO sales_api_role;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO sales_backup_role;
+
+-- ---------------------------------------------------------------------------
+-- Section 11.2 preconditions 2 and 3: canonical correlation fields and
+-- approved read-only reporting views for Metabase and Grafana.
+--
+-- Reporting joins by the correlation tuple (serial_number + receipt_number +
+-- event_timestamp_utc), never by free-text names or presentation labels, and
+-- must not infer paid/fulfilled/entitled/verified state from a marketing label.
+-- ---------------------------------------------------------------------------
+
+-- Section 11.2.2 gate: Corda entry requires all three evidence classes
+-- validated for the same correlation_id.
+CREATE OR REPLACE VIEW v_corda_entry_readiness AS
+SELECT correlation_id,
+       count(DISTINCT evidence_type) FILTER (WHERE status = 'validated')
+         AS validated_evidence_classes,
+       (count(DISTINCT evidence_type) FILTER (WHERE status = 'validated') = 3)
+         AS corda_entry_eligible,
+       max(received_at_utc) AS latest_evidence_utc
+FROM sale_evidence
+GROUP BY correlation_id;
+
+-- Order state without customer PII. Reporting reads state, amounts and counts.
+CREATE OR REPLACE VIEW v_reporting_orders AS
+SELECT o.id            AS order_id,
+       o.status,
+       o.currency,
+       o.total_cents,
+       count(ol.id)    AS line_count,
+       coalesce(sum(ol.quantity), 0) AS unit_count,
+       o.created_at
+FROM orders o
+LEFT JOIN order_lines ol ON ol.order_id = o.id
+GROUP BY o.id, o.status, o.currency, o.total_cents, o.created_at;
+
+-- Entitlement state joined to the order that granted it.
+CREATE OR REPLACE VIEW v_reporting_entitlements AS
+SELECT e.id, e.sku, p.name AS product_name, e.state,
+       e.source_order_id, e.granted_at
+FROM entitlements e
+LEFT JOIN products p ON p.sku = e.sku;
+
+-- Receipt state and the Corda reference once the ledger projection returns.
+CREATE OR REPLACE VIEW v_reporting_receipts AS
+SELECT r.id AS receipt_id, r.order_id, r.receipt_hash_sha256,
+       r.ledger_receipt_id, r.issued_at,
+       sc.correlation_id, sc.receipt_number, sc.corda_state
+FROM receipts r
+LEFT JOIN sale_contracts sc ON sc.order_id = r.order_id;
+
+-- The approved cross-reference: product/serial/receipt/entitlement state plus
+-- the confirmed Corda reference and event timestamp (Section 11.2).
+CREATE OR REPLACE VIEW v_reporting_sale_provenance AS
+SELECT sc.receipt_number,
+       sc.correlation_id,
+       scl.serial_number,
+       scl.sku,
+       p.name AS product_name,
+       scl.quantity,
+       scl.unit_price_cents,
+       scl.currency,
+       sc.corda_event_type,
+       sc.corda_state,
+       sc.corda_transaction_id,
+       sc.corda_confirmed_at_utc,
+       sc.event_timestamp_utc,
+       r.receipt_hash_sha256,
+       r.issued_at
+FROM sale_contracts sc
+JOIN sale_contract_lines scl ON scl.contract_id = sc.id
+LEFT JOIN products p ON p.sku = scl.sku
+LEFT JOIN receipts r ON r.order_id = sc.order_id;
+
+-- Section 6.A.2: the reporting identity reads only the approved views. It gets
+-- no SELECT on base tables, so raw customer/contact rows stay out of reach.
+GRANT CONNECT ON DATABASE salesdb TO sales_reporting_role;
+GRANT USAGE ON SCHEMA public TO sales_reporting_role;
+GRANT SELECT ON v_corda_entry_readiness,
+                v_reporting_orders,
+                v_reporting_entitlements,
+                v_reporting_receipts,
+                v_reporting_sale_provenance
+  TO sales_reporting_role;

@@ -13,6 +13,13 @@ EnvironmentFile=%h/secrets/sales-db.env
 Environment=POSTGRES_DB=salesdb
 Environment=POSTGRES_USER=sales_migration_role
 NoNewPrivileges=true
+# Loopback-only listener so the host reporting hub (PostgreSQL 18) can reach
+# this database with postgres_fdw. Section 6.A.2 sanctions a documented narrow
+# relay path into the ao-admin reporting plane; it does NOT sanction joining
+# ao-sales to the reporting containers. Bound to 127.0.0.1 so it is never
+# reachable from the LAN (the previous reporting bridge published the host
+# cluster on the eno1 NIC by mistake and was removed 2026-09-25).
+PublishPort=127.0.0.1:15432:5432
 HealthCmd=pg_isready
 HealthInterval=30s
 
