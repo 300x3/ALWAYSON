@@ -10,15 +10,20 @@ Requires=ao-prometheus.service
 Image=docker.io/grafana/grafana-oss:11.6.0
 ContainerName=ao-grafana
 Network=ao-admin.network
+Network=ao-reporting-egress.network
+Volume=/var/run/postgresql:/var/run/postgresql:ro
 Volume=/ALWAYSON/config/platform/monitoring/grafana/provisioning:/etc/grafana/provisioning:ro,Z
-Volume=ao-grafana-data:/var/lib/grafana:Z
+Volume=ao-grafana-postgres-data:/var/lib/grafana-postgres:Z
 EnvironmentFile=/ALWAYSON/config/platform/monitoring/grafana.env
+EnvironmentFile=%h/.local/share/alwayson-secrets/reporting-grafana-postgres.env
 PublishPort=127.0.0.1:3001:3000
 NoNewPrivileges=true
 DropCapability=all
 
-
+# PostgreSQL owns all active Grafana application state. Legacy SQLite is not
+# mounted or used at runtime.
 [Service]
+ExecStartPre=/usr/bin/bash -c 'install -d -m 0700 %h/.local/share/alwayson-secrets && /ALWAYSON/scripts/operations/fetch-reporting-env.sh grafana %h/.local/share/alwayson-secrets/reporting-grafana-postgres.env'
 MemoryMax=1G
 Restart=on-failure
 

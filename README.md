@@ -217,15 +217,145 @@ mapping, simulation, database, AI, Podman, or Corda-core services.
 | Backup and restore | Encrypted backup plus recurring restore testing | Encrypted restic snapshot and isolated restore test complete; recurring schedule automated 2026-08-31 (nightly restic 03:30, nightly DB dumps 03:00, weekly verify) | Implemented | Schedule recurring restore tests |
 
 
-## 3.3 DATABASES
+## 3.3 DATABASES AND DATA STORES
 
-PostgreSQL 18 host cluster, loopback-only
-├── salesdb       # Authoritative sales system
-├── cordadb       # Corda core persistence
-├── mappingdb     # WebODM mapping persistence
-├── grafana       # Optional; Grafana private metadata
-├── metabase      # Optional; Metabase private metadata
-└── postgres      # Administrative/maintenance database
+PostgreSQL 18 is the system-wide relational database platform. The target is one
+host-managed PostgreSQL installation with separate logical databases and separate
+application roles. During the current migration, some applications still run
+container-scoped PostgreSQL instances; those are current-state implementations,
+not the permanent architecture. The database name and role boundary remain
+unchanged.
+
+Target logical databases:
+
+```text
+salesdb       # Authoritative sales/payment records
+mastodon      # Mastodon application state
+webodm        # WebODM/PostGIS mapping data
+grafana       # Grafana application metadata, users, dashboards, datasources
+metabase      # Metabase application metadata, users, questions, dashboards
+cordadb       # Corda persistence when the ledger node is activated
+postgres      # Administrative/maintenance database
+```
+
+Grafana and Metabase each use PostgreSQL for their own application state. They
+are not treated as disposable dashboards. Their application databases require
+backups, restore testing, migrations, and health checks.
+
+Grafana uses Prometheus as its operational metrics datasource and may use approved
+PostgreSQL datasources for business or database reporting. Metabase uses
+PostgreSQL source databases through dedicated read-only roles and approved views
+or projections.
+
+Redis is a low-latency speed and coordination layer, not the authoritative
+system of record. It is used for caching, queues, locks, task brokering, and
+transient operational coordination. Important business, payment, user, dashboard,
+and application metadata remain in PostgreSQL.
+
+Prometheus TSDB remains separate as the specialized time-series store for
+metrics. It is not replaced by PostgreSQL, Grafana, or Metabase.
+
+SQLite and H2 are not approved application databases for Grafana or Metabase.
+They may exist only in unrelated desktop/browser applications where embedded
+storage is required, or in retained migration backups.
+
+
+## Database/ledger authority and status legend
+
+- **AUTHORITATIVE RELATIONAL:** PostgreSQL owns detailed operational data,
+  searchable business records, and reporting projections.
+- **AUTHORITATIVE LEDGER:** Corda owns final sale/contract, receipt association,
+  entitlement, and approved ledger state transitions.
+- **ACTIVE:** Currently running and verified.
+- **CURRENT MIGRATION STATE:** Container-scoped PostgreSQL may still exist for an
+  application while its data is being consolidated into the host PostgreSQL
+  platform.
+- **TARGET:** Documented end-state architecture, not yet fully deployed.
+- **BLOCKED:** Requires an operator key/certificate, credential, service, or
+  acceptance step.
+
+Do not treat a **TARGET**, **CURRENT MIGRATION STATE**, or **BLOCKED** component as
+active production state.
+
+### 3.3.1 Program-to-Database Map
+
+The following table groups the currently identified programs by the database
+software they use. It is the starting point for discussing reporting and data
+integration; it is not a list of every installed package or desktop settings
+module.
+
+| Database software | Software/program | Database name or store | Current role and reporting value |
+|---|---|---|---|
+| **PostgreSQL 18** | Host PostgreSQL service | Host cluster; `grafana`; `metabase`; `postgres` | Shared relational platform and administrative/maintenance cluster |
+| **PostgreSQL 18** | Grafana | `grafana` | Grafana users, dashboards, folders, datasource definitions, preferences, and alert state |
+| **PostgreSQL 18** | Metabase | `metabase` | Metabase users, collections, questions, dashboards, database connections, and settings |
+| **PostgreSQL 18** | Mastodon web/Sidekiq | `mastodon` in `mastodon-db` | Accounts, posts, media metadata, federation state, and background-job application data |
+| **PostgreSQL/PostGIS** | WebODM web/worker | `webodm` or `webodm_dev` in `db` | Mapping projects, processing state, users, and geospatial data |
+| **PostgreSQL/PostGIS** | NodeODM | WebODM PostgreSQL plus filesystem processing data | Processing-node state and coordination; large image/output artifacts remain filesystem data |
+| **PostgreSQL 18** | Sales database service | `salesdb` in `sales-db` | Target source for customers, orders, products, payments, receipts, entitlements, and audit history. The repository schema is defined; the live `salesdb` application schema still requires explicit initialization. |
+| **PostgreSQL 18** | Corda node, when activated | `cordadb` | Intended Corda persistence; not currently active and requires the key/certificate ceremony |
+| **Redis 8** | Host Redis service | Host Redis database 0 | General low-latency cache/coordination layer; no current application data confirmed |
+| **Redis 8** | Mastodon cache/queue service | `mastodon-redis` database 0 | Cache, queues, and background-job coordination; not authoritative business data |
+| **Redis 8** | WebODM broker | `broker` database 0 | Celery/task broker and worker coordination; not authoritative mapping data |
+| **Prometheus TSDB** | Prometheus | `/prometheus` persistent volume | Time-series metrics, service health, resource usage, and operational monitoring |
+| **Prometheus TSDB** | Grafana metrics datasource | Prometheus at `ao-prometheus:9090` | Grafana visualizes metrics; Prometheus remains the separate metrics store |
+| **SQLite** | Akonadi/KDE PIM applications | Akonadi SQLite data | Contacts, calendars, mail indexes, and local personal-information data |
+| **SQLite** | Firefox, Brave, Chrome, and Edge | Browser profile SQLite stores | Browser history, site storage, caches, certificates, and profile data |
+| **SQLite** | Podman | Rootless container metadata store | Container, image, network, and volume metadata; not application data |
+| **SQLite** | Selected ROS/local tools | Application-specific local SQLite files | Local tool state where enabled; not a shared reporting source |
+| **Filesystem/local metadata** | LM Studio, OpenClaw, MeshChatX, QGroundControl, ArduPilot, Gazebo, and simulation tools | Application files, logs, project files, and local state | Operational or engineering data that is not automatically part of SQL reporting |
+| **H2** | Grafana/Metabase legacy migration data | Retained H2 backup files only | No longer active; retained temporarily for rollback and migration evidence |
+
+### 3.3.2 Data Flow into Reporting and Ledger Records
+
+The intended reporting flow is:
+
+```text
+PostgreSQL source databases
+  salesdb / mastodon / webodm
+          │
+          ├── approved read-only roles, views, or projections
+          │             │
+          │             └── Metabase: business reports and ad hoc analysis
+          │
+          └── approved PostgreSQL datasource
+                        │
+                        └── Grafana: business/database dashboards
+
+Prometheus
+  time-series metrics
+          │
+          └── Grafana: operational dashboards and alerts
+```
+
+Corda is not a replacement for the source PostgreSQL databases. The intended
+flow is:
+
+```text
+salesdb
+  verified order/payment/receipt event
+          │
+          └── signed, minimized ledger-ingest manifest
+                    │
+                    └── Corda transaction/state record
+                              │
+                              ├── receipt/entitlement/provenance state
+                              └── approved reporting projection
+                                    │
+                                    └── Metabase/Grafana reporting
+```
+
+Use stable correlation fields in the source-to-ledger integration, including a
+transaction/order reference, serial number where applicable, UTC timestamp,
+event type, status, and content hash. Do not copy payment credentials, private
+keys, or unrestricted customer datasets into Corda. Corda remains authoritative
+for approved ledger/provenance state, while PostgreSQL remains authoritative
+for domain-operational source data.
+
+Before building sales reporting, initialize and verify the `salesdb` schema and
+define read-only reporting views. Before enabling blockchain-related flows,
+complete the Corda key/certificate ceremony and implement the ledger-ingest
+manifest, correlation-ID, signature, idempotency, and audit requirements.
 
 ---
 
@@ -249,8 +379,11 @@ PostgreSQL 18 host cluster, loopback-only
     installation or operational journal.
 12. Stop and report conflicts involving services, packages, networks, mounts,
     ports, serial devices, firewall policy, or existing data.
-13. Do not broaden network access, filesystem access, container privileges, or
-    secret access merely to bypass an error.
+13. Do not broaden network access, database privileges, filesystem access,
+    container privileges, or secret access merely to bypass an error. A
+    documented local integration path with least-privilege credentials is
+    permitted when it is required for PostgreSQL reporting, backup, health
+    checking, or application migration.
 14. Require explicit human approval before publishing external communications,
     initiating payments, changing production credentials, deleting data, or
     modifying external records.
@@ -354,6 +487,25 @@ attach directly to an Internet-capable network. An external adapter must use
 separate credentials, destination allowlists, validated DNS/TLS, firewall
 policy, minimal permissions, and connection logging.
 
+### 5.3 Approved Local Data Paths
+
+The following local paths are normal integration paths and do not require a
+new architecture decision:
+
+- Application containers to their approved PostgreSQL database endpoint.
+- Metabase and Grafana to PostgreSQL through dedicated roles, views, or
+  approved reporting interfaces.
+- Grafana to Prometheus for operational metrics.
+- Host administration and backup jobs to PostgreSQL through loopback or an
+  explicitly documented local bridge.
+- Application workers to their required Redis queue or broker.
+
+These paths must not become public listeners, must use separate credentials,
+and must not grant unrelated applications access to each other's owner,
+migration, backup, payment, or ledger credentials. Network isolation remains
+a defense-in-depth control; PostgreSQL roles and grants are the primary
+authorization boundary for database access.
+
 ---
 
 # 6. Component Boundaries, GUI Reporting Tools, and Operator Access
@@ -424,8 +576,8 @@ network.
 
 | Tool | Primary purpose | Mandatory boundary |
 |---|---|---|
-| **Metabase** | FOSS accounting-style and database-heavy reporting: sales, orders, receipts, fulfillment, entitlements, returns, approved support summaries, ledger/provenance projections, saved questions, dashboards, filters, and exports | Runs in `ao-admin`; accesses only approved read-only reporting views/projections using dedicated reporting identities; never receives superuser, database-owner, application-owner, migration, backup, payment-provider, or Corda-key credentials. |
-| **Grafana** | Operational monitoring: metrics, service health, alerts, queue depth, latency, resource use, storage, GPU state, backup age, restore-test status, certificate expiry, and ingest failures | Runs in `ao-admin`; consumes only approved metrics/status paths; never becomes a general database, shell, container-management, or control path. |
+| **Metabase** | FOSS relational reporting: sales, orders, receipts, fulfillment, entitlements, returns, approved support summaries, ledger/provenance projections, saved questions, dashboards, filters, and exports | Runs in `ao-admin`; uses PostgreSQL for its own application state and connects to approved source databases through dedicated read-only roles, views, or projections. It never receives superuser, database-owner, migration, backup, payment-provider, or Corda-key credentials. |
+| **Grafana** | Operational monitoring and visualization: metrics, service health, alerts, queue depth, latency, resource use, storage, GPU state, backup age, restore-test status, certificate expiry, ingest failures, and approved PostgreSQL business/database metrics | Runs in `ao-admin`; uses PostgreSQL for its own application state, Prometheus for metrics, and approved PostgreSQL datasources for business/database reporting. It never becomes a shell, container-management, or control path. |
 | **Corda management/API/CLI** | Corda lifecycle, configuration, certificate-aware administration, and controlled maintenance | Uses a documented narrow management path after the required ceremony; it is not replaced by Metabase or Grafana. |
 | **DBeaver / optional pgAdmin** | Exceptional SQL analysis, schema inspection, backup/restore validation, and controlled database maintenance | Uses an explicit least-privilege identity and loopback or approved narrow tunnel/bridge; it is not the routine accounting/reporting surface. |
 | **Payment-provider dashboard** | Provider-authoritative charges, refunds, disputes, payouts, exports, and reconciliation | External provider service; no Podman network attachment and no replacement of local verified-event controls. |
@@ -451,13 +603,14 @@ operator-access implementations must comply with this subsection and Sections
   least-privilege identity.
 - Every host desktop GUI and provider dashboard must be recorded as having no
   Podman network attachment unless it is actually containerized.
-- Reporting identities must enforce read-only access in the underlying database
-  or service. A GUI read-only setting is not sufficient.
-- `ao-admin` receives only approved narrow exporter, status, reporting-view,
+- Reporting identities must enforce read-only access to source databases or
+  services. This does not make Grafana or Metabase read-only applications:
+  each owns a separate PostgreSQL application database and role.
+- `ao-admin` receives approved PostgreSQL reporting, exporter, status,
   projection, API, relay, tunnel, or push paths. It must not join every
   workload network.
-- `ao-data` is not a shared database, general reporting network, or
-  authorization bypass.
+- `ao-data` is not a shared unrestricted database, general-purpose shell, or
+  authorization bypass. It may carry narrowly approved local data paths.
 - No GUI may add a public listener, broad host networking, unrestricted Podman
   socket access, `--privileged`, shared writable storage, or unrelated-domain
   secret merely to simplify deployment or troubleshooting.
@@ -800,6 +953,150 @@ Begin with CPU-only validation. Enable GTX 1080 access only after validated
 container GPU runtime, driver compatibility, measurable workload benefit, and a
 documented CPU-only recovery path.
 
+## 8.6 3D Model Identity and Database Cross-Referencing
+
+Every 3D model, model revision, component, assembly, and derived artifact must be
+addressable from the same database and ledger correlation system used for sales
+and receipts. The model file is not itself the authority; the authoritative
+relationship is the PostgreSQL registry entry plus the signed content manifest.
+
+### 8.6.1 Identifier hierarchy
+
+Use a stable, globally unique `model_object_id` for the logical object and a
+separate `model_revision_id` for each version:
+
+```text
+model_object_id       # Stable identity of the logical 3D object or assembly
+model_revision_id     # One specific model revision/artifact
+serial_number         # Physical asset, when the model represents a sold product
+correlation_id        # Business/event correlation across PostgreSQL and Corda
+receipt_number        # Commercial receipt, when the model is sold
+event_timestamp_utc   # When the relationship/event was recorded
+content_hash_sha256   # Hash of the exact model file or packaged artifact
+```
+
+`model_object_id` remains stable across revisions. A revised model must not reuse
+an old revision ID. `serial_number` links the model to a physical product; it
+is not a replacement for the model object ID.
+
+### 8.6.2 Metadata carried with the 3D model
+
+Each model package must carry a sidecar metadata document or embedded metadata
+block containing at least:
+
+```json
+{
+  "model_object_id": "OBJ-300X3-BATTERY-0001",
+  "model_revision_id": "REV-2026-09-25-01",
+  "object_type": "cad_assembly",
+  "source_system": "cad_release",
+  "serial_number": "SN-300X3-000042",
+  "correlation_id": "ORDER-2026-000123-A",
+  "receipt_number": "RCPT-2026-000123",
+  "event_timestamp_utc": "2026-09-25T12:34:56Z",
+  "schema_version": "1.0",
+  "content_hash_sha256": "SHA256_DIGEST",
+  "source_artifact_reference": "opaque internal reference",
+  "license_reference": "approved license/terms reference",
+  "is_public_proof_eligible": false
+}
+```
+
+The metadata is cross-referenced, not duplicated wholesale: the model contains
+identity and reference fields, PostgreSQL contains the operational record, and
+Corda contains the signed state/reference.
+
+### 8.6.3 Database registry
+
+The model registry should be implemented in PostgreSQL with tables equivalent to:
+
+```text
+model_objects
+  model_object_id, object_type, canonical_name, created_at_utc, created_by,
+  current_revision_id
+
+model_revisions
+  model_revision_id, model_object_id, revision_number, content_hash_sha256,
+  source_artifact_reference, archive_reference, license_reference,
+  created_at_utc, created_by
+
+model_object_links
+  model_object_id, link_type, serial_number, correlation_id, receipt_number,
+  event_timestamp_utc, valid_from_utc, valid_to_utc
+
+model_ledger_references
+  model_revision_id, corda_event_type, corda_transaction_id, corda_state,
+  corda_confirmed_at_utc, manifest_reference
+```
+
+`model_object_links` is the cross-reference table. It relates a model object to
+a product, serial number, receipt, order, mapping project, simulation result,
+release, or other approved object without embedding the operational record in
+the 3D file.
+
+### 8.6.4 Cross-reference flow
+
+```text
+CAD/3D authoring tool
+        │ model_object_id + model_revision_id
+        ▼
+Model registry (PostgreSQL)
+        ├── serial_number → product/asset record
+        ├── correlation_id + receipt_number → sale contract record
+        ├── content_hash → exact model artifact
+        └── manifest reference → signed ledger event
+                                  │
+                                  ▼
+                             Corda state
+```
+
+A viewer, CAD tool, WebODM/NodeODM exporter, or marketing application resolves
+a model by reading its object/revision IDs, validating the content hash, looking
+up the PostgreSQL registry, following approved links to the serial/receipt
+record, following the Corda projection, and returning only fields permitted for
+that audience.
+
+### 8.6.5 Integrity and relationship rules
+
+- A model revision has exactly one `model_revision_id`.
+- A model revision has one immutable `content_hash_sha256`.
+- A revision ID cannot point to different content hashes.
+- A model object may have many revisions, but only one current revision.
+- A physical serial number may have many model revisions over its lifetime.
+- A receipt may reference many model objects or serials through the link table.
+- A model relationship records `event_timestamp_utc` and its source.
+- Superseded revisions are preserved and marked `superseded`, never reused.
+- A Corda reference is required before a model is called provenance-verified.
+- A content hash proves file integrity, not authenticity or publication safety.
+
+### 8.6.6 Public and private model metadata
+
+Internal metadata may contain serial numbers, correlation IDs, and opaque
+references. Public marketing metadata should contain only approved fields:
+
+```text
+model_object_id or public proof ID
+product/SKU
+approved serial or proof token
+revision label
+provenance status
+public verification reference
+content hash or public proof hash
+license/terms reference
+```
+
+Do not publish customer identity, receipt totals, addresses, payment references,
+private simulation data, internal paths, or Corda transaction details unless that
+disclosure is explicitly approved.
+
+### 8.6.7 Relationship to the sale/receipt process
+
+For a sold product, the 3D model metadata (`model_object_id`,
+`model_revision_id`, `serial_number`) resolves to the PostgreSQL model registry,
+`sale_contract_lines`, receipt/correlation projection, and signed Corda
+provenance reference. The receipt and model may each show a reference to the
+same correlation record. Neither file is the authoritative sale ledger.
+
 ---
 
 # 9. Field and LoRa Architecture
@@ -823,6 +1120,23 @@ Raspberry Pi 5
 ```
 
 ## 9.2 Desktop Gateway
+
+### 9.2.1 MeshChatX Local Service Port
+
+The desktop MeshChatX application uses the dedicated loopback port
+`https://127.0.0.1:18000` for its native backend and local web UI. This port is
+separate from the ALWAYS ON mapping service listener on `127.0.0.1:8000`.
+
+| Service | Domain | Listener | Exposure | Ownership |
+|---|---|---|---|---|
+| MeshChatX native backend / web UI | Field / Reticulum | `https://127.0.0.1:18000` | Loopback only | `scottw` user service |
+| WebODM web service | Mapping / `ao-mapping` | `127.0.0.1:8000` | Loopback only | `ao-webodm-web.service` |
+| Reticulum transport | Field / Reticulum | Reticulum-configured interfaces | No HTTP listener | Embedded MeshChatX backend |
+
+MeshChatX uses its self-signed local certificate; clients must use HTTPS and accept the local certificate. The MeshChatX port is not a public ingress and must not be published through
+Podman, nginx, Cloudflare, or a router. WebODM and MeshChatX must not share a
+listener. The desktop launcher and watchdog must use port `18000`; changing one
+without the others is a configuration error.
 
 ```text
 Heltec WiFi LoRa 32 V3
@@ -1152,29 +1466,345 @@ Corda transaction
 Receipt, entitlement, provenance, or approval state
 ```
 
-## 11.3 Corda Stores
+### 11.2.1 Cross-System Correlation and Provenance Model
 
-| Object type | Corda record |
-|---|---|
-| Sales | Order ID, receipt state, SKU, entitlement, fulfillment state, payment-provider reference hash |
-| Telemetry | Device ID, mission ID, batch hash, time window, quality status |
-| Mapping | Source-manifest hash, processing-profile hash, deliverable hashes, license/ownership state |
-| Vehicle simulation | Scenario, model, software hashes, result hash, approval state |
-| Fabrication simulation | Facility model/task-plan hash, result hash, safety/approval state |
-| Releases | Software, firmware, container, or artifact hash; signer; release status |
+The primary business correlation tuple is:
+
+```text
+serial_number + receipt_number + event_timestamp_utc
+```
+
+These fields link records across PostgreSQL domains and approved ledger records:
+
+- `serial_number` identifies the physical product, vehicle, component, or asset.
+- `receipt_number` identifies the approved commercial transaction or receipt.
+- `event_timestamp_utc` identifies when the source event occurred, using ISO-8601 UTC.
+
+The tuple should be accompanied by a source event identifier and schema version:
+
+```text
+correlation_id
+serial_number
+receipt_number
+event_timestamp_utc
+event_type
+source_domain
+source_record_id
+schema_version
+content_hash_sha256
+```
+
+Example:
+
+```json
+{
+  "correlation_id": "ORDER-2026-000123-LOT-A",
+  "serial_number": "SN-300X3-000042",
+  "receipt_number": "RCPT-2026-000123",
+  "event_timestamp_utc": "2026-09-25T12:34:56.000Z",
+  "event_type": "entitlement_issued",
+  "source_domain": "sales",
+  "source_record_id": "order-line-000123-01",
+  "schema_version": "1.0",
+  "content_hash_sha256": "SHA256_DIGEST"
+}
+```
+
+The same correlation fields should be carried into approved records from sales,
+mapping, field, fulfillment, simulation, and release workflows where the event
+is relevant. A database view or reporting projection should join the records by
+the correlation tuple rather than by free-text names or presentation labels.
+
+### Ledger responsibility: integrity and provenance, not general encryption
+
+Corda/blockchain records should contain the minimum data needed to verify that
+an approved event, artifact, receipt, entitlement, or state transition occurred:
+
+```text
+serial_number
+receipt_number
+event_timestamp_utc
+event_type
+state or status
+content_hash_sha256
+opaque source reference
+signature/authorization metadata
+```
+
+The ledger should not contain:
+
+```text
+card numbers, CVV, payment secrets, private keys,
+full customer PII, raw telemetry, imagery, point clouds,
+or large operational payloads
+```
+
+Encryption is performed before sensitive data leaves its authoritative store,
+for example before pCloud archival replication or private IPFS distribution.
+Corda then records the encrypted-object reference and content hash. This gives
+integrity and provenance for the encrypted object without putting the plaintext
+payload on the ledger.
+
+### Sales and marketing reporting flow
+
+```text
+Sales PostgreSQL salesdb
+  order, product, serial, receipt, payment, fulfillment, entitlement
+        │
+        ├── correlation tuple:
+        │     serial_number + receipt_number + event_timestamp_utc
+        │
+        ├── approved read-only reporting views
+        │       └── Metabase sales/marketing reports
+        │
+        ├── Grafana PostgreSQL datasource
+        │       └── sales/fulfillment/provenance dashboards
+        │
+        └── signed minimized manifest
+                └── Corda receipt/entitlement/provenance state
+```
+
+Marketing and sales reporting should use approved PostgreSQL views or
+projections. The reporting layer may join:
+
+```text
+product/SKU
+serial number
+receipt number
+order and order-line state
+entitlement state
+Corda receipt/provenance status
+event timestamp
+```
+
+It must not infer that a product is fulfilled, entitled, paid, or blockchain-verified
+solely from a marketing label. Those states must come from the authoritative
+PostgreSQL event and the approved ledger projection.
+
+### Implementation preconditions
+
+Before enabling this flow:
+
+1. Initialize and verify the `salesdb` schema.
+2. Define canonical `serial_number`, `receipt_number`, and UTC timestamp fields.
+3. Create read-only reporting views for Metabase and Grafana.
+4. Define the signed manifest schema and correlation-ID uniqueness rule.
+5. Implement ledger-ingest authorization, signature verification, idempotency,
+   replay protection, and audit logging.
+
+6. Complete the Corda key/certificate ceremony.
+7. Test the complete correlation path with synthetic data before connecting
+   real sales, payment, customer, or product records.
+
+### 11.2.2 Mandatory Corda Entry Evidence
+
+Corda entry is blocked until all three evidence classes are present for the same
+business correlation record:
+
+1. **Sale-request email**
+   - Customer-originated sale/KIT REQUEST email or approved equivalent.
+   - Captures requester, requested items/SKUs, comments, and request timestamp.
+   - Does not by itself prove a contract or payment.
+
+2. **Payment-validation email**
+   - Provider-specific validation for PayPal, Zelle, or Coinbase/stablecoin.
+   - Identifies the provider, provider reference, amount, currency, validation
+     status, and validation timestamp.
+   - Does not by itself prove that funds settled into the approved account.
+
+3. **Funds-transfer verification**
+   - Operator/provider reconciliation evidence that the funds actually
+     transferred and settled.
+   - Records settlement/available state, transfer reference, amount, currency,
+     and verification timestamp.
+   - Must not be treated as verified merely because a payment was initiated.
+
+The three records must resolve to the same:
+
+```text
+correlation_id
+receipt_number
+serial_number(s)
+event_timestamp_utc
+```
+
+Recommended evidence record:
+
+```text
+evidence_id
+evidence_type = sale_request | payment_validation | funds_transfer_verification
+provider = website | paypal | zelle | coinbase | bank | manual_reconciliation
+source_reference
+received_at_utc
+validated_by
+content_hash_sha256
+status = received | validated | rejected | superseded
+```
+
+A sale is not eligible for Corda submission unless:
+
+```text
+sale_request.status = validated
+payment_validation.status = validated
+funds_transfer_verification.status = validated
+```
+
+Corda records references, hashes, states, and operator authorization for these
+three gates; it must not store raw payment credentials or unrestricted email
+content. PostgreSQL stores the detailed evidence metadata and reporting
+projection. Metabase and Grafana report the resulting confirmed state; they do
+not perform or waive the verification.
+
+6. Complete the Corda key/certificate ceremony.
+7. Test the complete correlation path with synthetic data before connecting
+   real sales, payment, customer, or product records.
+
+### 11.2.3 Corda-Managed Sale and Receipt Process
+
+The detailed process, state machine, correlation model, and activation gate are
+maintained in the canonical runbook:
+
+```text
+/ALWAYSON/docs/runbooks/corda-sale-receipt-process.md
+```
+
+The short rule is:
+
+```text
+KIT REQUEST/inquiry
+  → verified payment
+  → PostgreSQL provisional projection
+  → signed sale-contract manifest
+  → ledger-ingest gateway
+  → Corda transaction/state
+  → PostgreSQL final projection
+  → receipt and reporting views
+```
+
+A receipt is not final until Corda has returned a confirmed transaction/state
+reference and the PostgreSQL projection records that reference. The intake,
+form, schema, and validator artifacts are:
+
+```text
+/ALWAYSON/data/sales/kit-request-intake/
+/ALWAYSON/forms/three-column-corda-sale-receipt-form.html
+/ALWAYSON/forms/three-column-corda-sale-receipt-form.pdf
+/ALWAYSON/forms/corda-sale-receipt.html
+/ALWAYSON/config/sales/sale-receipt.schema.json
+/ALWAYSON/config/sales/sale-receipt.example.json
+/ALWAYSON/scripts/validation/validate-sale-receipt.sh
+```
+
+The form is an internal operator form. It does not write to PostgreSQL, contact
+Corda, process payments, or create a public proof. Submission must go through
+the authorized ledger-ingest workflow after operator review.
+
+
+## 11.3 Corda Stores and Private Data
+
+Corda may retain approved private transaction data as an encrypted private
+payload or encrypted attachment. Corda does not make plaintext private data
+safe merely by being on a ledger: confidentiality depends on encryption,
+authorized recipients, key management, access policy, and audit controls.
+
+### Corda contract state
+
+Corda state should contain the small, shared, verifiable business facts:
+
+```text
+transaction_id
+correlation_id
+receipt_number
+order_id
+serial_number(s)
+sku
+model_object_id / model_revision_id
+payment provider
+payment-validation reference/hash
+funds-transfer reference/hash
+payment/settlement state
+entitlement/fulfillment/delivery state
+Corda transaction ID
+timestamps
+signatures/authorization metadata
+```
+
+### Encrypted private payload
+
+Approved private data may be encrypted before submission and stored as a
+private attachment or confidential private-state object:
+
+```text
+customer identity and contact details
+purchase-request email/content
+payment-validation email/content
+funds-transfer verification content
+full receipt and contract
+fulfillment, delivery, return, and support records
+private 3D model files and attachments
+```
+
+The private payload envelope must include:
+
+```text
+transaction_id
+data_classification = PRIVATE
+schema_version
+encryption algorithm
+encryption key identifier
+authorized recipients
+payload SHA-256
+retention policy identifier
+created_at_utc
+```
+
+The encryption key must be held by the approved KMS/wallet/key-management
+process and must never be stored in Corda, PostgreSQL, Git, HTML, logs, or the
+transaction bundle.
+
+### Never store in Corda
+
+```text
+card numbers
+CVV
+bank credentials
+payment-provider secret keys
+passwords
+OAuth tokens
+private keys
+TLS private keys
+KMS master keys
+data-encryption keys
+recovery phrases
+```
+
+Corda tracks the transaction ID, state, hashes, references, and authorized
+signatures. PostgreSQL retains the operational/reporting projection keyed by
+the same transaction ID. Metabase and Grafana report the confirmed state; they
+do not create or waive payment verification.
+
 
 ## 11.4 Corda Does Not Store
 
-- Card numbers, CVV, payment secrets, or raw payment webhooks.
-- Full customer PII.
-- Raw telemetry streams.
-- Drone images.
-- GeoTIFFs, point clouds, or models.
-- ROS bags, MAVLink logs, or large simulation outputs.
-- Sensitive LLM prompts or completions.
-- Private keys.
+Corda may store approved encrypted private transaction data as described in
+Section 11.3. It must never store plaintext secrets or unencrypted credentials.
 
-(BUT IT DOES STORE SERIAL NUMBERS AND UNIQUE IDS THAT ALLOW IT TO LINK ITS DATA TO ALL OTHER RELAVENT DATA  IN THE POSTGRESQL DATABASES.)
+Never store:
+
+```text
+card numbers
+CVV
+bank credentials
+payment-provider secret keys
+passwords
+OAuth tokens
+private keys
+TLS private keys
+KMS master keys
+data-encryption keys
+recovery phrases
+```
+
 
 ## 11.5 Manifest Format
 
@@ -1728,6 +2358,8 @@ salesdb
 sales_api_role
 sales_migration_role
 sales_backup_role
+sales_reporting_role
+sales_admin_role
 ```
 
 The desktop metadata reports MeshChatX `4.9.1`. The native executable hash
@@ -1755,6 +2387,111 @@ support_cases
 audit_events
 ```
 
+### 15.1.1 Three-Form Transaction Bundles
+
+Every purchase transaction uses one ALWAYS ON-issued transaction ID and one
+folder containing three forms:
+
+```text
+/ALWAYSON/data/sales/transactions/<transaction-id>/
+├── 01-purchase-request.html
+├── 02-payment-confirmation.html
+├── 03-receipt.html
+├── BUNDLE-STATUS.txt
+└── provider-evidence/
+    ├── paypal.*
+    ├── zelle.*
+    └── coinbase.*
+```
+
+Issue a new bundle:
+
+```bash
+/ALWAYSON/scripts/sales/issue-transaction-bundle.sh
+```
+
+The issuer creates a unique ID, pre-fills that ID into all three forms, and
+creates the provider-evidence directory. The three forms are:
+
+1. Purchase request.
+2. Payment confirmation, including provider validation and funds-transfer
+   settlement.
+3. Corda receipt, including the three evidence references and Corda state.
+
+Validate the bundle structure:
+
+```bash
+/ALWAYSON/scripts/sales/validate-transaction-bundle.sh \
+  /ALWAYSON/data/sales/transactions/<transaction-id>
+```
+
+The same issued ID must appear in all three forms and in the bundle status. It is
+also required in the Corda sale-receipt event and the PostgreSQL contract
+projection. Payment validation must distinguish provider validation from funds
+settlement, and the receipt must record the three validated evidence references
+before operator handoff to ledger-ingest.
+
+Corda tracks the transaction ID, payment/ledger state, hashes, and approved
+references. Detailed private data remains in the encrypted PostgreSQL
+projection keyed by the same transaction ID; Corda does not store full customer
+records, raw emails, payment credentials, or unrestricted evidence.
+
+
+
+### 15.1.2 Website KIT REQUEST PDF Intake
+
+Website-generated PDF requests are accepted at:
+
+```text
+/ALWAYSON/data/sales/kit-request-intake/
+```
+
+The current `300x3.com` KIT REQUEST flow composes an email with:
+
+```text
+SUBJECT: 300X3-WEBREQUEST-
+NAME: <name>
+EMAIL: <email>
+KIT REQUESTED: <selected kits>
+COMMENTS: <comments>
+
+THIS IS A REQUEST FOR INFORMATION, NOT A CONTRACT
+```
+
+The intake folder separates requests from sales:
+
+```text
+inbox/       Original PDFs placed for intake
+extracted/   Extracted text
+manifests/   Hashes and intake metadata
+receipts/    Final receipts/contracts only after Corda confirmation
+review/      Human review records
+archive/     Preserved processed request PDFs
+quarantine/  Invalid, duplicate, or sensitive-pattern PDFs
+```
+
+Run the non-destructive intake script:
+
+```bash
+/ALWAYSON/scripts/sales/intake-kit-request-pdf.sh \
+  /ALWAYSON/data/sales/kit-request-intake/inbox/<request>.pdf
+```
+
+The script preserves and hashes the PDF, extracts text, creates a review record,
+and explicitly sets:
+
+```text
+classification=kit_request_inquiry
+sale_logged=false
+corda_state=NOT_SUBMITTED
+```
+
+It never treats a website request as payment, creates an order, or submits a
+Corda transaction. A verified payment event is required before the PostgreSQL
+sale projection is created. A final receipt requires a Corda-confirmed
+transaction/state reference written back to PostgreSQL. Metabase and Grafana
+read the resulting approved projections; they do not create the sale.
+
 ## 15.2 Community and AI Controls
 
 Mastodon/community controls:
@@ -1767,9 +2504,14 @@ Mastodon/community controls:
 - Immutable publication audit log.
 - No payment, field, mapping, simulation, or Corda-core access.
 
-OpenClaw defaults to draft generation. Human approval is required for pricing,
-orders, shipping, warranties, financial topics, technical claims, safety
-guidance, legal statements, and any external publication.
+OpenClaw uses the local LM Studio model for support drafting and the deployed
+`mastodon-openclaw-bridge.service` automatically answers new Mastodon mentions
+and replies as `bot`. The bridge polls the local Mastodon API every 10 seconds,
+persists its notification cursor, skips historical notifications and its own
+posts, and posts threaded public replies locally. It does not publish to any
+other service. Human approval remains required for pricing, orders, shipping,
+warranties, financial topics, technical claims, safety guidance, legal
+statements, and any publication outside the local bridge workflow.
 
 ## 15.3 Local 300X3 Mastodon Deployment
 
@@ -2030,7 +2772,7 @@ copy.
 |---|---|
 | Continuous or 15-minute where enabled | Database WAL/archive strategy for critical recovery objectives |
 | Hourly incremental | Configuration, manifests, sales records, field telemetry, current project data |
-| Daily | PostgreSQL dumps, Corda backup, mapping manifests, simulation exports, storefront releases |
+| Daily | PostgreSQL dumps for `salesdb`, `mastodon`, `webodm`, `grafana`, and `metabase` when active; Corda backup; mapping manifests; simulation exports; storefront releases |
 | Weekly | Repository integrity check and off-host copy validation |
 | Monthly | Isolated restore test |
 | Quarterly | Full disaster-recovery exercise |
@@ -2111,8 +2853,8 @@ results, and any future migration plan in the version matrix.
 
 ## 18.2 Corda Database Placement Deviation
 
-**Decision:** `cordadb` is provisioned on the host PostgreSQL 18 cluster rather
-than a dedicated container-scoped PostgreSQL instance.
+**Decision:** `cordadb` is provisioned on the host PostgreSQL 18 cluster as a
+separate logical database with separate roles and backup scope.
 
 **Status:** Approved and recorded in the ledger scaffold journal. 2026.09.21 - THE INTENT IS TO HAVE DEDICATED DATABASES WITHIN POSTGRESQL AND TO BE ABLE TO RELATE BETWEEN THEM VIA RECEIPT NUMBER, SERIAL NUMBER, DATE AND TIME STAMPING, ETC. A DEDICATED CORDA DATABASE IS STILL PREFERRED.
 
@@ -2210,6 +2952,13 @@ mirror the static export to the pCloud Public Folder.
 **Status:** In progress — local and public Mastodon origins are healthy;
 OpenClaw is connected to Granite; operator-led Tokodon/OAuth validation remains.
 
+**Current local AI/Mastodon bridge (2026-09-24):** NVIDIA Nemotron 3 Nano 4B
+runs through LM Studio with a 100,096-token live context, two parallel slots,
+and the configured 70% RAM / 80% VRAM policy. `mastodon-openclaw-bridge.service`
+is enabled and active; it polls local notifications every 10 seconds and answers
+new mentions/replies as `bot`. The bridge is local-instance only and does not
+publish to other services.
+
 **Precondition check 2026-08-31 (historical loopback stage):** Mastodon web and streaming healthy on
 loopback (web 200 via `http://localhost:3000`; streaming health 200 on
 `127.0.0.1:4000`); Tokodon OAuth client credentials and administrator account
@@ -2250,18 +2999,20 @@ OpenClaw bot (`bot`) backed by the explicitly selected local Granite model.
 - Tokodon connects using the approved federation origin
   (`https://mastodon.300x3.com`).
 - OAuth completes over HTTPS (normal flow).
-- OpenClaw generates a local draft response through the configured local model.
-- No external publication occurs without explicit operator approval.
-- Logs contain no credentials, tokens, prompts, or sensitive content.
+- OpenClaw generates and posts a local threaded reply through the configured
+  local model for each new mention/reply; response latency is the 10-second
+  notification poll interval plus model inference time.
+- The automatic bridge posts only to the local Mastodon instance; it does not
+  publish to other services.
 
 ## WORK 000020 — Graphic User Interface Review
 
 **Status:** In progress — Part A delivered; admin-plane monitoring/Metabase
-deployed; pkexec-post-deploy executed 2026-08-31 (WebODM system-store recovery
-correctly a no-op — the stack is rootless; `metaread` role exists). Remaining
-scope (QGC interactive workflow, sales DB reporting grants pending the
-ao-admin→ao-sales path decision, field link test, Gazebo GUI clients) is
-tracked in the outstanding items below.
+ deployed on PostgreSQL; reporting identities and PostgreSQL application
+ databases are provisioned. The Corda key/certificate ceremony and final
+ sale-contract/ledger-ingest path remain blocked. Remaining scope (field link
+ test, Gazebo GUI clients, and the final sales/Corda end-to-end test) is tracked
+ in the outstanding items below.
 
 **Objective:** Identify GUI components that remain unimplemented or lack an
 operator workflow ACCORDING TO SECTION 6.A OF THIS README.
@@ -2305,10 +3056,11 @@ operator workflow ACCORDING TO SECTION 6.A OF THIS README.
   streaming 127.0.0.1:4000, streaming health 200); duplicate desktop-user
   Quadlet units disabled 2026-08-31 after a loopback port conflict
   (see ISSUE 000600); OAuth validation blocked under WORK 000010.
-- LM Studio/OpenClaw: LM Studio server running headless on `127.0.0.1:1234`
-  (`ibm/granite-3.2-8b` loaded); REST API auth-enforced. OpenClaw gateway on
-  `127.0.0.1:18789` (`openclaw-gateway.service`). OpenClaw-to-LM-Studio wiring
-  requires the LM Studio API token (operator, Developer tab → KDE Wallet).
+- LM Studio/OpenClaw: LM Studio server running on `127.0.0.1:1234` with
+  `nvidia/nemotron-3-nano-4b` loaded at 100,096 context tokens and two parallel
+  slots; REST API auth-enforced. OpenClaw gateway on `127.0.0.1:18789`
+  (`openclaw-gateway.service`); `mastodon-openclaw-bridge.service` is enabled
+  and active, polling local Mastodon notifications every 10 seconds.
 - Sales/support administration: Metabase deployed and healthy
   (127.0.0.1:3002); reporting roles/views per Section 15.1 required.
 - Monitoring dashboard: Prometheus + node_exporter + Grafana deployed
@@ -2529,6 +3281,9 @@ operator approval. The drive tree now matches the required structure.
 - Secret wiring: intentionally incomplete until secret provisioning is approved.
 - Listener policy: prior `:80` nginx and `:1716` KDE Connect exposure issues
   resolved; current listener state must continue to be monitored.
+- MeshChatX port assignment: the field-domain MeshChatX backend and local web
+  UI are assigned `127.0.0.1:18000`; WebODM retains `127.0.0.1:8000`.
+  Both are loopback-only and must not share a listener.
 - GPU documentation: toolkit/CDI/smoke-test state reconciled with version
   matrix.
 - Backup summary: aligned with hourly incremental and daily dump policy.
@@ -2541,8 +3296,7 @@ operator approval. The drive tree now matches the required structure.
 **Status:** Open and tracked.
 
 - Simulation baseline is ROS 2 Lyrical and Gazebo Sim 10.5.0.
-- `cordadb` currently uses host PostgreSQL 18 rather than a dedicated
-  container-scoped PostgreSQL instance.
+- `cordadb`, when activated, uses the host PostgreSQL 18 cluster.
 - Corda node deployment remains blocked pending the operator key/certificate
   ceremony.
 - Mapping runtime model requires final designation as rootless, system-level,
@@ -2693,9 +3447,9 @@ check time.
 | Sales receipt manifest | Sales DB deployed; provider/API pending | Partial |
 | Backup | Encrypted restic snapshot `548d9910` completed; recurring schedule automated 2026-08-31 (restic nightly 03:30 timer, weekly integrity verify Sun 04:30, nightly domain DB dumps 03:00 for mastodon/sales/webodm); verification snapshot `32be2a1c` saved | Complete |
 | Restore | File hash validated; database 14/14 tables restored | Complete |
-| Monitoring stack (ao-admin) | Prometheus + node_exporter + Grafana deployed as user Quadlet units on `ao-admin` (10.89.9.0/24); loopback listeners 127.0.0.1:9090 and 127.0.0.1:3001 verified; self and node-host scrape `up` | Complete |
-| Metabase reporting (ao-admin) | Deployed and healthy (127.0.0.1:3002, API /api/health 200); `metaread` role exists; read-only grants pending — sales data is container-scoped (sales-db), so an approved ao-admin→ao-sales reporting path must be decided first | Partial |
-| Mastodon local stack (ao-sales) | alwayson-sales store 5/5 containers healthy; web 127.0.0.1:3000 and streaming 127.0.0.1:4000 loopback verified; duplicate desktop-user units disabled 2026-08-31 (ISSUE 000600) | Complete (local, pre-federation) |
+| Monitoring stack (ao-admin) | Prometheus + node_exporter + Grafana deployed as user Quadlet units on `ao-admin`; Grafana application state is PostgreSQL-backed; Prometheus remains the separate metrics datasource; loopback listeners 127.0.0.1:9090 and 127.0.0.1:3001 verified | Complete |
+| Metabase reporting (ao-admin) | Deployed and healthy on PostgreSQL application database `metabase`; `/api/health` 200; reporting uses dedicated read-only source roles/approved views; legacy H2 retained only as migration backup | Complete — PostgreSQL-backed |
+| Mastodon local stack (ao-sales) | alwayson-sales store 5/5 containers healthy; web 127.0.0.1:3000 and streaming 127.0.0.1:4000 loopback verified; duplicate desktop-user units disabled 2026-08-31 (ISSUE 000600); local `bot` account API operational | Complete (local, pre-federation) |
 | Mastodon federation edge (WORK 000060) | Dedicated Cloudflare Tunnel `alwayson-mastodon-federation` for `mastodon.300x3.com`; HTTP/2 connector active; actor and WebFinger 200; storefront hostnames preserved; `LOCAL_DOMAIN=mastodon.300x3.com`; canonical accounts `admin@mastodon.300x3.com` and `bot@mastodon.300x3.com`; `ao-egress-community` attached to web/Sidekiq only; local-to-remote follows confirmed; reverse-follow validation pending | Partial — signed round-trip and reverse-follow evidence remain |
 | WebODM operator workflow restart | Stack is rootless (scottw/mapping store); system-store recovery step correctly found no system-store containers — no action needed | Complete |
 | ArduPilot SITL MAVLink | ao-ardupilot-sitl.service flags fixed; HEARTBEAT (sysid 1, QUADROTOR, ArduPilot) validated over tcp:127.0.0.1:5760 via pymavlink | Complete |

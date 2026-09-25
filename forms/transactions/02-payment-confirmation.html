@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>300X3 Transaction 02 Payment Confirmation</title><style>body{font:14px system-ui;max-width:900px;margin:2rem auto}fieldset{margin:1rem 0}label{display:block;font-weight:600;margin:.5rem 0 .2rem}input,textarea,select{width:100%;padding:.4rem;font:inherit}.notice{background:#e8f5e9;padding:1rem;border-left:5px solid #2e7d32}</style></head><body>
+<h1>300X3 Transaction Form 2 — Payment Confirmation</h1>
+<p class="notice"><strong>Issued transaction ID:</strong> <input id="transaction_id" name="transaction_id" required> <strong>Must match Form 1 and Form 3.</strong></p>
+<p>Record provider validation and settlement. Payment initiation is not the same as funds transfer verification.</p>
+<form><fieldset><legend>Provider validation</legend>
+<label>Provider *</label><select name="provider" required><option>paypal</option><option>Zelle</option><option>coinbase</option><option>bank</option><option>manual_reconciliation</option></select>
+<label>Payment-validation email/reference *</label><input name="payment_validation_reference" required>
+<label>Provider transaction reference/hash *</label><input name="provider_reference" required>
+<label>Amount</label><input name="amount" type="number" step="0.01">
+<label>Currency</label><select name="currency"><option>USD</option><option>EUR</option><option>GBP</option><option>CAD</option></select>
+<label>Validation timestamp UTC *</label><input name="validation_timestamp_utc" type="datetime-local" required>
+<label>Validation state *</label><select name="validation_state"><option>pending</option><option>validated</option><option>rejected</option></select>
+</fieldset><fieldset><legend>Funds-transfer verification</legend>
+<label>Settlement/transfer reference *</label><input name="funds_transfer_reference" required>
+<label>Settled/available state *</label><select name="settlement_state"><option>pending</option><option>settled</option><option>rejected</option></select>
+<label>Settlement timestamp UTC *</label><input name="settlement_timestamp_utc" type="datetime-local" required>
+<label>Operator verification note</label><textarea name="verification_note" rows="4"></textarea>
+<label>Provider evidence file/reference *</label><input name="provider_evidence_reference" required>
+</fieldset><button type="submit">Save payment confirmation record</button></form>
+<script>document.querySelector('form').addEventListener('submit',e=>{e.preventDefault();alert('Payment confirmation captured locally. This form does not move money, write PostgreSQL, or submit Corda.');});</script>
+</body></html>

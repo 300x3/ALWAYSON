@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>300X3 Corda-Managed Sale Receipt</title>
+  <style>
+    body{font:16px/1.45 system-ui,sans-serif;max-width:980px;margin:2rem auto;padding:0 1rem;color:#202020}
+    fieldset{border:1px solid #888;margin:1rem 0;padding:1rem}
+    label{display:block;margin:.6rem 0 .2rem;font-weight:600}
+    input,select,textarea{width:100%;box-sizing:border-box;padding:.45rem;font:inherit}
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:0 1rem}
+    .notice{border-left:5px solid #a06000;background:#fff4d6;padding:.8rem}
+    .final{background:#e8f5e9;padding:.8rem}
+    small{color:#555}
+  </style>
+</head>
+<body>
+<h1>300X3 Sale / Receipt Record</h1>
+<p class="notice"><strong>Internal operational form.</strong> The final contract and ledger state are managed by Corda. This form must not contain card numbers, CVV, bank credentials, private keys, or passwords.</p>
+
+<form id="sale-receipt-form">
+  <fieldset><legend>1. Correlation and receipt</legend>
+    <div class="grid">
+      <div><label for="correlation_id">Correlation ID *</label><input id="correlation_id" name="correlation_id" required></div>
+      <div><label for="receipt_number">Receipt number *</label><input id="receipt_number" name="receipt_number" required></div>
+      <div><label for="event_timestamp_utc">Event timestamp (UTC) *</label><input id="event_timestamp_utc" name="event_timestamp_utc" type="datetime-local" required></div>
+      <div><label for="order_id">Order ID *</label><input id="order_id" name="order_id" required></div>
+      <div><label for="customer_reference">Customer reference *</label><input id="customer_reference" name="customer_reference" required><small>Use approved internal ID; do not enter payment credentials.</small></div>
+      <div><label for="schema_version">Schema version</label><input id="schema_version" name="schema_version" value="1.0" readonly></div>
+    </div>
+  </fieldset>
+
+  <fieldset><legend>2. Product and serial identity</legend>
+    <div class="grid">
+      <div><label for="sku">SKU *</label><input id="sku" name="sku" required></div>
+      <div><label for="product_name">Product name</label><input id="product_name" name="product_name"></div>
+      <div><label for="serial_number">Serial number *</label><input id="serial_number" name="serial_number" required></div>
+      <div><label for="quantity">Quantity</label><input id="quantity" name="quantity" type="number" min="1" value="1"></div>
+      <div><label for="unit_price_cents">Unit price (cents)</label><input id="unit_price_cents" name="unit_price_cents" type="number" min="0" step="1"></div>
+      <div><label for="currency">Currency</label><select id="currency" name="currency"><option>USD</option><option>EUR</option><option>GBP</option><option>CAD</option></select></div>
+    </div>
+  </fieldset>
+
+  <fieldset><legend>3. Payment and contract state</legend>
+    <div class="grid">
+      <div><label for="payment_provider">Payment provider</label><input id="payment_provider" name="payment_provider"></div>
+      <div><label for="payment_reference">Provider reference/hash *</label><input id="payment_reference" name="payment_reference" required><small>Use provider reference or hash, never card data.</small></div>
+      <div><label for="payment_state">Payment state</label><select id="payment_state" name="payment_state"><option>verified</option><option>pending</option><option>failed</option><option>refunded</option></select></div>
+      <div><label for="corda_event_type">Corda event type *</label><select id="corda_event_type" name="corda_event_type"><option>SALE_CONTRACT_CREATED</option><option>ENTITLEMENT_ISSUED</option><option>ENTITLEMENT_REVOKED</option><option>FULFILLMENT_APPROVED</option><option>DELIVERY_CONFIRMED</option><option>RETURN_APPROVED</option><option>REFUND_RECORDED</option></select></div>
+      <div><label for="corda_transaction_id">Corda transaction ID</label><input id="corda_transaction_id" name="corda_transaction_id"><small>Populate only after Corda confirmation.</small></div>
+      <div><label for="corda_state">Corda state</label><input id="corda_state" name="corda_state" value="PENDING_SUBMISSION" readonly></div>
+    </div>
+  </fieldset>
+
+  <fieldset><legend>4. Authorization and notes</legend>
+    <label for="authorized_by">Authorized by *</label><input id="authorized_by" name="authorized_by" required>
+    <label for="authorization_reference">Authorization/reference ID</label><input id="authorization_reference" name="authorization_reference">
+    <label for="notes">Internal notes</label><textarea id="notes" name="notes" rows="3"></textarea>
+    <label><input type="checkbox" name="sensitive_data_check" required> I confirm this record contains no payment credentials, private keys, passwords, or raw sensitive payloads.</label>
+  </fieldset>
+
+  <p class="final"><strong>Finalization rule:</strong> the receipt is provisional until the Corda transaction is confirmed and its transaction ID/state are written back to the PostgreSQL sales projection.</p>
+  <button type="submit">Validate receipt record</button>
+  <output id="result" aria-live="polite"></output>
+</form>
+<script>
+document.getElementById('sale-receipt-form').addEventListener('submit', function(e){
+  e.preventDefault();
+  const required=['correlation_id','receipt_number','event_timestamp_utc','order_id','customer_reference','sku','serial_number','payment_reference','corda_event_type','authorized_by'];
+  const missing=required.filter(id=>!document.getElementById(id).value.trim());
+  document.getElementById('result').textContent=missing.length?'Missing required fields: '+missing.join(', '):'Validation passed locally. Submit through the authorized ledger-ingest workflow; this browser form does not write to databases or Corda.';
+});
+</script>
+</body>
+</html>

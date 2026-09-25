@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# ALWAYS ON - expose the host PostgreSQL loopback listener only on the internal
+# ao-admin Podman gateway. PostgreSQL itself remains bound to localhost.
+set -Eeuo pipefail
+GATEWAY=10.42.0.1
+[[ "$GATEWAY" =~ ^10\.[0-9]+\.[0-9]+\.1$ ]] || { echo "unsafe reporting endpoint: $GATEWAY" >&2; exit 2; }
+exec /usr/bin/socat TCP4-LISTEN:5432,bind="$GATEWAY",reuseaddr,fork TCP4:127.0.0.1:5432

@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>300X3 Three-Column Corda Sale Receipt Form</title>
+<style>
+@page{size:Letter landscape;margin:.28in}*{box-sizing:border-box}body{margin:0;color:#111;background:#fff;font:9px/1.15 Arial,sans-serif}.banner{border:2px solid #111;padding:6px;text-align:center;font-weight:700;margin-bottom:7px;letter-spacing:.06em}.roll-head{display:flex;justify-content:space-between;border-bottom:2px solid #111;padding-bottom:5px;margin-bottom:7px}.roll-head strong{font-size:15px}.roll{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.receipt{border:1px solid #111;padding:6px;display:flex;flex-direction:column}.receipt h2{text-align:center;font-size:14px;margin:0}.subtitle{text-align:center;font-size:9px;margin:2px 0 6px}.status{border:2px solid #111;padding:4px;text-align:center;font-weight:700;margin:3px 0 5px}.status.request{background:#fff4cc}.status.confirmed{background:#dff3df}section{border-top:1px solid #777;padding-top:3px;margin-top:3px}h3{font-size:9px;text-transform:uppercase;letter-spacing:.05em;margin:0 0 3px}label{display:block;font-weight:700;font-size:7.5px;margin:2px 0 1px}input,select,textarea{width:100%;border:1px solid #999;border-radius:0;padding:2px;font:8px Arial,sans-serif;background:#fff}textarea{resize:vertical;min-height:26px}.pair{display:grid;grid-template-columns:44% 56%;gap:2px}.pair label{margin:0}.agreement,.license{font-size:7.2px;line-height:1.12;text-align:left}.license{border-top:1px solid #777;padding-top:4px;margin-top:4px}.footer{margin-top:auto;border-top:1px solid #111;padding-top:4px;text-align:center;font-size:7.5px}.fine{font-size:8px}@media screen{body{padding:18px;background:#ddd}.sheet{background:#fff;padding:14px;max-width:11in;margin:auto}}@media print{.sheet{padding:0}body{font-size:7px;line-height:1.05}.banner{padding:3px;margin-bottom:3px;font-size:8px}.roll-head{padding-bottom:3px;margin-bottom:3px}.roll-head strong{font-size:11px}.roll{gap:4px}.receipt{padding:3px}.receipt h2{font-size:10px}.subtitle{font-size:7px;margin:1px 0 3px}.status{padding:2px;margin:2px 0 3px;font-size:7px}section{padding-top:2px;margin-top:2px}h3{font-size:7px;margin-bottom:2px}label{font-size:6px;margin:1px 0 0}input,select{font-size:6px;padding:1px}.agreement,.license{font-size:5.8px;line-height:1.05}.license{padding-top:2px;margin-top:2px}.footer{font-size:6px;padding-top:2px}.fine{font-size:6px;margin:3px 0 0}}
+</style>
+</head>
+<body><div class="sheet">
+<div class="banner">OPERATIONAL FORM — COMPLETE ALL REQUIRED FIELDS BEFORE SUBMISSION</div>
+<div class="roll-head"><div><strong>300X3 CORDA-MANAGED SALE RECEIPT</strong><br>Three-column paper-roll form</div><div>Roll ID: <input style="width:120px;display:inline-block" name="roll_id"> Page: <input style="width:40px;display:inline-block" name="page_number"> of <input style="width:40px;display:inline-block" name="page_total"></div></div>
+<div class="roll"><article class="receipt" data-column="1">
+<h2>300X3</h2><div class="subtitle">Sale receipt · column 1</div>
+<div class="status request">STATUS: PENDING REVIEW</div>
+<section><h3>Correlation</h3>
+<label>Receipt number *</label><input name="c1_receipt_number" required>
+<label>Serial number *</label><input name="c1_serial_number" required>
+<label>Correlation ID *</label><input name="c1_correlation_id" required>
+<label>Event timestamp UTC *</label><input name="c1_event_timestamp_utc" type="datetime-local" required>
+<label>Order ID *</label><input name="c1_order_id" required>
+</section>
+<section><h3>Product / sale</h3>
+<label>SKU *</label><input name="c1_sku" required>
+<label>Product name</label><input name="c1_product_name">
+<label>Customer reference *</label><input name="c1_customer_reference" required>
+<label>Quantity</label><input name="c1_quantity" type="number" min="1" value="1">
+<label>Unit price (cents)</label><input name="c1_unit_price_cents" type="number" min="0">
+<label>Currency</label><select name="c1_currency"><option>USD</option><option>EUR</option><option>GBP</option><option>CAD</option></select>
+</section>
+<section><h3>Three evidence gates</h3>
+<label>1. Sale-request email ref *</label><input name="c1_sale_request_ref" required>
+<label>2. Payment-validation email ref *</label><input name="c1_payment_validation_ref" required>
+<label>Provider</label><select name="c1_provider"><option>paypal</option><option>Zelle</option><option>coinbase</option><option>bank</option><option>manual_reconciliation</option></select>
+<label>3. Funds-transfer verification ref *</label><input name="c1_funds_transfer_ref" required>
+<label>Settled timestamp UTC *</label><input name="c1_settled_at_utc" type="datetime-local" required>
+</section>
+<section><h3>Corda / proof</h3>
+<label>Corda event</label><select name="c1_corda_event"><option>SALE_CONTRACT_CREATED</option><option>ENTITLEMENT_ISSUED</option><option>FULFILLMENT_APPROVED</option><option>DELIVERY_CONFIRMED</option></select>
+<label>Corda transaction ID</label><input name="c1_corda_transaction_id">
+<label>Public proof ID</label><input name="c1_proof_id">
+<label>Content hash</label><input name="c1_content_hash">
+</section>
+<section class="agreement"><h3>Handshake agreement</h3><div>By accepting the offer and authorizing payment, the purchaser agrees to the listed product, price, delivery terms, return terms, and the versioned sale terms referenced by this record. The agreement is not final until all three evidence gates are validated and Corda confirms the contract state.</div><div>Customer acceptance: __________________ &nbsp; 300X3 acceptance: __________________</div></section>
+<section class="license"><b>Creative Commons notice:</b> Licensed 300X3 creative/design/documentation material is offered under CC BY-NC-SA 4.0: attribution, noncommercial use, and ShareAlike for adaptations, with changes identified. See creativecommons.org/licenses/by-nc-sa/4.0/. This notice does not replace separate sale, payment, or ledger terms.</section>
+<div class="footer">Column 1 of 3 · no payment credentials or private keys</div>
+</article>
+<article class="receipt" data-column="2">
+<h2>300X3</h2><div class="subtitle">Sale receipt · column 2</div><div class="status request">STATUS: PENDING REVIEW</div>
+<section><h3>Correlation</h3><label>Receipt number *</label><input name="c2_receipt_number" required><label>Serial number *</label><input name="c2_serial_number" required><label>Correlation ID *</label><input name="c2_correlation_id" required><label>Event timestamp UTC *</label><input name="c2_event_timestamp_utc" type="datetime-local" required><label>Order ID *</label><input name="c2_order_id" required></section>
+<section><h3>Product / sale</h3><label>SKU *</label><input name="c2_sku" required><label>Product name</label><input name="c2_product_name"><label>Customer reference *</label><input name="c2_customer_reference" required><label>Quantity</label><input name="c2_quantity" type="number" min="1" value="1"><label>Unit price (cents)</label><input name="c2_unit_price_cents" type="number" min="0"><label>Currency</label><select name="c2_currency"><option>USD</option><option>EUR</option><option>GBP</option><option>CAD</option></select></section>
+<section><h3>Three evidence gates</h3><label>1. Sale-request email ref *</label><input name="c2_sale_request_ref" required><label>2. Payment-validation email ref *</label><input name="c2_payment_validation_ref" required><label>Provider</label><select name="c2_provider"><option>paypal</option><option>Zelle</option><option>coinbase</option><option>bank</option><option>manual_reconciliation</option></select><label>3. Funds-transfer verification ref *</label><input name="c2_funds_transfer_ref" required><label>Settled timestamp UTC *</label><input name="c2_settled_at_utc" type="datetime-local" required></section>
+<section><h3>Corda / proof</h3><label>Corda event</label><select name="c2_corda_event"><option>SALE_CONTRACT_CREATED</option><option>ENTITLEMENT_ISSUED</option><option>FULFILLMENT_APPROVED</option><option>DELIVERY_CONFIRMED</option></select><label>Corda transaction ID</label><input name="c2_corda_transaction_id"><label>Public proof ID</label><input name="c2_proof_id"><label>Content hash</label><input name="c2_content_hash"></section>
+<section class="agreement"><h3>Handshake agreement</h3><div>By accepting the offer and authorizing payment, the purchaser agrees to the listed product, price, delivery terms, return terms, and versioned sale terms referenced by this record. The agreement is not final until all three evidence gates are validated and Corda confirms the contract state.</div><div>Customer acceptance: __________________ &nbsp; 300X3 acceptance: __________________</div></section>
+<section class="license"><b>Creative Commons notice:</b> Licensed 300X3 creative/design/documentation material is offered under CC BY-NC-SA 4.0: attribution, noncommercial use, and ShareAlike for adaptations, with changes identified. See creativecommons.org/licenses/by-nc-sa/4.0/. This notice does not replace separate sale, payment, or ledger terms.</section><div class="footer">Column 2 of 3 · no payment credentials or private keys</div>
+</article>
+<article class="receipt" data-column="3">
+<h2>300X3</h2><div class="subtitle">Sale receipt · column 3</div><div class="status request">STATUS: PENDING REVIEW</div>
+<section><h3>Correlation</h3><label>Receipt number *</label><input name="c3_receipt_number" required><label>Serial number *</label><input name="c3_serial_number" required><label>Correlation ID *</label><input name="c3_correlation_id" required><label>Event timestamp UTC *</label><input name="c3_event_timestamp_utc" type="datetime-local" required><label>Order ID *</label><input name="c3_order_id" required></section>
+<section><h3>Product / sale</h3><label>SKU *</label><input name="c3_sku" required><label>Product name</label><input name="c3_product_name"><label>Customer reference *</label><input name="c3_customer_reference" required><label>Quantity</label><input name="c3_quantity" type="number" min="1" value="1"><label>Unit price (cents)</label><input name="c3_unit_price_cents" type="number" min="0"><label>Currency</label><select name="c3_currency"><option>USD</option><option>EUR</option><option>GBP</option><option>CAD</option></select></section>
+<section><h3>Three evidence gates</h3><label>1. Sale-request email ref *</label><input name="c3_sale_request_ref" required><label>2. Payment-validation email ref *</label><input name="c3_payment_validation_ref" required><label>Provider</label><select name="c3_provider"><option>paypal</option><option>Zelle</option><option>coinbase</option><option>bank</option><option>manual_reconciliation</option></select><label>3. Funds-transfer verification ref *</label><input name="c3_funds_transfer_ref" required><label>Settled timestamp UTC *</label><input name="c3_settled_at_utc" type="datetime-local" required></section>
+<section><h3>Corda / proof</h3><label>Corda event</label><select name="c3_corda_event"><option>SALE_CONTRACT_CREATED</option><option>ENTITLEMENT_ISSUED</option><option>FULFILLMENT_APPROVED</option><option>DELIVERY_CONFIRMED</option></select><label>Corda transaction ID</label><input name="c3_corda_transaction_id"><label>Public proof ID</label><input name="c3_proof_id"><label>Content hash</label><input name="c3_content_hash"></section>
+<section class="agreement"><h3>Handshake agreement</h3><div>By accepting the offer and authorizing payment, the purchaser agrees to the listed product, price, delivery terms, return terms, and versioned sale terms referenced by this record. The agreement is not final until all three evidence gates are validated and Corda confirms the contract state.</div><div>Customer acceptance: __________________ &nbsp; 300X3 acceptance: __________________</div></section>
+<section class="license"><b>Creative Commons notice:</b> Licensed 300X3 creative/design/documentation material is offered under CC BY-NC-SA 4.0: attribution, noncommercial use, and ShareAlike for adaptations, with changes identified. See creativecommons.org/licenses/by-nc-sa/4.0/. This notice does not replace separate sale, payment, or ledger terms.</section><div class="footer">Column 3 of 3 · no payment credentials or private keys</div>
+</article>
+</div><p class="fine">Submit only through the authorized operator review and ledger-ingest workflow. This form does not send email, write to PostgreSQL, process payment, or submit a Corda transaction. Required gate references must correspond to validated evidence records.</p></div></body></html>

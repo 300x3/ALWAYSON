@@ -1,0 +1,17 @@
+[Unit]
+Description=ALWAYS ON PostgreSQL reporting bridge
+After=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/ALWAYSON/quadlet/operations/ao-postgres-reporting-bridge
+Restart=on-failure
+RestartSec=2
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadOnlyPaths=/run/user/1000/podman
+
+[Install]
+WantedBy=default.target

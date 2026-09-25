@@ -2,7 +2,7 @@ ledger_authorization:
   mtls_required: true
   one_client_certificate_per_exporter_domain: true
   approved_paths:            # Section 1.3 approved paths only
-    - { from: sales,           to: ledger-ingest,   payload: "signed receipt manifest" }
+    - { from: sales,           to: ledger-ingest,   payload: "signed sale-contract/receipt manifest" }
     - { from: payment,         to: sales,           payload: "verified payment state" }
     - { from: field,           to: ledger-ingest,   payload: "telemetry manifest" }
     - { from: mapping,         to: ledger-ingest,   payload: "deliverable manifest" }

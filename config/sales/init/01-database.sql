@@ -135,6 +135,46 @@ CREATE TABLE audit_events (
   at     timestamptz NOT NULL DEFAULT now()
 );
 
+-- Corda-managed final contract/receipt projection.
+-- Apply after the base sales schema; PostgreSQL stores operational data and
+-- the confirmed Corda reference, not a duplicate of Corda state.
+CREATE TABLE IF NOT EXISTS sale_contracts (
+  id                    uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  order_id              uuid NOT NULL REFERENCES orders(id),
+  transaction_id         text NOT NULL UNIQUE,
+  correlation_id        text NOT NULL UNIQUE,
+  receipt_number        text NOT NULL UNIQUE,
+  event_timestamp_utc   timestamptz NOT NULL,
+  customer_reference    text NOT NULL,
+  authorized_by         text NOT NULL,
+  authorization_reference text,
+  corda_event_type      text NOT NULL CHECK (corda_event_type IN (
+    'SALE_CONTRACT_CREATED', 'ENTITLEMENT_ISSUED', 'ENTITLEMENT_REVOKED',
+    'FULFILLMENT_APPROVED', 'DELIVERY_CONFIRMED', 'RETURN_APPROVED',
+    'REFUND_RECORDED'
+  )),
+  corda_transaction_id  text UNIQUE,
+  corda_state           text NOT NULL DEFAULT 'PENDING_SUBMISSION' CHECK (corda_state IN (
+    'PENDING_SUBMISSION', 'SUBMITTED', 'CONFIRMED', 'REJECTED', 'FAILED'
+  )),
+  corda_confirmed_at_utc timestamptz,
+  corda_event_hash      char(64),
+  manifest_reference    text,
+  created_at            timestamptz NOT NULL DEFAULT now(),
+  updated_at            timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS sale_contract_lines (
+  id                 uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  contract_id        uuid NOT NULL REFERENCES sale_contracts(id) ON DELETE CASCADE,
+  sku                text NOT NULL REFERENCES products(sku),
+  serial_number      text NOT NULL,
+  quantity           integer NOT NULL CHECK (quantity > 0),
+  unit_price_cents   bigint NOT NULL CHECK (unit_price_cents >= 0),
+  currency           char(3) NOT NULL DEFAULT 'USD',
+  UNIQUE (contract_id, serial_number)
+);
+
 -- Section 3.8 role grants: API runtime vs migrations vs backups
 GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA public TO sales_api_role;
 GRANT SELECT ON ALL TABLES IN SCHEMA public TO sales_backup_role;
