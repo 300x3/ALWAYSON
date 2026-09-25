@@ -2568,6 +2568,27 @@ hostnames and is not routed to Mastodon.
 
 ### 15.4.1 Architecture Requirements
 
+**Verified live 2026-09-25.** Ground truth for the identity split, and the reason
+the two hostnames behave differently:
+
+| Check | Result |
+|---|---|
+| `GET https://mastodon.300x3.com/.well-known/webfinger?resource=acct:admin@mastodon.300x3.com` | `200` — `{"subject":"acct:admin@mastodon.300x3.com", ...}` |
+| `GET http://127.0.0.1:3000/api/v1/instance` | `200` — `"uri":"mastodon.300x3.com"`, v4.3.7, 2 users / 19 statuses / 1 domain |
+| `GET https://300x3.com/` | `301` → `filedn.com/.../300X3-LATEST-BACKUP/site/index.html` (static storefront, **not** Mastodon) |
+
+> **⚠️ Known configuration drift (open).** The *running* instance reports
+> `mastodon.300x3.com`, but several **repository and runtime config files still
+> declare the superseded apex identity `300x3.com`**: `config/mastodon/instance-policy.yaml`
+> (`local_domain`, `approved_pub_host`), `config/mastodon/mastodon.env.example`,
+> `config/platform/version-matrix.yaml`, `secrets/mastodon/mastodon.env`, and —
+> most consequentially — `scripts/operations/fetch-mastodon-env.sh`, which emits
+> a hardcoded `printf 'LOCAL_DOMAIN=300x3.com'`. That helper is invoked by
+> service units, so a re-provision or restart can push the apex value back into
+> the live environment and break WebFinger/federation against the tunnel
+> hostname. These files must be reconciled to `mastodon.300x3.com` before the
+> next Mastodon restart; tracked under WORK 000060.
+
 | Area | Architecture requirement |
 |---|---|
 | Public instance domain | Dedicated `mastodon.300x3.com`; canonical handles are `user@mastodon.300x3.com`. The storefront hostnames remain separate. |
@@ -2578,6 +2599,7 @@ hostnames and is not routed to Mastodon.
 | Isolation | `ao-sales` remains `Internal=true`; no database, Redis, or raw origin listener is publicly exposed. |
 | Secrets | Tunnel credentials and API keys remain in protected runtime secret storage; never in Git or this README. |
 | Operator duties | Registration approval, moderation, reports, and blocklists remain operator responsibilities. |
+| Service-account placement | The 5 Mastodon containers run under `alwayson-sales` (UID 993) in a **separate rootless store and systemd user manager**, not under `scottw`. `ao-mastodon-web.service` / `ao-mastodon-streaming.service` are masked in the `scottw` manager to prevent a duplicate instance (ISSUE 000600). |
 
 ### 15.4.2 Domain and Mastodon Identity Configuration
 
@@ -3429,6 +3451,36 @@ check time.
 
 # 20. Current Verification Evidence
 
+**Live-state snapshot taken 2026-09-25 ~13:20–13:25 PDT.** The rows below are
+recorded from the running system, not from intent. Where a component is
+misleading in the operator surface, the discrepancy is stated explicitly.
+
+**What is actually running:**
+
+| Component | Where it runs | Evidence |
+|---|---|---|
+| Mastodon (5 containers) | `alwayson-sales` (UID 993), own store + systemd user manager | `mastodon-web` `127.0.0.1:3000` 200, `/api/v1/instance` → `uri: mastodon.300x3.com` v4.3.7; streaming `127.0.0.1:4000`; sidekiq 6.5.12; db + redis healthy |
+| Cloudflare Tunnel | `scottw` user unit | `cloudflared-alwayson.service` active; public WebFinger 200 on `mastodon.300x3.com` |
+| Mastodon store | `scottw` user unit | `ao-mastodon-web` / `ao-mastodon-streaming` **masked** (`/dev/null`) to prevent a duplicate instance (ISSUE 000600) |
+| Prometheus + node_exporter + Grafana | `scottw`, `ao-admin` | Prometheus `127.0.0.1:9090` healthy, both targets `up`; Grafana `127.0.0.1:3001` `/api/health` `{"database":"ok"}`, PostgreSQL-backed, Prometheus is its only datasource |
+| Metabase | `scottw`, `ao-admin` | `127.0.0.1:3002` **crash-looping, not serving** — see the Metabase row below |
+| PostgreSQL 18 host cluster | system service | `18/main` online on `5432`; reporting DBs `grafana` and `metabase` reachable over the `/var/run/postgresql` socket |
+| Reporting DB bridge | `scottw` user unit | `ao-postgres-reporting-bridge.service` active |
+| WebODM (`webapp`, `worker`, `broker`, `db`, `nodeodm`) | `scottw`, `ao-mapping` | All up ~27 h; `127.0.0.1:8000` → `/login/` 200 |
+| Sales DB | `scottw`, `ao-sales` | `sales-db` postgres healthy |
+| MeshChatX / Reticulum | `scottw` | UI `127.0.0.1:18000`, gateway `0.0.0.0:4242` (watchdog timer active) |
+| OpenClaw bridge | `scottw` | `mastodon-openclaw-bridge.service` and `openclaw-gateway.service` enabled + active |
+| LM Studio | `scottw` | `127.0.0.1:1234` (Bearer-auth enforced → 401 without token), plus a `llama-server` on `127.0.0.1:40001` |
+| Corda node | — | **Not running.** No Corda container or unit; ledger config only. Key ceremony still pending |
+
+**Container-store note:** Mastodon runs in a *different* rootless store from the
+rest of the stack (`/home/alwayson-sales/.local/share/containers/storage`, run
+`/run/user/993`). Rootless `podman ps` as `scottw` therefore does **not** list
+`mastodon-web` / `mastodon-streaming` even though they are healthy — use the
+`alwayson-sales` user manager to inspect them. Legacy `300x3-*` Mastodon
+containers remain in the `scottw` store but are `Exited` from ~3 weeks ago and
+are not part of the active deployment.
+
 | Item | Evidence | Status |
 |---|---|---|
 | Host inventory | Inventory report completed | Complete |
@@ -3447,9 +3499,9 @@ check time.
 | Sales receipt manifest | Sales DB deployed; provider/API pending | Partial |
 | Backup | Encrypted restic snapshot `548d9910` completed; recurring schedule automated 2026-08-31 (restic nightly 03:30 timer, weekly integrity verify Sun 04:30, nightly domain DB dumps 03:00 for mastodon/sales/webodm); verification snapshot `32be2a1c` saved | Complete |
 | Restore | File hash validated; database 14/14 tables restored | Complete |
-| Monitoring stack (ao-admin) | Prometheus + node_exporter + Grafana deployed as user Quadlet units on `ao-admin`; Grafana application state is PostgreSQL-backed; Prometheus remains the separate metrics datasource; loopback listeners 127.0.0.1:9090 and 127.0.0.1:3001 verified | Complete |
-| Metabase reporting (ao-admin) | Deployed and healthy on PostgreSQL application database `metabase`; `/api/health` 200; reporting uses dedicated read-only source roles/approved views; legacy H2 retained only as migration backup | Complete — PostgreSQL-backed |
-| Mastodon local stack (ao-sales) | alwayson-sales store 5/5 containers healthy; web 127.0.0.1:3000 and streaming 127.0.0.1:4000 loopback verified; duplicate desktop-user units disabled 2026-08-31 (ISSUE 000600); local `bot` account API operational | Complete (local, pre-federation) |
+| Monitoring stack (ao-admin) | Prometheus + node_exporter + Grafana deployed as user Quadlet units on `ao-admin` in the `scottw` store; Grafana application state is genuinely PostgreSQL-backed (`GF_DATABASE_TYPE=postgres`, host `/var/run/postgresql` socket, `grafana_app` role authenticated) and `/api/health` returns `{"database":"ok","version":"11.6.0"}`. Prometheus remains the separate metrics datasource and is the **only** datasource registered in Grafana. Loopback listeners 127.0.0.1:9090 and 127.0.0.1:3001 verified; both Prometheus targets (`node-host`, `prometheus`) report `up` | Complete |
+| Metabase reporting (ao-admin) | Container runs and reaches PostgreSQL 18 over the `/var/run/postgresql` socket, but **crash-looping and not serving** as of 2026-09-25 13:23. `metabase_app` authenticates to the `metabase` database over that socket (verified with psql), so PostgreSQL and the wallet-backed credentials are sound. Root cause: Metabase's pgjdbc driver mis-parses the generated `MB_DB_CONNECTION_URI` — `jdbc:postgresql://localhost:5432/metabase?host=/var/run/postgresql` is logged by Metabase as `jdbc:postgresql:///var/run/postgresql:5432/metabase`, then fails `protocol = socket host = null`; `Restart=on-failure` masks this as a silent loop. `/api/health` returns 503 while initializing and the listener drops entirely between restarts | Broken — JDBC URI generation in `scripts/operations/fetch-reporting-env.sh` |
+| Mastodon local stack (ao-sales) | All 5 containers (`mastodon-web`, `mastodon-streaming`, `mastodon-sidekiq`, `mastodon-db`, `mastodon-redis`) run under the **`alwayson-sales` service account (UID 993)**, which has its own `linger`-enabled systemd user manager (session 1) and its own rootless container store at `/home/alwayson-sales/.local/share/containers/storage` — **not** in the `scottw` store. `ao-mastodon-web.service` and `ao-mastodon-streaming.service` are deliberately **masked** in the `scottw` manager (`ln -s /dev/null`, 2026-09-01) to prevent a duplicate desktop-user instance; the real units are the service-account ones (ISSUE 000600). Verified live: web `127.0.0.1:3000` 200, `/api/v1/instance` reports `uri: mastodon.300x3.com` v4.3.7 with 2 users / 19 statuses / 1 domain; streaming `127.0.0.1:4000` listening; sidekiq `6.5.12` up; db + redis healthy | Complete (live, federated) |
 | Mastodon federation edge (WORK 000060) | Dedicated Cloudflare Tunnel `alwayson-mastodon-federation` for `mastodon.300x3.com`; HTTP/2 connector active; actor and WebFinger 200; storefront hostnames preserved; `LOCAL_DOMAIN=mastodon.300x3.com`; canonical accounts `admin@mastodon.300x3.com` and `bot@mastodon.300x3.com`; `ao-egress-community` attached to web/Sidekiq only; local-to-remote follows confirmed; reverse-follow validation pending | Partial — signed round-trip and reverse-follow evidence remain |
 | WebODM operator workflow restart | Stack is rootless (scottw/mapping store); system-store recovery step correctly found no system-store containers — no action needed | Complete |
 | ArduPilot SITL MAVLink | ao-ardupilot-sitl.service flags fixed; HEARTBEAT (sysid 1, QUADROTOR, ArduPilot) validated over tcp:127.0.0.1:5760 via pymavlink | Complete |
