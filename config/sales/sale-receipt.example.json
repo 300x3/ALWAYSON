@@ -1,0 +1,41 @@
+{
+  "transaction_id": "TXN-20260925T184027Z-723B72F54D53",
+  "correlation_id": "ORDER-2026-000123-LOT-A",
+  "receipt_number": "RCPT-2026-000123",
+  "event_timestamp_utc": "2026-09-25T12:34:56Z",
+  "order_id": "00000000-0000-0000-0000-000000000000",
+  "customer_reference": "CUSTOMER-000042",
+  "sku": "300X3-BATTERY-01",
+  "product_name": "300X3 Structural Battery",
+  "serial_number": "SN-300X3-000042",
+  "quantity": 1,
+  "unit_price_cents": 12500,
+  "currency": "USD",
+  "payment_provider": "approved-provider",
+  "payment_reference": "provider-reference-or-hash",
+  "payment_state": "settled",
+  "sale_request_evidence": {
+    "status": "validated",
+    "source_reference": "kit-request-email-reference",
+    "content_hash_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "payment_validation_evidence": {
+    "status": "validated",
+    "provider": "paypal",
+    "source_reference": "provider-validation-reference",
+    "content_hash_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  "funds_transfer_evidence": {
+    "status": "validated",
+    "source_reference": "settlement-verification-reference",
+    "settled_at_utc": "2026-09-25T12:35:04Z",
+    "content_hash_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+  },
+  "corda_event_type": "SALE_CONTRACT_CREATED",
+  "corda_transaction_id": null,
+  "corda_state": "PENDING_SUBMISSION",
+  "authorized_by": "operator-or-service-identity",
+  "authorization_reference": "AUTH-EXAMPLE-001",
+  "notes": "Synthetic example only; not a real customer or payment record.",
+  "schema_version": "1.0"
+}

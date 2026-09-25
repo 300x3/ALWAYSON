@@ -74,12 +74,13 @@ Then resume the checklist at step 2 (health verification).
    authorization-code flow; password grant is unavailable in v4.3.
 5. **Approve accounts/API access** for the `admin` and `bot` accounts if flagged
    (`tootctl accounts approve admin|bot`).
-6. **OpenClaw conversation:** with the bot token from
-   `secrets/mastodon/openclaw-mastodon.env`, exchange a direct
-   message and confirm a generated draft response from the LM Studio
-   model. **No external publication without explicit operator approval**
-   (`public_federation: true` but outbound delivery requires the
-   `ao-egress-community` Sidekiq path + human approval).
+6. **OpenClaw local reply bridge:** `mastodon-openclaw-bridge.service` is
+   enabled and active on the desktop. It authenticates as `bot` using the
+   protected token in `secrets/mastodon/openclaw-mastodon.env`, polls the local
+   Mastodon notification API every 10 seconds, sends new mentions/replies to
+   OpenClaw, and posts public threaded replies locally. Historical
+   notifications and the bot's own posts are skipped. The bridge posts only to
+   the local instance and does not publish to other services.
 7. **Post-validation evidence:** record results in README §20; confirm logs
    contain no credentials, tokens, or prompts.
 
@@ -87,6 +88,6 @@ Then resume the checklist at step 2 (health verification).
 
 - [ ] Tokodon connects via the approved public origin (`https://300x3.com`)
 - [ ] OAuth completes (HTTPS enforced; loopback `RAILS_FORCE_SSL=false` exception retired 2026-09-22)
-- [ ] OpenClaw drafts a response through the configured local model
-- [ ] No external publication occurs
-- [ ] Logs clean of sensitive content
+- [x] OpenClaw generates and posts a local threaded reply for new mentions/replies
+- [x] The bridge posts only to the local Mastodon instance
+- [x] Logs contain no credentials, tokens, or prompts

@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>300X3 Transaction 01 Purchase Request</title><style>body{font:14px system-ui;max-width:900px;margin:2rem auto}fieldset{margin:1rem 0}label{display:block;font-weight:600;margin:.5rem 0 .2rem}input,textarea,select{width:100%;padding:.4rem;font:inherit}.notice{background:#fff4cc;padding:1rem;border-left:5px solid #a06000}</style></head><body>
+<h1>300X3 Transaction Form 1 — Purchase Request</h1>
+<p class="notice"><strong>Issued transaction ID:</strong> <input id="transaction_id" name="transaction_id" required> <strong>Copy this ID exactly into Forms 2 and 3.</strong></p>
+<p>This is the purchase-request record. It is not a contract until payment, funds-transfer verification, and Corda confirmation are complete.</p>
+<form><fieldset><legend>Request</legend>
+<label>Request date/time UTC *</label><input name="request_timestamp_utc" type="datetime-local" required>
+<label>Customer name/reference *</label><input name="customer_reference" required>
+<label>Customer email</label><input name="customer_email" type="email">
+<label>Product/SKU *</label><input name="sku" required>
+<label>Requested item description</label><textarea name="product_description" rows="3"></textarea>
+<label>Quantity *</label><input name="quantity" type="number" min="1" value="1" required>
+<label>Comments / requested terms</label><textarea name="comments" rows="4"></textarea>
+</fieldset><fieldset><legend>Source evidence</legend>
+<label>Original request email/message reference *</label><input name="request_evidence_reference" required>
+<label>Request evidence hash</label><input name="request_evidence_sha256">
+<label>Operator</label><input name="operator" required>
+</fieldset><button type="submit">Save purchase request record</button></form>
+<script>document.querySelector('form').addEventListener('submit',e=>{e.preventDefault();alert('Purchase request captured locally. This form does not send email, charge payment, write PostgreSQL, or submit Corda.');});</script>
+</body></html>

@@ -141,7 +141,24 @@ scripts/mastodon/post.sh "status text" --visibility private
 Expect HTTP 200 with JSON containing the new status `id` (verify at
 `/api/v1/accounts/verify_credentials` → `statuses_count` increments).
 
-### Gotchas recap
+### Permanent local OpenClaw reply bridge
+
+The desktop user service `mastodon-openclaw-bridge.service` is enabled and
+active. It uses the protected bot token in
+`secrets/mastodon/openclaw-mastodon.env`, polls the local Mastodon notification
+API every 10 seconds, and sends each new mention/reply to OpenClaw. Replies are
+posted publicly as threaded statuses in the local instance. The cursor is stored
+in `~/.openclaw/mastodon-bridge-state.json`; historical notifications and the
+bot's own statuses are ignored. The bridge has no publisher for other services.
+
+Operational commands:
+
+```bash
+systemctl --user status mastodon-openclaw-bridge.service
+journalctl --user -u mastodon-openclaw-bridge.service -f
+cat ~/.openclaw/mastodon-bridge-state.json
+```
+
 
 | Symptom | Cause | Fix |
 |---|---|---|

@@ -7,6 +7,7 @@ backup_policy:
     weekly: ["restic-check", "off-host-copy-validation"]
     monthly: ["isolated-restore-test"]
     quarterly: ["disaster-recovery-exercise"]
+    reporting_postgresql: ["metabase", "grafana"]
   restore_test_requirements:
     - isolated test path or host
     - database integrity validation

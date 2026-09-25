@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ALWAYS ON - backup/dump-all-postgres.sh: dump all running domain PostgreSQL
-# containers (mastodon-db, sales-db, webodm db) to /ALWAYSON/backups/postgres/.
+# containers plus host PostgreSQL reporting databases.
 # Tolerant: one failed dump does not abort the others. Intended for the
 # alwayson-db-dump user timer (daily 03:00) and manual runs.
 set -u
@@ -13,6 +13,8 @@ fail=0
   PODMAN_URL=unix:///run/ao-podman/sales.sock bash "$B" mastodon-db mastodon mastodon || { echo "FAIL: mastodon-db"; fail=1; }
   bash "$B" sales-db salesdb sales "" sales_migration_role || { echo "FAIL: sales-db"; fail=1; }
   bash "$B" db webodm webodm "" postgres || { echo "FAIL: webodm-db"; fail=1; }
+  bash /ALWAYSON/scripts/backup/backup-host-postgres.sh metabase metabase metabase_app || { echo "FAIL: metabase"; fail=1; }
+  bash /ALWAYSON/scripts/backup/backup-host-postgres.sh grafana grafana grafana_app || { echo "FAIL: grafana"; fail=1; }
   echo "===== $(date --iso-8601=seconds) db dump end (fail=$fail) ====="
 } >> "$LOG" 2>&1
 tail -12 "$LOG"

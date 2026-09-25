@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>300X3 Transaction 03 Corda Receipt</title><style>body{font:14px system-ui;max-width:900px;margin:2rem auto}fieldset{margin:1rem 0}label{display:block;font-weight:600;margin:.5rem 0 .2rem}input,textarea,select{width:100%;padding:.4rem;font:inherit}.notice{background:#fff4cc;padding:1rem;border-left:5px solid #a06000}</style></head><body>
+<h1>300X3 Transaction Form 3 — Corda Receipt</h1>
+<p class="notice"><strong>Issued transaction ID (required in Corda event) *</strong> <input id="transaction_id" name="transaction_id" required> <strong>Must match Forms 1 and 2.</strong></p>
+<p>Final receipt is provisional until the Corda transaction is confirmed and its reference is recorded in the PostgreSQL projection.</p>
+<form><fieldset><legend>Receipt identity</legend>
+<label>Receipt number *</label><input name="receipt_number" required>
+<label>Serial number(s) *</label><input name="serial_numbers" required>
+<label>Order ID *</label><input name="order_id" required>
+<label>Event timestamp UTC *</label><input name="event_timestamp_utc" type="datetime-local" required>
+<label>Product/SKU *</label><input name="sku" required>
+<label>Final total</label><input name="total_amount" type="number" step="0.01">
+<label>Currency</label><select name="currency"><option>USD</option><option>EUR</option><option>GBP</option><option>CAD</option></select>
+</fieldset><fieldset><legend>Three evidence gate status</legend>
+<label>Purchase request reference *</label><input name="purchase_request_reference" required>
+<label>Payment validation reference *</label><input name="payment_validation_reference" required>
+<label>Funds-transfer verification reference *</label><input name="funds_transfer_reference" required>
+<label>All three gates validated *</label><select name="evidence_gate_state"><option>no</option><option>yes</option></select>
+</fieldset><fieldset><legend>Corda state</legend>
+<label>Corda event *</label><select name="corda_event"><option>SALE_CONTRACT_CREATED</option><option>ENTITLEMENT_ISSUED</option><option>FULFILLMENT_APPROVED</option><option>DELIVERY_CONFIRMED</option></select>
+<label>Corda transaction ID</label><input name="corda_transaction_id">
+<label>Corda receipt/reference</label><input name="corda_receipt_reference">
+<label>Confirmation timestamp UTC</label><input name="corda_confirmed_at_utc" type="datetime-local">
+<label>Operator</label><input name="operator" required>
+</fieldset><fieldset><legend>Agreement</legend>
+<label>Handshake accepted by customer</label><input name="customer_acceptance">
+<label>Handshake accepted by 300X3</label><input name="operator_acceptance">
+<label>Agreement/terms version</label><input name="agreement_version">
+<label>Internal notes</label><textarea name="notes" rows="4"></textarea>
+</fieldset><button type="submit">Save receipt record</button></form>
+<script>document.querySelector('form').addEventListener('submit',e=>{e.preventDefault();alert('Receipt captured locally. Finalization requires Corda confirmation and PostgreSQL projection.');});</script>
+</body></html>
