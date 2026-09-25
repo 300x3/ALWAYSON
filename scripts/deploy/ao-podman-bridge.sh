@@ -18,6 +18,10 @@
 set -u
 BRIDGE_DIR=/run/ao-podman
 RETRY_SECS=15
+# Minimum seconds between podman.socket reset attempts for one domain. Prevents
+# an endless reset/respawn loop when a backend stays broken (e.g. alwayson-ledger,
+# whose podman backend fails for an unrelated reason).
+RESET_BACKOFF_SECS=300
 
 mkdir -p "$BRIDGE_DIR"
 chmod 0755 "$BRIDGE_DIR"
@@ -34,13 +38,23 @@ bridge() {
     return
   fi
 
-  # Source socket exists but is not answering (typically systemd
-  # trigger-limit-hit on podman.socket). Clear the failed state and retry so
-  # the bridge recovers on its own instead of needing a manual restart.
+  # Source socket exists but is not answering. Only attempt a repair when the
+  # podman.socket unit is actually in `failed` state (typically systemd
+  # trigger-limit-hit); otherwise the backend is still starting and resetting it
+  # every cycle would churn. Guarded by a per-domain backoff so a backend that
+  # stays broken cannot cause an endless reset+respawn loop.
   if [ -S "$from" ] && [ -n "${machine:-}" ]; then
-    systemctl --user --machine="${machine}@" reset-failed podman.socket podman.service >/dev/null 2>&1
-    systemctl --user --machine="${machine}@" start podman.socket >/dev/null 2>&1
-    echo "$(date --iso-8601=seconds) $name: reset source podman.socket (${machine})"
+    local state last
+    state="$(systemctl --user --machine="${machine}@" is-active podman.socket 2>/dev/null)"
+    last=0
+    [ -r "$BRIDGE_DIR/$name.lastreset" ] && last="$(cat "$BRIDGE_DIR/$name.lastreset")"
+    if [ "$state" = "failed" ] && [ $(( $(date +%s) - last )) -ge "$RESET_BACKOFF_SECS" ]; then
+      date +%s > "$BRIDGE_DIR/$name.lastreset"
+      systemctl --user --machine="${machine}@" reset-failed podman.socket podman.service >/dev/null 2>&1
+      systemctl --user --machine="${machine}@" start podman.socket >/dev/null 2>&1
+      echo "$(date --iso-8601=seconds) $name: reset source podman.socket (${machine})"
+      return   # give the backend a cycle to come up before re-bridging
+    fi
   fi
 
   # Tear down stale instance(s): recorded PID plus any legacy anchor-matched socat.
