@@ -3186,13 +3186,61 @@ while auditing the Mastodon bridge.
 the wallet. An earlier assumption that the minimal `Environment=` block on
 `mastodon-openclaw-bridge.service` blocked wallet access was **wrong**.
 
-**Why the bridge still gets HTTP 401.** Not a D-Bus or transport problem — the
-token is read successfully but is not a token. KDE Wallet key
-`ao-mastodon` / `openclaw-bot-access-token` holds a **43-character phrase**
-(contains spaces), while a Mastodon access token is **64 hex characters**.
-`verify_credentials` therefore correctly rejects it. A real token must be
-minted for the bot account and stored under that key; minting a production
-credential requires operator approval, so this stays open under §19.3 item 16.
+**Why the bridge was getting HTTP 401 — resolved 2026-10-01.** Not a D-Bus,
+transport or token-format problem. Two earlier assumptions were wrong and are
+recorded here so they are not repeated:
+
+1. The systemd user manager *does* carry `DBUS_SESSION_BUS_ADDRESS`, `DISPLAY`
+   and `WAYLAND_DISPLAY`. The minimal `Environment=` block on
+   `mastodon-openclaw-bridge.service` never blocked wallet access.
+2. A Mastodon access token is **43 base64 characters**, not "64 hex". The value
+   already in the wallet had the right shape; it was simply no longer valid.
+
+Actual cause: the wallet held a **revoked/expired** token. The `bot` account had
+**zero active tokens**, and the only Doorkeeper application on the instance was
+`ao-outbound-proof` — the bridge had no application of its own. A freshly minted
+token still returned 401 until one further detail was found: the token was
+created with `expires_in: 0`, which Doorkeeper reads as *expires in zero
+seconds*, i.e. already expired. The API error was literally
+`{"error":"The access token expired"}`. `expires_in: nil` is the correct value
+for a non-expiring token.
+
+**Now in place.** App `openclaw-mastodon-bridge` (id 3), owner `bot` (user 2),
+scopes `read:accounts read:notifications write:statuses read:statuses`, token
+stored in KDE Wallet at `ao-mastodon` / `openclaw-bot-access-token`. Verified
+end to end through the loopback proxy: `verify_credentials` returns `200 bot`
+and `notifications` returns `200`. The bridge had crash-looped **5,119 times**
+on 401 before this; it now runs with zero restarts.
+
+**Re-minting, when needed:** create or reuse the app, revoke prior tokens for
+it, then create the token with `expires_in: nil`. Always store the result in
+KDE Wallet rather than a file, and shred the temporary copy. Do not copy
+existing token-handling scripts without checking for `expires_in: 0`.
+
+### 14.1.5 Minting Mastodon API tokens
+
+```
+podman exec -i mastodon-web sh -c 'cat > /tmp/mint.rb' < mint.rb
+podman exec mastodon-web sh -c \
+  'cd /opt/mastodon && RAILS_ENV=production bundle exec rails runner /tmp/mint.rb'
+```
+
+```ruby
+bot   = Account.find_by(username: 'bot', domain: nil)   # Mastodon 4.3 has no `local` column
+owner = bot.user                                        # Doorkeeper owner_id/resource_owner_id are users.id
+SCOPES = 'read:accounts read:notifications write:statuses read:statuses'
+app = Doorkeeper::Application.find_by(name: 'openclaw-mastodon-bridge') ||
+      Doorkeeper::Application.create!(name: 'openclaw-mastodon-bridge', scopes: SCOPES,
+        redirect_uri: 'urn:ietf:wg:oauth:2.0:oob', confidential: false, owner: owner)
+Doorkeeper::AccessToken.where(application_id: app.id).update_all(revoked_at: Time.now.utc)
+tok = Doorkeeper::AccessToken.create!(application: app, resource_owner_id: owner.id,
+  scopes: SCOPES, expires_in: nil, use_refresh_token: false)   # nil, NOT 0
+File.write('/tmp/bot_token', tok.token)
+```
+
+Three traps, all hit on 2026-10-01: `accounts.local` no longer exists;
+`owner_id` and `resource_owner_id` reference the **`users`** table, not
+`accounts`; and `expires_in: 0` produces an already-expired token.
 
 ## 14.2 Version Matrix
 
@@ -4517,7 +4565,7 @@ listed; they are recorded as evidence in section 20.
 | 13 | Reverse-follow validation | §15.4.4 | Confirmed from the remote `following` collection and local incoming relationship tables, never inferred from local outgoing state. |
 | 14 | Fresh signed ActivityPub round trip | §15.4.4 | Run after the notification-worker fix; reply/boost round trip received locally. |
 | 15 | Remote account approval/rejection record | §15.4.5 | Recorded separately from local account follow state. |
-| 16 | OpenClaw OAuth and conversation validation | §15.2 | OAuth completes over HTTPS at the federation origin; OpenClaw posts a threaded reply per mention; bridge posts only to the local instance. |
+| 16 | OpenClaw OAuth and conversation validation | §15.2 | **Auth half done 2026-10-01.** The bridge authenticates: app `openclaw-mastodon-bridge`, token in KDE Wallet (`ao-mastodon`/`openclaw-bot-access-token`), `verify_credentials` returns `200 bot` and `notifications` returns `200`, and the service runs with zero restarts after **5,119** 401 crash-loops. Root cause and re-minting recipe in §14.1.4 and §14.1.5. **Remaining:** the conversation half - a real mention must arrive and the bot must post a threaded reply, which needs a mention to trigger it. |
 | 17 | Mastodon service-account consolidation | §14.1.1, §19 row 17 | Complete. The `alwayson-sales` (UID 993) placement has been folded back to the operator account `scottw` and the duplicate store retired. No separate service-account user is used. |
 | 18 | `300x3.com` email routing / MX | §15.3 | Delivery confirmed or formally deferred. |
 | 19 | Per-modal purchase buttons, HTML-300X3 | §7.1.1 | Implemented in the repo and the static export mirrored to the pCloud Public Folder. |
