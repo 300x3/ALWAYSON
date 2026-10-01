@@ -3556,16 +3556,25 @@ strategy in force is local-only, not 3-2-1:
 |---|---|---|
 | Primary | live system | yes |
 | Backup | restic repository `/var/backups/alwayson-restic` | yes, **on this same host** |
-| Off-site | pCloud | **not configured** — a dedicated folder is intended, not yet created |
+| Off-site | pCloud | **not configured** — intended as a dedicated `ALWAYSON` folder at the pCloud account root (operator decision 2026-09-30), not yet created |
 
 Two consequences to be aware of. First, the restic repository is on the same
 machine as the data it protects, so it does not survive loss of this host. Second,
 `ao-egress-archive` is not a substitute: per §11.6 it is a sale-transfer store
 with no restore duty. Nothing outside this host currently holds a copy.
 
-To close this: give pCloud its own folder and point the restic repository at it
-(rclone WebDAV or SFTP). The repository is encrypted client-side, so the remote
-never sees plaintext.
+**Intended off-site target (not built).** A dedicated `ALWAYSON` folder at the
+pCloud account root, per operator decision 2026-09-30. To close this gap, point
+the restic repository at that folder (rclone WebDAV or SFTP) once it exists. The
+repository is encrypted client-side, so pCloud would hold ciphertext and never
+see plaintext — which keeps it inside the §11.6 boundary, since that governs
+sale-transfer staging and explicitly not the backup set.
+
+Note the folder name: `ALWAYSON` matches the project name rather than the `ao-`
+infrastructure prefix. That is a human-facing cloud folder, not a `ao-*` network,
+unit, container or database, so the naming standard does not bind it; if it is
+ever referenced from configuration or documentation, `ao-*` should be used
+there.
 
 | Frequency | Required activity |
 |---|---|
