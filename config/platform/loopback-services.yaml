@@ -148,8 +148,52 @@ services:
 
   - name: MeshChatX local UI
     url: https://127.0.0.1:18000/
-    verifiable: false
-    reason: >-
-      Served by the native MeshChatX backend, which binds loopback only and
-      is not an HTTP service in the sense this check tests. Recorded as the
-      documented address for operator follow-up.
+    expect_status: [200]
+    expect_title: Reticulum MeshChatX
+    expect_body: null
+    # Promoted from unverifiable to verified. An earlier pass recorded this as
+    # "not an HTTP service in the sense this check tests", which was a guess:
+    # probing it over https:// returns 200 with the title "Reticulum
+    # MeshChatX". The context is created with ignoreHTTPSErrors because the
+    # backend presents a self-signed certificate on loopback, which is
+    # expected for a local-only listener and is not a fault.
+    note: >-
+      Native MeshChatX backend, loopback only, serving its local web UI over
+      HTTPS with a self-signed certificate. Bind to loopback is the intended
+      configuration; this listener must not become reachable from the LAN.
+
+  # --- additional loopback web services found by port sweep -------------
+  # Discovered by sweeping every listening TCP port on the host and probing
+  # each for HTTP, rather than by assuming the Quadlet list was exhaustive.
+  # All four are loopback-bound. Ports that answer TCP but not HTTP are not
+  # listed: 4242 is a Reticulum protocol listener, 5760 is MAVLink, 5432/
+  # 15432/15433 are PostgreSQL, 6379 is Redis, and 20241/25463/41343/45819
+  # are cloudflared and agent control ports. Those are verified by their own
+  # means, not by a browser.
+
+  - name: OpenClaw Control
+    url: http://127.0.0.1:18789/
+    expect_status: [200]
+    expect_title: OpenClaw Control
+    expect_body: null
+    note: >-
+      Gateway control UI served by the OpenClaw node process on loopback.
+
+  - name: CUPS
+    url: http://127.0.0.1:631/
+    expect_status: [200]
+    expect_title: CUPS
+    expect_body: null
+    note: >-
+      Host print service. Loopback-bound, so the printers are administered
+      from this machine only. Not an ao-* service.
+
+  - name: OpenClaw chat relay
+    url: http://127.0.0.1:18790/
+    expect_status: [404]
+    expect_title: null
+    expect_body: null
+    note: >-
+      scripts/openclaw/chat-relay.py. A bare / is not a relay endpoint, so 404
+      is the correct answer and proves the listener is alive. The relay is
+      reached through the Cloudflare Tunnel hostname, not this port directly.
