@@ -1,0 +1,2691 @@
+{
+  "generated_at_utc": "2026-09-29T04:37:11Z",
+  "authority": "/ALWAYSON/TOPOLOGY/ALWAYS ON \u2014 Architecture, Operations, and Status - v6.md",
+  "model_revision": "2026-09-29",
+  "declared_source": "/ALWAYSON/quadlet",
+  "observed": true,
+  "host": {
+    "id": "host",
+    "label": "ALWAYS ON HOST \u2014 Kubuntu 26.04 LTS workstation",
+    "software": "Kubuntu 26.04 LTS (Ubuntu 26.04.1 userland)",
+    "kernel": "7.0.0-34-generic",
+    "cpu": "AMD CPU",
+    "gpu": "EVGA NVIDIA GTX 1080 (driver 580.178.04, CDI nvidia.com/gpu=0)",
+    "container_runtime": "Podman 5.7.0 \u2014 Quadlet only, no Docker daemon",
+    "status": "implemented",
+    "interfaces": [
+      {
+        "name": "eno1",
+        "addresses": [
+          "10.42.0.1/24",
+          "169.254.248.253/16"
+        ],
+        "role": "Podman host-side bridge address + 10.42.0.1:5432 socat PostgreSQL relay"
+      },
+      {
+        "name": "wlp3s0",
+        "addresses": [
+          "192.168.87.135/24"
+        ],
+        "role": "LAN / default route via 192.168.87.1"
+      },
+      {
+        "name": "lo",
+        "addresses": [
+          "127.0.0.1/8",
+          "::1/128"
+        ],
+        "role": "All operator listeners are loopback-only by policy"
+      }
+    ],
+    "live_interfaces": [
+      {
+        "name": "lo",
+        "state": "UNKNOWN",
+        "addresses": [
+          "127.0.0.1/8",
+          "::1/128"
+        ]
+      },
+      {
+        "name": "eno1",
+        "state": "UP",
+        "addresses": [
+          "169.254.248.253/16",
+          "10.42.0.1/24",
+          "fe80::b47b:8101:204:7f5b/64"
+        ]
+      },
+      {
+        "name": "wlp3s0",
+        "state": "UP",
+        "addresses": [
+          "192.168.87.135/24",
+          "fe80::abd7:e952:c515:db0d/64"
+        ]
+      }
+    ]
+  },
+  "databases": [
+    {
+      "id": "db-host-postgres",
+      "label": "Host PostgreSQL 18.6 cluster",
+      "software": "postgresql-18 18.6 + PostGIS 3.6.2 (host systemd service)",
+      "kind": "postgresql",
+      "placement": "host",
+      "listens": [
+        "127.0.0.1:5432",
+        "[::1]:5432",
+        "unix:/var/run/postgresql/.s.PGSQL.5432"
+      ],
+      "authority": "authoritative_relational",
+      "status": "active",
+      "role": "System-wide relational platform. One cluster, separate logical databases, separate application roles. REVOKE CONNECT FROM PUBLIC enforced.",
+      "logical_dbs": [
+        "salesdb",
+        "mastodon",
+        "webodm",
+        "grafana",
+        "metabase",
+        "cordadb",
+        "postgres"
+      ],
+      "note": "Target end state. Some applications still run container-scoped PostgreSQL during migration."
+    },
+    {
+      "id": "db-salesdb",
+      "label": "salesdb",
+      "software": "PostgreSQL 18 (host cluster target)",
+      "kind": "postgresql",
+      "placement": "host",
+      "parent": "db-host-postgres",
+      "programs": [
+        "Sales API",
+        "ao-payment (planned)",
+        "Metabase (reporting)"
+      ],
+      "authority": "authoritative_relational",
+      "status": "current_migration_state",
+      "role": "Authoritative sales/payment records: customers, orders, products, payments, receipts, entitlements, audit history.",
+      "note": "Repository schema defined; live salesdb application schema still requires explicit initialization. Container-scoped sales-db exists today."
+    },
+    {
+      "id": "db-mastodon",
+      "label": "mastodon",
+      "software": "PostgreSQL 18 (in container-scoped mastodon-db today)",
+      "kind": "postgresql",
+      "placement": "container",
+      "parent": "db-host-postgres",
+      "programs": [
+        "Mastodon web",
+        "Mastodon Sidekiq",
+        "Mastodon streaming"
+      ],
+      "authority": "authoritative_relational",
+      "status": "current_migration_state",
+      "role": "Mastodon application state: accounts, posts, media metadata, federation state, background-job data.",
+      "note": "CONSOLIDATION INCOMPLETE: container-scoped mastodon-db is running on ao-sales while the documented target is the host cluster."
+    },
+    {
+      "id": "db-webodm",
+      "label": "webodm (PostGIS)",
+      "software": "PostgreSQL/PostGIS (in container-scoped db today)",
+      "kind": "postgis",
+      "placement": "container",
+      "parent": "db-host-postgres",
+      "programs": [
+        "WebODM webapp",
+        "WebODM worker",
+        "NodeODM",
+        "Metabase (reporting)"
+      ],
+      "authority": "authoritative_relational",
+      "status": "current_migration_state",
+      "role": "Mapping projects, processing state, users, geospatial data.",
+      "note": "Large image/output artifacts remain filesystem data on /media/scottw/500GBPHOTOGRAM/."
+    },
+    {
+      "id": "db-grafana",
+      "label": "grafana",
+      "software": "PostgreSQL 18 (host cluster)",
+      "kind": "postgresql",
+      "placement": "host",
+      "parent": "db-host-postgres",
+      "programs": [
+        "Grafana ao-grafana"
+      ],
+      "authority": "authoritative_relational",
+      "status": "target",
+      "role": "Grafana users, dashboards, folders, datasource definitions, preferences, alert state.",
+      "note": "Not a disposable dashboard: requires backup, restore testing, migrations, health checks."
+    },
+    {
+      "id": "db-metabase",
+      "label": "metabase",
+      "software": "PostgreSQL 18 (host cluster)",
+      "kind": "postgresql",
+      "placement": "host",
+      "parent": "db-host-postgres",
+      "programs": [
+        "Metabase ao-metabase"
+      ],
+      "authority": "authoritative_relational",
+      "status": "target",
+      "role": "Metabase users, collections, questions, dashboards, database connections, settings.",
+      "note": "Persistence confirmation and first protected read-only query are open items."
+    },
+    {
+      "id": "db-cordadb",
+      "label": "cordadb (Corda persistence)",
+      "software": "PostgreSQL 18 \u2014 separate logical database with its own roles and backup scope",
+      "kind": "postgresql",
+      "placement": "host",
+      "parent": "db-host-postgres",
+      "programs": [
+        "Corda node ao-ledger-core (planned)"
+      ],
+      "authority": "authoritative_ledger",
+      "status": "blocked",
+      "role": "Corda persistence. AUTHORITATIVE LEDGER for sale/contract, receipt association, entitlement, approved state transitions.",
+      "note": "Corda 5.2.2 persists in cordadb. Corda 4.14.2 (H2) was retired 2026-09-28; it was a separate legacy scaffold, never a Corda 5 staging target, and held no ledger state. Blocked on operator key/certificate ceremony (v6 18.2/18.3)."
+    },
+    {
+      "id": "db-postgres-admin",
+      "label": "postgres (administrative)",
+      "software": "PostgreSQL 18 (host cluster)",
+      "kind": "postgresql",
+      "placement": "host",
+      "parent": "db-host-postgres",
+      "programs": [
+        "Maintenance",
+        "backup",
+        "restore validation"
+      ],
+      "authority": "authoritative_relational",
+      "status": "active",
+      "role": "Administrative/maintenance database for the shared cluster."
+    },
+    {
+      "id": "db-host-redis",
+      "label": "Host Redis 8.0.5 (database 0)",
+      "software": "redis-server 8.0.5 (host systemd service)",
+      "kind": "redis",
+      "placement": "host",
+      "listens": [
+        "127.0.0.1:6379"
+      ],
+      "programs": [
+        "general coordination"
+      ],
+      "authority": "not_authoritative",
+      "status": "active",
+      "role": "General low-latency cache/coordination layer. NOT a system of record; no current application data confirmed."
+    },
+    {
+      "id": "db-mastodon-redis",
+      "label": "mastodon-redis (database 0)",
+      "software": "Redis 8 (container-scoped)",
+      "kind": "redis",
+      "placement": "container",
+      "programs": [
+        "Mastodon web",
+        "Mastodon Sidekiq"
+      ],
+      "authority": "not_authoritative",
+      "status": "active",
+      "role": "Mastodon cache, queues, background-job coordination. Not authoritative business data."
+    },
+    {
+      "id": "db-broker",
+      "label": "broker (database 0)",
+      "software": "Redis 8 (container-scoped)",
+      "kind": "redis",
+      "placement": "container",
+      "programs": [
+        "WebODM worker",
+        "WebODM broker"
+      ],
+      "authority": "not_authoritative",
+      "status": "active",
+      "role": "Celery/task broker and worker coordination. Not authoritative mapping data."
+    },
+    {
+      "id": "db-prometheus",
+      "label": "Prometheus TSDB",
+      "software": "prometheus v3.4.1 \u2014 /prometheus persistent volume",
+      "kind": "tsdb",
+      "placement": "container",
+      "programs": [
+        "Grafana (metrics datasource)",
+        "alerting",
+        "rule evaluation"
+      ],
+      "authority": "not_authoritative",
+      "status": "implemented",
+      "role": "Specialized time-series store: metrics, service health, resource usage, operational monitoring. Works without Grafana.",
+      "note": "Grafana visualizes metrics; Prometheus remains the separate metrics store and the alerting layer."
+    },
+    {
+      "id": "db-openclaw",
+      "label": "OpenClaw SQLite state",
+      "software": "SQLite (desktop application state)",
+      "kind": "sqlite",
+      "placement": "host",
+      "path": "~/.openclaw/state/openclaw.sqlite",
+      "programs": [
+        "OpenClaw gateway",
+        "OpenClaw chat relay"
+      ],
+      "authority": "not_authoritative",
+      "status": "active",
+      "role": "Local operational state. Not part of SQL reporting."
+    },
+    {
+      "id": "db-akonadi",
+      "label": "Akonadi / KDE PIM SQLite",
+      "software": "SQLite (desktop application state)",
+      "kind": "sqlite",
+      "placement": "host",
+      "programs": [
+        "Akonadi",
+        "KDE PIM"
+      ],
+      "authority": "not_authoritative",
+      "status": "active",
+      "role": "Contacts, calendars, mail indexes, local personal-information data."
+    },
+    {
+      "id": "db-browsers",
+      "label": "Browser profile SQLite stores",
+      "software": "SQLite (Konqueror/KDE WebEngine, Firefox, Brave, Chrome, Edge)",
+      "kind": "sqlite",
+      "placement": "host",
+      "programs": [
+        "browsers"
+      ],
+      "authority": "not_authoritative",
+      "status": "active",
+      "role": "History, site storage, caches, certificates, profile data."
+    },
+    {
+      "id": "db-podman",
+      "label": "Podman rootless metadata store",
+      "software": "SQLite (rootless Podman)",
+      "kind": "sqlite",
+      "placement": "host",
+      "programs": [
+        "Podman"
+      ],
+      "authority": "not_authoritative",
+      "status": "active",
+      "role": "Container, image, network, volume metadata. Not application data."
+    },
+    {
+      "id": "db-sim-local",
+      "label": "ROS / simulation local SQLite",
+      "software": "SQLite (application-specific local files)",
+      "kind": "sqlite",
+      "placement": "host",
+      "programs": [
+        "ROS 2 Lyrical",
+        "Gazebo Sim",
+        "ArduPilot SITL",
+        "QGroundControl"
+      ],
+      "authority": "not_authoritative",
+      "status": "active",
+      "role": "Local tool state where enabled. Not a shared reporting source."
+    },
+    {
+      "id": "db-filesystem-state",
+      "label": "Filesystem / local application state",
+      "software": "Application files, logs, project files, local state",
+      "kind": "filesystem",
+      "placement": "host",
+      "programs": [
+        "LM Studio",
+        "OpenClaw",
+        "MeshChatX",
+        "QGroundControl",
+        "ArduPilot",
+        "Gazebo",
+        "simulation tools",
+        "restic"
+      ],
+      "authority": "not_authoritative",
+      "status": "active",
+      "role": "Operational or engineering data that is not automatically part of SQL reporting."
+    },
+    {
+      "id": "db-mapping-media",
+      "label": "Photogrammetry media (filesystem, ext4)",
+      "software": "/media/scottw/500GBPHOTOGRAM/ \u2014 ext4 /dev/sdb1, UUID verified",
+      "kind": "filesystem",
+      "placement": "host",
+      "programs": [
+        "WebODM",
+        "NodeODM",
+        "imagery intake/exporter"
+      ],
+      "authority": "not_authoritative",
+      "status": "implemented",
+      "role": "Source imagery, orthophotos, point clouds, 3D model artifacts. Large binaries stay filesystem-resident; only metadata is in webodm.",
+      "note": "Deploy or operate WebODM only after the drive and mount are validated (v6 8.5)."
+    },
+    {
+      "id": "db-h2-legacy",
+      "label": "H2 legacy migration backups",
+      "software": "H2 (retained backup files only)",
+      "kind": "h2",
+      "placement": "host",
+      "programs": [
+        "Grafana/Metabase legacy migration"
+      ],
+      "authority": "not_an_application_db",
+      "status": "not_active",
+      "role": "No longer active; retained temporarily for rollback and migration evidence.",
+      "note": "H2 and SQLite are NOT approved application databases for Grafana or Metabase. Separately, the Corda H2 scaffold is a known defect (see cordadb)."
+    }
+  ],
+  "authority_short": "v6",
+  "supersedes": "/ALWAYSON/README.md",
+  "host_services": [
+    {
+      "id": "host-postgresql",
+      "label": "PostgreSQL 18.6 (host cluster)",
+      "software": "postgresql-18 18.6 / PostGIS 3.6.2",
+      "listens": [
+        "127.0.0.1:5432",
+        "[::1]:5432",
+        "unix:/var/run/postgresql/.s.PGSQL.5432"
+      ],
+      "relays": [
+        "10.42.0.1:5432 (socat, ao-postgres-reporting-bridge)"
+      ],
+      "databases": [
+        "salesdb",
+        "mastodon",
+        "webodm",
+        "grafana",
+        "metabase",
+        "cordadb",
+        "postgres"
+      ],
+      "data": "System-wide relational platform: separate logical databases, separate application roles",
+      "status": "implemented",
+      "note": "AUTHORITATIVE RELATIONAL. REVOKE CONNECT FROM PUBLIC enforced (v6 3.3). Target is one host cluster; container-scoped instances are current migration state."
+    },
+    {
+      "id": "host-redis",
+      "label": "Redis 8.0.5 (host service)",
+      "software": "redis-server 8.0.5",
+      "listens": [
+        "127.0.0.1:6379"
+      ],
+      "databases": [
+        "database 0"
+      ],
+      "data": "Low-latency cache/coordination layer (not a system of record)",
+      "status": "implemented"
+    },
+    {
+      "id": "host-ardupilot-sitl",
+      "label": "ArduPilot SITL (host systemd service)",
+      "software": "arducopter SITL, ArduPilot e57b8a47d3 (4.6.0-beta1)",
+      "listens": [
+        "tcp/127.0.0.1:5760"
+      ],
+      "data": "/ALWAYSON/data/ardupilot",
+      "status": "implemented",
+      "note": "Runs on host for real-time constraints; QGroundControl connects over tcp:5760 (v6 10.1)"
+    },
+    {
+      "id": "host-restic",
+      "label": "restic encrypted backup (host)",
+      "software": "restic \u2014 encrypted local snapshots + encrypted pCloud replication",
+      "schedules": [
+        "nightly restic 03:30",
+        "nightly DB dumps 03:00",
+        "weekly verify"
+      ],
+      "data": "PostgreSQL/Corda-aware encrypted backup; restore test in an isolated location",
+      "status": "implemented",
+      "note": "Local authority + encrypted restic + encrypted pCloud replication. Independent of IPFS and Corda (v6 ES.1)."
+    },
+    {
+      "id": "host-kwallet",
+      "label": "KDE Wallet (kwalletd6) \u2014 secret authority",
+      "software": "org.kde.kwalletd6 via Plasma login \u2192 kwalletd6 unlock \u2192 fetch-kwallet-secret.sh (ExecStartPre, \u226460s)",
+      "data": "0600 env file per unit; services needing Wallet secrets start AFTER login BY DESIGN",
+      "status": "implemented",
+      "note": "Secret authority is settled; the D-Bus bus name and method names on the running host are unconfirmed (v6 14.1.1)."
+    }
+  ],
+  "desktop_software": [
+    {
+      "id": "desktop-meshchatx",
+      "label": "MeshChatX native backend / web UI",
+      "software": "ReticulumMeshChatX 4.9.1 (native headless)",
+      "listens": [
+        "https://127.0.0.1:18000"
+      ],
+      "status": "implemented"
+    },
+    {
+      "id": "desktop-reticulum",
+      "label": "Reticulum transport (embedded in MeshChatX)",
+      "software": "RNS embedded; standalone rnsd 1.4.2 present but not running",
+      "listens": [
+        "0.0.0.0:4242 (backbone; NOT loopback-restricted)"
+      ],
+      "status": "in_progress",
+      "note": "29 TCPClientInterface peers + 1 BackboneInterface + 2 RNode interfaces in ~/.reticulum/config (README 9.3)"
+    },
+    {
+      "id": "desktop-openclaw",
+      "label": "OpenClaw AI gateway + CORS relay",
+      "software": "OpenClaw gateway (password auth) + chat relay",
+      "listens": [
+        "127.0.0.1:18789",
+        "127.0.0.1:18790"
+      ],
+      "data": "~/.openclaw/state/openclaw.sqlite",
+      "status": "implemented"
+    },
+    {
+      "id": "desktop-lmstudio",
+      "label": "LM Studio headless inference server",
+      "software": "LM Studio (OpenAI-compatible endpoint, REST auth enforced)",
+      "listens": [
+        "127.0.0.1:1234"
+      ],
+      "status": "implemented"
+    },
+    {
+      "id": "desktop-qgc",
+      "label": "QGroundControl GCS (AppImage)",
+      "software": "QGroundControl",
+      "connects": [
+        "tcp/127.0.0.1:5760 (SITL)",
+        "MAVLink over DRONE-RADIO"
+      ],
+      "status": "partial"
+    },
+    {
+      "id": "desktop-gazebo",
+      "label": "Gazebo Sim 10.5.0 + ROS 2 Lyrical",
+      "software": "gz sim 10.5.0, ROS 2 Lyrical, ros_gz_bridge, foxglove_bridge",
+      "listens": [
+        "127.0.0.1:8765 (foxglove_bridge ws)",
+        "gz transport TCP/UDP"
+      ],
+      "env": [
+        "ROS_DOMAIN_ID=21",
+        "GZ_PARTITION=alwayson_vehicle_sim"
+      ],
+      "status": "implemented"
+    },
+    {
+      "id": "desktop-konqueror",
+      "label": "Konqueror (browser; Tokodon removed per ES.1)",
+      "software": "Konqueror / KDE WebEngine",
+      "connects": [
+        "http://127.0.0.1:3000 (Mastodon)",
+        "http://127.0.0.1:3001 (Grafana)",
+        "http://127.0.0.1:3002 (Metabase)",
+        "http://127.0.0.1:8000 (WebODM)"
+      ],
+      "status": "implemented",
+      "note": "Tokodon was removed completely per v6 ES.1. No Podman network attachment; loopback only."
+    },
+    {
+      "id": "desktop-dbeaver",
+      "label": "DBeaver (SQL client)",
+      "software": "DBeaver \u2014 SQL client for the host PostgreSQL 18 cluster",
+      "connects": [
+        "127.0.0.1:5432 (host PostgreSQL, ao-data reporting)"
+      ],
+      "status": "implemented",
+      "note": "Named in the v6 ES.2 master topology on the ao-data narrow-plumbing path."
+    },
+    {
+      "id": "desktop-sketchup",
+      "label": "SketchUp / SketchUp Web (design, host)",
+      "software": "SketchUp desktop + SketchUp Web",
+      "status": "planned",
+      "note": "DESIGN path in the v6 ES.2 master topology. GPU policy priority: desktop/Konqueror \u2192 LM Studio/OpenClaw \u2192 SketchUp \u2192 ROS/Gazebo/SITL \u2192 WebODM batch (v6 ES.1)."
+    }
+  ],
+  "field": {
+    "status": "in_progress",
+    "drone_side": [
+      {
+        "id": "field-drone-pi5",
+        "label": "Raspberry Pi 5 flight companion",
+        "software": "MAVLink collector, telemetry spool, RNS/Reticulum, MeshChatX, packet signing",
+        "hardware": "Waveshare SX1262-class LoRa HAT",
+        "status": "planned",
+        "note": "Design target; not present on the development workstation (README 9.1)"
+      },
+      {
+        "id": "field-drone-fc",
+        "label": "ArduPilot flight controller",
+        "software": "3DR N1 autopilot, MAVLink over UART/USB",
+        "status": "planned"
+      }
+    ],
+    "radios": [
+      {
+        "id": "radio-people",
+        "label": "PEOPLE-RADIO (Heltec WiFi LoRa 32 V3)",
+        "software": "RNodeInterface (RNode firmware 1.85, SX1262)",
+        "hardware": "/dev/serial/by-id/usb-Silicon_Labs_CP2102_USB_to_UART_Bridge_Controller_0001-if00-port0",
+        "rf": "915 MHz / BW 125 kHz / SF7 / CR5 / 17 dBm",
+        "status": "implemented"
+      },
+      {
+        "id": "radio-drone",
+        "label": "DRONE-RADIO (Heltec WiFi LoRa 32 V3)",
+        "software": "RNodeInterface (RNode firmware 1.85, SX1262, internal)",
+        "hardware": "second CP2102-class serial device",
+        "rf": "917 MHz / BW 250 kHz / SF7 / CR5 / 17 dBm",
+        "status": "implemented"
+      }
+    ],
+    "note": "RF feedback on both bands observed and requires characterization (README 3.2, 20.1)"
+  },
+  "edge": {
+    "internet": {
+      "id": "internet",
+      "label": "PUBLIC INTERNET",
+      "status": "implemented"
+    },
+    "paths": [
+      {
+        "id": "edge-cloudflare-tunnel",
+        "label": "Cloudflare Tunnel (cloudflared-alwayson.service)",
+        "software": "cloudflared",
+        "publishes": [
+          "mastodon.300x3.com -> 127.0.0.1:3000",
+          "chat.300x3.com -> 127.0.0.1:18790 (OpenClaw relay / sitebot)",
+          "www.300x3.com -> 127.0.0.1:3300 (300X3 storefront proxy)"
+        ],
+        "listens": [
+          "127.0.0.1:20241 (metrics)"
+        ],
+        "status": "implemented",
+        "note": "No inbound port-forward; origin ports stay loopback (README 20.0, deviation 18.6)"
+      },
+      {
+        "id": "edge-pcloud-storefront",
+        "label": "pCloud Public Folder (static HTML storefront)",
+        "software": "pCloud Drive / public folder",
+        "status": "implemented",
+        "direction": "outbound"
+      },
+      {
+        "id": "edge-ao-egress-archive",
+        "label": "ao-egress-archive (adapter, not yet deployed)",
+        "software": "encrypted archive replication / IPFS operations",
+        "status": "planned",
+        "direction": "outbound",
+        "note": "Destination allowlist + TLS validation + separate credentials required (README 5.2)"
+      },
+      {
+        "id": "edge-ao-ingress-payment",
+        "label": "ao-ingress-payment (adapter, not yet deployed)",
+        "software": "payment-provider webhook verifier",
+        "status": "planned",
+        "direction": "inbound",
+        "note": "Blocked on provider decision (README 18.4)"
+      },
+      {
+        "id": "edge-ao-build-update",
+        "label": "ao-build-update (adapter, not yet deployed)",
+        "software": "image / package acquisition before controlled promotion",
+        "status": "planned",
+        "direction": "outbound"
+      },
+      {
+        "id": "edge-reticulum-tcp",
+        "label": "Reticulum public TCP peers / backbone",
+        "software": "29 TCPClientInterface peers (public gateway 0.0.0.0:4242)",
+        "status": "in_progress",
+        "direction": "bidirectional",
+        "note": "Listener binding verified; firewall/packet reachability unresolved (README 9.4)"
+      }
+    ]
+  },
+  "planned_components": [
+    {
+      "id": "corda-core",
+      "label": "Corda 5.2.2 DLT core (ao-ledger-core)",
+      "software": "Corda 5.2.2 node + cordadb (PostgreSQL 18) persistence",
+      "status": "blocked",
+      "note": "Blocked on operator key/certificate ceremony (README 3.2, 18.3)"
+    },
+    {
+      "id": "corda-ingest",
+      "label": "Ledger-ingestion gateway (ao-ledger-ingest)",
+      "software": "mTLS validation, authorization, idempotency, audit",
+      "status": "blocked",
+      "note": "Manifest + correlation + signature requirements pending (README 4.4, 11.2)"
+    },
+    {
+      "id": "sales-api",
+      "label": "Sales API + payment adapter (ao-payment)",
+      "software": "sales API, provider webhook verifier",
+      "status": "planned",
+      "note": "Blocked on payment provider selection (README 18.4)"
+    },
+    {
+      "id": "sim-fabrication",
+      "label": "Fabrication / facility simulation (ao-sim-fabrication)",
+      "software": "ROS 2 Lyrical + Gazebo Sim 10.5.0 robot cells, AM, kitchen, logistics",
+      "status": "implemented",
+      "note": "Headless smoke test passed; GUI workflow pending (README 3.2, 6.A.1)"
+    }
+  ],
+  "networks": [
+    {
+      "name": "ao-admin",
+      "subnet": "10.89.9.0/24",
+      "gateway": "10.89.9.1",
+      "internal": true,
+      "declared": true,
+      "live": true,
+      "purpose": "Monitoring, backup, restore validation, administration",
+      "status": "implemented",
+      "note": "Grafana 127.0.0.1:3001, Metabase 127.0.0.1:3002, Prometheus 127.0.0.1:9090 (README 20.0)",
+      "adapter": false,
+      "includes": [
+        "ao-prometheus",
+        "ao-node-exporter",
+        "ao-grafana",
+        "ao-metabase"
+      ],
+      "members": [
+        "ao-grafana",
+        "ao-metabase",
+        "ao-node-exporter",
+        "ao-prometheus"
+      ],
+      "cidr_registry": "10.89.9.0/24",
+      "podman_default": false
+    },
+    {
+      "name": "ao-build-update",
+      "subnet": "",
+      "gateway": "",
+      "internal": null,
+      "declared": false,
+      "live": false,
+      "purpose": "Image and package acquisition before controlled promotion (outbound adapter)",
+      "status": "planned",
+      "note": "Not deployed; no direct workload attachment permitted (README 5.2)",
+      "adapter": true,
+      "includes": [],
+      "members": [],
+      "cidr_registry": "",
+      "podman_default": false
+    },
+    {
+      "name": "ao-data",
+      "subnet": "10.89.8.0/24",
+      "gateway": "10.89.8.1",
+      "internal": true,
+      "declared": true,
+      "live": true,
+      "purpose": "Narrow controlled data plumbing where unavoidable",
+      "status": "implemented",
+      "note": "Intentional GUI-less controlled plumbing; no members currently (README 6.A.1 #17)",
+      "adapter": false,
+      "includes": [],
+      "members": [],
+      "cidr_registry": "10.89.8.0/24",
+      "podman_default": false
+    },
+    {
+      "name": "ao-egress-archive",
+      "subnet": "",
+      "gateway": "",
+      "internal": null,
+      "declared": false,
+      "live": false,
+      "purpose": "Encrypted pCloud replication and approved IPFS operations (outbound adapter)",
+      "status": "planned",
+      "note": "Not deployed; archive credentials pending (README 5.2, WORK 000040)",
+      "adapter": true,
+      "includes": [],
+      "members": [],
+      "cidr_registry": "",
+      "podman_default": false
+    },
+    {
+      "name": "ao-egress-community",
+      "subnet": "10.89.11.0/24",
+      "gateway": "10.89.11.1",
+      "internal": false,
+      "declared": true,
+      "live": true,
+      "purpose": "Approved Mastodon/community federation egress adapter",
+      "status": "implemented",
+      "note": "Only Mastodon web/Sidekiq join this adapter network (README 5.2, quadlet/sales/*)",
+      "adapter": true,
+      "includes": [
+        "mastodon-web",
+        "mastodon-sidekiq"
+      ],
+      "members": [
+        "mastodon-sidekiq",
+        "mastodon-web"
+      ],
+      "cidr_registry": "",
+      "podman_default": false
+    },
+    {
+      "name": "ao-field",
+      "subnet": "10.89.2.0/24",
+      "gateway": "10.89.2.1",
+      "internal": true,
+      "declared": true,
+      "live": true,
+      "purpose": "Heltec gateway, RNS/MeshChatX, telemetry spool, mission-release service",
+      "status": "in_progress",
+      "note": "Reticulum/MeshChatX currently run on the host loopback, not as ao-field containers (README 9.2, 20.0)",
+      "adapter": false,
+      "includes": [
+        "meshchatx",
+        "reticulum"
+      ],
+      "members": [],
+      "cidr_registry": "10.89.2.0/24",
+      "podman_default": false
+    },
+    {
+      "name": "ao-ingress-payment",
+      "subnet": "",
+      "gateway": "",
+      "internal": null,
+      "declared": false,
+      "live": false,
+      "purpose": "Payment-provider webhook receiver (inbound adapter)",
+      "status": "planned",
+      "note": "Not deployed; blocked on provider decision (README 5.2, 18.4)",
+      "adapter": true,
+      "includes": [],
+      "members": [],
+      "cidr_registry": "",
+      "podman_default": false
+    },
+    {
+      "name": "ao-ledger-core",
+      "subnet": "10.89.7.0/24",
+      "gateway": "10.89.7.1",
+      "internal": true,
+      "declared": true,
+      "live": true,
+      "purpose": "Corda node, ledger database, certificate/keystore material",
+      "status": "blocked",
+      "note": "Corda 5.2.2 scaffolded only; no runtime (README 3.2, 18.3)",
+      "adapter": false,
+      "includes": [],
+      "members": [],
+      "cidr_registry": "10.89.7.0/24",
+      "podman_default": false
+    },
+    {
+      "name": "ao-ledger-ingest",
+      "subnet": "10.89.6.0/24",
+      "gateway": "10.89.6.1",
+      "internal": true,
+      "declared": true,
+      "live": true,
+      "purpose": "mTLS validation gateway, authorization, audit, idempotency",
+      "status": "blocked",
+      "note": "Blocked on Corda key/certificate ceremony (README 3.2, 18.3)",
+      "adapter": false,
+      "includes": [],
+      "members": [],
+      "cidr_registry": "10.89.6.0/24",
+      "podman_default": false
+    },
+    {
+      "name": "ao-mapping",
+      "subnet": "10.89.3.0/24",
+      "gateway": "10.89.3.1",
+      "internal": true,
+      "declared": true,
+      "live": true,
+      "purpose": "WebODM, NodeODM, Redis broker, mapping DB, imagery intake/exporter",
+      "status": "implemented",
+      "note": "UI on 127.0.0.1:8000; GPU smoke test apt-76 passed (README 3.2, 20.0)",
+      "adapter": false,
+      "includes": [
+        "webapp",
+        "worker",
+        "broker",
+        "nodeodm"
+      ],
+      "members": [
+        "nodeodm",
+        "broker",
+        "db",
+        "webapp",
+        "worker"
+      ],
+      "cidr_registry": "10.89.3.0/24",
+      "podman_default": false
+    },
+    {
+      "name": "ao-payment",
+      "subnet": "10.89.1.0/24",
+      "gateway": "10.89.1.1",
+      "internal": true,
+      "declared": true,
+      "live": true,
+      "purpose": "Provider webhook verifier and payment adapter",
+      "status": "planned",
+      "note": "Blocked on payment-provider selection (README 18.4)",
+      "adapter": false,
+      "includes": [],
+      "members": [],
+      "cidr_registry": "10.89.1.0/24",
+      "podman_default": false
+    },
+    {
+      "name": "ao-reporting-egress",
+      "subnet": "10.89.10.0/24",
+      "gateway": "10.89.10.1",
+      "internal": false,
+      "declared": true,
+      "live": true,
+      "purpose": "Reporting-tool egress to the host PostgreSQL bridge (10.42.0.1:5432)",
+      "status": "implemented",
+      "note": "Sanctioned narrow relay for ao-admin reporting; host PG stays loopback (README 6.A.2, ISSUE 000601)",
+      "adapter": true,
+      "includes": [
+        "ao-grafana",
+        "ao-metabase"
+      ],
+      "members": [
+        "ao-grafana",
+        "ao-metabase"
+      ],
+      "cidr_registry": "",
+      "podman_default": false
+    },
+    {
+      "name": "ao-sales",
+      "subnet": "10.89.0.0/24",
+      "gateway": "10.89.0.1",
+      "internal": true,
+      "declared": true,
+      "live": true,
+      "purpose": "Sales API, sales PostgreSQL, Mastodon stack, OpenClaw, LM Studio",
+      "status": "in_progress",
+      "note": "Mastodon stack running; sales API and provider settlement still pending (README 3.2)",
+      "adapter": false,
+      "includes": [
+        "sales-db",
+        "mastodon-web",
+        "mastodon-sidekiq",
+        "mastodon-redis",
+        "mastodon-streaming",
+        "mastodon-db"
+      ],
+      "members": [
+        "mastodon-db",
+        "mastodon-redis",
+        "mastodon-sidekiq",
+        "mastodon-streaming",
+        "mastodon-web",
+        "sales-db",
+        "300x3-redis",
+        "300x3-migrate",
+        "300x3-sidekiq",
+        "300x3-web",
+        "300x3-streaming",
+        "300x3-proxy"
+      ],
+      "cidr_registry": "10.89.0.0/24",
+      "podman_default": false
+    },
+    {
+      "name": "ao-sim-fabrication",
+      "subnet": "10.89.5.0/24",
+      "gateway": "10.89.5.1",
+      "internal": true,
+      "declared": true,
+      "live": true,
+      "purpose": "ROS 2, Gazebo facility/robot cells, additive manufacturing, kitchen, logistics",
+      "status": "implemented",
+      "note": "Headless simulation smoke test passed (README 3.2)",
+      "adapter": false,
+      "includes": [],
+      "members": [],
+      "cidr_registry": "10.89.5.0/24",
+      "podman_default": false
+    },
+    {
+      "name": "ao-sim-vehicle",
+      "subnet": "10.89.4.0/24",
+      "gateway": "10.89.4.1",
+      "internal": true,
+      "declared": true,
+      "live": true,
+      "purpose": "ROS 2 Lyrical, Gazebo Sim 10.5.0, ArduPilot SITL, MAVLink, QGroundControl",
+      "status": "implemented",
+      "note": "Headless runtime verified; GUI workflow pending (README 6.A.1 #3-#4)",
+      "adapter": false,
+      "includes": [
+        "ardupilot-sitl",
+        "ros-gazebo",
+        "qgroundcontrol"
+      ],
+      "members": [
+        "ardupilot-sitl"
+      ],
+      "cidr_registry": "10.89.4.0/24",
+      "podman_default": false
+    },
+    {
+      "name": "podman",
+      "subnet": "10.88.0.0/16",
+      "gateway": "10.88.0.1",
+      "internal": false,
+      "declared": false,
+      "live": true,
+      "purpose": "",
+      "status": "declared",
+      "note": "",
+      "adapter": false,
+      "includes": [],
+      "members": [],
+      "cidr_registry": "",
+      "podman_default": true
+    }
+  ],
+  "containers": [
+    {
+      "unit": "ao-webodm-broker",
+      "file": "/ALWAYSON/quadlet/mapping/ao-webodm-broker.container",
+      "category": "mapping",
+      "container_name": "broker",
+      "description": "ALWAYS ON WebODM Redis Broker",
+      "image": "redis@sha256:91d0f7e8c748ec7a4c2b4fb2c4f84edab794dd91d01e095e38dc906db9d684ab",
+      "image_name": "redis",
+      "image_version": "sha256:91d0f7e8c7",
+      "networks": [
+        "ao-mapping"
+      ],
+      "publish": [],
+      "volumes": [],
+      "environment": [],
+      "env_files": 0,
+      "no_new_privileges": "true",
+      "health_cmd": "redis-cli ping",
+      "memory_max": "512M",
+      "cpu_quota": "",
+      "wanted_by": [
+        "default.target"
+      ],
+      "declared": true,
+      "live": true,
+      "status": "implemented",
+      "state": "running",
+      "status_text": "Up 2 days (healthy)",
+      "ip_by_network": {
+        "ao-mapping": "10.89.3.2"
+      },
+      "published": [],
+      "unit_state": "active",
+      "networks_live": [
+        "ao-mapping"
+      ],
+      "health": "configured"
+    },
+    {
+      "unit": "ao-webodm-db",
+      "file": "/ALWAYSON/quadlet/mapping/ao-webodm-db.container",
+      "category": "mapping",
+      "container_name": "db",
+      "description": "ALWAYS ON WebODM Database (webodm_db)",
+      "image": "webodm/webodm_db@sha256:03f18ec0089325ec2b8975ba1781277bcdc212b6d86c9de33f6409d313e90430",
+      "image_name": "webodm_db",
+      "image_version": "sha256:03f18ec008",
+      "networks": [
+        "ao-mapping"
+      ],
+      "publish": [],
+      "volumes": [
+        "/home/scottw/webodm/dbdata:/var/lib/postgresql/data:Z"
+      ],
+      "environment": [
+        "POSTGRES_DB=webodm",
+        "POSTGRES_USER=postgres"
+      ],
+      "env_files": 1,
+      "no_new_privileges": "true",
+      "health_cmd": "pg_isready",
+      "memory_max": "4G",
+      "cpu_quota": "",
+      "wanted_by": [
+        "default.target"
+      ],
+      "declared": true,
+      "live": false,
+      "status": "declared",
+      "state": "",
+      "status_text": "",
+      "ip_by_network": {},
+      "published": [],
+      "unit_state": "inactive"
+    },
+    {
+      "unit": "ao-nodeodm",
+      "file": "/ALWAYSON/quadlet/mapping/ao-nodeodm.container",
+      "category": "mapping",
+      "container_name": "nodeodm",
+      "description": "ALWAYS ON NodeODM",
+      "image": "opendronemap/nodeodm@sha256:553fe5cacb1c248e3740e07e58cb4edc42c48b86aee229555dc9dc49edb09024",
+      "image_name": "nodeodm",
+      "image_version": "sha256:553fe5cacb",
+      "networks": [
+        "ao-mapping"
+      ],
+      "publish": [],
+      "volumes": [
+        "/media/scottw/500GBPHOTOGRAM/webodm/nodeodm:/webodm/nodeodm/data:Z"
+      ],
+      "environment": [],
+      "env_files": 0,
+      "no_new_privileges": "true",
+      "health_cmd": "",
+      "memory_max": "8G",
+      "cpu_quota": "600%",
+      "wanted_by": [
+        "default.target"
+      ],
+      "declared": true,
+      "live": true,
+      "status": "implemented",
+      "state": "running",
+      "status_text": "Up 2 days",
+      "ip_by_network": {
+        "ao-mapping": "10.89.3.3"
+      },
+      "published": [],
+      "unit_state": "active",
+      "networks_live": [
+        "ao-mapping"
+      ],
+      "health": ""
+    },
+    {
+      "unit": "ao-webodm-web",
+      "file": "/ALWAYSON/quadlet/mapping/ao-webodm-web.container",
+      "category": "mapping",
+      "container_name": "webapp",
+      "description": "ALWAYS ON WebODM Web",
+      "image": "webodm/webodm_webapp@sha256:188267c654c27a0f5352b0ff27ebe777788637df06d948d80ccb8513c72abd38",
+      "image_name": "webodm_webapp",
+      "image_version": "sha256:188267c654",
+      "networks": [
+        "ao-mapping"
+      ],
+      "publish": [],
+      "volumes": [
+        "/media/scottw/500GBPHOTOGRAM/webodm/media:/webodm/app/media:Z"
+      ],
+      "environment": [
+        "WO_PORT=8000",
+        "WO_HOST=webapp",
+        "WO_DEBUG=NO",
+        "WO_BROKER=redis://broker:6379",
+        "WO_DEFAULT_NODES=0",
+        "WEB_CONCURRENCY=2"
+      ],
+      "env_files": 1,
+      "no_new_privileges": "true",
+      "health_cmd": "",
+      "memory_max": "6G",
+      "cpu_quota": "200%",
+      "wanted_by": [
+        "default.target"
+      ],
+      "declared": true,
+      "live": true,
+      "status": "implemented",
+      "state": "running",
+      "status_text": "Up 2 days",
+      "ip_by_network": {
+        "ao-mapping": "10.89.3.4"
+      },
+      "published": [],
+      "unit_state": "active",
+      "networks_live": [
+        "ao-mapping"
+      ],
+      "health": ""
+    },
+    {
+      "unit": "ao-webodm-worker",
+      "file": "/ALWAYSON/quadlet/mapping/ao-webodm-worker.container",
+      "category": "mapping",
+      "container_name": "worker",
+      "description": "ALWAYS ON WebODM Worker",
+      "image": "webodm/webodm_webapp@sha256:188267c654c27a0f5352b0ff27ebe777788637df06d948d80ccb8513c72abd38",
+      "image_name": "webodm_webapp",
+      "image_version": "sha256:188267c654",
+      "networks": [
+        "ao-mapping"
+      ],
+      "publish": [],
+      "volumes": [
+        "/media/scottw/500GBPHOTOGRAM/webodm/media:/webodm/app/media:Z"
+      ],
+      "environment": [
+        "WO_DEBUG=NO",
+        "WO_BROKER=redis://broker:6379",
+        "WEB_CONCURRENCY=1"
+      ],
+      "env_files": 1,
+      "no_new_privileges": "true",
+      "health_cmd": "",
+      "memory_max": "6G",
+      "cpu_quota": "400%",
+      "wanted_by": [
+        "default.target"
+      ],
+      "declared": true,
+      "live": true,
+      "status": "implemented",
+      "state": "running",
+      "status_text": "Up 2 days",
+      "ip_by_network": {
+        "ao-mapping": "10.89.3.5"
+      },
+      "published": [],
+      "unit_state": "active",
+      "networks_live": [
+        "ao-mapping"
+      ],
+      "health": ""
+    },
+    {
+      "unit": "ao-grafana",
+      "file": "/ALWAYSON/quadlet/operations/ao-grafana.container",
+      "category": "operations",
+      "container_name": "ao-grafana",
+      "description": "ALWAYS ON Grafana (ao-admin)",
+      "image": "docker.io/grafana/grafana-oss:11.6.0",
+      "image_name": "grafana-oss",
+      "image_version": "11.6.0",
+      "networks": [
+        "ao-admin",
+        "ao-reporting-egress"
+      ],
+      "publish": [
+        "127.0.0.1:3001:3000"
+      ],
+      "volumes": [
+        "/var/run/postgresql:/var/run/postgresql:ro",
+        "/ALWAYSON/config/platform/monitoring/grafana/provisioning:/etc/grafana/provisioning:ro,Z",
+        "ao-grafana-postgres-data:/var/lib/grafana-postgres:Z"
+      ],
+      "environment": [],
+      "env_files": 2,
+      "no_new_privileges": "true",
+      "health_cmd": "",
+      "memory_max": "1G",
+      "cpu_quota": "",
+      "wanted_by": [
+        "default.target"
+      ],
+      "declared": true,
+      "live": true,
+      "status": "implemented",
+      "state": "running",
+      "status_text": "Up 2 days",
+      "ip_by_network": {
+        "ao-admin": "10.89.9.4",
+        "ao-reporting-egress": "10.89.10.2"
+      },
+      "published": [
+        {
+          "host_ip": "127.0.0.1",
+          "host_port": "3001",
+          "container_port": "3000",
+          "protocol": "tcp"
+        }
+      ],
+      "unit_state": "active",
+      "networks_live": [
+        "ao-admin",
+        "ao-reporting-egress"
+      ],
+      "health": ""
+    },
+    {
+      "unit": "ao-metabase",
+      "file": "/ALWAYSON/quadlet/operations/ao-metabase.container",
+      "category": "operations",
+      "container_name": "ao-metabase",
+      "description": "ALWAYS ON Metabase (ao-admin)",
+      "image": "docker.io/metabase/metabase:v0.54.1",
+      "image_name": "metabase",
+      "image_version": "v0.54.1",
+      "networks": [
+        "ao-admin",
+        "ao-reporting-egress"
+      ],
+      "publish": [
+        "127.0.0.1:3002:3000"
+      ],
+      "volumes": [
+        "/var/run/postgresql:/var/run/postgresql:ro",
+        "ao-metabase-postgres-data:/metabase-postgres-data:Z"
+      ],
+      "environment": [],
+      "env_files": 1,
+      "no_new_privileges": "true",
+      "health_cmd": "",
+      "memory_max": "2G",
+      "cpu_quota": "",
+      "wanted_by": [
+        "default.target"
+      ],
+      "declared": true,
+      "live": true,
+      "status": "implemented",
+      "state": "running",
+      "status_text": "Up 2 days",
+      "ip_by_network": {
+        "ao-admin": "10.89.9.5",
+        "ao-reporting-egress": "10.89.10.3"
+      },
+      "published": [
+        {
+          "host_ip": "127.0.0.1",
+          "host_port": "3002",
+          "container_port": "3000",
+          "protocol": "tcp"
+        }
+      ],
+      "unit_state": "active",
+      "networks_live": [
+        "ao-admin",
+        "ao-reporting-egress"
+      ],
+      "health": ""
+    },
+    {
+      "unit": "ao-node-exporter",
+      "file": "/ALWAYSON/quadlet/operations/ao-node-exporter.container",
+      "category": "operations",
+      "container_name": "ao-node-exporter",
+      "description": "ALWAYS ON node exporter (ao-admin)",
+      "image": "docker.io/prom/node-exporter:v1.9.1",
+      "image_name": "node-exporter",
+      "image_version": "v1.9.1",
+      "networks": [
+        "ao-admin"
+      ],
+      "publish": [],
+      "volumes": [
+        "/:/host:ro"
+      ],
+      "environment": [],
+      "env_files": 0,
+      "no_new_privileges": "true",
+      "health_cmd": "",
+      "memory_max": "256M",
+      "cpu_quota": "",
+      "wanted_by": [
+        "default.target"
+      ],
+      "declared": true,
+      "live": true,
+      "status": "implemented",
+      "state": "running",
+      "status_text": "Up 2 days",
+      "ip_by_network": {
+        "ao-admin": "10.89.9.2"
+      },
+      "published": [],
+      "unit_state": "active",
+      "networks_live": [
+        "ao-admin"
+      ],
+      "health": ""
+    },
+    {
+      "unit": "ao-prometheus",
+      "file": "/ALWAYSON/quadlet/operations/ao-prometheus.container",
+      "category": "operations",
+      "container_name": "ao-prometheus",
+      "description": "ALWAYS ON Prometheus (ao-admin)",
+      "image": "docker.io/prom/prometheus:v3.4.1",
+      "image_name": "prometheus",
+      "image_version": "v3.4.1",
+      "networks": [
+        "ao-admin"
+      ],
+      "publish": [
+        "127.0.0.1:9090:9090"
+      ],
+      "volumes": [
+        "/ALWAYSON/config/platform/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro,Z"
+      ],
+      "environment": [],
+      "env_files": 0,
+      "no_new_privileges": "true",
+      "health_cmd": "",
+      "memory_max": "1G",
+      "cpu_quota": "",
+      "wanted_by": [
+        "default.target"
+      ],
+      "declared": true,
+      "live": true,
+      "status": "implemented",
+      "state": "running",
+      "status_text": "Up 2 days",
+      "ip_by_network": {
+        "ao-admin": "10.89.9.3"
+      },
+      "published": [
+        {
+          "host_ip": "127.0.0.1",
+          "host_port": "9090",
+          "container_port": "9090",
+          "protocol": "tcp"
+        }
+      ],
+      "unit_state": "active",
+      "networks_live": [
+        "ao-admin"
+      ],
+      "health": ""
+    },
+    {
+      "unit": "ao-mastodon-db",
+      "file": "/ALWAYSON/quadlet/sales/ao-mastodon-db.container",
+      "category": "sales",
+      "container_name": "mastodon-db",
+      "description": "ALWAYS ON Mastodon PostgreSQL (mastodon-db)",
+      "image": "docker.io/library/postgres@sha256:a65e6a841f6c4dbc4abda3d67fa3bc21824e9611064fcd82e87ea67aad60a0c3",
+      "image_name": "postgres",
+      "image_version": "sha256:a65e6a841f",
+      "networks": [
+        "ao-sales"
+      ],
+      "publish": [],
+      "volumes": [
+        "mastodon-dbdata:/var/lib/postgresql/data:Z"
+      ],
+      "environment": [],
+      "env_files": 1,
+      "no_new_privileges": "true",
+      "health_cmd": "pg_isready -U mastodon",
+      "memory_max": "2G",
+      "cpu_quota": "",
+      "wanted_by": [
+        "default.target"
+      ],
+      "declared": true,
+      "live": true,
+      "status": "implemented",
+      "state": "running",
+      "status_text": "Up 24 hours (healthy)",
+      "ip_by_network": {
+        "ao-sales": "10.89.0.10"
+      },
+      "published": [],
+      "unit_state": "active",
+      "networks_live": [
+        "ao-sales"
+      ],
+      "health": "configured"
+    },
+    {
+      "unit": "ao-mastodon-redis",
+      "file": "/ALWAYSON/quadlet/sales/ao-mastodon-redis.container",
+      "category": "sales",
+      "container_name": "mastodon-redis",
+      "description": "ALWAYS ON Mastodon Redis (mastodon-redis)",
+      "image": "docker.io/library/redis@sha256:91d0f7e8c748ec7a4c2b4fb2c4f84edab794dd91d01e095e38dc906db9d684ab",
+      "image_name": "redis",
+      "image_version": "sha256:91d0f7e8c7",
+      "networks": [
+        "ao-sales"
+      ],
+      "publish": [],
+      "volumes": [],
+      "environment": [],
+      "env_files": 0,
+      "no_new_privileges": "true",
+      "health_cmd": "redis-cli ping",
+      "memory_max": "512M",
+      "cpu_quota": "",
+      "wanted_by": [
+        "default.target"
+      ],
+      "declared": true,
+      "live": true,
+      "status": "implemented",
+      "state": "running",
+      "status_text": "Up 2 days (healthy)",
+      "ip_by_network": {
+        "ao-sales": "10.89.0.2"
+      },
+      "published": [],
+      "unit_state": "active",
+      "networks_live": [
+        "ao-sales"
+      ],
+      "health": "configured"
+    },
+    {
+      "unit": "ao-mastodon-sidekiq",
+      "file": "/ALWAYSON/quadlet/sales/ao-mastodon-sidekiq.container",
+      "category": "sales",
+      "container_name": "mastodon-sidekiq",
+      "description": "ALWAYS ON Mastodon Sidekiq",
+      "image": "ghcr.io/mastodon/mastodon@sha256:76436bccad38f134cb9a5a6e9c83445915790fc12caf60e3a8ee9cbef8376a56",
+      "image_name": "mastodon",
+      "image_version": "sha256:76436bccad",
+      "networks": [
+        "ao-sales",
+        "ao-egress-community"
+      ],
+      "publish": [],
+      "volumes": [],
+      "environment": [],
+      "env_files": 1,
+      "no_new_privileges": "true",
+      "health_cmd": "",
+      "memory_max": "4G",
+      "cpu_quota": "",
+      "wanted_by": [
+        "default.target"
+      ],
+      "declared": true,
+      "live": true,
+      "status": "implemented",
+      "state": "running",
+      "status_text": "Up 24 hours",
+      "ip_by_network": {
+        "ao-egress-community": "10.89.11.5",
+        "ao-sales": "10.89.0.11"
+      },
+      "published": [],
+      "unit_state": "active",
+      "networks_live": [
+        "ao-egress-community",
+        "ao-sales"
+      ],
+      "health": ""
+    },
+    {
+      "unit": "ao-mastodon-streaming",
+      "file": "/ALWAYSON/quadlet/sales/ao-mastodon-streaming.container",
+      "category": "sales",
+      "container_name": "mastodon-streaming",
+      "description": "ALWAYS ON Mastodon Streaming",
+      "image": "ghcr.io/mastodon/mastodon-streaming:v4.3.7",
+      "image_name": "mastodon-streaming",
+      "image_version": "v4.3.7",
+      "networks": [
+        "ao-sales"
+      ],
+      "publish": [
+        "127.0.0.1:4000:4000"
+      ],
+      "volumes": [],
+      "environment": [],
+      "env_files": 1,
+      "no_new_privileges": "true",
+      "health_cmd": "",
+      "memory_max": "2G",
+      "cpu_quota": "",
+      "wanted_by": [
+        "default.target"
+      ],
+      "declared": true,
+      "live": true,
+      "status": "implemented",
+      "state": "running",
+      "status_text": "Up 24 hours",
+      "ip_by_network": {
+        "ao-sales": "10.89.0.12"
+      },
+      "published": [
+        {
+          "host_ip": "127.0.0.1",
+          "host_port": "4000",
+          "container_port": "4000",
+          "protocol": "tcp"
+        }
+      ],
+      "unit_state": "active",
+      "networks_live": [
+        "ao-sales"
+      ],
+      "health": ""
+    },
+    {
+      "unit": "ao-mastodon-web",
+      "file": "/ALWAYSON/quadlet/sales/ao-mastodon-web.container",
+      "category": "sales",
+      "container_name": "mastodon-web",
+      "description": "ALWAYS ON Mastodon Web",
+      "image": "ghcr.io/mastodon/mastodon@sha256:76436bccad38f134cb9a5a6e9c83445915790fc12caf60e3a8ee9cbef8376a56",
+      "image_name": "mastodon",
+      "image_version": "sha256:76436bccad",
+      "networks": [
+        "ao-sales",
+        "ao-egress-community"
+      ],
+      "publish": [
+        "127.0.0.1:3000:3000"
+      ],
+      "volumes": [],
+      "environment": [],
+      "env_files": 1,
+      "no_new_privileges": "true",
+      "health_cmd": "",
+      "memory_max": "4G",
+      "cpu_quota": "",
+      "wanted_by": [
+        "default.target"
+      ],
+      "declared": true,
+      "live": true,
+      "status": "implemented",
+      "state": "running",
+      "status_text": "Up 24 hours",
+      "ip_by_network": {
+        "ao-egress-community": "10.89.11.6",
+        "ao-sales": "10.89.0.13"
+      },
+      "published": [
+        {
+          "host_ip": "127.0.0.1",
+          "host_port": "3000",
+          "container_port": "3000",
+          "protocol": "tcp"
+        }
+      ],
+      "unit_state": "active",
+      "networks_live": [
+        "ao-egress-community",
+        "ao-sales"
+      ],
+      "health": ""
+    },
+    {
+      "unit": "ao-sales-db",
+      "file": "/ALWAYSON/quadlet/sales/ao-sales-db.container",
+      "category": "sales",
+      "container_name": "sales-db",
+      "description": "ALWAYS ON Sales PostgreSQL (salesdb)",
+      "image": "postgres@sha256:a65e6a841f6c4dbc4abda3d67fa3bc21824e9611064fcd82e87ea67aad60a0c3",
+      "image_name": "postgres",
+      "image_version": "sha256:a65e6a841f",
+      "networks": [
+        "ao-sales"
+      ],
+      "publish": [
+        "127.0.0.1:15432:5432"
+      ],
+      "volumes": [
+        "/home/scottw/webodm/sales-dbdata:/var/lib/postgresql/data:Z"
+      ],
+      "environment": [
+        "POSTGRES_DB=salesdb",
+        "POSTGRES_USER=sales_migration_role"
+      ],
+      "env_files": 1,
+      "no_new_privileges": "true",
+      "health_cmd": "pg_isready",
+      "memory_max": "2G",
+      "cpu_quota": "",
+      "wanted_by": [
+        "default.target"
+      ],
+      "declared": true,
+      "live": false,
+      "status": "declared",
+      "state": "",
+      "status_text": "",
+      "ip_by_network": {},
+      "published": [],
+      "unit_state": "inactive"
+    },
+    {
+      "unit": "ao-ardupilot-sitl",
+      "file": "/ALWAYSON/quadlet/sim-vehicle/ao-ardupilot-sitl.container",
+      "category": "sim-vehicle",
+      "container_name": "ardupilot-sitl",
+      "description": "ALWAYS ON ArduPilot SITL (Vehicle Simulation)",
+      "image": "ghcr.io/ardupilot/ardupilot-sitl:latest",
+      "image_name": "ardupilot-sitl",
+      "image_version": "latest",
+      "networks": [
+        "ao-sim-vehicle"
+      ],
+      "publish": [],
+      "volumes": [],
+      "environment": [],
+      "env_files": 0,
+      "no_new_privileges": "true",
+      "health_cmd": "",
+      "memory_max": "2G",
+      "cpu_quota": "",
+      "wanted_by": [
+        "default.target"
+      ],
+      "declared": true,
+      "live": false,
+      "status": "declared",
+      "state": "",
+      "status_text": "",
+      "ip_by_network": {},
+      "published": [],
+      "unit_state": ""
+    },
+    {
+      "unit": "",
+      "file": "",
+      "category": "undeclared",
+      "container_name": "300x3-migrate",
+      "description": "Running container with no matching /ALWAYSON/quadlet definition",
+      "image": "ghcr.io/mastodon/mastodon:v4.3.7",
+      "image_name": "mastodon",
+      "image_version": "v4.3.7",
+      "networks": [
+        "ao-sales"
+      ],
+      "publish": [],
+      "volumes": [],
+      "environment": [],
+      "env_files": 0,
+      "no_new_privileges": "unknown",
+      "health_cmd": "",
+      "memory_max": "",
+      "cpu_quota": "",
+      "wanted_by": [],
+      "declared": false,
+      "live": true,
+      "status": "unknown",
+      "state": "exited",
+      "status_text": "Exited (0) 4 weeks ago",
+      "ip_by_network": {
+        "ao-sales": ""
+      },
+      "published": [],
+      "networks_live": [
+        "ao-sales"
+      ],
+      "unit_state": ""
+    },
+    {
+      "unit": "",
+      "file": "",
+      "category": "undeclared",
+      "container_name": "300x3-proxy",
+      "description": "Running container with no matching /ALWAYSON/quadlet definition",
+      "image": "docker.io/library/nginx:alpine",
+      "image_name": "nginx",
+      "image_version": "alpine",
+      "networks": [
+        "ao-sales"
+      ],
+      "publish": [],
+      "volumes": [],
+      "environment": [],
+      "env_files": 0,
+      "no_new_privileges": "unknown",
+      "health_cmd": "",
+      "memory_max": "",
+      "cpu_quota": "",
+      "wanted_by": [],
+      "declared": false,
+      "live": true,
+      "status": "unknown",
+      "state": "exited",
+      "status_text": "Exited (0) 4 weeks ago",
+      "ip_by_network": {
+        "ao-sales": ""
+      },
+      "published": [
+        {
+          "host_ip": "127.0.0.1",
+          "host_port": "3000",
+          "container_port": "80",
+          "protocol": "tcp"
+        }
+      ],
+      "networks_live": [
+        "ao-sales"
+      ],
+      "unit_state": ""
+    },
+    {
+      "unit": "",
+      "file": "",
+      "category": "undeclared",
+      "container_name": "300x3-redis",
+      "description": "Running container with no matching /ALWAYSON/quadlet definition",
+      "image": "docker.io/library/redis@sha256:91d0f7e8c748ec7a4c2b4fb2c4f84edab794dd91d01e095e38dc906db9d684ab",
+      "image_name": "redis",
+      "image_version": "sha256:91d0f7e8c7",
+      "networks": [
+        "ao-sales"
+      ],
+      "publish": [],
+      "volumes": [],
+      "environment": [],
+      "env_files": 0,
+      "no_new_privileges": "unknown",
+      "health_cmd": "",
+      "memory_max": "",
+      "cpu_quota": "",
+      "wanted_by": [],
+      "declared": false,
+      "live": true,
+      "status": "unknown",
+      "state": "exited",
+      "status_text": "Exited (0) 4 weeks ago",
+      "ip_by_network": {
+        "ao-sales": ""
+      },
+      "published": [],
+      "networks_live": [
+        "ao-sales"
+      ],
+      "unit_state": ""
+    },
+    {
+      "unit": "",
+      "file": "",
+      "category": "undeclared",
+      "container_name": "300x3-sidekiq",
+      "description": "Running container with no matching /ALWAYSON/quadlet definition",
+      "image": "ghcr.io/mastodon/mastodon:v4.3.7",
+      "image_name": "mastodon",
+      "image_version": "v4.3.7",
+      "networks": [
+        "ao-sales"
+      ],
+      "publish": [],
+      "volumes": [],
+      "environment": [],
+      "env_files": 0,
+      "no_new_privileges": "unknown",
+      "health_cmd": "",
+      "memory_max": "",
+      "cpu_quota": "",
+      "wanted_by": [],
+      "declared": false,
+      "live": true,
+      "status": "unknown",
+      "state": "exited",
+      "status_text": "Exited (0) 4 weeks ago",
+      "ip_by_network": {
+        "ao-sales": ""
+      },
+      "published": [],
+      "networks_live": [
+        "ao-sales"
+      ],
+      "unit_state": ""
+    },
+    {
+      "unit": "",
+      "file": "",
+      "category": "undeclared",
+      "container_name": "300x3-streaming",
+      "description": "Running container with no matching /ALWAYSON/quadlet definition",
+      "image": "ghcr.io/mastodon/mastodon-streaming:v4.3.7",
+      "image_name": "mastodon-streaming",
+      "image_version": "v4.3.7",
+      "networks": [
+        "ao-sales"
+      ],
+      "publish": [],
+      "volumes": [],
+      "environment": [],
+      "env_files": 0,
+      "no_new_privileges": "unknown",
+      "health_cmd": "",
+      "memory_max": "",
+      "cpu_quota": "",
+      "wanted_by": [],
+      "declared": false,
+      "live": true,
+      "status": "unknown",
+      "state": "exited",
+      "status_text": "Exited (0) 4 weeks ago",
+      "ip_by_network": {
+        "ao-sales": ""
+      },
+      "published": [],
+      "networks_live": [
+        "ao-sales"
+      ],
+      "unit_state": ""
+    },
+    {
+      "unit": "",
+      "file": "",
+      "category": "undeclared",
+      "container_name": "300x3-web",
+      "description": "Running container with no matching /ALWAYSON/quadlet definition",
+      "image": "ghcr.io/mastodon/mastodon:v4.3.7",
+      "image_name": "mastodon",
+      "image_version": "v4.3.7",
+      "networks": [
+        "ao-sales"
+      ],
+      "publish": [],
+      "volumes": [],
+      "environment": [],
+      "env_files": 0,
+      "no_new_privileges": "unknown",
+      "health_cmd": "",
+      "memory_max": "",
+      "cpu_quota": "",
+      "wanted_by": [],
+      "declared": false,
+      "live": true,
+      "status": "unknown",
+      "state": "exited",
+      "status_text": "Exited (143) 4 weeks ago",
+      "ip_by_network": {
+        "ao-sales": ""
+      },
+      "published": [],
+      "networks_live": [
+        "ao-sales"
+      ],
+      "unit_state": ""
+    }
+  ],
+  "declared_units": [
+    {
+      "unit": "ao-postgres-reporting-bridge",
+      "file": "/ALWAYSON/quadlet/operations/ao-postgres-reporting-bridge.service",
+      "description": "ALWAYS ON PostgreSQL reporting bridge",
+      "category": "operations"
+    }
+  ],
+  "listeners": [
+    {
+      "proto": "tcp",
+      "address": "10.42.0.1",
+      "port": 53,
+      "scope": "interface",
+      "process": "",
+      "pid": "",
+      "host_noise": true
+    },
+    {
+      "proto": "tcp",
+      "address": "127.0.0.1",
+      "port": 53,
+      "scope": "loopback",
+      "process": "",
+      "pid": "",
+      "host_noise": true
+    },
+    {
+      "proto": "tcp",
+      "address": "127.0.0.53",
+      "port": 53,
+      "scope": "interface",
+      "process": "",
+      "pid": "",
+      "host_noise": true
+    },
+    {
+      "proto": "tcp",
+      "address": "169.254.248.253",
+      "port": 53,
+      "scope": "interface",
+      "process": "",
+      "pid": "",
+      "host_noise": true
+    },
+    {
+      "proto": "tcp",
+      "address": "127.0.0.54",
+      "port": 53,
+      "scope": "interface",
+      "process": "",
+      "pid": "",
+      "host_noise": true
+    },
+    {
+      "proto": "tcp",
+      "address": "[::1]",
+      "port": 53,
+      "scope": "interface",
+      "process": "",
+      "pid": "",
+      "host_noise": true
+    },
+    {
+      "proto": "tcp",
+      "address": "[fe80::b47b:8101:204:7f5b]",
+      "port": 53,
+      "scope": "interface",
+      "process": "",
+      "pid": "",
+      "host_noise": true
+    },
+    {
+      "proto": "udp",
+      "address": "127.0.0.1",
+      "port": 53,
+      "scope": "loopback",
+      "process": "",
+      "pid": "",
+      "host_noise": true
+    },
+    {
+      "proto": "udp",
+      "address": "169.254.248.253",
+      "port": 53,
+      "scope": "interface",
+      "process": "",
+      "pid": "",
+      "host_noise": true
+    },
+    {
+      "proto": "udp",
+      "address": "10.42.0.1",
+      "port": 53,
+      "scope": "interface",
+      "process": "",
+      "pid": "",
+      "host_noise": true
+    },
+    {
+      "proto": "udp",
+      "address": "127.0.0.54",
+      "port": 53,
+      "scope": "interface",
+      "process": "",
+      "pid": "",
+      "host_noise": true
+    },
+    {
+      "proto": "udp",
+      "address": "127.0.0.53",
+      "port": 53,
+      "scope": "interface",
+      "process": "",
+      "pid": "",
+      "host_noise": true
+    },
+    {
+      "proto": "udp",
+      "address": "[::1]",
+      "port": 53,
+      "scope": "interface",
+      "process": "",
+      "pid": "",
+      "host_noise": true
+    },
+    {
+      "proto": "udp",
+      "address": "[fe80::b47b:8101:204:7f5b]",
+      "port": 53,
+      "scope": "interface",
+      "process": "",
+      "pid": "",
+      "host_noise": true
+    },
+    {
+      "proto": "udp",
+      "address": "0.0.0.0",
+      "port": 67,
+      "scope": "wildcard",
+      "process": "",
+      "pid": "",
+      "host_noise": true
+    },
+    {
+      "proto": "udp",
+      "address": "127.0.0.1",
+      "port": 323,
+      "scope": "loopback",
+      "process": "",
+      "pid": "",
+      "host_noise": true
+    },
+    {
+      "proto": "udp",
+      "address": "[::1]",
+      "port": 323,
+      "scope": "interface",
+      "process": "",
+      "pid": "",
+      "host_noise": true
+    },
+    {
+      "proto": "tcp",
+      "address": "127.0.0.1",
+      "port": 631,
+      "scope": "loopback",
+      "process": "",
+      "pid": "",
+      "host_noise": true
+    },
+    {
+      "proto": "tcp",
+      "address": "[::1]",
+      "port": 631,
+      "scope": "interface",
+      "process": "",
+      "pid": "",
+      "host_noise": true
+    },
+    {
+      "proto": "tcp",
+      "address": "127.0.0.1",
+      "port": 1234,
+      "scope": "loopback",
+      "process": "llmster",
+      "pid": "1330357",
+      "host_noise": false
+    },
+    {
+      "proto": "tcp",
+      "address": "127.0.0.1",
+      "port": 3000,
+      "scope": "loopback",
+      "process": "rootlessport",
+      "pid": "2465061",
+      "host_noise": false
+    },
+    {
+      "proto": "tcp",
+      "address": "127.0.0.1",
+      "port": 3001,
+      "scope": "loopback",
+      "process": "rootlessport",
+      "pid": "1776865",
+      "host_noise": false
+    },
+    {
+      "proto": "tcp",
+      "address": "127.0.0.1",
+      "port": 3002,
+      "scope": "loopback",
+      "process": "rootlessport",
+      "pid": "1776899",
+      "host_noise": false
+    },
+    {
+      "proto": "tcp",
+      "address": "127.0.0.1",
+      "port": 3300,
+      "scope": "loopback",
+      "process": "python3",
+      "pid": "2714757",
+      "host_noise": false
+    },
+    {
+      "proto": "tcp",
+      "address": "127.0.0.1",
+      "port": 4000,
+      "scope": "loopback",
+      "process": "rootlessport",
+      "pid": "2465038",
+      "host_noise": false
+    },
+    {
+      "proto": "tcp",
+      "address": "0.0.0.0",
+      "port": 4242,
+      "scope": "wildcard",
+      "process": "ReticulumMeshCh",
+      "pid": "6562",
+      "host_noise": false
+    },
+    {
+      "proto": "tcp",
+      "address": "127.0.0.1",
+      "port": 5345,
+      "scope": "loopback",
+      "process": "",
+      "pid": "",
+      "host_noise": true
+    },
+    {
+      "proto": "udp",
+      "address": "0.0.0.0",
+      "port": 5353,
+      "scope": "wildcard",
+      "process": "",
+      "pid": "",
+      "host_noise": true
+    },
+    {
+      "proto": "udp",
+      "address": "0.0.0.0",
+      "port": 5353,
+      "scope": "wildcard",
+      "process": "",
+      "pid": "",
+      "host_noise": true
+    },
+    {
+      "proto": "udp",
+      "address": "[::]",
+      "port": 5353,
+      "scope": "interface",
+      "process": "",
+      "pid": "",
+      "host_noise": true
+    },
+    {
+      "proto": "udp",
+      "address": "*",
+      "port": 5353,
+      "scope": "wildcard",
+      "process": "",
+      "pid": "",
+      "host_noise": true
+    },
+    {
+      "proto": "tcp",
+      "address": "127.0.0.1",
+      "port": 5432,
+      "scope": "loopback",
+      "process": "",
+      "pid": "",
+      "host_noise": false
+    },
+    {
+      "proto": "tcp",
+      "address": "10.42.0.1",
+      "port": 5432,
+      "scope": "interface",
+      "process": "socat",
+      "pid": "5430",
+      "host_noise": false
+    },
+    {
+      "proto": "tcp",
+      "address": "[::1]",
+      "port": 5432,
+      "scope": "interface",
+      "process": "",
+      "pid": "",
+      "host_noise": false
+    },
+    {
+      "proto": "tcp",
+      "address": "*",
+      "port": 6144,
+      "scope": "wildcard",
+      "process": "",
+      "pid": "",
+      "host_noise": false
+    },
+    {
+      "proto": "tcp",
+      "address": "127.0.0.1",
+      "port": 6379,
+      "scope": "loopback",
+      "process": "",
+      "pid": "",
+      "host_noise": false
+    },
+    {
+      "proto": "tcp",
+      "address": "[::1]",
+      "port": 6379,
+      "scope": "interface",
+      "process": "",
+      "pid": "",
+      "host_noise": false
+    },
+    {
+      "proto": "udp",
+      "address": "0.0.0.0",
+      "port": 7000,
+      "scope": "wildcard",
+      "process": "parameter_bridg",
+      "pid": "2749656",
+      "host_noise": false
+    },
+    {
+      "proto": "udp",
+      "address": "0.0.0.0",
+      "port": 7001,
+      "scope": "wildcard",
+      "process": "foxglove_bridge",
+      "pid": "2749726",
+      "host_noise": false
+    },
+    {
+      "proto": "tcp",
+      "address": "127.0.0.1",
+      "port": 8000,
+      "scope": "loopback",
+      "process": "",
+      "pid": "",
+      "host_noise": false
+    },
+    {
+      "proto": "tcp",
+      "address": "*",
+      "port": 8080,
+      "scope": "wildcard",
+      "process": "",
+      "pid": "",
+      "host_noise": false
+    },
+    {
+      "proto": "tcp",
+      "address": "127.0.0.1",
+      "port": 8099,
+      "scope": "loopback",
+      "process": "python3",
+      "pid": "2749616",
+      "host_noise": false
+    },
+    {
+      "proto": "tcp",
+      "address": "127.0.0.1",
+      "port": 8765,
+      "scope": "loopback",
+      "process": "foxglove_bridge",
+      "pid": "2749726",
+      "host_noise": false
+    },
+    {
+      "proto": "tcp",
+      "address": "127.0.0.1",
+      "port": 9090,
+      "scope": "loopback",
+      "process": "rootlessport",
+      "pid": "4264",
+      "host_noise": false
+    },
+    {
+      "proto": "udp",
+      "address": "0.0.0.0",
+      "port": 10317,
+      "scope": "wildcard",
+      "process": "parameter_bridg",
+      "pid": "2749656",
+      "host_noise": false
+    },
+    {
+      "proto": "udp",
+      "address": "0.0.0.0",
+      "port": 10317,
+      "scope": "wildcard",
+      "process": "gz-sim-main",
+      "pid": "2749614",
+      "host_noise": false
+    },
+    {
+      "proto": "udp",
+      "address": "0.0.0.0",
+      "port": 10318,
+      "scope": "wildcard",
+      "process": "parameter_bridg",
+      "pid": "2749656",
+      "host_noise": false
+    },
+    {
+      "proto": "udp",
+      "address": "0.0.0.0",
+      "port": 10318,
+      "scope": "wildcard",
+      "process": "gz-sim-main",
+      "pid": "2749614",
+      "host_noise": false
+    },
+    {
+      "proto": "udp",
+      "address": "0.0.0.0",
+      "port": 12650,
+      "scope": "wildcard",
+      "process": "foxglove_bridge",
+      "pid": "2749726",
+      "host_noise": false
+    },
+    {
+      "proto": "udp",
+      "address": "0.0.0.0",
+      "port": 12650,
+      "scope": "wildcard",
+      "process": "parameter_bridg",
+      "pid": "2749656",
+      "host_noise": false
+    },
+    {
+      "proto": "udp",
+      "address": "0.0.0.0",
+      "port": 12660,
+      "scope": "wildcard",
+      "process": "parameter_bridg",
+      "pid": "2749656",
+      "host_noise": false
+    },
+    {
+      "proto": "udp",
+      "address": "0.0.0.0",
+      "port": 12661,
+      "scope": "wildcard",
+      "process": "parameter_bridg",
+      "pid": "2749656",
+      "host_noise": false
+    },
+    {
+      "proto": "udp",
+      "address": "0.0.0.0",
+      "port": 12662,
+      "scope": "wildcard",
+      "process": "foxglove_bridge",
+      "pid": "2749726",
+      "host_noise": false
+    },
+    {
+      "proto": "udp",
+      "address": "0.0.0.0",
+      "port": 12663,
+      "scope": "wildcard",
+      "process": "foxglove_bridge",
+      "pid": "2749726",
+      "host_noise": false
+    },
+    {
+      "proto": "tcp",
+      "address": "127.0.0.1",
+      "port": 18000,
+      "scope": "loopback",
+      "process": "ReticulumMeshCh",
+      "pid": "6562",
+      "host_noise": false
+    },
+    {
+      "proto": "tcp",
+      "address": "127.0.0.1",
+      "port": 18789,
+      "scope": "loopback",
+      "process": "MainThread",
+      "pid": "1386386",
+      "host_noise": false
+    },
+    {
+      "proto": "tcp",
+      "address": "[::1]",
+      "port": 18789,
+      "scope": "interface",
+      "process": "MainThread",
+      "pid": "1386386",
+      "host_noise": false
+    },
+    {
+      "proto": "tcp",
+      "address": "127.0.0.1",
+      "port": 18790,
+      "scope": "loopback",
+      "process": "python3",
+      "pid": "1386388",
+      "host_noise": false
+    },
+    {
+      "proto": "tcp",
+      "address": "127.0.0.1",
+      "port": 20241,
+      "scope": "loopback",
+      "process": "cloudflared",
+      "pid": "5038",
+      "host_noise": false
+    },
+    {
+      "proto": "tcp",
+      "address": "127.0.0.1",
+      "port": 25463,
+      "scope": "loopback",
+      "process": "cline",
+      "pid": "1476278",
+      "host_noise": false
+    },
+    {
+      "proto": "tcp",
+      "address": "127.0.0.1",
+      "port": 32895,
+      "scope": "loopback",
+      "process": "parameter_bridg",
+      "pid": "2749656",
+      "host_noise": false
+    },
+    {
+      "proto": "tcp",
+      "address": "127.0.0.1",
+      "port": 33817,
+      "scope": "loopback",
+      "process": "llama-server",
+      "pid": "3747470",
+      "host_noise": false
+    },
+    {
+      "proto": "tcp",
+      "address": "127.0.0.1",
+      "port": 35731,
+      "scope": "loopback",
+      "process": "parameter_bridg",
+      "pid": "2749656",
+      "host_noise": false
+    },
+    {
+      "proto": "tcp",
+      "address": "127.0.0.1",
+      "port": 41343,
+      "scope": "loopback",
+      "process": "llmster",
+      "pid": "1330357",
+      "host_noise": false
+    },
+    {
+      "proto": "tcp",
+      "address": "127.0.0.1",
+      "port": 41489,
+      "scope": "loopback",
+      "process": "gz-sim-main",
+      "pid": "2749614",
+      "host_noise": false
+    },
+    {
+      "proto": "tcp",
+      "address": "127.0.0.1",
+      "port": 44000,
+      "scope": "loopback",
+      "process": "podman-desktop",
+      "pid": "3161889",
+      "host_noise": false
+    },
+    {
+      "proto": "tcp",
+      "address": "127.0.0.1",
+      "port": 44897,
+      "scope": "loopback",
+      "process": "gz-sim-main",
+      "pid": "2749614",
+      "host_noise": false
+    },
+    {
+      "proto": "udp",
+      "address": "169.254.248.253",
+      "port": 46206,
+      "scope": "interface",
+      "process": "foxglove_bridge",
+      "pid": "2749726",
+      "host_noise": false
+    },
+    {
+      "proto": "tcp",
+      "address": "127.0.0.1",
+      "port": 46229,
+      "scope": "loopback",
+      "process": "parameter_bridg",
+      "pid": "2749656",
+      "host_noise": false
+    },
+    {
+      "proto": "udp",
+      "address": "192.168.87.135",
+      "port": 46453,
+      "scope": "interface",
+      "process": "parameter_bridg",
+      "pid": "2749656",
+      "host_noise": false
+    },
+    {
+      "proto": "tcp",
+      "address": "127.0.0.1",
+      "port": 46695,
+      "scope": "loopback",
+      "process": "gz-sim-main",
+      "pid": "2749614",
+      "host_noise": false
+    },
+    {
+      "proto": "udp",
+      "address": "0.0.0.0",
+      "port": 49653,
+      "scope": "wildcard",
+      "process": "foxglove_bridge",
+      "pid": "2749726",
+      "host_noise": false
+    },
+    {
+      "proto": "udp",
+      "address": "10.42.0.1",
+      "port": 53355,
+      "scope": "interface",
+      "process": "parameter_bridg",
+      "pid": "2749656",
+      "host_noise": false
+    },
+    {
+      "proto": "udp",
+      "address": "0.0.0.0",
+      "port": 53857,
+      "scope": "wildcard",
+      "process": "parameter_bridg",
+      "pid": "2749656",
+      "host_noise": false
+    },
+    {
+      "proto": "udp",
+      "address": "10.42.0.1",
+      "port": 54404,
+      "scope": "interface",
+      "process": "foxglove_bridge",
+      "pid": "2749726",
+      "host_noise": false
+    },
+    {
+      "proto": "udp",
+      "address": "169.254.248.253",
+      "port": 58217,
+      "scope": "interface",
+      "process": "parameter_bridg",
+      "pid": "2749656",
+      "host_noise": false
+    },
+    {
+      "proto": "udp",
+      "address": "192.168.87.135",
+      "port": 59006,
+      "scope": "interface",
+      "process": "foxglove_bridge",
+      "pid": "2749726",
+      "host_noise": false
+    }
+  ],
+  "serial_devices": [
+    "usb-Silicon_Labs_CP2102_USB_to_UART_Bridge_Controller_0001-if00-port0"
+  ],
+  "listener_allowlist": [],
+  "drift": [
+    {
+      "id": "net-count",
+      "claim": "v6 2.2/3.2: 'Ten ao-* networks present'",
+      "expected": "10 live workload networks",
+      "observed": "10 live workload networks (ao-admin, ao-data, ao-field, ao-ledger-core, ao-ledger-ingest, ao-mapping, ao-payment, ao-sales, ao-sim-fabrication, ao-sim-vehicle)",
+      "severity": "info",
+      "status": "match"
+    },
+    {
+      "id": "mastodon-db-placement",
+      "claim": "v6 3.3: mastodon state consolidated onto Host PostgreSQL 18.6",
+      "expected": "no mastodon-db container; mastodon uses host PG 18 database 'mastodon'",
+      "observed": "mastodon-db container running on ao-sales - container-scoped PostgreSQL",
+      "severity": "attention",
+      "status": "drift"
+    },
+    {
+      "id": "webodm-db-placement",
+      "claim": "v6 3.3: WebODM backing data consolidated onto Host PG 18 (webodm/PostGIS 3.6.2)",
+      "expected": "no WebODM database container; webapp/worker use host PG 18",
+      "observed": "no WebODM database container running; quadlet still declares ao-webodm-db (container-scoped DB)",
+      "severity": "info",
+      "status": "match"
+    },
+    {
+      "id": "corda-persistence",
+      "claim": "v6 ES.1/3.3/18.2: Corda 5.2.2 persists in PostgreSQL 'cordadb'; the Corda 4.14.2 H2 scaffold was retired 2026-09-28",
+      "expected": "no running Corda containers; cordadb is the documented persistence target",
+      "observed": "no running Corda containers (matches the blocked state; Corda 4 H2 scaffold retired 2026-09-28)",
+      "severity": "info",
+      "status": "match"
+    },
+    {
+      "id": "workload-internal",
+      "claim": "v6 5.1: all workload-domain networks are Internal=true",
+      "expected": "every workload network reports Internal=true",
+      "observed": "all live workload networks are Internal=true",
+      "severity": "info",
+      "status": "match"
+    },
+    {
+      "id": "non-loopback-listeners",
+      "claim": "README 4.1 rule 6 + listener-allowlist.yaml (listeners: []) - no public ports without approval",
+      "expected": "no unapproved non-loopback listener",
+      "observed": "0.0.0.0:4242/tcp (ReticulumMeshCh), 10.42.0.1:5432/tcp (socat), [::1]:5432/tcp (unknown), *:6144/tcp (unknown), [::1]:6379/tcp (unknown), 0.0.0.0:7000/udp (parameter_bridg), 0.0.0.0:7001/udp (foxglove_bridge), *:8080/tcp (unknown), 0.0.0.0:10317/udp (parameter_bridg), 0.0.0.0:10317/udp (gz-sim-main), 0.0.0.0:10318/udp (parameter_bridg), 0.0.0.0:10318/udp (gz-sim-main), 0.0.0.0:12650/udp (foxglove_bridge), 0.0.0.0:12650/udp (parameter_bridg), 0.0.0.0:12660/udp (parameter_bridg), 0.0.0.0:12661/udp (parameter_bridg), 0.0.0.0:12662/udp (foxglove_bridge), 0.0.0.0:12663/udp (foxglove_bridge), [::1]:18789/tcp (MainThread), 169.254.248.253:46206/udp (foxglove_bridge), 192.168.87.135:46453/udp (parameter_bridg), 0.0.0.0:49653/udp (foxglove_bridge), 10.42.0.1:53355/udp (parameter_bridg), 0.0.0.0:53857/udp (parameter_bridg), 10.42.0.1:54404/udp (foxglove_bridge), 169.254.248.253:58217/udp (parameter_bridg), 192.168.87.135:59006/udp (foxglove_bridge)",
+      "severity": "attention",
+      "status": "drift"
+    }
+  ],
+  "counts": {
+    "networks_declared": 12,
+    "networks_total": 15,
+    "networks_live": 12,
+    "containers_declared": 16,
+    "containers_live": 19,
+    "containers_running": 13,
+    "listeners": 77,
+    "loopback_listeners": 31,
+    "non_loopback_listeners": 27,
+    "host_services": 5,
+    "desktop_software": 9,
+    "databases": 20,
+    "databases_authoritative": 8,
+    "databases_relational": 8,
+    "drift_items": 2
+  }
+}

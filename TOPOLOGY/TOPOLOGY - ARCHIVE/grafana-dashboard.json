@@ -1,0 +1,1918 @@
+{
+  "__inputs": [
+    {
+      "name": "DS_PROMETHEUS",
+      "label": "Prometheus",
+      "description": "Prometheus datasource for the ALWAYS ON topology dashboard",
+      "type": "datasource",
+      "pluginId": "prometheus",
+      "pluginName": "Prometheus"
+    }
+  ],
+  "__requires": [
+    {
+      "type": "grafana",
+      "id": "grafana",
+      "name": "Grafana",
+      "version": "10.0.0"
+    },
+    {
+      "type": "datasource",
+      "id": "prometheus",
+      "name": "Prometheus",
+      "version": "1.0.0"
+    },
+    {
+      "type": "panel",
+      "id": "nodeGraph",
+      "name": "Node graph",
+      "version": ""
+    }
+  ],
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "description": "ALWAYS ON system topology: networks, ports, IP addresses, local software names, field radio and drone links.",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "links": [],
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "networks total",
+      "gridPos": {
+        "h": 4,
+        "w": 2,
+        "x": 0,
+        "y": 0
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "instant": true,
+          "expr": "ALWAYSON_STATIC{metric=\"networks_total\"}"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "networks live",
+      "gridPos": {
+        "h": 4,
+        "w": 2,
+        "x": 2,
+        "y": 0
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "instant": true,
+          "expr": "ALWAYSON_STATIC{metric=\"networks_live\"}"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "containers declared",
+      "gridPos": {
+        "h": 4,
+        "w": 2,
+        "x": 4,
+        "y": 0
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "instant": true,
+          "expr": "ALWAYSON_STATIC{metric=\"containers_declared\"}"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "containers running",
+      "gridPos": {
+        "h": 4,
+        "w": 2,
+        "x": 6,
+        "y": 0
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "instant": true,
+          "expr": "ALWAYSON_STATIC{metric=\"containers_running\"}"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "listeners",
+      "gridPos": {
+        "h": 4,
+        "w": 2,
+        "x": 8,
+        "y": 0
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "instant": true,
+          "expr": "ALWAYSON_STATIC{metric=\"listeners\"}"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "loopback listeners",
+      "gridPos": {
+        "h": 4,
+        "w": 2,
+        "x": 10,
+        "y": 0
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "instant": true,
+          "expr": "ALWAYSON_STATIC{metric=\"loopback_listeners\"}"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 7,
+      "type": "stat",
+      "title": "non-loopback listeners",
+      "gridPos": {
+        "h": 4,
+        "w": 2,
+        "x": 12,
+        "y": 0
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "instant": true,
+          "expr": "ALWAYSON_STATIC{metric=\"non-loopback_listeners\"}"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 8,
+      "type": "stat",
+      "title": "databases &amp; stores",
+      "gridPos": {
+        "h": 4,
+        "w": 2,
+        "x": 14,
+        "y": 0
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "instant": true,
+          "expr": "ALWAYSON_STATIC{metric=\"databases_&amp;_stores\"}"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 9,
+      "type": "stat",
+      "title": "authoritative stores",
+      "gridPos": {
+        "h": 4,
+        "w": 2,
+        "x": 16,
+        "y": 0
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "instant": true,
+          "expr": "ALWAYSON_STATIC{metric=\"authoritative_stores\"}"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 10,
+      "type": "stat",
+      "title": "drift items",
+      "gridPos": {
+        "h": 4,
+        "w": 2,
+        "x": 18,
+        "y": 0
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "instant": true,
+          "expr": "ALWAYSON_STATIC{metric=\"drift_items\"}"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 100,
+      "type": "nodeGraph",
+      "title": "ALWAYS ON \u2014 networks \u00b7 containers \u00b7 host software",
+      "description": "Generated by /ALWAYSON/scripts/operations/generate-topology.py from README-authoritative declarations plus live inspection. Node mainStat = CIDR or container IP; edge labels = published port / IP.",
+      "gridPos": {
+        "h": 22,
+        "w": 24,
+        "x": 0,
+        "y": 4
+      },
+      "datasource": {
+        "type": "datasource",
+        "uid": "grafana"
+      },
+      "nodes": [
+        {
+          "id": "host",
+          "title": "ALWAYS ON HOST \u2014 Kubuntu 26.04 LTS workstation",
+          "subTitle": "Kubuntu 26.04 LTS (Ubuntu 26.04.1 userland)",
+          "mainStat": "13",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "lo 127.0.0.1/8,::1/128 \u00b7 eno1 169.254.248.253/16,10.42.0.1/24,fe80::b47b:8101:204:7f5b/64 \u00b7 wlp3s0 192.168.87.135/24,fe80::abd7:e952:c515:db0d/64",
+          "status": "ok"
+        },
+        {
+          "id": "host-postgresql",
+          "title": "PostgreSQL 18.6 (host cluster)",
+          "subTitle": "postgresql-18 18.6 / PostGIS 3.6.2",
+          "mainStat": "127.0.0.1:5432, [::1]:5432, unix:/var/run/postgresql/.s.PGSQL.5432",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "Consolidated relational platform; REVOKE CONNECT FROM PUBLIC enforced",
+          "status": "ok"
+        },
+        {
+          "id": "host-redis",
+          "title": "Redis 8.0.5 (host service)",
+          "subTitle": "redis-server 8.0.5",
+          "mainStat": "127.0.0.1:6379",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "cache / coordination layer, not a system of record",
+          "status": "ok"
+        },
+        {
+          "id": "net-ao-admin",
+          "title": "ao-admin",
+          "subTitle": "workload",
+          "mainStat": "10.89.9.0/24",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "implemented \u00b7 gw 10.89.9.1 \u00b7 Internal=True \u00b7 members: ao-grafana, ao-metabase, ao-node-exporter, ao-prometheus",
+          "status": "ok"
+        },
+        {
+          "id": "net-ao-build-update",
+          "title": "ao-build-update",
+          "subTitle": "adapter",
+          "mainStat": "no subnet",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "planned \u00b7 gw \u2014 \u00b7 Internal=None \u00b7 members: none",
+          "status": "neutral"
+        },
+        {
+          "id": "net-ao-data",
+          "title": "ao-data",
+          "subTitle": "workload",
+          "mainStat": "10.89.8.0/24",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "implemented \u00b7 gw 10.89.8.1 \u00b7 Internal=True \u00b7 members: none",
+          "status": "ok"
+        },
+        {
+          "id": "net-ao-egress-archive",
+          "title": "ao-egress-archive",
+          "subTitle": "adapter",
+          "mainStat": "no subnet",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "planned \u00b7 gw \u2014 \u00b7 Internal=None \u00b7 members: none",
+          "status": "neutral"
+        },
+        {
+          "id": "net-ao-egress-community",
+          "title": "ao-egress-community",
+          "subTitle": "adapter",
+          "mainStat": "10.89.11.0/24",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "implemented \u00b7 gw 10.89.11.1 \u00b7 Internal=False \u00b7 members: mastodon-sidekiq, mastodon-web",
+          "status": "ok"
+        },
+        {
+          "id": "net-ao-field",
+          "title": "ao-field",
+          "subTitle": "workload",
+          "mainStat": "10.89.2.0/24",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "in_progress \u00b7 gw 10.89.2.1 \u00b7 Internal=True \u00b7 members: none",
+          "status": "ok"
+        },
+        {
+          "id": "net-ao-ingress-payment",
+          "title": "ao-ingress-payment",
+          "subTitle": "adapter",
+          "mainStat": "no subnet",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "planned \u00b7 gw \u2014 \u00b7 Internal=None \u00b7 members: none",
+          "status": "neutral"
+        },
+        {
+          "id": "net-ao-ledger-core",
+          "title": "ao-ledger-core",
+          "subTitle": "workload",
+          "mainStat": "10.89.7.0/24",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "blocked \u00b7 gw 10.89.7.1 \u00b7 Internal=True \u00b7 members: none",
+          "status": "error"
+        },
+        {
+          "id": "net-ao-ledger-ingest",
+          "title": "ao-ledger-ingest",
+          "subTitle": "workload",
+          "mainStat": "10.89.6.0/24",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "blocked \u00b7 gw 10.89.6.1 \u00b7 Internal=True \u00b7 members: none",
+          "status": "error"
+        },
+        {
+          "id": "net-ao-mapping",
+          "title": "ao-mapping",
+          "subTitle": "workload",
+          "mainStat": "10.89.3.0/24",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "implemented \u00b7 gw 10.89.3.1 \u00b7 Internal=True \u00b7 members: nodeodm, broker, db, webapp, worker",
+          "status": "ok"
+        },
+        {
+          "id": "net-ao-payment",
+          "title": "ao-payment",
+          "subTitle": "workload",
+          "mainStat": "10.89.1.0/24",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "planned \u00b7 gw 10.89.1.1 \u00b7 Internal=True \u00b7 members: none",
+          "status": "ok"
+        },
+        {
+          "id": "net-ao-reporting-egress",
+          "title": "ao-reporting-egress",
+          "subTitle": "adapter",
+          "mainStat": "10.89.10.0/24",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "implemented \u00b7 gw 10.89.10.1 \u00b7 Internal=False \u00b7 members: ao-grafana, ao-metabase",
+          "status": "ok"
+        },
+        {
+          "id": "net-ao-sales",
+          "title": "ao-sales",
+          "subTitle": "workload",
+          "mainStat": "10.89.0.0/24",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "in_progress \u00b7 gw 10.89.0.1 \u00b7 Internal=True \u00b7 members: mastodon-db, mastodon-redis, mastodon-sidekiq, mastodon-streaming, mastodon-web, sales-db, 300x3-redis, 300x3-migrate, 300x3-sidekiq, 300x3-web, 300x3-streaming, 300x3-proxy",
+          "status": "ok"
+        },
+        {
+          "id": "net-ao-sim-fabrication",
+          "title": "ao-sim-fabrication",
+          "subTitle": "workload",
+          "mainStat": "10.89.5.0/24",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "implemented \u00b7 gw 10.89.5.1 \u00b7 Internal=True \u00b7 members: none",
+          "status": "ok"
+        },
+        {
+          "id": "net-ao-sim-vehicle",
+          "title": "ao-sim-vehicle",
+          "subTitle": "workload",
+          "mainStat": "10.89.4.0/24",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "implemented \u00b7 gw 10.89.4.1 \u00b7 Internal=True \u00b7 members: ardupilot-sitl",
+          "status": "ok"
+        },
+        {
+          "id": "ctr-broker",
+          "title": "broker",
+          "subTitle": "redis sha256:91d0f7e8c7",
+          "mainStat": "ao-mapping=10.89.3.2",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "running \u00b7 ports: internal only \u00b7 unit: active \u00b7 status: implemented",
+          "status": "ok"
+        },
+        {
+          "id": "ctr-db",
+          "title": "db",
+          "subTitle": "webodm_db sha256:03f18ec008",
+          "mainStat": "no IP assigned",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "not running \u00b7 ports: internal only \u00b7 unit: inactive \u00b7 status: declared",
+          "status": "neutral"
+        },
+        {
+          "id": "ctr-nodeodm",
+          "title": "nodeodm",
+          "subTitle": "nodeodm sha256:553fe5cacb",
+          "mainStat": "ao-mapping=10.89.3.3",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "running \u00b7 ports: internal only \u00b7 unit: active \u00b7 status: implemented",
+          "status": "ok"
+        },
+        {
+          "id": "ctr-webapp",
+          "title": "webapp",
+          "subTitle": "webodm_webapp sha256:188267c654",
+          "mainStat": "ao-mapping=10.89.3.4",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "running \u00b7 ports: internal only \u00b7 unit: active \u00b7 status: implemented",
+          "status": "ok"
+        },
+        {
+          "id": "ctr-worker",
+          "title": "worker",
+          "subTitle": "webodm_webapp sha256:188267c654",
+          "mainStat": "ao-mapping=10.89.3.5",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "running \u00b7 ports: internal only \u00b7 unit: active \u00b7 status: implemented",
+          "status": "ok"
+        },
+        {
+          "id": "ctr-ao-grafana",
+          "title": "ao-grafana",
+          "subTitle": "grafana-oss 11.6.0",
+          "mainStat": "ao-admin=10.89.9.4, ao-reporting-egress=10.89.10.2",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "running \u00b7 ports: 127.0.0.1:3001->3000/tcp \u00b7 unit: active \u00b7 status: implemented",
+          "status": "ok"
+        },
+        {
+          "id": "ctr-ao-metabase",
+          "title": "ao-metabase",
+          "subTitle": "metabase v0.54.1",
+          "mainStat": "ao-admin=10.89.9.5, ao-reporting-egress=10.89.10.3",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "running \u00b7 ports: 127.0.0.1:3002->3000/tcp \u00b7 unit: active \u00b7 status: implemented",
+          "status": "ok"
+        },
+        {
+          "id": "ctr-ao-node-exporter",
+          "title": "ao-node-exporter",
+          "subTitle": "node-exporter v1.9.1",
+          "mainStat": "ao-admin=10.89.9.2",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "running \u00b7 ports: internal only \u00b7 unit: active \u00b7 status: implemented",
+          "status": "ok"
+        },
+        {
+          "id": "ctr-ao-prometheus",
+          "title": "ao-prometheus",
+          "subTitle": "prometheus v3.4.1",
+          "mainStat": "ao-admin=10.89.9.3",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "running \u00b7 ports: 127.0.0.1:9090->9090/tcp \u00b7 unit: active \u00b7 status: implemented",
+          "status": "ok"
+        },
+        {
+          "id": "ctr-mastodon-db",
+          "title": "mastodon-db",
+          "subTitle": "postgres sha256:a65e6a841f",
+          "mainStat": "ao-sales=10.89.0.10",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "running \u00b7 ports: internal only \u00b7 unit: active \u00b7 status: implemented",
+          "status": "ok"
+        },
+        {
+          "id": "ctr-mastodon-redis",
+          "title": "mastodon-redis",
+          "subTitle": "redis sha256:91d0f7e8c7",
+          "mainStat": "ao-sales=10.89.0.2",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "running \u00b7 ports: internal only \u00b7 unit: active \u00b7 status: implemented",
+          "status": "ok"
+        },
+        {
+          "id": "ctr-mastodon-sidekiq",
+          "title": "mastodon-sidekiq",
+          "subTitle": "mastodon sha256:76436bccad",
+          "mainStat": "ao-egress-community=10.89.11.5, ao-sales=10.89.0.11",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "running \u00b7 ports: internal only \u00b7 unit: active \u00b7 status: implemented",
+          "status": "ok"
+        },
+        {
+          "id": "ctr-mastodon-streaming",
+          "title": "mastodon-streaming",
+          "subTitle": "mastodon-streaming v4.3.7",
+          "mainStat": "ao-sales=10.89.0.12",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "running \u00b7 ports: 127.0.0.1:4000->4000/tcp \u00b7 unit: active \u00b7 status: implemented",
+          "status": "ok"
+        },
+        {
+          "id": "ctr-mastodon-web",
+          "title": "mastodon-web",
+          "subTitle": "mastodon sha256:76436bccad",
+          "mainStat": "ao-egress-community=10.89.11.6, ao-sales=10.89.0.13",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "running \u00b7 ports: 127.0.0.1:3000->3000/tcp \u00b7 unit: active \u00b7 status: implemented",
+          "status": "ok"
+        },
+        {
+          "id": "ctr-sales-db",
+          "title": "sales-db",
+          "subTitle": "postgres sha256:a65e6a841f",
+          "mainStat": "no IP assigned",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "not running \u00b7 ports: internal only \u00b7 unit: inactive \u00b7 status: declared",
+          "status": "neutral"
+        },
+        {
+          "id": "ctr-ardupilot-sitl",
+          "title": "ardupilot-sitl",
+          "subTitle": "ardupilot-sitl latest",
+          "mainStat": "no IP assigned",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "not running \u00b7 ports: internal only \u00b7 unit: \u2014 \u00b7 status: declared",
+          "status": "neutral"
+        },
+        {
+          "id": "ctr-300x3-migrate",
+          "title": "300x3-migrate",
+          "subTitle": "mastodon v4.3.7",
+          "mainStat": "ao-sales=\u2014",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "exited \u00b7 ports: internal only \u00b7 unit: \u2014 \u00b7 status: unknown",
+          "status": "neutral"
+        },
+        {
+          "id": "ctr-300x3-proxy",
+          "title": "300x3-proxy",
+          "subTitle": "nginx alpine",
+          "mainStat": "ao-sales=\u2014",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "exited \u00b7 ports: 127.0.0.1:3000->80/tcp \u00b7 unit: \u2014 \u00b7 status: unknown",
+          "status": "neutral"
+        },
+        {
+          "id": "ctr-300x3-redis",
+          "title": "300x3-redis",
+          "subTitle": "redis sha256:91d0f7e8c7",
+          "mainStat": "ao-sales=\u2014",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "exited \u00b7 ports: internal only \u00b7 unit: \u2014 \u00b7 status: unknown",
+          "status": "neutral"
+        },
+        {
+          "id": "ctr-300x3-sidekiq",
+          "title": "300x3-sidekiq",
+          "subTitle": "mastodon v4.3.7",
+          "mainStat": "ao-sales=\u2014",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "exited \u00b7 ports: internal only \u00b7 unit: \u2014 \u00b7 status: unknown",
+          "status": "neutral"
+        },
+        {
+          "id": "ctr-300x3-streaming",
+          "title": "300x3-streaming",
+          "subTitle": "mastodon-streaming v4.3.7",
+          "mainStat": "ao-sales=\u2014",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "exited \u00b7 ports: internal only \u00b7 unit: \u2014 \u00b7 status: unknown",
+          "status": "neutral"
+        },
+        {
+          "id": "ctr-300x3-web",
+          "title": "300x3-web",
+          "subTitle": "mastodon v4.3.7",
+          "mainStat": "ao-sales=\u2014",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "exited \u00b7 ports: internal only \u00b7 unit: \u2014 \u00b7 status: unknown",
+          "status": "neutral"
+        },
+        {
+          "id": "dbnode-db-host-postgres",
+          "title": "Host PostgreSQL 18.6 cluster",
+          "subTitle": "postgresql-18 18.6 + PostGIS 3.6.2 (host systemd service)",
+          "mainStat": "127.0.0.1:5432, [::1]:5432, unix:/var/run/postgresql/.s.PGSQL.5432",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "authoritative relational \u00b7 used by: \u2014 \u00b7 System-wide relational platform. One cluster, separate logical databases, separate application roles. REVOKE CONNECT FROM PUBLIC enforced.",
+          "status": "ok"
+        },
+        {
+          "id": "dbnode-db-salesdb",
+          "title": "salesdb",
+          "subTitle": "PostgreSQL 18 (host cluster target)",
+          "mainStat": "postgresql",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "authoritative relational \u00b7 used by: Sales API, ao-payment (planned), Metabase (reporting) \u00b7 Authoritative sales/payment records: customers, orders, products, payments, receipts, entitlements, audit history.",
+          "status": "ok"
+        },
+        {
+          "id": "dbnode-db-mastodon",
+          "title": "mastodon",
+          "subTitle": "PostgreSQL 18 (in container-scoped mastodon-db today)",
+          "mainStat": "postgresql",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "authoritative relational \u00b7 used by: Mastodon web, Mastodon Sidekiq, Mastodon streaming \u00b7 Mastodon application state: accounts, posts, media metadata, federation state, background-job data.",
+          "status": "ok"
+        },
+        {
+          "id": "dbnode-db-webodm",
+          "title": "webodm (PostGIS)",
+          "subTitle": "PostgreSQL/PostGIS (in container-scoped db today)",
+          "mainStat": "postgis",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "authoritative relational \u00b7 used by: WebODM webapp, WebODM worker, NodeODM, Metabase (reporting) \u00b7 Mapping projects, processing state, users, geospatial data.",
+          "status": "ok"
+        },
+        {
+          "id": "dbnode-db-grafana",
+          "title": "grafana",
+          "subTitle": "PostgreSQL 18 (host cluster)",
+          "mainStat": "postgresql",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "authoritative relational \u00b7 used by: Grafana ao-grafana \u00b7 Grafana users, dashboards, folders, datasource definitions, preferences, alert state.",
+          "status": "ok"
+        },
+        {
+          "id": "dbnode-db-metabase",
+          "title": "metabase",
+          "subTitle": "PostgreSQL 18 (host cluster)",
+          "mainStat": "postgresql",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "authoritative relational \u00b7 used by: Metabase ao-metabase \u00b7 Metabase users, collections, questions, dashboards, database connections, settings.",
+          "status": "ok"
+        },
+        {
+          "id": "dbnode-db-cordadb",
+          "title": "cordadb (Corda persistence)",
+          "subTitle": "PostgreSQL 18 \u2014 separate logical database with its own roles and backup scope",
+          "mainStat": "postgresql",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "authoritative ledger \u00b7 used by: Corda node ao-ledger-core (planned) \u00b7 Corda persistence. AUTHORITATIVE LEDGER for sale/contract, receipt association, entitlement, approved state transitions.",
+          "status": "ok"
+        },
+        {
+          "id": "dbnode-db-postgres-admin",
+          "title": "postgres (administrative)",
+          "subTitle": "PostgreSQL 18 (host cluster)",
+          "mainStat": "postgresql",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "authoritative relational \u00b7 used by: Maintenance, backup, restore validation \u00b7 Administrative/maintenance database for the shared cluster.",
+          "status": "ok"
+        },
+        {
+          "id": "dbnode-db-host-redis",
+          "title": "Host Redis 8.0.5 (database 0)",
+          "subTitle": "redis-server 8.0.5 (host systemd service)",
+          "mainStat": "127.0.0.1:6379",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "not authoritative \u00b7 used by: general coordination \u00b7 General low-latency cache/coordination layer. NOT a system of record; no current application data confirmed.",
+          "status": "neutral"
+        },
+        {
+          "id": "dbnode-db-mastodon-redis",
+          "title": "mastodon-redis (database 0)",
+          "subTitle": "Redis 8 (container-scoped)",
+          "mainStat": "redis",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "not authoritative \u00b7 used by: Mastodon web, Mastodon Sidekiq \u00b7 Mastodon cache, queues, background-job coordination. Not authoritative business data.",
+          "status": "neutral"
+        },
+        {
+          "id": "dbnode-db-broker",
+          "title": "broker (database 0)",
+          "subTitle": "Redis 8 (container-scoped)",
+          "mainStat": "redis",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "not authoritative \u00b7 used by: WebODM worker, WebODM broker \u00b7 Celery/task broker and worker coordination. Not authoritative mapping data.",
+          "status": "neutral"
+        },
+        {
+          "id": "dbnode-db-prometheus",
+          "title": "Prometheus TSDB",
+          "subTitle": "prometheus v3.4.1 \u2014 /prometheus persistent volume",
+          "mainStat": "tsdb",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "not authoritative \u00b7 used by: Grafana (metrics datasource), alerting, rule evaluation \u00b7 Specialized time-series store: metrics, service health, resource usage, operational monitoring. Works without Grafana.",
+          "status": "neutral"
+        },
+        {
+          "id": "dbnode-db-openclaw",
+          "title": "OpenClaw SQLite state",
+          "subTitle": "SQLite (desktop application state)",
+          "mainStat": "~/.openclaw/state/openclaw.sqlite",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "not authoritative \u00b7 used by: OpenClaw gateway, OpenClaw chat relay \u00b7 Local operational state. Not part of SQL reporting.",
+          "status": "neutral"
+        },
+        {
+          "id": "dbnode-db-akonadi",
+          "title": "Akonadi / KDE PIM SQLite",
+          "subTitle": "SQLite (desktop application state)",
+          "mainStat": "sqlite",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "not authoritative \u00b7 used by: Akonadi, KDE PIM \u00b7 Contacts, calendars, mail indexes, local personal-information data.",
+          "status": "neutral"
+        },
+        {
+          "id": "dbnode-db-browsers",
+          "title": "Browser profile SQLite stores",
+          "subTitle": "SQLite (Konqueror/KDE WebEngine, Firefox, Brave, Chrome, Edge)",
+          "mainStat": "sqlite",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "not authoritative \u00b7 used by: browsers \u00b7 History, site storage, caches, certificates, profile data.",
+          "status": "neutral"
+        },
+        {
+          "id": "dbnode-db-podman",
+          "title": "Podman rootless metadata store",
+          "subTitle": "SQLite (rootless Podman)",
+          "mainStat": "sqlite",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "not authoritative \u00b7 used by: Podman \u00b7 Container, image, network, volume metadata. Not application data.",
+          "status": "neutral"
+        },
+        {
+          "id": "dbnode-db-sim-local",
+          "title": "ROS / simulation local SQLite",
+          "subTitle": "SQLite (application-specific local files)",
+          "mainStat": "sqlite",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "not authoritative \u00b7 used by: ROS 2 Lyrical, Gazebo Sim, ArduPilot SITL, QGroundControl \u00b7 Local tool state where enabled. Not a shared reporting source.",
+          "status": "neutral"
+        },
+        {
+          "id": "dbnode-db-filesystem-state",
+          "title": "Filesystem / local application state",
+          "subTitle": "Application files, logs, project files, local state",
+          "mainStat": "filesystem",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "not authoritative \u00b7 used by: LM Studio, OpenClaw, MeshChatX, QGroundControl, ArduPilot, Gazebo, simulation tools, restic \u00b7 Operational or engineering data that is not automatically part of SQL reporting.",
+          "status": "neutral"
+        },
+        {
+          "id": "dbnode-db-mapping-media",
+          "title": "Photogrammetry media (filesystem, ext4)",
+          "subTitle": "/media/scottw/500GBPHOTOGRAM/ \u2014 ext4 /dev/sdb1, UUID verified",
+          "mainStat": "filesystem",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "not authoritative \u00b7 used by: WebODM, NodeODM, imagery intake/exporter \u00b7 Source imagery, orthophotos, point clouds, 3D model artifacts. Large binaries stay filesystem-resident; only metadata is in webodm.",
+          "status": "neutral"
+        },
+        {
+          "id": "dbnode-db-h2-legacy",
+          "title": "H2 legacy migration backups",
+          "subTitle": "H2 (retained backup files only)",
+          "mainStat": "h2",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "not an application db \u00b7 used by: Grafana/Metabase legacy migration \u00b7 No longer active; retained temporarily for rollback and migration evidence.",
+          "status": "error"
+        },
+        {
+          "id": "internet",
+          "title": "PUBLIC INTERNET",
+          "subTitle": "no inbound port-forward",
+          "mainStat": "outbound only",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "cloudflared tunnel publishes loopback origins; origin ports stay loopback",
+          "status": "warning"
+        },
+        {
+          "id": "plan-corda-core",
+          "title": "Corda 5.2.2 DLT core (ao-ledger-core)",
+          "subTitle": "Corda 5.2.2 node + cordadb (PostgreSQL 18) persistence",
+          "mainStat": "blocked",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "Blocked on operator key/certificate ceremony (README 3.2, 18.3)",
+          "status": "error"
+        },
+        {
+          "id": "plan-corda-ingest",
+          "title": "Ledger-ingestion gateway (ao-ledger-ingest)",
+          "subTitle": "mTLS validation, authorization, idempotency, audit",
+          "mainStat": "blocked",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "Manifest + correlation + signature requirements pending (README 4.4, 11.2)",
+          "status": "error"
+        },
+        {
+          "id": "plan-sales-api",
+          "title": "Sales API + payment adapter (ao-payment)",
+          "subTitle": "sales API, provider webhook verifier",
+          "mainStat": "planned",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "Blocked on payment provider selection (README 18.4)",
+          "status": "neutral"
+        },
+        {
+          "id": "plan-sim-fabrication",
+          "title": "Fabrication / facility simulation (ao-sim-fabrication)",
+          "subTitle": "ROS 2 Lyrical + Gazebo Sim 10.5.0 robot cells, AM, kitchen, logistics",
+          "mainStat": "implemented",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "Headless smoke test passed; GUI workflow pending (README 3.2, 6.A.1)",
+          "status": "neutral"
+        }
+      ],
+      "edges": [
+        {
+          "id": "host=>host-postgresql",
+          "source": "host",
+          "target": "host-postgresql",
+          "mainStat": "tcp/5432",
+          "secondaryStat": "loopback",
+          "detail__": "host PostgreSQL serves every containerised database role"
+        },
+        {
+          "id": "host=>host-redis",
+          "source": "host",
+          "target": "host-redis",
+          "mainStat": "tcp/6379",
+          "secondaryStat": "loopback",
+          "detail__": ""
+        },
+        {
+          "id": "host=>net-ao-admin",
+          "source": "host",
+          "target": "net-ao-admin",
+          "mainStat": "Internal=true",
+          "secondaryStat": "implemented",
+          "detail__": "Monitoring, backup, restore validation, administration"
+        },
+        {
+          "id": "host=>net-ao-build-update",
+          "source": "host",
+          "target": "net-ao-build-update",
+          "mainStat": "Internal=false",
+          "secondaryStat": "planned",
+          "detail__": "Image and package acquisition before controlled promotion (outbound adapter)"
+        },
+        {
+          "id": "host=>net-ao-data",
+          "source": "host",
+          "target": "net-ao-data",
+          "mainStat": "Internal=true",
+          "secondaryStat": "implemented",
+          "detail__": "Narrow controlled data plumbing where unavoidable"
+        },
+        {
+          "id": "host=>net-ao-egress-archive",
+          "source": "host",
+          "target": "net-ao-egress-archive",
+          "mainStat": "Internal=false",
+          "secondaryStat": "planned",
+          "detail__": "Encrypted pCloud replication and approved IPFS operations (outbound adapter)"
+        },
+        {
+          "id": "host=>net-ao-egress-community",
+          "source": "host",
+          "target": "net-ao-egress-community",
+          "mainStat": "Internal=false",
+          "secondaryStat": "implemented",
+          "detail__": "Approved Mastodon/community federation egress adapter"
+        },
+        {
+          "id": "host=>net-ao-field",
+          "source": "host",
+          "target": "net-ao-field",
+          "mainStat": "Internal=true",
+          "secondaryStat": "in_progress",
+          "detail__": "Heltec gateway, RNS/MeshChatX, telemetry spool, mission-release service"
+        },
+        {
+          "id": "host=>net-ao-ingress-payment",
+          "source": "host",
+          "target": "net-ao-ingress-payment",
+          "mainStat": "Internal=false",
+          "secondaryStat": "planned",
+          "detail__": "Payment-provider webhook receiver (inbound adapter)"
+        },
+        {
+          "id": "host=>net-ao-ledger-core",
+          "source": "host",
+          "target": "net-ao-ledger-core",
+          "mainStat": "Internal=true",
+          "secondaryStat": "blocked",
+          "detail__": "Corda node, ledger database, certificate/keystore material"
+        },
+        {
+          "id": "host=>net-ao-ledger-ingest",
+          "source": "host",
+          "target": "net-ao-ledger-ingest",
+          "mainStat": "Internal=true",
+          "secondaryStat": "blocked",
+          "detail__": "mTLS validation gateway, authorization, audit, idempotency"
+        },
+        {
+          "id": "host=>net-ao-mapping",
+          "source": "host",
+          "target": "net-ao-mapping",
+          "mainStat": "Internal=true",
+          "secondaryStat": "implemented",
+          "detail__": "WebODM, NodeODM, Redis broker, mapping DB, imagery intake/exporter"
+        },
+        {
+          "id": "host=>net-ao-payment",
+          "source": "host",
+          "target": "net-ao-payment",
+          "mainStat": "Internal=true",
+          "secondaryStat": "planned",
+          "detail__": "Provider webhook verifier and payment adapter"
+        },
+        {
+          "id": "host=>net-ao-reporting-egress",
+          "source": "host",
+          "target": "net-ao-reporting-egress",
+          "mainStat": "Internal=false",
+          "secondaryStat": "implemented",
+          "detail__": "Reporting-tool egress to the host PostgreSQL bridge (10.42.0.1:5432)"
+        },
+        {
+          "id": "host=>net-ao-sales",
+          "source": "host",
+          "target": "net-ao-sales",
+          "mainStat": "Internal=true",
+          "secondaryStat": "in_progress",
+          "detail__": "Sales API, sales PostgreSQL, Mastodon stack, OpenClaw, LM Studio"
+        },
+        {
+          "id": "host=>net-ao-sim-fabrication",
+          "source": "host",
+          "target": "net-ao-sim-fabrication",
+          "mainStat": "Internal=true",
+          "secondaryStat": "implemented",
+          "detail__": "ROS 2, Gazebo facility/robot cells, additive manufacturing, kitchen, logistics"
+        },
+        {
+          "id": "host=>net-ao-sim-vehicle",
+          "source": "host",
+          "target": "net-ao-sim-vehicle",
+          "mainStat": "Internal=true",
+          "secondaryStat": "implemented",
+          "detail__": "ROS 2 Lyrical, Gazebo Sim 10.5.0, ArduPilot SITL, MAVLink, QGroundControl"
+        },
+        {
+          "id": "net-ao-mapping=>ctr-broker",
+          "source": "net-ao-mapping",
+          "target": "ctr-broker",
+          "mainStat": "10.89.3.2",
+          "secondaryStat": "ao-mapping",
+          "detail__": ""
+        },
+        {
+          "id": "net-ao-mapping=>ctr-db",
+          "source": "net-ao-mapping",
+          "target": "ctr-db",
+          "mainStat": "",
+          "secondaryStat": "ao-mapping",
+          "detail__": ""
+        },
+        {
+          "id": "net-ao-mapping=>ctr-nodeodm",
+          "source": "net-ao-mapping",
+          "target": "ctr-nodeodm",
+          "mainStat": "10.89.3.3",
+          "secondaryStat": "ao-mapping",
+          "detail__": ""
+        },
+        {
+          "id": "net-ao-mapping=>ctr-webapp",
+          "source": "net-ao-mapping",
+          "target": "ctr-webapp",
+          "mainStat": "10.89.3.4",
+          "secondaryStat": "ao-mapping",
+          "detail__": ""
+        },
+        {
+          "id": "net-ao-mapping=>ctr-worker",
+          "source": "net-ao-mapping",
+          "target": "ctr-worker",
+          "mainStat": "10.89.3.5",
+          "secondaryStat": "ao-mapping",
+          "detail__": ""
+        },
+        {
+          "id": "net-ao-admin=>ctr-ao-grafana",
+          "source": "net-ao-admin",
+          "target": "ctr-ao-grafana",
+          "mainStat": "10.89.9.4",
+          "secondaryStat": "ao-admin",
+          "detail__": ""
+        },
+        {
+          "id": "net-ao-reporting-egress=>ctr-ao-grafana",
+          "source": "net-ao-reporting-egress",
+          "target": "ctr-ao-grafana",
+          "mainStat": "10.89.10.2",
+          "secondaryStat": "ao-reporting-egress",
+          "detail__": ""
+        },
+        {
+          "id": "net-ao-admin=>ctr-ao-metabase",
+          "source": "net-ao-admin",
+          "target": "ctr-ao-metabase",
+          "mainStat": "10.89.9.5",
+          "secondaryStat": "ao-admin",
+          "detail__": ""
+        },
+        {
+          "id": "net-ao-reporting-egress=>ctr-ao-metabase",
+          "source": "net-ao-reporting-egress",
+          "target": "ctr-ao-metabase",
+          "mainStat": "10.89.10.3",
+          "secondaryStat": "ao-reporting-egress",
+          "detail__": ""
+        },
+        {
+          "id": "net-ao-admin=>ctr-ao-node-exporter",
+          "source": "net-ao-admin",
+          "target": "ctr-ao-node-exporter",
+          "mainStat": "10.89.9.2",
+          "secondaryStat": "ao-admin",
+          "detail__": ""
+        },
+        {
+          "id": "net-ao-admin=>ctr-ao-prometheus",
+          "source": "net-ao-admin",
+          "target": "ctr-ao-prometheus",
+          "mainStat": "10.89.9.3",
+          "secondaryStat": "ao-admin",
+          "detail__": ""
+        },
+        {
+          "id": "net-ao-sales=>ctr-mastodon-db",
+          "source": "net-ao-sales",
+          "target": "ctr-mastodon-db",
+          "mainStat": "10.89.0.10",
+          "secondaryStat": "ao-sales",
+          "detail__": ""
+        },
+        {
+          "id": "net-ao-sales=>ctr-mastodon-redis",
+          "source": "net-ao-sales",
+          "target": "ctr-mastodon-redis",
+          "mainStat": "10.89.0.2",
+          "secondaryStat": "ao-sales",
+          "detail__": ""
+        },
+        {
+          "id": "net-ao-egress-community=>ctr-mastodon-sidekiq",
+          "source": "net-ao-egress-community",
+          "target": "ctr-mastodon-sidekiq",
+          "mainStat": "10.89.11.5",
+          "secondaryStat": "ao-egress-community",
+          "detail__": ""
+        },
+        {
+          "id": "net-ao-sales=>ctr-mastodon-sidekiq",
+          "source": "net-ao-sales",
+          "target": "ctr-mastodon-sidekiq",
+          "mainStat": "10.89.0.11",
+          "secondaryStat": "ao-sales",
+          "detail__": ""
+        },
+        {
+          "id": "net-ao-sales=>ctr-mastodon-streaming",
+          "source": "net-ao-sales",
+          "target": "ctr-mastodon-streaming",
+          "mainStat": "10.89.0.12",
+          "secondaryStat": "ao-sales",
+          "detail__": ""
+        },
+        {
+          "id": "net-ao-egress-community=>ctr-mastodon-web",
+          "source": "net-ao-egress-community",
+          "target": "ctr-mastodon-web",
+          "mainStat": "10.89.11.6",
+          "secondaryStat": "ao-egress-community",
+          "detail__": ""
+        },
+        {
+          "id": "net-ao-sales=>ctr-mastodon-web",
+          "source": "net-ao-sales",
+          "target": "ctr-mastodon-web",
+          "mainStat": "10.89.0.13",
+          "secondaryStat": "ao-sales",
+          "detail__": ""
+        },
+        {
+          "id": "net-ao-sales=>ctr-sales-db",
+          "source": "net-ao-sales",
+          "target": "ctr-sales-db",
+          "mainStat": "",
+          "secondaryStat": "ao-sales",
+          "detail__": ""
+        },
+        {
+          "id": "net-ao-sim-vehicle=>ctr-ardupilot-sitl",
+          "source": "net-ao-sim-vehicle",
+          "target": "ctr-ardupilot-sitl",
+          "mainStat": "",
+          "secondaryStat": "ao-sim-vehicle",
+          "detail__": ""
+        },
+        {
+          "id": "net-ao-sales=>ctr-300x3-migrate",
+          "source": "net-ao-sales",
+          "target": "ctr-300x3-migrate",
+          "mainStat": "",
+          "secondaryStat": "ao-sales",
+          "detail__": ""
+        },
+        {
+          "id": "net-ao-sales=>ctr-300x3-proxy",
+          "source": "net-ao-sales",
+          "target": "ctr-300x3-proxy",
+          "mainStat": "",
+          "secondaryStat": "ao-sales",
+          "detail__": ""
+        },
+        {
+          "id": "net-ao-sales=>ctr-300x3-redis",
+          "source": "net-ao-sales",
+          "target": "ctr-300x3-redis",
+          "mainStat": "",
+          "secondaryStat": "ao-sales",
+          "detail__": ""
+        },
+        {
+          "id": "net-ao-sales=>ctr-300x3-sidekiq",
+          "source": "net-ao-sales",
+          "target": "ctr-300x3-sidekiq",
+          "mainStat": "",
+          "secondaryStat": "ao-sales",
+          "detail__": ""
+        },
+        {
+          "id": "net-ao-sales=>ctr-300x3-streaming",
+          "source": "net-ao-sales",
+          "target": "ctr-300x3-streaming",
+          "mainStat": "",
+          "secondaryStat": "ao-sales",
+          "detail__": ""
+        },
+        {
+          "id": "net-ao-sales=>ctr-300x3-web",
+          "source": "net-ao-sales",
+          "target": "ctr-300x3-web",
+          "mainStat": "",
+          "secondaryStat": "ao-sales",
+          "detail__": ""
+        },
+        {
+          "id": "host=>dbnode-db-host-postgres",
+          "source": "host",
+          "target": "dbnode-db-host-postgres",
+          "mainStat": "postgresql",
+          "secondaryStat": "active",
+          "detail__": ""
+        },
+        {
+          "id": "host=>dbnode-db-salesdb",
+          "source": "host",
+          "target": "dbnode-db-salesdb",
+          "mainStat": "postgresql",
+          "secondaryStat": "current_migration_state",
+          "detail__": ""
+        },
+        {
+          "id": "dbnode-db-host-postgres=>dbnode-db-salesdb",
+          "source": "dbnode-db-host-postgres",
+          "target": "dbnode-db-salesdb",
+          "mainStat": "logical database",
+          "secondaryStat": "current_migration_state",
+          "detail__": ""
+        },
+        {
+          "id": "host=>dbnode-db-mastodon",
+          "source": "host",
+          "target": "dbnode-db-mastodon",
+          "mainStat": "postgresql",
+          "secondaryStat": "current_migration_state",
+          "detail__": ""
+        },
+        {
+          "id": "dbnode-db-host-postgres=>dbnode-db-mastodon",
+          "source": "dbnode-db-host-postgres",
+          "target": "dbnode-db-mastodon",
+          "mainStat": "logical database",
+          "secondaryStat": "current_migration_state",
+          "detail__": ""
+        },
+        {
+          "id": "host=>dbnode-db-webodm",
+          "source": "host",
+          "target": "dbnode-db-webodm",
+          "mainStat": "postgis",
+          "secondaryStat": "current_migration_state",
+          "detail__": ""
+        },
+        {
+          "id": "dbnode-db-host-postgres=>dbnode-db-webodm",
+          "source": "dbnode-db-host-postgres",
+          "target": "dbnode-db-webodm",
+          "mainStat": "logical database",
+          "secondaryStat": "current_migration_state",
+          "detail__": ""
+        },
+        {
+          "id": "host=>dbnode-db-grafana",
+          "source": "host",
+          "target": "dbnode-db-grafana",
+          "mainStat": "postgresql",
+          "secondaryStat": "target",
+          "detail__": ""
+        },
+        {
+          "id": "dbnode-db-host-postgres=>dbnode-db-grafana",
+          "source": "dbnode-db-host-postgres",
+          "target": "dbnode-db-grafana",
+          "mainStat": "logical database",
+          "secondaryStat": "target",
+          "detail__": ""
+        },
+        {
+          "id": "host=>dbnode-db-metabase",
+          "source": "host",
+          "target": "dbnode-db-metabase",
+          "mainStat": "postgresql",
+          "secondaryStat": "target",
+          "detail__": ""
+        },
+        {
+          "id": "dbnode-db-host-postgres=>dbnode-db-metabase",
+          "source": "dbnode-db-host-postgres",
+          "target": "dbnode-db-metabase",
+          "mainStat": "logical database",
+          "secondaryStat": "target",
+          "detail__": ""
+        },
+        {
+          "id": "host=>dbnode-db-cordadb",
+          "source": "host",
+          "target": "dbnode-db-cordadb",
+          "mainStat": "postgresql",
+          "secondaryStat": "blocked",
+          "detail__": ""
+        },
+        {
+          "id": "dbnode-db-host-postgres=>dbnode-db-cordadb",
+          "source": "dbnode-db-host-postgres",
+          "target": "dbnode-db-cordadb",
+          "mainStat": "logical database",
+          "secondaryStat": "blocked",
+          "detail__": ""
+        },
+        {
+          "id": "host=>dbnode-db-postgres-admin",
+          "source": "host",
+          "target": "dbnode-db-postgres-admin",
+          "mainStat": "postgresql",
+          "secondaryStat": "active",
+          "detail__": ""
+        },
+        {
+          "id": "dbnode-db-host-postgres=>dbnode-db-postgres-admin",
+          "source": "dbnode-db-host-postgres",
+          "target": "dbnode-db-postgres-admin",
+          "mainStat": "logical database",
+          "secondaryStat": "active",
+          "detail__": ""
+        },
+        {
+          "id": "host=>dbnode-db-host-redis",
+          "source": "host",
+          "target": "dbnode-db-host-redis",
+          "mainStat": "redis",
+          "secondaryStat": "active",
+          "detail__": ""
+        },
+        {
+          "id": "host=>dbnode-db-mastodon-redis",
+          "source": "host",
+          "target": "dbnode-db-mastodon-redis",
+          "mainStat": "redis",
+          "secondaryStat": "active",
+          "detail__": ""
+        },
+        {
+          "id": "host=>dbnode-db-broker",
+          "source": "host",
+          "target": "dbnode-db-broker",
+          "mainStat": "redis",
+          "secondaryStat": "active",
+          "detail__": ""
+        },
+        {
+          "id": "host=>dbnode-db-prometheus",
+          "source": "host",
+          "target": "dbnode-db-prometheus",
+          "mainStat": "tsdb",
+          "secondaryStat": "implemented",
+          "detail__": ""
+        },
+        {
+          "id": "host=>dbnode-db-openclaw",
+          "source": "host",
+          "target": "dbnode-db-openclaw",
+          "mainStat": "sqlite",
+          "secondaryStat": "active",
+          "detail__": ""
+        },
+        {
+          "id": "host=>dbnode-db-akonadi",
+          "source": "host",
+          "target": "dbnode-db-akonadi",
+          "mainStat": "sqlite",
+          "secondaryStat": "active",
+          "detail__": ""
+        },
+        {
+          "id": "host=>dbnode-db-browsers",
+          "source": "host",
+          "target": "dbnode-db-browsers",
+          "mainStat": "sqlite",
+          "secondaryStat": "active",
+          "detail__": ""
+        },
+        {
+          "id": "host=>dbnode-db-podman",
+          "source": "host",
+          "target": "dbnode-db-podman",
+          "mainStat": "sqlite",
+          "secondaryStat": "active",
+          "detail__": ""
+        },
+        {
+          "id": "host=>dbnode-db-sim-local",
+          "source": "host",
+          "target": "dbnode-db-sim-local",
+          "mainStat": "sqlite",
+          "secondaryStat": "active",
+          "detail__": ""
+        },
+        {
+          "id": "host=>dbnode-db-filesystem-state",
+          "source": "host",
+          "target": "dbnode-db-filesystem-state",
+          "mainStat": "filesystem",
+          "secondaryStat": "active",
+          "detail__": ""
+        },
+        {
+          "id": "host=>dbnode-db-mapping-media",
+          "source": "host",
+          "target": "dbnode-db-mapping-media",
+          "mainStat": "filesystem",
+          "secondaryStat": "implemented",
+          "detail__": ""
+        },
+        {
+          "id": "host=>dbnode-db-h2-legacy",
+          "source": "host",
+          "target": "dbnode-db-h2-legacy",
+          "mainStat": "h2",
+          "secondaryStat": "not_active",
+          "detail__": ""
+        },
+        {
+          "id": "host=>internet",
+          "source": "host",
+          "target": "internet",
+          "mainStat": "outbound",
+          "secondaryStat": "controlled",
+          "detail__": ""
+        },
+        {
+          "id": "internet=>host",
+          "source": "internet",
+          "target": "host",
+          "mainStat": "ingress",
+          "secondaryStat": "tunnel",
+          "detail__": "mastodon.300x3.com -> 127.0.0.1:3000; chat.300x3.com -> 127.0.0.1:18790 (OpenClaw relay / sitebot); www.300x3.com -> 127.0.0.1:3300 (300X3 storefront proxy)"
+        },
+        {
+          "id": "host=>plan-corda-core",
+          "source": "host",
+          "target": "plan-corda-core",
+          "mainStat": "planned",
+          "secondaryStat": "blocked",
+          "detail__": ""
+        },
+        {
+          "id": "host=>plan-corda-ingest",
+          "source": "host",
+          "target": "plan-corda-ingest",
+          "mainStat": "planned",
+          "secondaryStat": "blocked",
+          "detail__": ""
+        },
+        {
+          "id": "host=>plan-sales-api",
+          "source": "host",
+          "target": "plan-sales-api",
+          "mainStat": "planned",
+          "secondaryStat": "planned",
+          "detail__": ""
+        },
+        {
+          "id": "host=>plan-sim-fabrication",
+          "source": "host",
+          "target": "plan-sim-fabrication",
+          "mainStat": "planned",
+          "secondaryStat": "implemented",
+          "detail__": ""
+        }
+      ],
+      "options": {
+        "nodeSize": {
+          "width": 340,
+          "height": 110
+        },
+        "zoomMode": "cooperative",
+        "dragging": true,
+        "legend": {
+          "showLabel": true,
+          "showType": true,
+          "showStats": true,
+          "showPorts": true
+        }
+      }
+    },
+    {
+      "id": 101,
+      "type": "text",
+      "title": "Where the artifacts live",
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 26
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "**Topology artifacts:** `/ALWAYSON/TOPOLOGY/` \u2014 SVG, PNG, self-contained HTML, Graphviz DOT, `topology-inventory.json`, `TOPOLOGY.md`, `LIVE-LINKS.md`.\n\n**Prometheus:** http://127.0.0.1:9090 \u00b7 **Metabase:** http://127.0.0.1:3002 \u00b7 **Grafana:** http://127.0.0.1:3001 (loopback only, operator login).\n\nRegenerate after any Quadlet, network, or port change: `python3 /ALWAYSON/scripts/operations/generate-topology.py`"
+      }
+    }
+  ],
+  "preload": false,
+  "refresh": "60s",
+  "schemaVersion": 39,
+  "tags": [
+    "alwayson",
+    "topology",
+    "networks"
+  ],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "ALWAYS ON \u2014 system topology",
+  "uid": "alwayson-topology",
+  "url": "/d/alwayson-topology/alwayson-system-topology",
+  "version": 1,
+  "weekStart": ""
+}
