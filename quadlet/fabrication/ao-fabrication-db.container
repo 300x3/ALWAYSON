@@ -1,0 +1,38 @@
+# /ALWAYSON/quadlet/fabrication/ao-fabrication-db.container
+# a_fab -- the real (non-simulated) fabrication database. README v7 §3.3.0.
+# Holds per-machine production data only: not a ledger, not a sales record, not a
+# backup target. Anything that must become provable leaves as a signed fabrication
+# manifest through ao-ledger-ingest.
+[Unit]
+Description=ALWAYS ON Fabrication PostgreSQL (a_fab)
+After=graphical-session.target network-online.target
+Wants=network-online.target
+PartOf=graphical-session.target
+
+[Container]
+Image=postgres@sha256:a65e6a841f6c4dbc4abda3d67fa3bc21824e9611064fcd82e87ea67aad60a0c3
+ContainerName=ao-fabrication-db
+Network=ao-fabrication.network
+Volume=%h/webodm/fabrication-dbdata:/var/lib/postgresql/data:Z
+EnvironmentFile=%h/secrets/fabrication-db.env
+Environment=POSTGRES_DB=a_fab
+Environment=POSTGRES_USER=fabrication_role
+NoNewPrivileges=true
+# Loopback-only. The host-side collector pushes per-machine production data in
+# over the podman bridge (10.89.12.1), NOT from the equipment LAN. Published on
+# loopback so the collector reaches it as 127.0.0.1 and the database is never
+# exposed on any NIC. ao-fabrication is Internal=true and has no route off subnet
+# -- see README §3.3.0.1 for why the host mediates the equipment LAN.
+PublishPort=127.0.0.1:15433:5432
+HealthCmd=pg_isready
+HealthInterval=30s
+
+[Service]
+ExecStartPre=/ALWAYSON/scripts/operations/fetch-kwallet-secret.sh %h/secrets/fabrication-db.env fabrication-db-password
+Restart=on-failure
+RestartSec=15
+MemoryMax=2G
+TimeoutStartSec=300
+
+[Install]
+WantedBy=graphical-session.target

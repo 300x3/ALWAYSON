@@ -1,0 +1,25 @@
+# /ALWAYSON/quadlet/fabrication/ao-fabrication-collect.service
+# Per-machine production collector. Runs ON THE HOST, not in the domain:
+# ao-fabrication is Internal=true and cannot reach the equipment LAN
+# (10.42.0.0/24). See README v7 3.3.0.1.
+# Pull-only: queries Moonraker with GET and never commands a machine.
+[Unit]
+Description=ALWAYS ON per-machine fabrication production collector
+After=graphical-session.target network-online.target ao-fabrication-db.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+Environment=AO_FAB_INTERVAL=300
+ExecStart=/ALWAYSON/scripts/operations/ao-fabrication-collect.py --once --verbose
+# No POSTGRES_PASSWORD here: it lives in the env file the db unit's
+# ExecStartPre writes from KDE Wallet, and is passed by the db unit's
+# EnvironmentFile being sourced at run time by the collector wrapper below.
+EnvironmentFile=-%h/secrets/fabrication-db.env
+# A machine being offline must not fail the unit; the collector already
+# isolates per-machine errors and exits 0 when every machine merely failed.
+SuccessExitStatus=0
+TimeoutStartSec=120
+
+[Install]
+WantedBy=graphical-session.target

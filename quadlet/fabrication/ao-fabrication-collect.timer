@@ -1,0 +1,18 @@
+# /ALWAYSON/quadlet/fabrication/ao-fabrication-collect.timer
+[Unit]
+Description=Poll each fabrication machine for per-machine production data
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=5min
+# Spread polls so every machine is not asked at the same instant.
+RandomizedDelaySec=45s
+Persistent=true
+
+[Install]
+# WantedBy=timers.target alone means the timer only runs if something already
+# starts the timers target, which is NOT guaranteed across a reboot on this
+# host. graphical-session.target is what actually pulls the other ALWAYS ON
+# units in (verified: ao-sales-db WantedBy=graphical-session.target), so the
+# timer is started from the same place to match the established pattern.
+WantedBy=graphical-session.target timers.target
