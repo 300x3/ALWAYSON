@@ -75,7 +75,7 @@
 | Secret authority | KDE Wallet; services needing Wallet secrets start after KDE login |
 | GPU policy | Priority: desktop/Konqueror → SketchUp/SketchUp Web → active LM Studio/OpenClaw → ROS/Gazebo/SITL → WebODM batch |
 | Additive fabrication | Real machines, not simulated cells: **MainsailOS/Moonraker/Klipper operate on each individual 3D printing machine**, each on its own BigTreeTech CB1 / Raspberry Pi; individual CNC machines likewise. No OrcaSlicer reference. These are **real peers**, not children of the simulated domain. `ao-sim-fabrication` **rehearses** the flow and runs the kitchen; it holds no production data (§10.2) |
-| **Real fabrication** | **`ao-fabrication`** is the separate, real (non-simulated) fabrication domain. **A local `ao-fabrication` pulls data into its own database** for industrial engineering and fabrication optimisation work: per-machine production data lands in **`a_fab`** (`10.89.12.0/24`, `Internal=true`). Distinct from `ao-sim-fabrication` in every respect (§3.3.0, §3.3.0) |
+| **Real fabrication** | **`ao-fabrication`** is the separate, real (non-simulated) fabrication domain. **A local `ao-fabrication` pulls data into its own database** for industrial engineering and fabrication optimisation work: per-machine production data lands in **`a_fab`** (`10.89.12.0/24`, `Internal=true`). Distinct from `ao-sim-fabrication` in every respect (§3.3.0) |
 | CNC | No bCNC or current CNC software claim |
 | Simulation (both domains) | `ao-sim-vehicle` and `ao-sim-fabrication` both require, as a baseline capability and not as optional extras: **3D world setup**, **boning**, **reinforcement learning objects**, and an **HTML portal to operation**. Each domain stands up its own 3D world, builds its own boning/alignment and datum structure into that world, supplies reinforcement-learning objects as the trainable entities for its scenario and policy work, and exposes the whole environment through a browser-served HTML portal so the world can be set up and operated without a desktop GUI client. Details are in §10.1 (vehicle) and §10.2 (fabrication and facility) |
 | Home automation | Domoticz/RPi for the usual Domoticz home automation features: HVAC, doors/locks/access, security/alarms, lighting/scenes, cameras, weather, environmental sensing, media, and other typical Domoticz device classes; separate from printers and future building robotics |
@@ -1960,7 +1960,7 @@ related details for the **rehearsal**, and it runs the kitchen. It **does not
 receive production data from any machine**.
 
 Production data from the real machines is handled by the separate **`ao-fabrication`**
-domain, which pulls it into its own database (`a_fab`) — see §3.3.0 and §3.3.0. This
+domain, which pulls it into its own database (`a_fab`) — see §3.3.0. This
 separation is deliberate: a rehearsal that held production data, or a simulation that
 commanded a live machine, would breach the §4.3 prohibition on simulation-to-live paths.
 
@@ -3842,7 +3842,7 @@ listed; they are recorded as evidence in section 20.
 | 31 | Fabrication 3D world, boning, RL objects, HTML portal | ES.1, §10.2.1 | WORK 000801. As item 31, for `ao-sim-fabrication`, with cell and machine datum frames and boning checked against the real machine envelopes. |
 | 32 | **DRONE-RADIO → QGC midflight mission update proven** | §9.2.2 | A local QGC mission is shown reaching the **QGC session on the Pi5 drone** over DRONE-RADIO, and a mission change is demonstrated **in flight**. Radio only: recorded that no IP path and no mTLS is used on this link. |
 | 33 | **PEOPLE-RADIO → MeshChatX LoRaWAN path proven** | §9.2.2 | MeshChatX text carried over PEOPLE-RADIO in both directions, recorded as LoRaWAN-related communication, with the separate 915/917 MHz bands maintained. |
-| 34 | **`ao-fabrication` deployed with `a_fab`** | §3.3.0, §3.3.0, ES.1 | Domain created on `10.89.12.0/24` (`Internal=true`); **per-machine production data pulled from at least one individual machine into `a_fab`**; separation from `ao-sim-fabrication` demonstrated (simulation holds no production data); `a_fab` registered in `network-cidrs.yaml`. |
+| 34 | **`ao-fabrication` deployed with `a_fab`** | §3.3.0, ES.1 | Domain created on `10.89.12.0/24` (`Internal=true`); **per-machine production data pulled from at least one individual machine into `a_fab`**; separation from `ao-sim-fabrication` demonstrated (simulation holds no production data); `a_fab` registered in `network-cidrs.yaml`. |
 | 35 | **CIDR reconciliation in `network-cidrs.yaml`** | §18.6 | **Partly done 2026-09-30:** all three CIDRs registered and validation green (`OK: all domain networks present; isolation domains internal-only`); the generated-registry list in `check-network-isolation.sh` updated so the entries persist. **Remaining:** the `ao-egress-community` name/CIDR reconciliation against `instance-policy.yaml`, the Grafana topology dashboard, and the Mastodon runbook — the network is live on `10.89.11.0/24` while the name is recorded as folded into `ao-sales`, which is a rename decision, not a registry edit. |
 | 36 | **Customer-facing PDF email path proven** | §4.3, §4.4 | Purchase-request confirmation, receipt, and work-order status (including expected delivery) each demonstrably sent from `ao-sales` to a customer **as PDF by email**. |
 
