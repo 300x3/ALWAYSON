@@ -12,7 +12,17 @@ domain="${1:-}"
 [[ -n "$domain" ]] || { echo "Usage: ${0##*/} <sales|payment|field|mapping|sim-vehicle|sim-fabrication|ledger|operations> [--dry-run]" >&2; exit 2; }
 
 SRC="$AO_ROOT/quadlet/$domain"
-DEST="$HOME/.config/containers/systemd/$domain"
+# Quadlet units are deployed FLAT into the systemd user directory, which is
+# where systemd-container-generator actually reads them. This was previously
+# "$HOME/.config/containers/systemd/$domain"; that subdirectory is NOT read by
+# Quadlet, so deploying there silently left the live units untouched - the
+# stale copies under .../containers/systemd/operations/ are the residue of
+# that. Verified 2026-10-01: `systemctl --user show ao-grafana.service -p
+# SourcePath` resolves to the FLAT path, not the operations/ subdirectory.
+#
+# Unit file names are unique across domains (all ao-*), so a flat layout is
+# unambiguous.
+DEST="$HOME/.config/containers/systemd"
 
 [[ -d "$SRC" ]] || { echo "ERROR: no quadlet definitions at $SRC" >&2; exit 10; }
 ls "$SRC"/* >/dev/null 2>&1 || { echo "ERROR: $SRC contains no unit files yet" >&2; exit 11; }
