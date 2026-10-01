@@ -75,7 +75,7 @@
 | Secret authority | KDE Wallet; services needing Wallet secrets start after KDE login |
 | GPU policy | Priority: desktop/Konqueror → SketchUp/SketchUp Web → active LM Studio/OpenClaw → ROS/Gazebo/SITL → WebODM batch |
 | Additive fabrication | Real machines, not simulated cells: **MainsailOS/Moonraker/Klipper operate on each individual 3D printing machine**, each on its own BigTreeTech CB1 / Raspberry Pi; individual CNC machines likewise. No OrcaSlicer reference. These are **real peers**, not children of the simulated domain. `ao-sim-fabrication` **rehearses** the flow and runs the kitchen; it holds no production data (§10.2) |
-| **Real fabrication** | **`ao-fabrication`** is the separate, real (non-simulated) fabrication domain. **A local `ao-fabrication` pulls data into its own database** for industrial engineering and fabrication optimisation work: per-machine production data lands in **`a_fab`** (`10.89.12.0/24`, `Internal=true`). Distinct from `ao-sim-fabrication` in every respect (§3.3.0, §10.3) |
+| **Real fabrication** | **`ao-fabrication`** is the separate, real (non-simulated) fabrication domain. **A local `ao-fabrication` pulls data into its own database** for industrial engineering and fabrication optimisation work: per-machine production data lands in **`a_fab`** (`10.89.12.0/24`, `Internal=true`). Distinct from `ao-sim-fabrication` in every respect (§3.3.0, §3.3.0) |
 | CNC | No bCNC or current CNC software claim |
 | Simulation (both domains) | `ao-sim-vehicle` and `ao-sim-fabrication` both require, as a baseline capability and not as optional extras: **3D world setup**, **boning**, **reinforcement learning objects**, and an **HTML portal to operation**. Each domain stands up its own 3D world, builds its own boning/alignment and datum structure into that world, supplies reinforcement-learning objects as the trainable entities for its scenario and policy work, and exposes the whole environment through a browser-served HTML portal so the world can be set up and operated without a desktop GUI client. Details are in §10.1 (vehicle) and §10.2 (fabrication and facility) |
 | Home automation | Domoticz/RPi for the usual Domoticz home automation features: HVAC, doors/locks/access, security/alarms, lighting/scenes, cameras, weather, environmental sensing, media, and other typical Domoticz device classes; separate from printers and future building robotics |
@@ -88,7 +88,7 @@ in §3 or anywhere else in the document.
 | Change | Effect on this document |
 |---|---|
 | Login-gated secret delivery is intended | Services consuming KDE Wallet secrets start after Plasma login; the ~60s wait is the bounded startup allowance, not a fallback (§14.1.1) |
-| No separate service account | All services run under the operator account; the former `alwayson-sales` (UID 993) Mastodon placement is legacy history, since retired (§20.0) |
+| No separate service account | All services run under the operator account; the former `alwayson-sales` (UID 993) Mastodon placement is legacy history, since retired (§19 row 17) |
 | KDE Wallet remains the secret authority | The `org.kde.kwalletd6` bus and method names are flagged for host verification only (§14.1.1) |
 | Corda uses PostgreSQL | Corda 5.2.2 CLI is installed; when the node is created it will run against `cordadb` on host PostgreSQL 18; the V4 test install and its H2 database were removed 2026-09-28 and no data is migrated (§18.2) |
 | Metabase works | It runs on the host and serves its login page; the earlier "not serving" finding was a different, undeployed container |
@@ -559,7 +559,7 @@ this path.
 `klippy_connected: true`, `klippy_state: ready`, and answers
 `/printer/objects/query?print_stats` with `print_duration`, `filament_used` and `state`
 — i.e. genuine per-machine production data. Note that Moonraker currently serves
-**unauthenticated reads**; see §10.3 for the open item on API keys.
+**unauthenticated reads**; see §3.3.0 for the open item on API keys.
 
 #### 3.3.0.2 Planned: Domoticz for non-fabrication equipment (operator intent)
 
@@ -858,7 +858,7 @@ recorded as group C row "Community publication".
 <tr><td><code>ao-field</code></td><td><code>ao-field</code></td><td>Heltec gateway, RNS/MeshChatX, telemetry spool, mission-release service</td><td>Signed telemetry and mission manifests</td><td>Raw packet store and telemetry spool</td><td>No direct public exposure; USB serial and radio only</td><td>ST-04, ST-22</td></tr>
 <tr><td><code>ao-mapping</code></td><td><code>ao-mapping</code></td><td>WebODM, NodeODM, Redis, mapping DB, imagery intake/exporter</td><td>Signed mapping deliverable manifests</td><td>Dedicated photogrammetry volume</td><td><strong>No direct operator/VPN access.</strong> Input is 100% by drone and automated WebODM processing</td><td>ST-03</td></tr>
 <tr><td><code>ao-sim-vehicle</code></td><td><code>ao-sim-vehicle</code></td><td>ROS 2, Gazebo, ArduPilot SITL, MAVLink, QGroundControl simulation</td><td>Signed vehicle-simulation manifests</td><td>Vehicle simulation data path</td><td>No direct public exposure</td><td>ST-07</td></tr>
-<tr><td><code>ao-sim-fabrication</code></td><td><code>ao-sim-fabrication</code></td><td>ROS 2, Gazebo; <strong>rehearses</strong> the industrial engineering and production flow and runs the kitchen. <strong>Holds no production data and never commands live machinery</strong> — real machines belong to <code>ao-fabrication</code> (§10.3)</td><td>Signed fabrication-simulation manifests</td><td>Fabrication simulation data path</td><td>No direct public exposure</td><td>ST-08</td></tr>
+<tr><td><code>ao-sim-fabrication</code></td><td><code>ao-sim-fabrication</code></td><td>ROS 2, Gazebo; <strong>rehearses</strong> the industrial engineering and production flow and runs the kitchen. <strong>Holds no production data and never commands live machinery</strong> — real machines belong to <code>ao-fabrication</code> (§3.3.0)</td><td>Signed fabrication-simulation manifests</td><td>Fabrication simulation data path</td><td>No direct public exposure</td><td>ST-08</td></tr>
 <tr><td><code>ao-fabrication</code></td><td><code>ao-fabrication</code> (<code>10.89.12.0/24</code>)</td><td><strong>Real (non-simulated) fabrication.</strong> Pulls per-machine production data from each individual 3D printer and CNC machine &mdash; each running its own MainsailOS / Moonraker / Klipper on its own BigTreeTech CB1 / Raspberry Pi &mdash; <strong>into its own database</strong> (<code>a_fab</code>, §3.3.0) for industrial engineering and fabrication optimisation work. Local switch connects the equipment; the desktop manages all DHCP. Does not command machines through the simulator.</td><td>Signed fabrication manifest toward <code>ao-ledger-ingest</code>; fabrication optimisation reports</td><td>Per-machine production data in <code>a_fab</code></td><td>No direct public exposure. Real machines are reached only over the local equipment switch; they are peers, not children of <code>ao-sim-fabrication</code>.</td><td>Planned — see ES.3</td></tr>
 <tr><td><code>ao-ledger-ingest</code></td><td><code>ao-ledger-ingest</code></td><td>mTLS validation gateway, authorization, audit, idempotency</td><td>Corda receipt IDs and status</td><td>Audit and idempotency state</td><td>No direct public exposure</td><td>ST-10</td></tr>
 <tr><td><code>ao-ledger-core</code></td><td><code>ao-ledger-core</code></td><td>Corda node, Corda database, certificate/keystore material</td><td>No direct output</td><td>Corda state and PKI</td><td>No direct public exposure</td><td>ST-09</td></tr>
@@ -1039,7 +1039,7 @@ www.300x3.com
 │   ├── Hero and project introduction
 │   ├── Current status highlights
 │   ├── Site navigation (links to every section below)
-│   └── Follow-up · Support · Chat links, in that order (§7.1.2)
+│   └── Follow-up · Support · Chat links, in that order (§7.1.1, *Order of follow-up, support, and chat links*)
 │
 ├── /equipment  Equipment — catalog modals
 │   ├── Adapter ................ soda threads to 0.5" NPT ("TUBER")
@@ -1936,7 +1936,7 @@ ao-sim-fabrication
 ├── ROS 2 Lyrical
 ├── Gazebo Sim 10.5.0
 ├── Industrial engineering and production coordination (REHEARSED — no production data;
-│   real machines are in ao-fabrication, §10.3)
+│   real machines are in ao-fabrication, §3.3.0)
 ├── Assembly stations
 ├── Storage and inventory cells
 ├── Refrigerator, freezer, and pantry models
@@ -1960,7 +1960,7 @@ related details for the **rehearsal**, and it runs the kitchen. It **does not
 receive production data from any machine**.
 
 Production data from the real machines is handled by the separate **`ao-fabrication`**
-domain, which pulls it into its own database (`a_fab`) — see §10.3 and §3.3.0. This
+domain, which pulls it into its own database (`a_fab`) — see §3.3.0 and §3.3.0. This
 separation is deliberate: a rehearsal that held production data, or a simulation that
 commanded a live machine, would breach the §4.3 prohibition on simulation-to-live paths.
 
@@ -2890,7 +2890,7 @@ Runtime and tooling:
 
 **Single service account.** All services run under the operator's own account.
   No service requires a separate service-account user; the former
-  `alwayson-sales` (UID 993) Mastodon placement described in section 20.0 is
+  `alwayson-sales` (UID 993) Mastodon placement described in section 19 is
   legacy and is not a required or intended arrangement. It is recorded in
   section 20.0 as observed history and has been consolidated back to the
   operator account `scottw`.
@@ -3511,12 +3511,11 @@ Monitoring runs in `ao-admin`, which has no VPN, no explicit allowlist, and no
 public exposure. Its only permitted output is the Grafana dashboard and the
 Metabase reports.
 
-Prometheus is for security only. It operates independently of the other systems
-to ensure security and to address any problems, and it acts alone and
-independently: it does not depend on Grafana or Metabase, and Grafana and
-Metabase do not depend on it for the data they read from the business
-databases. Grafana presents the dashboards and metrics; Metabase produces the
-reports.
+Prometheus is for security only, and it is independent of Grafana and Metabase
+in both directions: it does not depend on them, and they do not depend on it
+for the data they read from the business databases. Grafana presents the
+dashboards and metrics; Metabase produces the reports. See §3.3 for why
+monitoring is split by purpose.
 
 Monitor at minimum:
 
@@ -3727,7 +3726,7 @@ than incidental.
 |---|---|---|
 | `10.89.10.0/24` | `ao-reporting-egress` (`ao-grafana`, `ao-metabase`) | **Yes** |
 | `10.89.11.0/24` | Mastodon sidekiq / web egress path (`ao-egress-community`, since folded into `ao-sales`) | **Yes** |
-| `10.89.12.0/24` | **`ao-fabrication`** (new, §10.3) | **Yes** |
+| `10.89.12.0/24` | **`ao-fabrication`** (new, §3.3.0) | **Yes** |
 
 **Decision (operator, 2026-09-30):** `10.89.12.0/24` is assigned to `ao-fabrication`. It is
 the next unallocated block in sequence and does not collide with any network observed in
@@ -3821,7 +3820,7 @@ listed; they are recorded as evidence in section 20.
 | 14 | Fresh signed ActivityPub round trip | §15.4.4 | Run after the notification-worker fix; reply/boost round trip received locally. |
 | 15 | Remote account approval/rejection record | §15.4.5 | Recorded separately from local account follow state. |
 | 16 | OpenClaw OAuth and conversation validation | §15.2 | OAuth completes over HTTPS at the federation origin; OpenClaw posts a threaded reply per mention; bridge posts only to the local instance. |
-| 17 | Mastodon service-account consolidation | §14.1.1, §20.0 | Complete. The `alwayson-sales` (UID 993) placement has been folded back to the operator account `scottw` and the duplicate store retired. No separate service-account user is used. |
+| 17 | Mastodon service-account consolidation | §14.1.1, §19 row 17 | Complete. The `alwayson-sales` (UID 993) placement has been folded back to the operator account `scottw` and the duplicate store retired. No separate service-account user is used. |
 | 18 | `300x3.com` email routing / MX | §15.3 | Delivery confirmed or formally deferred. |
 | 19 | Per-modal purchase buttons, HTML-300X3 | §7.1.1 | Implemented in the repo and the static export mirrored to the pCloud Public Folder. |
 | 20 | Bootstrap discovery for remote servers | §15.4.4 step 9 | From Konqueror signed in at `https://mastodon.300x3.com`, follow at least one account on `mastodon.social`. Remote servers do not index this instance until first contact occurs. `https://300x3.com` is a static storefront and is not routed to Mastodon. |
@@ -3843,7 +3842,7 @@ listed; they are recorded as evidence in section 20.
 | 31 | Fabrication 3D world, boning, RL objects, HTML portal | ES.1, §10.2.1 | WORK 000801. As item 31, for `ao-sim-fabrication`, with cell and machine datum frames and boning checked against the real machine envelopes. |
 | 32 | **DRONE-RADIO → QGC midflight mission update proven** | §9.2.2 | A local QGC mission is shown reaching the **QGC session on the Pi5 drone** over DRONE-RADIO, and a mission change is demonstrated **in flight**. Radio only: recorded that no IP path and no mTLS is used on this link. |
 | 33 | **PEOPLE-RADIO → MeshChatX LoRaWAN path proven** | §9.2.2 | MeshChatX text carried over PEOPLE-RADIO in both directions, recorded as LoRaWAN-related communication, with the separate 915/917 MHz bands maintained. |
-| 34 | **`ao-fabrication` deployed with `a_fab`** | §10.3, §3.3.0, ES.1 | Domain created on `10.89.12.0/24` (`Internal=true`); **per-machine production data pulled from at least one individual machine into `a_fab`**; separation from `ao-sim-fabrication` demonstrated (simulation holds no production data); `a_fab` registered in `network-cidrs.yaml`. |
+| 34 | **`ao-fabrication` deployed with `a_fab`** | §3.3.0, §3.3.0, ES.1 | Domain created on `10.89.12.0/24` (`Internal=true`); **per-machine production data pulled from at least one individual machine into `a_fab`**; separation from `ao-sim-fabrication` demonstrated (simulation holds no production data); `a_fab` registered in `network-cidrs.yaml`. |
 | 35 | **CIDR reconciliation in `network-cidrs.yaml`** | §18.6 | **Partly done 2026-09-30:** all three CIDRs registered and validation green (`OK: all domain networks present; isolation domains internal-only`); the generated-registry list in `check-network-isolation.sh` updated so the entries persist. **Remaining:** the `ao-egress-community` name/CIDR reconciliation against `instance-policy.yaml`, the Grafana topology dashboard, and the Mastodon runbook — the network is live on `10.89.11.0/24` while the name is recorded as folded into `ao-sales`, which is a rename decision, not a registry edit. |
 | 36 | **Customer-facing PDF email path proven** | §4.3, §4.4 | Purchase-request confirmation, receipt, and work-order status (including expected delivery) each demonstrably sent from `ao-sales` to a customer **as PDF by email**. |
 
@@ -3885,7 +3884,7 @@ operator surface, the discrepancy is stated.
 | Operator console `:8099` and Gazebo portal `:8765` | Both verified 200. The console has no unit and is started by hand for the check, then stopped. **Discrepancy:** `config/platform/topology-model.yaml` and `config/platform/version-matrix.yaml` record `:8765` as `foxglove_bridge`; it is the `gazebo-portal` container and `foxglove_bridge` was not listening. To reconcile when the Gazebo work lands | ST-05, ST-08 (see ES.3) |
 | Photogrammetry drive | UUID verified; directory tree created | ST-03 (see ES.3) |
 | Package/version matrix | Captured and refreshed | ST-01 (see ES.3) |
-| GUI boundary matrix (section 19) | `config/platform/gui-boundary-matrix.yaml` created; 10 entries validated (YAML), covering all Section 6.A scope items | Partial | §19 — documentation artifact, no component status |
+| GUI boundary matrix (section 19) | `config/platform/gui-boundary-matrix.yaml` created; 10 entries validated (YAML), covering all Section 6.A scope items | Partial — §19 documentation artifact, no component status |
 | Rootless Podman and Quadlet | Verified; mixed-store deviation documented | ST-01 (see ES.3) |
 | GPU runtime | Driver/CDI verified; CPU baseline and GPU smoke completed | ST-25 (see ES.3) |
 | Domain network isolation | Internal workload networks and test verified | ST-02 (see ES.3) |
