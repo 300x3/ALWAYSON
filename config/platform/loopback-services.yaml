@@ -1,0 +1,155 @@
+# ALWAYS ON - loopback service inventory for automated reachability checks.
+#
+# WHAT THIS IS FOR
+#   scripts/validation/check-local-services.py drives Google Chrome through
+#   Playwright and loads every URL below, asserting a real HTTP status and a
+#   real content marker. It exists to prove each loopback service is actually
+#   reachable AND actually serving its own content, not merely holding a port.
+#
+# WHY DECLARATIVE
+#   The checker cross-checks the "published_by_quadlet" list against the
+#   PublishPort= lines in quadlet/*.container. A service that gains or loses a
+#   published loopback port must be recorded here, so configuration drift is
+#   caught instead of being silently tolerated by a stale expectation.
+#
+# STATUS SEMANTICS
+#   expect_status  Accepted HTTP status codes. A service that legitimately
+#                  answers 400 or 404 on "/" lists it here rather than being
+#                  special-cased in code.
+#   expect_title   Substring that must appear in the rendered <title>.
+#   expect_body    Substring that must appear in the rendered body text.
+#                  Title alone is weak: a proxy error page can carry the right
+#                  title, so each entry asserts something specific.
+#   verifiable: false
+#                  Correctly NOT reachable over loopback. Reported as
+#                  UNVERIFIABLE with a reason. Never counted as a pass, and
+#                  never counted as a failure either, because the absence is by
+#                  design rather than a fault.
+#
+# All expect_* values below were recorded by observation on 2026-09-30, not
+# assumed. Where a service does not return the asserted field it is set to
+# null explicitly, so a missing expectation is a deliberate statement rather
+# than a silently skipped check.
+
+meta:
+  # Loopback ports published by a Quadlet unit. Cross-checked against
+  # PublishPort= so this list cannot drift from the units unnoticed.
+  published_by_quadlet:
+    - { port: 3000, unit: quadlet/sales/ao-mastodon-web.container }
+    - { port: 4000, unit: quadlet/sales/ao-mastodon-streaming.container }
+    - { port: 3001, unit: quadlet/operations/ao-grafana.container }
+    - { port: 3002, unit: quadlet/operations/ao-metabase.container }
+    - { port: 9090, unit: quadlet/operations/ao-prometheus.container }
+  # Host services that publish no container port.
+  host_services:
+    - { port: 3300, unit: scripts/operations/mastodon-local-proxy.py }
+    - { port: 8080, unit: domoticz (host service, -wwwbind 127.0.0.1) }
+
+services:
+  # --- ao-sales: Mastodon ------------------------------------------------
+  - name: Mastodon local proxy
+    url: http://127.0.0.1:3300/
+    expect_status: [200]
+    expect_title: Mastodon
+    expect_body: mastodon.300x3.com
+    # A first navigation renders the whole Rails app plus its language list and
+    # can exceed the default budget, so this one is given a longer window and
+    # allowed to settle on "load" rather than "domcontentloaded". The service
+    # was serving 200 to curl throughout; the earlier 15s timeout was the
+    # harness being impatient, not a fault in the proxy.
+    nav_timeout_ms: 60000
+    wait_until: load
+    note: >-
+      Loopback reverse proxy onto :3000. This, not :3000, is the reachable
+      entry point for the Mastodon UI: mastodon-web sets RAILS_FORCE_SSL=true
+      and answers :3000 with "301 -> https://127.0.0.1:3000/", but no TLS
+      listener exists there, so https://127.0.0.1:3000/ fails to connect
+      (verified STATUS=000). The proxy injects X-Forwarded-Proto: https so
+      Rails serves content over plain HTTP. See
+      scripts/operations/mastodon-local-proxy.py.
+
+  - name: Mastodon web origin (transport only)
+    url: http://127.0.0.1:3000/
+    expect_status: [301]
+    expect_location: "https://127.0.0.1:3000/"
+    expect_title: null
+    expect_body: null
+    # Checked with a non-following transport probe, not the browser. A browser
+    # cannot assert this: it follows the 301 to https://127.0.0.1:3000/ and dies
+    # with net::ERR_SSL_PROTOCOL_ERROR, because RAILS_FORCE_SSL=true publishes a
+    # redirect to a TLS endpoint that has no listener. Asserting 301 in a
+    # browser check was guaranteed to fail against correct configuration, so
+    # this entry is excluded from the browser run and probed separately below.
+    browser_skip: true
+
+  - name: Mastodon streaming
+    url: http://127.0.0.1:4000/
+    expect_status: [400]
+    expect_title: null
+    expect_body: Unknown channel requested
+    note: >-
+      A bare / is not a valid stream channel, so a 400 carrying this exact
+      JSON is the correct, healthy response. It proves the listener is alive
+      and speaking the streaming protocol rather than failing at the
+      transport layer.
+
+  # --- ao-operations ----------------------------------------------------
+  - name: Grafana
+    url: http://127.0.0.1:3001/
+    expect_status: [200]
+    expect_landing_path: /login
+    expect_title: Grafana
+    expect_body: null
+    note: >-
+      The root issues "302 -> /login" for an unauthenticated request, which
+      curl shows directly. A browser FOLLOWS that redirect, so the status
+      observed after navigation is 200 and the landing URL is /login. Both are
+      asserted: 200 alone would pass on any Grafana page, so expect_landing_path
+      is what actually proves the unauthenticated redirect happened.
+
+  - name: Metabase
+    url: http://127.0.0.1:3002/
+    expect_status: [200]
+    expect_title: Metabase
+    expect_body: null
+    note: >-
+      Serves its login surface on the host, superseding the earlier
+      "not serving" finding that described a different, undeployed container.
+
+  - name: Prometheus
+    url: http://127.0.0.1:9090/
+    expect_status: [200]
+    expect_landing_path: /query
+    expect_title: Prometheus
+    expect_body: null
+    note: >-
+      Root issues "302 -> /query" and the browser follows it, so 200 on /query
+      is what a rendered navigation observes. Asserted with the landing path so
+      a plain 200 on some other page cannot pass.
+
+  # --- host services ----------------------------------------------------
+  - name: Domoticz
+    url: http://127.0.0.1:8080/
+    expect_status: [200]
+    expect_title: Domoticz
+    expect_body: null
+    note: >-
+      Not an ao-* service. Started with -wwwbind 127.0.0.1 -nomdns, so it is
+      loopback-only by operator decision and the LAN address must refuse.
+
+  # --- correctly not reachable over loopback ----------------------------
+  - name: WebODM web UI
+    url: http://127.0.0.1:8000/
+    verifiable: false
+    reason: >-
+      ao-webodm-web.container publishes no port; the UI is internal to the
+      ao-mapping network only. Reaching it would require adding a published
+      loopback port, which is a configuration change and not a verification.
+
+  - name: MeshChatX local UI
+    url: https://127.0.0.1:18000/
+    verifiable: false
+    reason: >-
+      Served by the native MeshChatX backend, which binds loopback only and
+      is not an HTTP service in the sense this check tests. Recorded as the
+      documented address for operator follow-up.

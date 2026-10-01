@@ -57,6 +57,7 @@
 | OpenClaw | Public marketing/contact across website chat, email, Mastodon, approved social channels; direct Mastodon publisher; local output is standardized PDFs for order/follow-up/support/payment workflows, which are then processed into the sales, payment, and ledger records |
 | LM Studio | Fundamental local LLM host for OpenClaw |
 | Browser | Konqueror — dedicated browser for automation |
+| Automated testing | Testing is being done with Playwright and Chrome |
 | RNode client | MeshChatX exclusively, and provides the Reticulum network stack controls. **End-to-end encryption** is built into the stack: all communication is secured with strong modern encryption by default, all encryption keys are ephemeral, forward secrecy applies by default, and it is not possible to establish unencrypted links or send unencrypted packets |
 | Radios | `PEOPLE-RADIO` = public human chat; `DRONE-RADIO` = authenticated private drone mission/status traffic; a local switch connects the fabrication equipment, a local router connects the IoT devices, and Wi-Fi/Ethernet from the main desktop reaches the main internet; the main desktop manages all DHCP |
 | QGroundControl | Desktop primary mission planning; KaliOS RPi5 fallback/out-of-range mission-update operation; and drone — KaliOS on the Raspberry Pi 5 with the Autopilot Module, running ArduPilot. Also receives **midflight mission updates** relayed by **DRONE-RADIO** to the QGC session on the Pi5 drone (§9.2.2) |
