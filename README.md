@@ -2865,21 +2865,37 @@ Runtime and tooling:
 - Wallet daemon: `kwalletd6`, reached on the `org.kde.kwalletd6` D-Bus name.
   Wallet: `kdewallet`, auto-unlocked with the operator's Plasma login.
 
-**Verification pending (operator, host check).** The bus name and the
-  `entryList`/`hasEntry` method names are to be confirmed on the running host
-  before anything depends on them. KDE Wallet remains the secret authority per
-  ES.1 regardless of the outcome; only these access details are unconfirmed.
-  Do not rely on an unverified name in a script — confirm it first, then record
-  the verified values here.
+**Access details verified on the host (2026-09-30).** The earlier
+  "verification pending" caveat is resolved:
+
+| Item | Verified |
+|---|---|
+| Bus names present | `org.kde.kwalletd`, `org.kde.kwalletd5`, `org.kde.kwalletd6` |
+| Object path used | `/modules/kwalletd6` |
+| `open()` | returns a live handle against wallet `kdewallet` |
+| Methods used by `scripts/ops/wallet-read-secret.py` | `hasEntry`, `readPassword` — present |
+| Method used by `scripts/ops/wallet-write-secret.py` | `writePassword` — present |
+
+`wallet-read-secret.py` uses `org.kde.kwalletd6` and was confirmed working;
+`fetch-kwallet-secret.sh` uses `org.kde.kwalletd5` and also works, since both
+names are live. Prefer `kwalletd6` in new code. KDE Wallet remains the secret
+authority per ES.1.
 - Management CLI: `scripts/ops/kwallet-provision.sh` (`create-folders`,
   `put`, `get`). Run only from the interactive Plasma session while the
   wallet is unlocked.
 - Boot-time delivery: `scripts/operations/fetch-kwallet-secret.sh` runs as a
   Quadlet `ExecStartPre`, waits for the desktop session and kwalletd (max
   ~60s), reads the required entries, and writes a service-specific `0600`
-  env file under the unit owner's `~/secrets/` for the unit to consume via
-  `--env-file`. Used by `ao-mastodon-db`, `ao-sales-db`, and
-  `ao-webodm-db` (verified at boot; see the installation journal).
+  env file for the unit to consume via `--env-file`. It is used by **four**
+  units: `ao-mastodon-db`, `ao-sales-db`, `ao-webodm-db` and `ao-fabrication-db`
+  (the last was added 2026-09-30; without a branch for its key the unit was
+  restart-looping). New keys must be added as a `case` branch in that script
+  or the unit fails.
+- **Env file locations are currently split.** The Mastodon and reporting units
+  read `%h/.local/share/ao-secrets/` (materialised by
+  `scripts/operations/ao-wallet-bridge.sh`); `ao-sales-db`, `ao-webodm-db` and
+  `ao-fabrication-db` still read `%h/secrets/`. Both are gitignored. This is a
+  known inconsistency, not a design decision — see the open item below.
 
 **This login-gated behaviour is intended, not a defect.** Services that consume
   Wallet secrets start after the operator's Plasma login and are not expected to
@@ -2895,30 +2911,76 @@ Runtime and tooling:
   section 20.0 as observed history and has been consolidated back to the
   operator account `scottw`.
 
-Wallet layout (folder: purpose):
+**HAZARD: `mastodon-db-password` exists in two folders with two different
+values.** `ALWAYSON` and `ao-mastodon` each hold one, and they are not equal
+(48 vs 40 characters). Two delivery paths read them:
+
+- `scripts/operations/fetch-mastodon-env.sh` and the bridge read **`ao-mastodon`**
+  and write `%h/.local/share/ao-secrets/mastodon.env` — this is the value the
+  running web, sidekiq and streaming containers authenticate with
+- `fetch-kwallet-secret.sh` reads **`ALWAYSON`** and writes
+  `%h/.local/share/ao-secrets/mastodon-db.env` for the database container's
+  `POSTGRES_PASSWORD`
+
+PostgreSQL only uses `POSTGRES_PASSWORD` when the data directory is empty, so
+in steady state the `ALWAYSON` value is inert and the two never meet. It would
+only matter on a fresh data directory, where the role would be created with the
+`ALWAYSON` value while the application connects with the `ao-mastodon` value —
+an immediate authentication failure. The two folders must be reconciled to a
+single source before any rebuild of `mastodon-dbdata`.
+
+Wallet layout (folder: purpose). Four folders are in active use; the
+`kwallet-provision.sh` template also creates `ao-sales`, `ao-payment`,
+`ao-field` and `ao-ledger`, which are not yet populated:
 
 | Folder | Purpose |
 |---|---|
-| `ALWAYSON` | Boot-time delivery entries consumed by Quadlet units |
-| `ao-mastodon` | Local 300X3 Mastodon application secrets (Section 15.3) and OpenClaw OAuth material |
+| `ALWAYSON` | Boot-time delivery entries consumed by `fetch-kwallet-secret.sh` (mastodon-db-password, sales-db-password, webodm-postgres-password, fabrication-db-password). **Name is a legacy exception to the `ao-` standard; see the open item below.** |
+| `ao-mastodon` | Mastodon application secrets (§15.3) and OpenClaw OAuth material; read by `fetch-mastodon-env.sh` and the wallet bridge |
+| `ao-admin` | Grafana, Metabase, sales-reporting, metaread and restic-repository passwords |
+| `ao-mapping` | WebODM postgres password |
 | `ao-sales`, `ao-payment`, `ao-field`, `ao-mapping`, `ao-ledger`, `ao-archive`, `ao-admin`, `ao-sim-vehicle`, `ao-sim-fabrication` | Per-domain credential folders matching the Section 14.1 authorized-domain table (provisioned empty 2026-08-31) |
 
 Current entry inventory (names only; values never in Git, logs, or docs):
 
 | Folder | Entries |
 |---|---|
-| `ALWAYSON` | `mastodon-db-password`, `sales-db-password`, `webodm-postgres-password` |
+| `ALWAYSON` | `mastodon-db-password` (**conflicts with `ao-mastodon` — see the hazard above**), `sales-db-password`, `webodm-postgres-password`, `fabrication-db-password` |
 | `ao-mastodon` | `mastodon-secret-key-base`, `mastodon-otp-secret`, `mastodon-db-password`, `mastodon-ar-deterministic-key`, `mastodon-ar-primary-key`, `mastodon-ar-derivation-salt`, `mastodon-admin-password`, `openclaw-bot-client-id`, `openclaw-bot-client-secret`, `openclaw-bot-access-token`, `openclaw-bot-password`, `roundtrip`/`roundtrip2` (test artifacts) |
 
 Rules:
 
-- Never print, copy, export, or log entry values; confirm presence only
-  Presence checks use the D-Bus
-  `entryList`/`hasEntry` methods on `org.kde.kwalletd6`.
+- Never print, copy, export, or log entry values; confirm presence only.
+  Presence checks use the D-Bus `hasEntry` method on `org.kde.kwalletd6`
+  (verified present 2026-09-30; `entryList` takes a further argument and is not
+  used by the tooling).
 - Entries are named per service and per purpose; domain folders enforce the
   Section 14.1 authorized-domain boundaries.
 - Rotation, revocation, expiration, and recovery procedures must be
   documented before production use (Section 14.1 requirement).
+
+### 14.1.2 Open items in secret delivery (raised 2026-09-30)
+
+Found while checking this section against the installed condition. Neither is
+blocking today; both must be closed before a rebuild or a wallet migration.
+
+1. **Duplicate `mastodon-db-password` across two folders.** `ALWAYSON` and
+   `ao-mastodon` hold different values for the same key name. Harmless in steady
+   state because PostgreSQL only consumes `POSTGRES_PASSWORD` when the data
+   directory is empty, but a fresh `mastodon-dbdata` would create the role with
+   the `ALWAYSON` value while the application authenticates with the
+   `ao-mastodon` value. Reconcile to one source of truth first.
+2. **The `ALWAYSON` folder name is a legacy exception to the `ao-` standard.**
+   Every other folder is `ao-<domain>`, and the standard is that infrastructure
+   names always carry the prefix. `fetch-kwallet-secret.sh` hardcodes
+   `'ALWAYSON'` in its D-Bus call, so renaming means changing that script and
+   every consumer together. Not done unilaterally because it touches live
+   secret lookup.
+
+Also noted: env files are currently written to two different roots,
+`%h/.local/share/ao-secrets/` for the Mastodon and reporting units and
+`%h/secrets/` for the sales, webodm and fabrication database units. Both are
+gitignored, so there is no exposure risk, but it should converge on one.
 
 ## 14.2 Version Matrix
 
