@@ -2911,23 +2911,11 @@ authority per ES.1.
   section 20.0 as observed history and has been consolidated back to the
   operator account `scottw`.
 
-**HAZARD: `mastodon-db-password` exists in two folders with two different
-values.** `ALWAYSON` and `ao-mastodon` each hold one, and they are not equal
-(48 vs 40 characters). Two delivery paths read them:
-
-- `scripts/operations/fetch-mastodon-env.sh` and the bridge read **`ao-mastodon`**
-  and write `%h/.local/share/ao-secrets/mastodon.env` — this is the value the
-  running web, sidekiq and streaming containers authenticate with
-- `fetch-kwallet-secret.sh` reads **`ALWAYSON`** and writes
-  `%h/.local/share/ao-secrets/mastodon-db.env` for the database container's
-  `POSTGRES_PASSWORD`
-
-PostgreSQL only uses `POSTGRES_PASSWORD` when the data directory is empty, so
-in steady state the `ALWAYSON` value is inert and the two never meet. It would
-only matter on a fresh data directory, where the role would be created with the
-`ALWAYSON` value while the application connects with the `ao-mastodon` value —
-an immediate authentication failure. The two folders must be reconciled to a
-single source before any rebuild of `mastodon-dbdata`.
+**Resolved 2026-09-30: one folder per domain, and the duplicate password is
+gone.** The `ALWAYSON` wallet folder has been retired. `mastodon-db-password` now
+exists only in `ao-mastodon`, which is the value the running stack was already
+using, so the "role created with one password while the app connects with
+another" failure mode can no longer occur on a fresh `mastodon-dbdata`.
 
 Wallet layout (folder: purpose). Four folders are in active use; the
 `kwallet-provision.sh` template also creates `ao-sales`, `ao-payment`,
@@ -2935,17 +2923,19 @@ Wallet layout (folder: purpose). Four folders are in active use; the
 
 | Folder | Purpose |
 |---|---|
-| `ALWAYSON` | Boot-time delivery entries consumed by `fetch-kwallet-secret.sh` (mastodon-db-password, sales-db-password, webodm-postgres-password, fabrication-db-password). **Name is a legacy exception to the `ao-` standard; see the open item below.** |
+| `ao-sales` | `sales-db-password` |
+| `ao-fabrication` | `fabrication-db-password` |
 | `ao-mastodon` | Mastodon application secrets (§15.3) and OpenClaw OAuth material; read by `fetch-mastodon-env.sh` and the wallet bridge |
 | `ao-admin` | Grafana, Metabase, sales-reporting, metaread and restic-repository passwords |
 | `ao-mapping` | WebODM postgres password |
 | `ao-sales`, `ao-payment`, `ao-field`, `ao-mapping`, `ao-ledger`, `ao-archive`, `ao-admin`, `ao-sim-vehicle`, `ao-sim-fabrication` | Per-domain credential folders matching the Section 14.1 authorized-domain table (provisioned empty 2026-08-31) |
 
-Current entry inventory (names only; values never in Git, logs, or docs):
+Current entry inventory (names only; values never in Git, logs, or docs). Every
+key lives in the `ao-` folder for the domain that owns it; the legacy
+`ALWAYSON` folder was retired 2026-09-30 and no code references it.
 
 | Folder | Entries |
 |---|---|
-| `ALWAYSON` | `mastodon-db-password` (**conflicts with `ao-mastodon` — see the hazard above**), `sales-db-password`, `webodm-postgres-password`, `fabrication-db-password` |
 | `ao-mastodon` | `mastodon-secret-key-base`, `mastodon-otp-secret`, `mastodon-db-password`, `mastodon-ar-deterministic-key`, `mastodon-ar-primary-key`, `mastodon-ar-derivation-salt`, `mastodon-admin-password`, `openclaw-bot-client-id`, `openclaw-bot-client-secret`, `openclaw-bot-access-token`, `openclaw-bot-password`, `roundtrip`/`roundtrip2` (test artifacts) |
 
 Rules:
@@ -2959,28 +2949,31 @@ Rules:
 - Rotation, revocation, expiration, and recovery procedures must be
   documented before production use (Section 14.1 requirement).
 
-### 14.1.2 Open items in secret delivery (raised 2026-09-30)
+### 14.1.2 Secret-delivery open items
 
-Found while checking this section against the installed condition. Neither is
-blocking today; both must be closed before a rebuild or a wallet migration.
+**Both items from the 2026-09-30 review are now closed.**
 
-1. **Duplicate `mastodon-db-password` across two folders.** `ALWAYSON` and
-   `ao-mastodon` hold different values for the same key name. Harmless in steady
-   state because PostgreSQL only consumes `POSTGRES_PASSWORD` when the data
-   directory is empty, but a fresh `mastodon-dbdata` would create the role with
-   the `ALWAYSON` value while the application authenticates with the
-   `ao-mastodon` value. Reconcile to one source of truth first.
-2. **The `ALWAYSON` folder name is a legacy exception to the `ao-` standard.**
-   Every other folder is `ao-<domain>`, and the standard is that infrastructure
-   names always carry the prefix. `fetch-kwallet-secret.sh` hardcodes
-   `'ALWAYSON'` in its D-Bus call, so renaming means changing that script and
-   every consumer together. Not done unilaterally because it touches live
-   secret lookup.
+1. **Duplicate `mastodon-db-password` — CLOSED.** The `ALWAYSON` copy was
+   removed; the key exists only in `ao-mastodon`, which is the value the running
+   containers already used. A fresh `mastodon-dbdata` can no longer be created
+   with a different password than the application connects with.
+2. **`ALWAYSON` folder name — CLOSED.** The folder is gone. Entries were moved to
+   the `ao-` folder owning each one: `sales-db-password` to `ao-sales`,
+   `fabrication-db-password` to `ao-fabrication`, `webodm-postgres-password` was
+   already in `ao-mapping` and was byte-identical, and `mastodon-db-password` to
+   `ao-mastodon`. `fetch-kwallet-secret.sh` now maps each key to its folder
+   itself instead of hardcoding one, and `fetch-sales-db-env.sh` reads `ao-sales`.
+   Verified after the move: all four database units restart clean, all four
+   databases authenticate, and no wallet errors appear in the journal.
 
-Also noted: env files are currently written to two different roots,
+A 0600 copy of the four legacy entries was taken to
+`~/.local/share/ao-secrets/legacy-alwayson-folder.env` before the folder was
+removed. It is gitignored and is a rollback path only.
+
+**Remaining, not urgent:** env files are still written to two roots —
 `%h/.local/share/ao-secrets/` for the Mastodon and reporting units and
 `%h/secrets/` for the sales, webodm and fabrication database units. Both are
-gitignored, so there is no exposure risk, but it should converge on one.
+gitignored so there is no exposure; they should converge on one.
 
 ## 14.2 Version Matrix
 

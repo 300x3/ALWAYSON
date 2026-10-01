@@ -27,17 +27,39 @@ if ! kwallet_ready; then
     exit 1
 fi
 
+# Wallet folder per key. The legacy 'ALWAYSON' folder was retired 2026-09-30;
+# every secret now lives in the ao-<domain> folder that owns it, matching the
+# ao- naming standard used for networks, units and containers.
+wallet_folder_for() {
+    case "$1" in
+        mastodon-db-password|mastodon-secret-key-base|mastodon-otp-secret|mastodon-db-app-password)
+            echo "ao-mastodon" ;;
+        sales-db-password)   echo "ao-sales" ;;
+        webodm-postgres-password) echo "ao-mapping" ;;
+        fabrication-db-password) echo "ao-fabrication" ;;
+        *) echo "" ;;
+    esac
+}
+
 fetch_secret() {
     local entry="$1"
+    local folder; folder="$(wallet_folder_for "$entry")"
+    [ -n "$folder" ] || { echo "no wallet folder mapped for $entry" >&2; return 2; }
     python3 -c "
 import dbus, sys
+folder = '$folder'
+entry = '$entry'
 bus = dbus.SessionBus()
-kw = bus.get_object('org.kde.kwalletd5', '/modules/kwalletd5')
+kw = bus.get_object('org.kde.kwalletd6', '/modules/kwalletd6')
 kwiface = dbus.Interface(kw, 'org.kde.KWallet')
-handle = kwiface.open('kdewallet', 0, 'ALWAYSON')
+handle = kwiface.open('kdewallet', 0, 'ao-secret-reader')
 if handle < 0: sys.exit(1)
-val = kwiface.readPassword(handle, 'ALWAYSON', '$entry', 'ALWAYSON')
-kwiface.close(handle, False, 'ALWAYSON')
+try:
+    if not bool(kwiface.hasEntry(handle, folder, entry, 'ao-secret-reader')):
+        sys.stderr.write('wallet entry unavailable: %s/%s\n' % (folder, entry)); sys.exit(3)
+    val = kwiface.readPassword(handle, folder, entry, 'ao-secret-reader')
+finally:
+    kwiface.close(handle, False, 'ao-secret-reader')
 print(val, end='')
 "
 }

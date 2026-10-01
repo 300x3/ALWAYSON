@@ -5,8 +5,8 @@ set -Eeuo pipefail
 OUTPUT="${1:?usage: fetch-sales-db-env.sh <output-env-file>}"
 WALLET_HELPER=/ALWAYSON/scripts/ops/wallet-read-secret.py
 umask 077
-password="$("$WALLET_HELPER" kdewallet ALWAYSON sales-db-password)"
-[[ -n "$password" ]] || { echo "ERROR: KDE Wallet entry unavailable: ALWAYSON/sales-db-password" >&2; exit 3; }
+password="$("$WALLET_HELPER" kdewallet ao-sales sales-db-password)"
+[[ -n "$password" ]] || { echo "ERROR: KDE Wallet entry unavailable: ao-sales/sales-db-password" >&2; exit 3; }
 {
   printf 'POSTGRES_PASSWORD=%s\n' "$password"
   printf 'POSTGRES_USER=sales_migration_role\n'
