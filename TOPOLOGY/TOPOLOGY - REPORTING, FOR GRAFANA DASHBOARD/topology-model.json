@@ -1,0 +1,1824 @@
+{
+ "generated_at_utc": "2026-10-01T01:33:54Z",
+ "authority": "/ALWAYSON/README.md  (v6 sections; see sec field)",
+ "generated_by": "TOPOLOGY REPORTING - FOR GRAFANA DASHBOARD/export_topology_model.py",
+ "declared_source": "/ALWAYSON/TOPOLOGY/TOPOLOGY - SINGLE GRAPHIC/build_svg.py",
+ "observed": false,
+ "observed_note": "EXPECTED-TO-BE-INSTALLED plan, not live state. Live state lives in topology-inventory.json.",
+ "columns": [
+  "ext",
+  "adp",
+  "work",
+  "data",
+  "field",
+  "prog",
+  "flow"
+ ],
+ "bands": [
+  {
+   "n": "1",
+   "key": "ext",
+   "title": "OUTSIDE WORLD",
+   "purpose": "Nothing here reaches an internal service except through a door",
+   "column": "ext",
+   "column_members": [
+    "ext"
+   ]
+  },
+  {
+   "n": "2",
+   "key": "adp",
+   "title": "CONTROLLER ADAPTERS",
+   "purpose": "A controller adapter is the only process allowed to cross this host's boundary, and it holds its own credentials, so nothing inside a domain can reach out on its own. It also carries the HTML views published by local servers (Gazebo and Foxglove, MeshChatX, WebODM, Grafana, Metabase), so the operator gets one page while the origin stays on loopback.",
+   "column": "adp",
+   "column_members": [
+    "adp"
+   ]
+  },
+  {
+   "n": "3",
+   "key": "work",
+   "title": "WORKLOAD DOMAINS",
+   "purpose": "A workload domain is one group of services on its own Internal=true network, with no public listener of any kind. A service joins exactly one domain and holds only the credentials that domain needs. Nothing crosses between two domains except a signed, minimised manifest through the gate.",
+   "column": "work",
+   "column_members": [
+    "work"
+   ]
+  },
+  {
+   "n": "4",
+   "key": "data",
+   "title": "STORES AND REPORTING",
+   "purpose": "PostgreSQL holds the operational record; Redis and Prometheus are never the record",
+   "column": "data",
+   "column_members": [
+    "data"
+   ]
+  },
+  {
+   "n": "5",
+   "key": "field",
+   "title": "FIELD, RADIO, THIS HOST",
+   "purpose": "The aircraft, the two radios and the mesh — off-host kit, and the local services that serve it",
+   "column": "field",
+   "column_members": [
+    "field"
+   ]
+  },
+  {
+   "n": "6",
+   "key": "sales",
+   "title": "SALES",
+   "purpose": "The local programs a sale runs through — inference, the agent, the browser, backups. No live machinery is ever touched.",
+   "column": "prog",
+   "column_members": [
+    "sales",
+    "sim",
+    "sec"
+   ]
+  },
+  {
+   "n": "7",
+   "key": "sim",
+   "title": "SIMULATION, REHEARSED",
+   "purpose": "Both rehearsal worlds, run on this host — the flight rehearsal and the factory and kitchen rehearsal. Split out from sales because it rehearses the field kit; it sells nothing.",
+   "column": "prog",
+   "column_members": [
+    "sales",
+    "sim",
+    "sec"
+   ]
+  },
+  {
+   "n": "8",
+   "key": "sec",
+   "title": "SECRETS ON THIS HOST",
+   "purpose": "The one wallet that holds every secret. Nothing else on this host stores one, and it is only available after Plasma login.",
+   "column": "prog",
+   "column_members": [
+    "sales",
+    "sim",
+    "sec"
+   ]
+  },
+  {
+   "n": "9",
+   "key": "flow",
+   "title": "WHAT ACTUALLY HAPPENS",
+   "purpose": "A customer buys, a drone flies, a factory and kitchen are rehearsed — and the 3D model chain ties them together",
+   "column": "flow",
+   "column_members": [
+    "flow"
+   ]
+  }
+ ],
+ "sections": [
+  {
+   "band": "ext",
+   "title": "Outside world",
+   "nodes": [
+    "x_cust",
+    "x_pay",
+    "x_email"
+   ],
+   "kind": "nodes"
+  },
+  {
+   "band": "ext",
+   "title": "Social media",
+   "nodes": [
+    "x_fedi",
+    "x_social"
+   ],
+   "kind": "nodes"
+  },
+  {
+   "band": "ext",
+   "title": "Box stores",
+   "nodes": [
+    "x_store",
+    "x_pcloud"
+   ],
+   "kind": "nodes"
+  },
+  {
+   "band": "ext",
+   "title": "After sale",
+   "nodes": [
+    "x_buyer"
+   ],
+   "kind": "nodes"
+  },
+  {
+   "band": "ext",
+   "title": "Software supply",
+   "nodes": [
+    "x_pkg"
+   ],
+   "kind": "nodes"
+  },
+  {
+   "band": "adp",
+   "title": "Controller adapters",
+   "nodes": [
+    "a_pay",
+    "a_tun",
+    "a_cf",
+    "a_build",
+    "a_arch"
+   ],
+   "kind": "nodes"
+  },
+  {
+   "band": "work",
+   "title": null,
+   "nodes": [
+    "w_pay",
+    "w_sales",
+    "w_veh",
+    "w_admin",
+    "w_field",
+    "w_map",
+    "w_data",
+    "w_fab",
+    "w_fabd",
+    "w_core",
+    "w_ing"
+   ],
+   "kind": "nodes"
+  },
+  {
+   "band": "data",
+   "title": "Stores and reporting",
+   "nodes": [
+    "d_redis",
+    "d_sql",
+    "d_prom",
+    "d_graf",
+    "d_pg",
+    "d_meta"
+   ],
+   "kind": "nodes"
+  },
+  {
+   "band": "data",
+   "title": "Database engine on this host",
+   "nodes": [
+    "h_pg"
+   ],
+   "kind": "nodes"
+  },
+  {
+   "band": "field",
+   "title": "Real fabrication machines",
+   "nodes": [
+    "h_mach"
+   ],
+   "kind": "nodes"
+  },
+  {
+   "band": "field",
+   "title": null,
+   "nodes": [
+    "h_qgc",
+    "h_rpi",
+    "h_fc",
+    "h_gw",
+    "h_drone",
+    "h_people",
+    "h_webodm",
+    "h_mesh",
+    "h_retic"
+   ],
+   "kind": "nodes"
+  },
+  {
+   "band": "data",
+   "title": "Fabrication collector (host-side)",
+   "nodes": [
+    "h_collect"
+   ],
+   "kind": "nodes"
+  },
+  {
+   "band": "data",
+   "title": "Host-wide encrypted backup",
+   "nodes": [
+    "h_restic"
+   ],
+   "kind": "nodes"
+  },
+  {
+   "band": "sales",
+   "title": "Sales on this host",
+   "nodes": [
+    "h_oc",
+    "h_lm",
+    "h_konq",
+    "h_kpdf"
+   ],
+   "kind": "nodes"
+  },
+  {
+   "band": "sim",
+   "title": null,
+   "nodes": [
+    "h_gaz",
+    "h_fox"
+   ],
+   "kind": "nodes"
+  },
+  {
+   "band": "sec",
+   "title": null,
+   "nodes": [
+    "h_wallet"
+   ],
+   "kind": "nodes"
+  },
+  {
+   "band": "flow",
+   "title": null,
+   "nodes": [
+    "f_pdfin",
+    "f_sale1",
+    "f_sale2",
+    "f_sale3",
+    "f_sale4",
+    "f_pdfout",
+    "f_cord",
+    "f_cad",
+    "f_reg",
+    "f_corr",
+    "f_stor",
+    "f_map1",
+    "f_map2",
+    "f_map3",
+    "f_storflow"
+   ],
+   "kind": "nodes"
+  }
+ ],
+ "nodes": [
+  {
+   "id": "x_cust",
+   "band": "ext",
+   "cls": "ext",
+   "title": "Customer",
+   "purpose": "Buys a product",
+   "status": "IMPLEMENTED",
+   "details": [
+    "Browser on the public site"
+   ],
+   "sec": "7.3",
+   "note": ""
+  },
+  {
+   "id": "x_email",
+   "band": "ext",
+   "cls": "ext",
+   "title": "EMAIL TEMPLATE",
+   "purpose": "The order template a customer fills in and sends",
+   "status": "IN PROGRESS",
+   "details": [
+    "KIT REQUEST / order-request template",
+    "IMAP pull of the domain mailbox",
+    "Arrives as a PDF, standardised and hashed"
+   ],
+   "sec": "ES.2, 7.1.1, 15.1.2",
+   "note": ""
+  },
+  {
+   "id": "x_store",
+   "band": "ext",
+   "cls": "ext",
+   "title": "Storefront 300x3.com",
+   "purpose": "Shows the products; sells nothing itself",
+   "status": "IMPLEMENTED",
+   "details": [
+    "Static catalogue, docs, legal",
+    "No local ports, no secrets",
+    "Checkout hands off to a hosted provider,",
+    "or routes the buyer to the email template"
+   ],
+   "sec": "ES.2, 7.1",
+   "note": ""
+  },
+  {
+   "id": "x_social",
+   "band": "ext",
+   "cls": "ext",
+   "title": "Other social media",
+   "purpose": "Where the fediverse chatbot also posts",
+   "status": "PLANNED",
+   "details": [
+    "Chatbot from the remote fediverse",
+    "routes its replies in here",
+    "No service runs on this host for it"
+   ],
+   "sec": "ES.2, 15.4.3",
+   "note": ""
+  },
+  {
+   "id": "x_pkg",
+   "band": "ext",
+   "cls": "ext",
+   "title": "Software source",
+   "purpose": "Where signed builds and images are fetched from",
+   "status": "PLANNED",
+   "details": [
+    "Package and container registries",
+    "Signature and digest checked"
+   ],
+   "sec": "5.2",
+   "note": ""
+  },
+  {
+   "id": "x_pay",
+   "band": "ext",
+   "cls": "ext",
+   "title": "Payment provider",
+   "purpose": "Captures money, then signs an event",
+   "status": "PLANNED",
+   "details": [
+    "PayPal / Zelle / Coinbase",
+    "Cards never touch this host"
+   ],
+   "sec": "ES.2, 7.2, 18.4",
+   "note": ""
+  },
+  {
+   "id": "x_fedi",
+   "band": "ext",
+   "cls": "ext",
+   "title": "Remote fediverse",
+   "purpose": "Other servers we talk to",
+   "status": "IN PROGRESS",
+   "details": [
+    "Mastodon.social + peers",
+    "ActivityPub, WebFinger"
+   ],
+   "sec": "ES.2, 15.4.3",
+   "note": ""
+  },
+  {
+   "id": "x_pcloud",
+   "band": "ext",
+   "cls": "ext",
+   "title": "pCloud",
+   "purpose": "Publishes the site; holds the sale-transfer copies",
+   "status": "PLANNED",
+   "details": [
+    "Public folder out; transfers in",
+    "The backup is restic, not IPFS",
+    "Encrypted, allowlisted"
+   ],
+   "sec": "ES.2, 11.6, 17.1",
+   "note": ""
+  },
+  {
+   "id": "x_buyer",
+   "band": "ext",
+   "cls": "ext",
+   "title": "Authorised recipient",
+   "purpose": "Receives a sold map or telemetry package",
+   "status": "PLANNED",
+   "details": [
+    "Private swarm / pinning / encryption",
+    "Package - hash - authorisation",
+    "Blockchain sales listing, where applicable",
+    "Receives it for transfer, not recovery"
+   ],
+   "sec": "ES.2, 11.6, 4.4",
+   "note": ""
+  },
+  {
+   "id": "a_pay",
+   "band": "adp",
+   "cls": "adp",
+   "title": "ao-ingress-payment",
+   "purpose": "The only way a payment can get in",
+   "status": "PLANNED",
+   "details": [
+    "Zelle · PayPal · Coinbase",
+    "Verifies provider signature",
+    "Rate-limits, normalises"
+   ],
+   "sec": "3.1, 5.2, 18.4",
+   "note": ""
+  },
+  {
+   "id": "a_arch",
+   "band": "adp",
+   "cls": "adp",
+   "title": "ao-egress-archive",
+   "purpose": "ARCHIVED FOR DATA TRANSFER AND SALE — not a backup",
+   "status": "PLANNED",
+   "details": [
+    "Held so a sold package can be transferred",
+    "NOT a backup: restic is the backup (17.1)",
+    "No restore, no recovery, no retention duty",
+    "Sold maps, imagery, telemetry/IoT packages",
+    "IPFS: transfer verification + sale listing",
+    "Then encrypted pCloud replication",
+    "Requires ao-sales authorisation first",
+    "Destination allowlist · separate credentials"
+   ],
+   "sec": "3.1, 5.2, 11.6, 17.1",
+   "note": ""
+  },
+  {
+   "id": "a_build",
+   "band": "adp",
+   "cls": "adp",
+   "title": "ao-build-update",
+   "purpose": "Software updates only — all host software",
+   "status": "PLANNED",
+   "details": [
+    "Fetches images/packages",
+    "Verifies digest, promotes",
+    "Updates host software of every domain",
+    "NOT imagery: WebODM and photo",
+    "processing/verification are ao-mapping's",
+    "ao-mapping does all WebODM work"
+   ],
+   "sec": "5.2, 8.1",
+   "note": ""
+  },
+  {
+   "id": "a_cf",
+   "band": "adp",
+   "cls": "adp",
+   "title": "Cloudflare edge",
+   "purpose": "Where TLS is terminated",
+   "status": "IMPLEMENTED",
+   "details": [
+    "mastodon.300x3.com",
+    "Tunnel ingress only"
+   ],
+   "sec": "15.4.3",
+   "note": ""
+  },
+  {
+   "id": "a_tun",
+   "band": "adp",
+   "cls": "adp",
+   "title": "cloudflared-alwayson",
+   "purpose": "Carries federation traffic inward",
+   "status": "IMPLEMENTED",
+   "details": [
+    "Cloudflared connector",
+    "Origin stays loopback"
+   ],
+   "sec": "15.4.3",
+   "note": ""
+  },
+  {
+   "id": "w_sales",
+   "band": "work",
+   "cls": "work",
+   "title": "ao-sales",
+   "purpose": "The only domain that touches customers directly",
+   "status": "IN PROGRESS",
+   "details": [
+    "10.89.0.0/24",
+    "Coordinates social media, email and Mastodon,",
+    "the AI bot and chat, and the order-request",
+    "and receipt workflows",
+    "Web origin 127.0.0.1:3000",
+    "Public PDF intake forms are the exposure point",
+    "PDF intake and PDF output"
+   ],
+   "sec": "5.1, 15.1.2, 7.1.1",
+   "note": ""
+  },
+  {
+   "id": "w_pay",
+   "band": "work",
+   "cls": "work",
+   "title": "ao-payment",
+   "purpose": "Turns a provider event into verified money",
+   "status": "PLANNED",
+   "details": [
+    "10.89.1.0/24",
+    "Webhook verifier · reconciler"
+   ],
+   "sec": "5.1, 7.3",
+   "note": ""
+  },
+  {
+   "id": "w_field",
+   "band": "work",
+   "cls": "work",
+   "title": "ao-field",
+   "purpose": "Listens to the drone and signs what it hears",
+   "status": "IN PROGRESS",
+   "details": [
+    "10.89.2.0/24",
+    "Heltec gateway · RNS/MeshChatX"
+   ],
+   "sec": "5.1, 9.1, 9.2",
+   "note": ""
+  },
+  {
+   "id": "w_map",
+   "band": "work",
+   "cls": "work",
+   "title": "ao-mapping",
+   "purpose": "Turns drone photos into a measured map",
+   "status": "IMPLEMENTED",
+   "details": [
+    "10.89.3.0/24",
+    "WebODM · NodeODM · intake"
+   ],
+   "sec": "5.1, 8.1, 8.3",
+   "note": ""
+  },
+  {
+   "id": "w_veh",
+   "band": "work",
+   "cls": "work",
+   "title": "ao-sim-vehicle",
+   "purpose": "Rehearses flights without a real aircraft",
+   "status": "IMPLEMENTED",
+   "details": [
+    "10.89.4.0/24",
+    "ROS 2 + Gazebo · DOMAIN_ID=21"
+   ],
+   "sec": "5.1, 10.1",
+   "note": ""
+  },
+  {
+   "id": "w_fab",
+   "band": "work",
+   "cls": "work",
+   "title": "ao-sim-fabrication",
+   "purpose": "Coordinates industrial engineering and production details, and runs the kitchen",
+   "status": "IMPLEMENTED",
+   "details": [
+    "10.89.5.0/24 · ROS 2 + Gazebo · DOMAIN_ID=22",
+    "Receives specific production data from each machine",
+    "Robot arms have their own computers",
+    "Simulation only: it never commands live machinery",
+    "Real machines are separate — see ao-fabrication"
+   ],
+   "sec": "5.1, 10.2",
+   "note": "Headless verified; GUI workflow pending (6.A.1)"
+  },
+  {
+   "id": "w_fabd",
+   "band": "work",
+   "cls": "work",
+   "title": "ao-fabrication",
+   "purpose": "Pulls data from the real machines into its own database",
+   "status": "PLANNED",
+   "details": [
+    "10.89.12.0/24 · Internal=true",
+    "MainsailOS / Moonraker / Klipper on the",
+    "BigTreeTech CB1 / RPi of each individual",
+    "3D printer and CNC machine",
+    "Own database for industrial engineering",
+    "and fabrication optimisation work"
+   ],
+   "sec": "5.1, 10.2, 3.3",
+   "note": "Operator instruction 2026-09-30; not yet in README v7 §3.3 target databases"
+  },
+  {
+   "id": "w_ing",
+   "band": "work",
+   "cls": "ledger",
+   "title": "ao-ledger-ingest",
+   "purpose": "The one door into the ledger",
+   "status": "BLOCKED",
+   "details": [
+    "10.89.6.0/24",
+    "mTLS · authz · validate · sign ·",
+    "idempotency · timestamp/nonce · audit"
+   ],
+   "sec": "5.1, 11.2",
+   "note": "Blocked on the Corda key/certificate ceremony (18.3)"
+  },
+  {
+   "id": "w_core",
+   "band": "work",
+   "cls": "ledger",
+   "title": "ao-ledger-core",
+   "purpose": "Holds the authoritative ledger",
+   "status": "BLOCKED",
+   "details": [
+    "10.89.7.0/24",
+    "Corda 5.2.2 · PKI · cordadb",
+    "(own database, roles, backup)"
+   ],
+   "sec": "5.1, 11.1",
+   "note": ""
+  },
+  {
+   "id": "w_data",
+   "band": "work",
+   "cls": "work",
+   "title": "ao-data",
+   "purpose": "Carries approved references, nothing else",
+   "status": "PLANNED",
+   "details": [
+    "10.89.8.0/24",
+    "Narrow plumbing only"
+   ],
+   "sec": "5.1, 6.A.3",
+   "note": ""
+  },
+  {
+   "id": "w_admin",
+   "band": "work",
+   "cls": "work",
+   "title": "ao-admin",
+   "purpose": "Watches and reports; never a way in",
+   "status": "IMPLEMENTED",
+   "details": [
+    "10.89.9.0/24",
+    "Prometheus · Grafana · Metabase"
+   ],
+   "sec": "5.1, 6.A",
+   "note": ""
+  },
+  {
+   "id": "d_pg",
+   "band": "data",
+   "cls": "data",
+   "title": "PostgreSQL 18",
+   "purpose": "The operational record for every domain",
+   "status": "IMPLEMENTED",
+   "details": [
+    "salesdb · mastodon · webodm ·",
+    "grafana · metabase · cordadb · postgres",
+    "And a_fab for ao-fabrication"
+   ],
+   "sec": "3.3",
+   "note": ""
+  },
+  {
+   "id": "d_redis",
+   "band": "data",
+   "cls": "data",
+   "title": "Redis 8",
+   "purpose": "Fast coordination — never the record",
+   "status": "IMPLEMENTED",
+   "details": [
+    "Cache · queues · locks"
+   ],
+   "sec": "3.3",
+   "note": ""
+  },
+  {
+   "id": "d_prom",
+   "band": "data",
+   "cls": "data",
+   "title": "Prometheus TSDB",
+   "purpose": "Security only — acts alone and independently",
+   "status": "IMPLEMENTED",
+   "details": [
+    "Security metrics · rules · alerts",
+    "Acts alone and independently",
+    "Metabase never uses it as a datasource"
+   ],
+   "sec": "ES.1, 17.2",
+   "note": ""
+  },
+  {
+   "id": "d_meta",
+   "band": "data",
+   "cls": "data",
+   "title": "Metabase",
+   "purpose": "REPORTING — business and ad hoc analysis",
+   "status": "IMPLEMENTED",
+   "details": [
+    "SQL over read-only views",
+    "Sales · orders · marketing",
+    "Also Metabase's own application database"
+   ],
+   "sec": "6.A.2, 11.2.1",
+   "note": ""
+  },
+  {
+   "id": "d_graf",
+   "band": "data",
+   "cls": "data",
+   "title": "Grafana",
+   "purpose": "DASHBOARDS AND METRICS",
+   "status": "IMPLEMENTED",
+   "details": [
+    "Operational, live and business dashboards",
+    "PostgreSQL + Prometheus sources",
+    "Also Grafana's own application database"
+   ],
+   "sec": "6.A.2, ES.1",
+   "note": ""
+  },
+  {
+   "id": "d_sql",
+   "band": "data",
+   "cls": "data",
+   "title": "SQLite",
+   "purpose": "The database engine itself — one file per program, never the record",
+   "status": "IMPLEMENTED",
+   "details": [
+    "MeshChatX · QGroundControl · and the",
+    "other local tools that keep state"
+   ],
+   "sec": "3.3",
+   "note": ""
+  },
+  {
+   "id": "h_rpi",
+   "band": "field",
+   "cls": "hw",
+   "title": "Raspberry Pi 5",
+   "purpose": "Drone — KaliOS on the Raspberry Pi 5 with the Autopilot Module — OFF-HOST",
+   "status": "IMPLEMENTED",
+   "details": [
+    "MAVLink collector · encrypted",
+    "telemetry spool · RNS · MeshChatX"
+   ],
+   "sec": "9.1",
+   "note": ""
+  },
+  {
+   "id": "h_fc",
+   "band": "field",
+   "cls": "hw",
+   "title": "ArduPilot 3DR N1",
+   "purpose": "Actually flies the drone — OFF-HOST",
+   "status": "IMPLEMENTED",
+   "details": [
+    "Flight controller",
+    "Waveshare SX1262 LoRa + GNSS"
+   ],
+   "sec": "9.1",
+   "note": ""
+  },
+  {
+   "id": "h_people",
+   "band": "field",
+   "cls": "rf",
+   "title": "PEOPLE-RADIO",
+   "purpose": "LoRaWAN human chat — ties to MeshChatX",
+   "status": "IMPLEMENTED",
+   "details": [
+    "Heltec LoRa 32 V3 · SX1262",
+    "915 MHz / 125 kHz / SF7 / 17 dBm",
+    "LoRaWAN-related communication",
+    "Carries MeshChatX text over LoRa"
+   ],
+   "sec": "9.2, 9.3",
+   "note": ""
+  },
+  {
+   "id": "h_drone",
+   "band": "field",
+   "cls": "rf",
+   "title": "DRONE-RADIO",
+   "purpose": "Local QGC missions to the drone, in flight",
+   "status": "IMPLEMENTED",
+   "details": [
+    "Heltec LoRa 32 V3 · SX1262",
+    "917 MHz / 250 kHz / SF7 · hidden",
+    "Ties to QGroundControl",
+    "Sends local QGC missions to the",
+    "QGC session on the Pi5 drone",
+    "So missions update MIDFLIGHT"
+   ],
+   "sec": "9.2, 9.3",
+   "note": ""
+  },
+  {
+   "id": "h_webodm",
+   "band": "field",
+   "cls": "host",
+   "title": "WebODM web",
+   "purpose": "Mapping UI on this workstation",
+   "status": "IMPLEMENTED",
+   "details": [
+    "127.0.0.1:8000",
+    "Loopback only"
+   ],
+   "sec": "9.2.1",
+   "note": ""
+  },
+  {
+   "id": "h_gw",
+   "band": "field",
+   "cls": "host",
+   "title": "Heltec gateway service",
+   "purpose": "Turns radio bytes into signed records",
+   "status": "IN PROGRESS",
+   "details": [
+    "Serial framing · RSSI/SNR ·",
+    "replay defence · signs manifests"
+   ],
+   "sec": "9.2",
+   "note": ""
+  },
+  {
+   "id": "h_mesh",
+   "band": "field",
+   "cls": "host",
+   "title": "MeshChatX",
+   "purpose": "Local chat service on the mesh, end-to-end encrypted by Reticulum",
+   "status": "IMPLEMENTED",
+   "details": [
+    "https://127.0.0.1:18000 · loopback only",
+    "Strong modern encryption by default,",
+    "ephemeral keys, forward secrecy",
+    "Unencrypted links cannot be established"
+   ],
+   "sec": "9.2.1, 9.4",
+   "note": ""
+  },
+  {
+   "id": "h_retic",
+   "band": "field",
+   "cls": "host",
+   "title": "Reticulum",
+   "purpose": "Carries mesh traffic, end-to-end encrypted; bound to all IPv4",
+   "status": "IN PROGRESS",
+   "details": [
+    "Public Gateway 0.0.0.0:4242",
+    "NOT loopback-restricted (9.4)",
+    "All traffic encrypted by default,",
+    "ephemeral keys, forward secrecy",
+    "Unencrypted links cannot be established"
+   ],
+   "sec": "9.3, 9.4",
+   "note": ""
+  },
+  {
+   "id": "h_mach",
+   "band": "field",
+   "cls": "hw",
+   "title": "3D printers and CNC machines",
+   "purpose": "Real machines, not simulation nodes",
+   "status": "IMPLEMENTED",
+   "details": [
+    "printer-01 VERIFIED LIVE at 10.42.0.96",
+    "MainsailOS / Moonraker / Klipper",
+    "on a BigTreeTech CB1 / Raspberry Pi",
+    "Equipment LAN 10.42.0.0/24; DHCP from",
+    "the desktop; NOT part of any domain",
+    "Collected by the host hop, never",
+    "commanded: Moonraker is read-only"
+   ],
+   "sec": "ES.1, 10.2, 10.3, 3.3.0.1",
+   "note": ""
+  },
+  {
+   "id": "h_qgc",
+   "band": "field",
+   "cls": "host",
+   "title": "QGroundControl",
+   "purpose": "Plans and watches missions; updates midflight",
+   "status": "PARTIAL",
+   "details": [
+    "Mission planning desktop",
+    "KaliOS RPi5 fallback",
+    "DRONE-RADIO delivers missions",
+    "to the QGC session on the Pi5"
+   ],
+   "sec": "ES.1, 9.1",
+   "note": ""
+  },
+  {
+   "id": "h_lm",
+   "band": "sales",
+   "cls": "host",
+   "title": "LM Studio",
+   "purpose": "Runs the local models",
+   "status": "IMPLEMENTED",
+   "details": [
+    "127.0.0.1:1234",
+    "Local inference only, no outbound"
+   ],
+   "sec": "ES.1, 6.A",
+   "note": ""
+  },
+  {
+   "id": "h_oc",
+   "band": "sales",
+   "cls": "host",
+   "title": "OpenClaw",
+   "purpose": "The local agent that acts on the sale",
+   "status": "IN PROGRESS",
+   "details": [
+    "127.0.0.1:18789 / 18790",
+    "Uses LM Studio and KDE Wallet"
+   ],
+   "sec": "ES.1, 6.A.3",
+   "note": ""
+  },
+  {
+   "id": "h_kpdf",
+   "band": "sales",
+   "cls": "host",
+   "title": "KIT REQUEST PDF intake",
+   "purpose": "Written requests in, not sales out",
+   "status": "PARTIAL",
+   "details": [
+    "intake-kit-request-pdf.sh",
+    "inbox · extracted · manifests · quarantine",
+    "sale_logged=false · corda_state=NOT_SUBMITTED"
+   ],
+   "sec": "15.1.2",
+   "note": "Script and 7 folders present, but no timer or unit, and manifests/ and extracted/ are empty — never run"
+  },
+  {
+   "id": "h_konq",
+   "band": "sales",
+   "cls": "host",
+   "title": "Konqueror",
+   "purpose": "Dedicated browser for automation",
+   "status": "IMPLEMENTED",
+   "details": [
+    "Sales UI · community · dashboards",
+    "Tokodon removed"
+   ],
+   "sec": "ES.1",
+   "note": ""
+  },
+  {
+   "id": "h_pg",
+   "band": "data",
+   "cls": "host",
+   "title": "PostgreSQL 18.6 (host)",
+   "purpose": "The database engine itself",
+   "status": "IMPLEMENTED",
+   "details": [
+    "127.0.0.1:5432",
+    "One cluster, many databases"
+   ],
+   "sec": "3.3",
+   "note": ""
+  },
+  {
+   "id": "h_collect",
+   "band": "data",
+   "cls": "host",
+   "title": "ao-fabrication-collect",
+   "purpose": "Host-side pull-only collector",
+   "status": "IMPLEMENTED",
+   "details": [
+    "Runs on the HOST, not in the domain:",
+    "ao-fabrication is Internal=true and",
+    "cannot reach 10.42.0.0/24",
+    "GETs Moonraker every 5 min; never",
+    "commands a machine",
+    "Pushes over the podman bridge",
+    "10.89.12.1 to a_fab on 127.0.0.1:15433",
+    "payload_sha256 makes a re-poll idempotent"
+   ],
+   "sec": "3.3.0.1, 10.3",
+   "note": ""
+  },
+  {
+   "id": "h_restic",
+   "band": "data",
+   "cls": "host",
+   "title": "restic backup",
+   "purpose": "3-2-1 encrypted backup for the whole host",
+   "status": "IMPLEMENTED",
+   "details": [
+    "Config · manifests · postgres dumps ·",
+    "photogrammetry manifests",
+    "Nightly 03:30 · weekly verify · monthly restore test"
+   ],
+   "sec": "17.1, ES.1",
+   "note": ""
+  },
+  {
+   "id": "h_wallet",
+   "band": "sec",
+   "cls": "sec",
+   "title": "KDE Wallet",
+   "purpose": "The only source of secrets",
+   "status": "IMPLEMENTED",
+   "details": [
+    "kwalletd6 after Plasma login",
+    "fetch-kwallet-secret.sh"
+   ],
+   "sec": "14.1, 14.1.1",
+   "note": ""
+  },
+  {
+   "id": "h_gaz",
+   "band": "sim",
+   "cls": "host",
+   "title": "Gazebo + ROS 2",
+   "purpose": "Installed, but not set up with worlds",
+   "status": "IN PROGRESS",
+   "details": [
+    "ROS 2 Lyrical + gz present",
+    "DOMAIN_ID 21 and 22 reserved"
+   ],
+   "sec": "10.1, 10.2",
+   "note": "Installed only, nothing running (2026-09-29)"
+  },
+  {
+   "id": "h_fox",
+   "band": "sim",
+   "cls": "host",
+   "title": "Foxglove",
+   "purpose": "Not set up — no bridge, no worlds",
+   "status": "IN PROGRESS",
+   "details": [
+    "No foxglove_bridge on this host",
+    "Loopback ws://127.0.0.1:8765"
+   ],
+   "sec": "10.1, 10.2",
+   "note": "No foxglove or foxglove_bridge binary found 2026-09-29; only stale ~/.ros/log bridge logs"
+  },
+  {
+   "id": "f_sale1",
+   "band": "flow",
+   "cls": "work",
+   "title": "1 · Catalogue to checkout",
+   "purpose": "Customer picks and pays",
+   "status": "IMPLEMENTED",
+   "details": [
+    "Product modal, then hosted checkout",
+    "or a mailto order template"
+   ],
+   "sec": "7.1.1, 7.3",
+   "note": ""
+  },
+  {
+   "id": "f_sale2",
+   "band": "flow",
+   "cls": "work",
+   "title": "2 · Verified payment event",
+   "purpose": "Money becomes a checked fact",
+   "status": "PLANNED",
+   "details": [
+    "Provider-signed webhook",
+    "or manual reconciliation"
+   ],
+   "sec": "7.3",
+   "note": ""
+  },
+  {
+   "id": "f_sale3",
+   "band": "flow",
+   "cls": "work",
+   "title": "3 · salesdb record",
+   "purpose": "The sale is written down",
+   "status": "PLANNED",
+   "details": [
+    "Order · receipt · fulfilment ·",
+    "entitlement state"
+   ],
+   "sec": "7.3, 15.1",
+   "note": ""
+  },
+  {
+   "id": "f_sale4",
+   "band": "flow",
+   "cls": "ledger",
+   "title": "4 · Signed receipt manifest",
+   "purpose": "Proof ready to leave",
+   "status": "BLOCKED",
+   "details": [
+    "Minimised, hashed, signed",
+    "Three evidence classes required"
+   ],
+   "sec": "11.2, 11.2.2",
+   "note": ""
+  },
+  {
+   "id": "f_cord",
+   "band": "flow",
+   "cls": "ledger",
+   "title": "5 · Corda state",
+   "purpose": "The sale is now provable",
+   "status": "BLOCKED",
+   "details": [
+    "Transaction · entitlement ·",
+    "provenance · approval"
+   ],
+   "sec": "11.2, 11.2.3",
+   "note": ""
+  },
+  {
+   "id": "f_pdfin",
+   "band": "flow",
+   "cls": "work",
+   "title": "PDF intake",
+   "purpose": "The public form a customer fills in",
+   "status": "IN PROGRESS",
+   "details": [
+    "KIT REQUEST / order-request email, or the public PDF intake form",
+    "Standardised PDF, hashed and reviewed",
+    "sale_logged=false · corda_state=NOT_SUBMITTED"
+   ],
+   "sec": "7.1.1, 15.1.2, 4.4",
+   "note": ""
+  },
+  {
+   "id": "f_pdfout",
+   "band": "flow",
+   "cls": "data",
+   "title": "PDF output",
+   "purpose": "Receipts and reports the customer receives",
+   "status": "PLANNED",
+   "details": [
+    "Signed receipt / contract PDF",
+    "Sales and accounting report PDF",
+    "Transaction folder, operator archive, ledger gateway"
+   ],
+   "sec": "4.4, 7.2",
+   "note": ""
+  },
+  {
+   "id": "f_cad",
+   "band": "flow",
+   "cls": "work",
+   "title": "CAD / 3D model",
+   "purpose": "Designs are identified, not just files",
+   "status": "PLANNED",
+   "details": [
+    "model_object_id +",
+    "model_revision_id"
+   ],
+   "sec": "8.6.1, 8.6.4",
+   "note": ""
+  },
+  {
+   "id": "f_reg",
+   "band": "flow",
+   "cls": "data",
+   "title": "Model registry",
+   "purpose": "Resolves a model to what it is",
+   "status": "PLANNED",
+   "details": [
+    "serial_number to product",
+    "correlation_id + receipt to sale",
+    "content_hash to artifact"
+   ],
+   "sec": "8.6.3, 8.6.4",
+   "note": ""
+  },
+  {
+   "id": "f_corr",
+   "band": "flow",
+   "cls": "data",
+   "title": "Correlation tuple",
+   "purpose": "The key every record shares",
+   "status": "IMPLEMENTED",
+   "details": [
+    "serial_number +",
+    "receipt_number +",
+    "event_timestamp_utc"
+   ],
+   "sec": "11.2.1",
+   "note": ""
+  },
+  {
+   "id": "f_stor",
+   "band": "flow",
+   "cls": "data",
+   "title": "500GBPHOTOGRAM drive",
+   "purpose": "The dedicated photogrammetry store",
+   "status": "IMPLEMENTED",
+   "details": [
+    "/media/scottw/500GBPHOTOGRAM",
+    "incoming · validated · rejected · webodm ·",
+    "deliverables · manifests · exports · retention"
+   ],
+   "sec": "8.1, 8.2",
+   "note": ""
+  },
+  {
+   "id": "f_map1",
+   "band": "flow",
+   "cls": "work",
+   "title": "Mapping · ingest",
+   "purpose": "Bad images are rejected early",
+   "status": "IMPLEMENTED",
+   "details": [
+    "Type · SHA-256 · EXIF · mission",
+    "association · quota · quarantine"
+   ],
+   "sec": "8.3",
+   "note": ""
+  },
+  {
+   "id": "f_map2",
+   "band": "flow",
+   "cls": "work",
+   "title": "Mapping · process",
+   "purpose": "Photos become a measured model",
+   "status": "IMPLEMENTED",
+   "details": [
+    "WebODM task, then Redis queue",
+    "NodeODM: ortho, cloud, DSM,",
+    "texture, report"
+   ],
+   "sec": "8.3",
+   "note": ""
+  },
+  {
+   "id": "f_map3",
+   "band": "flow",
+   "cls": "work",
+   "title": "Mapping · export",
+   "purpose": "Results become provable goods",
+   "status": "PLANNED",
+   "details": [
+    "Hashes outputs, signs manifest,",
+    "stages the archive bundle"
+   ],
+   "sec": "8.3, 8.6.4",
+   "note": ""
+  },
+  {
+   "id": "f_storflow",
+   "band": "flow",
+   "cls": "work",
+   "title": "Storage to shelf to robot",
+   "purpose": "The fabrication flow being rehearsed",
+   "status": "PLANNED",
+   "details": [
+    "Carousel/conveyor, then pickup",
+    "to 3D print · LPBF · assembly ·",
+    "fridge/pantry · kitchen"
+   ],
+   "sec": "10.2.c",
+   "note": ""
+  }
+ ],
+ "edges": [
+  {
+   "source": "x_cust",
+   "target": "x_store",
+   "label": "visits",
+   "kind": "normal"
+  },
+  {
+   "source": "x_cust",
+   "target": "x_email",
+   "label": "fills in and sends",
+   "kind": "normal"
+  },
+  {
+   "source": "x_store",
+   "target": "x_email",
+   "label": "order template",
+   "kind": "ok"
+  },
+  {
+   "source": "x_store",
+   "target": "x_pay",
+   "label": "hosted checkout",
+   "kind": "ok"
+  },
+  {
+   "source": "x_fedi",
+   "target": "x_social",
+   "label": "chatbot replies",
+   "kind": "normal"
+  },
+  {
+   "source": "x_pay",
+   "target": "a_pay",
+   "label": "signed webhook",
+   "kind": "ok"
+  },
+  {
+   "source": "x_email",
+   "target": "a_cf",
+   "label": "HTTPS 443",
+   "kind": "ok"
+  },
+  {
+   "source": "x_fedi",
+   "target": "a_cf",
+   "label": "HTTPS 443",
+   "kind": "ok"
+  },
+  {
+   "source": "a_cf",
+   "target": "a_tun",
+   "label": "tunnel",
+   "kind": "ok"
+  },
+  {
+   "source": "a_tun",
+   "target": "w_sales",
+   "label": "tunnel to loopback origin",
+   "kind": "ok"
+  },
+  {
+   "source": "a_pay",
+   "target": "w_pay",
+   "label": "verified event",
+   "kind": "ok"
+  },
+  {
+   "source": "w_sales",
+   "target": "x_fedi",
+   "label": "ActivityPub out via sales egress bridge",
+   "kind": "ok"
+  },
+  {
+   "source": "w_sales",
+   "target": "x_email",
+   "label": "purchase request, receipt and work-order status PDFs",
+   "kind": "ok"
+  },
+  {
+   "source": "w_sales",
+   "target": "a_arch",
+   "label": "authorises the transfer",
+   "kind": "ok"
+  },
+  {
+   "source": "a_arch",
+   "target": "x_pcloud",
+   "label": "encrypted transfer copy",
+   "kind": "ok"
+  },
+  {
+   "source": "a_arch",
+   "target": "x_buyer",
+   "label": "post-sale IPFS transfer",
+   "kind": "ok"
+  },
+  {
+   "source": "x_pkg",
+   "target": "a_build",
+   "label": "signed images and packages",
+   "kind": "ok"
+  },
+  {
+   "source": "h_restic",
+   "target": "x_pcloud",
+   "label": "replicated",
+   "kind": "normal"
+  },
+  {
+   "source": "w_field",
+   "target": "w_ing",
+   "label": "telemetry manifest",
+   "kind": "ok"
+  },
+  {
+   "source": "w_map",
+   "target": "w_ing",
+   "label": "mapping deliverable",
+   "kind": "ok"
+  },
+  {
+   "source": "w_veh",
+   "target": "w_ing",
+   "label": "vehicle sim manifest",
+   "kind": "ok"
+  },
+  {
+   "source": "w_fab",
+   "target": "w_ing",
+   "label": "fabrication manifest",
+   "kind": "ok"
+  },
+  {
+   "source": "w_sales",
+   "target": "w_ing",
+   "label": "receipt manifest",
+   "kind": "ok"
+  },
+  {
+   "source": "w_pay",
+   "target": "w_ing",
+   "label": "verified payment",
+   "kind": "ok"
+  },
+  {
+   "source": "w_ing",
+   "target": "w_core",
+   "label": "approved state transition",
+   "kind": "ok"
+  },
+  {
+   "source": "w_ing",
+   "target": "w_field",
+   "label": "signed mission release",
+   "kind": "ok"
+  },
+  {
+   "source": "w_map",
+   "target": "f_map1",
+   "label": "validated image set",
+   "kind": "ok"
+  },
+  {
+   "source": "w_core",
+   "target": "d_meta",
+   "label": "status via narrow API",
+   "kind": "ok"
+  },
+  {
+   "source": "d_pg",
+   "target": "d_meta",
+   "label": "read-only views",
+   "kind": "ok"
+  },
+  {
+   "source": "d_pg",
+   "target": "d_graf",
+   "label": "PostgreSQL datasource",
+   "kind": "ok"
+  },
+  {
+   "source": "d_prom",
+   "target": "d_graf",
+   "label": "metrics",
+   "kind": "ok"
+  },
+  {
+   "source": "w_admin",
+   "target": "d_pg",
+   "label": "read-only bridge",
+   "kind": "normal"
+  },
+  {
+   "source": "h_pg",
+   "target": "d_pg",
+   "label": "local socket only",
+   "kind": "normal"
+  },
+  {
+   "source": "h_webodm",
+   "target": "w_map",
+   "label": "loopback UI",
+   "kind": "normal"
+  },
+  {
+   "source": "h_gaz",
+   "target": "w_veh",
+   "label": "flight rehearsal",
+   "kind": "normal"
+  },
+  {
+   "source": "h_gaz",
+   "target": "w_fab",
+   "label": "factory and kitchen rehearsal",
+   "kind": "normal"
+  },
+  {
+   "source": "h_mach",
+   "target": "h_collect",
+   "label": "Moonraker read over the equipment LAN",
+   "kind": "ok"
+  },
+  {
+   "source": "h_collect",
+   "target": "w_fabd",
+   "label": "per-machine production data over 10.89.12.1",
+   "kind": "ok"
+  },
+  {
+   "source": "w_fabd",
+   "target": "d_pg",
+   "label": "own database a_fab",
+   "kind": "ok"
+  },
+  {
+   "source": "h_wallet",
+   "target": "w_sales",
+   "label": "secrets after login",
+   "kind": "normal"
+  },
+  {
+   "source": "h_lm",
+   "target": "w_sales",
+   "label": "local inference",
+   "kind": "normal"
+  },
+  {
+   "source": "h_oc",
+   "target": "w_sales",
+   "label": "agent actions",
+   "kind": "normal"
+  },
+  {
+   "source": "h_fox",
+   "target": "w_veh",
+   "label": "flight world",
+   "kind": "normal"
+  },
+  {
+   "source": "h_fox",
+   "target": "w_fab",
+   "label": "factory and kitchen world",
+   "kind": "normal"
+  },
+  {
+   "source": "h_mesh",
+   "target": "h_retic",
+   "label": "embedded RNS",
+   "kind": "normal"
+  },
+  {
+   "source": "h_konq",
+   "target": "w_sales",
+   "label": "operator GUI",
+   "kind": "normal"
+  },
+  {
+   "source": "h_kpdf",
+   "target": "w_sales",
+   "label": "PDF requests in",
+   "kind": "normal"
+  },
+  {
+   "source": "h_qgc",
+   "target": "h_drone",
+   "label": "local mission for the drone",
+   "kind": "rf"
+  },
+  {
+   "source": "h_drone",
+   "target": "h_rpi",
+   "label": "mission update midflight, no IP",
+   "kind": "rf"
+  },
+  {
+   "source": "h_people",
+   "target": "h_mesh",
+   "label": "LoRaWAN chat text",
+   "kind": "rf"
+  },
+  {
+   "source": "h_people",
+   "target": "h_drone",
+   "label": "separate bands 915 / 917 MHz",
+   "kind": "rf"
+  },
+  {
+   "source": "h_rpi",
+   "target": "h_fc",
+   "label": "MAVLink UART/USB",
+   "kind": "normal"
+  },
+  {
+   "source": "h_people",
+   "target": "h_gw",
+   "label": "USB serial",
+   "kind": "normal"
+  },
+  {
+   "source": "h_drone",
+   "target": "h_gw",
+   "label": "USB serial",
+   "kind": "normal"
+  },
+  {
+   "source": "h_gw",
+   "target": "w_field",
+   "label": "signed telemetry",
+   "kind": "ok"
+  },
+  {
+   "source": "x_email",
+   "target": "f_pdfin",
+   "label": "written intake",
+   "kind": "ok"
+  },
+  {
+   "source": "x_store",
+   "target": "f_pdfin",
+   "label": "public intake form",
+   "kind": "ok"
+  },
+  {
+   "source": "f_pdfin",
+   "target": "f_sale1",
+   "label": "standardised PDF",
+   "kind": "ok"
+  },
+  {
+   "source": "f_sale4",
+   "target": "f_pdfout",
+   "label": "signed receipt PDF",
+   "kind": "ok"
+  },
+  {
+   "source": "f_sale1",
+   "target": "f_sale2",
+   "label": "",
+   "kind": "ok"
+  },
+  {
+   "source": "f_sale2",
+   "target": "f_sale3",
+   "label": "",
+   "kind": "ok"
+  },
+  {
+   "source": "f_sale3",
+   "target": "f_sale4",
+   "label": "signed manifest",
+   "kind": "ok"
+  },
+  {
+   "source": "f_sale4",
+   "target": "f_cord",
+   "label": "",
+   "kind": "ok"
+  },
+  {
+   "source": "f_cord",
+   "target": "f_reg",
+   "label": "projection",
+   "kind": "normal"
+  },
+  {
+   "source": "f_cad",
+   "target": "f_reg",
+   "label": "model ids",
+   "kind": "ok"
+  },
+  {
+   "source": "f_reg",
+   "target": "f_cord",
+   "label": "manifest reference",
+   "kind": "ok"
+  },
+  {
+   "source": "f_map1",
+   "target": "f_map2",
+   "label": "",
+   "kind": "ok"
+  },
+  {
+   "source": "f_map2",
+   "target": "f_map3",
+   "label": "",
+   "kind": "ok"
+  },
+  {
+   "source": "f_map2",
+   "target": "f_stor",
+   "label": "projects",
+   "kind": "normal"
+  },
+  {
+   "source": "f_stor",
+   "target": "f_map1",
+   "label": "incoming",
+   "kind": "normal"
+  },
+  {
+   "source": "f_map3",
+   "target": "w_ing",
+   "label": "manifest",
+   "kind": "ok"
+  },
+  {
+   "source": "f_storflow",
+   "target": "w_fab",
+   "label": "simulated",
+   "kind": "normal"
+  },
+  {
+   "source": "f_corr",
+   "target": "d_meta",
+   "label": "join key",
+   "kind": "normal"
+  },
+  {
+   "source": "w_sales",
+   "target": "w_veh",
+   "label": "Sales to simulation",
+   "kind": "no"
+  },
+  {
+   "source": "w_sales",
+   "target": "w_map",
+   "label": "Sales to raw imagery",
+   "kind": "no"
+  },
+  {
+   "source": "w_field",
+   "target": "x_pay",
+   "label": "Field to payment provider",
+   "kind": "no"
+  },
+  {
+   "source": "w_map",
+   "target": "w_field",
+   "label": "Mapping to radios",
+   "kind": "no"
+  },
+  {
+   "source": "w_veh",
+   "target": "h_rpi",
+   "label": "Simulation to live drones",
+   "kind": "no"
+  },
+  {
+   "source": "w_fab",
+   "target": "w_core",
+   "label": "Simulation to Corda core",
+   "kind": "no"
+  },
+  {
+   "source": "x_pay",
+   "target": "d_pg",
+   "label": "Internet to database",
+   "kind": "no"
+  },
+  {
+   "source": "x_cust",
+   "target": "w_core",
+   "label": "Internet to ledger",
+   "kind": "no"
+  }
+ ],
+ "summary": {
+  "nodes": 66,
+  "edges": 81,
+  "bands": 9,
+  "sections": 17,
+  "by_status": {
+   "IMPLEMENTED": 32,
+   "IN PROGRESS": 10,
+   "PLANNED": 18,
+   "BLOCKED": 4,
+   "PARTIAL": 2
+  },
+  "by_class": {
+   "ext": 9,
+   "adp": 5,
+   "work": 18,
+   "ledger": 4,
+   "data": 10,
+   "hw": 3,
+   "rf": 2,
+   "host": 14,
+   "sec": 1
+  },
+  "by_band": {
+   "ext": 9,
+   "adp": 5,
+   "work": 11,
+   "data": 9,
+   "field": 10,
+   "sales": 4,
+   "sec": 1,
+   "sim": 2,
+   "flow": 15
+  },
+  "by_edge_kind": {
+   "normal": 25,
+   "ok": 44,
+   "rf": 4,
+   "no": 8
+  }
+ }
+}
