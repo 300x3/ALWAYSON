@@ -1,5 +1,24 @@
 #!/usr/bin/env bash
 # ALWAYS ON podman socket bridge v2.1 — replaces /usr/local/sbin/ao-podman-bridge.sh
+#
+# *** DEPRECATED 2026-10-01 - DO NOT INSTALL. ***
+#
+# This script exists to bridge per-service-account Podman stores into scottw's
+# view. That model was never in effect: the alwayson-sales / alwayson-ledger /
+# alwayson-mapping accounts have NO container store, so every socat started here
+# exited immediately and the service respawned three dead sockets roughly every
+# 15 seconds. All three registered podman connections answered EOF, and
+# podman-connections.json pointed its default at one of them - so Podman Desktop
+# started on a dead socket instead of the store that holds the containers.
+#
+# Every ALWAYS ON container runs rootless under scottw with user-level Quadlet
+# units in ~/.config/containers/systemd/ (README 13.1). The connections were
+# removed and this unit should be disabled:
+#     sudo systemctl disable --now ao-podman-bridge.service
+#
+# Kept for history only - see README 13.2 and
+# docs/runbooks/container-visibility.md.
+#
 # History:
 #   v1: one-shot at boot; lost the race against lingered users' podman.socket,
 #       bridged nothing, slept forever (2026-08-26 reboot incident).

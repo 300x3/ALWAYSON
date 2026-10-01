@@ -1,5 +1,31 @@
 # Container Visibility & GUI Access Runbook
 
+> **SUPERSEDED 2026-10-01 — read this first.**
+>
+> The per-service-account model this runbook describes **was never in effect**.
+> Every ALWAYS ON container runs rootless under `scottw` with user-level
+> Quadlet units in `~/.config/containers/systemd/` — the model README §13.1
+> prescribes. The `alwayson-sales` / `alwayson-ledger` / `alwayson-mapping`
+> accounts have **no container store at all**.
+>
+> Consequently the `socat` bridges had nothing to bridge: each one exited
+> immediately, `ao-podman-bridge.service` respawned three dead sockets about
+> every 15 seconds, and all three registered podman connections answered `EOF`.
+> Because `podman-connections.json` set `"Default":"mapping"`, **Podman Desktop
+> started pointed at a dead socket** rather than the store that holds the
+> containers.
+>
+> Resolved: the three connections were removed, so the default is now scottw's
+> local rootless socket and Podman Desktop shows all 19 containers, 13
+> networks, 8 volumes and 30 images. See README §13.2.
+>
+> Still outstanding, needs root:
+> `sudo systemctl disable --now ao-podman-bridge.service`, and removal of the
+> stale root-owned sockets in `/run/ao-podman/`.
+>
+> The history below is kept because it explains why the bridge existed and what
+> the 2026-08-26 incident was.
+
 ## Purpose
 Provide operator (scottw) GUI access to all ALWAYS ON rootless container
 stacks while preserving the Section 1.3 strict per-service isolation model.

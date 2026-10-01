@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 # ALWAYS ON - check-network-isolation.sh: all domain networks must exist and be internal-only.
 set -Eeuo pipefail
 IFS=$'\n\t'

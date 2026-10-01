@@ -2,8 +2,10 @@
 # ALWAYS ON - backup-postgres.sh: dump a domain PostgreSQL via podman exec.
 # Usage: backup-postgres.sh <container> <db> <role-label> [--dry-run] [<user>]
 #   <user> optional; defaults to <db> (previous behaviour).
-#   Set PODMAN_URL (e.g. unix:///run/ao-podman/sales.sock) to target a
-#   remote/bridged rootless store instead of the invoking user's store.
+#   Set PODMAN_URL to target a different rootless store instead of the invoking
+#   user's store. Do NOT point it at /run/ao-podman/<domain>.sock: those bridge
+#   sockets are unreachable because the per-service accounts hold no containers
+#   (README 13.2), and they are being removed.
 set -Eeuo pipefail
 IFS=$'\n\t'
 . /ALWAYSON/scripts/lib/common.sh

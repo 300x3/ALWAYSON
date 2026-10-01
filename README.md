@@ -2738,32 +2738,62 @@ System-level services are permitted only where a documented host-hardware,
 GPU, storage, networking, or service-management requirement makes rootless
 operation unsuitable.
 
-## 13.2 Approved Deviation: Mixed Podman Stores
+## 13.2 Podman Store Model — deviation CLOSED 2026-10-01
 
-**Architecture requirement:** Rootless Podman is the preferred default for
-ordinary workloads.
+**Former requirement:** Rootless Podman is the preferred default for ordinary
+workloads (recorded as an approved deviation because some WebODM operations
+appeared to have executed through the system/rootful store, evidenced by
+root-owned mapping backup artifacts and system-side container storage).
 
-**Current implementation:** Mapping smoke-test evidence indicates that at least
-some WebODM operations executed through the system/rootful Podman store. The
-evidence includes root-owned mapping backup artifacts and system-side container
-storage. An empty `podman ps -a` result from an operator shell does not mean
-system-store containers, images, volumes, or networks are absent.
+**Current implementation:** the system store is **empty**. Verified
+2026-10-01: `/var/lib/containers/storage` is 152K with **0 images, 0 volumes
+and 0 overlay entries**, while `/home/scottw/.local/share/containers` is 22G
+and holds every ALWAYS ON container. All workloads run rootless under `scottw`
+with user-level Quadlet units in `~/.config/containers/systemd/`, which is
+exactly the model §13.1 prescribes. Nothing runs system-level.
 
-**Compensating controls:**
+**Consequence for the operator surface.** The per-service model described in
+`docs/runbooks/container-visibility.md` — containers owned by `alwayson-sales`
+(uid 993), `alwayson-ledger` (994) and `alwayson-mapping` (997), exposed to
+scottw through `socat` bridges at `/run/ao-podman/<domain>.sock` — **was never
+in effect**. Those accounts have no container store at all, so the bridges had
+nothing to bridge: every `socat` they started exited immediately and
+`ao-podman-bridge.service` respawned three dead sockets roughly every 15
+seconds. The three `podman system connection` entries
+(`ledger`, `mapping`, `sales`) were therefore permanently unreachable
+(`EOF`), and `podman-connections.json` set `"Default":"mapping"` — so Podman
+Desktop started pointed at a dead socket instead of the store that actually
+holds the containers.
 
-- No `--privileged` containers.
-- Internal mapping network only.
+**Resolved 2026-10-01:** the three dead connections were removed
+(`podman system connection rm mapping`, then `sales`, then `ledger`),
+so the default is now scottw's local rootless socket. `podman-connections.json`
+is `{"Connection":{},"Farm":{}}` and the default connection reports 19
+containers, 13 networks, 8 volumes, 30 images. Backup of the previous file:
+`backups/podman-connections.json.20261001T200542Z.bak`.
+
+**Outstanding, needs root:** `ao-podman-bridge.service` is a system-level unit
+with no documented justification under §13.1, and it has nothing left to
+bridge. It should be disabled:
+
+```bash
+sudo systemctl disable --now ao-podman-bridge.service
+```
+
+The stale sockets in `/run/ao-podman/` are root-owned and should be removed at
+the same time (the directory is `tmpfs`-backed and clears on reboot).
+
+**Compensating controls (re-verified 2026-10-01, all still holding):**
+
+- No `--privileged` containers, and no added capabilities on any container.
+- Internal workload networks only, with `ao-sales` and `ao-reporting-egress`
+  non-internal by recorded decision.
 - Explicit bind mounts limited to approved mapping paths.
-- Pinned image digests.
+- Pinned image digests — every running image is digest-pinned.
 - systemd resource limits and restart policy.
 - Validated NVIDIA CDI access only where required.
 - No direct public listener.
 - Backup and restore evidence retained.
-
-**Resolution condition:** Before production declaration, record the approved
-steady-state model for every domain: rootless, system-level, or mixed. Record
-the unit owner, Quadlet location, storage path, network owner, GPU access
-method, and rationale.
 
 ## 13.3 `/ALWAYSON` Layout
 

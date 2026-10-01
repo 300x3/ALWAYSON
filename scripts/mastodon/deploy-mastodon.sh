@@ -131,8 +131,12 @@ create_user() {
 
 status() {
   echo "ao-sales network:"; podman network exists ao-sales && echo "  present" || echo "  MISSING"
-  echo "mastodon containers (try sales bridge):"
-  podman --url unix:///run/ao-podman/sales.sock ps -a 2>/dev/null | grep -Ei 'mastodon|sales-db' || echo "  none visible via bridge"
+  # Use the default local rootless connection. This previously went through the
+  # /run/ao-podman/sales.sock bridge, which was permanently unreachable because
+  # the per-service accounts hold no containers (README 13.2). The containers
+  # are in the invoking user's store.
+  echo "mastodon containers:"
+  podman ps -a --format '{{.Names}}' 2>/dev/null | grep -Ei 'mastodon|sales-db' || echo "  none visible"
 }
 
 case "${1:-}" in
