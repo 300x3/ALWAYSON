@@ -47,7 +47,7 @@ sales:
     note: "Federated apex deployment: LOCAL_DOMAIN=300x3.com served via Cloudflare Tunnel ao-mastodon-federation (WORK 000060 2026-09-22); origin ports stay 127.0.0.1:3000/4000; HTTPS enforced (RAILS_FORCE_SSL=true). Mastodon images tag-pinned; pin digests for production promotion."
 
 ledger:
-  corda_version: "5.2.2 SELECTED, NOT INSTALLED (operator choice 2026-08-24). No Corda node is present on this host: verified 2026-09-30, the only java process is Metabase and no corda jars or units exist. cordadb exists on the host cluster but holds 0 tables. See ST-09."
+  corda_version: "5.2.2 CLI INSTALLED 2026-09-30 at ~/.corda/cli from corda/corda-runtime-os tag release-5.2.2.0, SHA-256 verified; corda-cli reports commit efff866b. NO NODE: cordadb has 0 tables and its owner role has no working password, so the key/certificate ceremony (operator) is still outstanding."
   cordapp_hashes: ""
   postgres_version: "18.6 (host cluster 18/main; cordadb provisioned 2026-08-23)"
   certificate_profile_version: ""
