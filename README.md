@@ -11,7 +11,7 @@
 | Supporting plan | https://archive.org/details/@scott_widmann |
 | Created with | Bluebeam and LibreDraw (PDF project plan), Perplexity.ai, Cline.bot (Markdown) |
 | Revision | 2026-09-29 |
-| Current main host | ATX desktop running Linux Kubuntu |
+| Current main host | ATX desktop - running Linux Kubuntu |
 | Peripheral host | Drone — Raspberry Pi 5 and Autopilot Module, running KaliOS |
 | Format rule | Tables and topology diagrams are primary; original detailed commands/evidence are retained in-place below for operational completeness |
 | Reading order | ES.1 (Current Architecture Corrections) is the single source of truth for current architecture. Any statement elsewhere in this document that conflicts with ES.1 is **superseded**. ES.1–ES.3 are the current-state summary; sections 1–21 are the authoritative detailed record; where they disagree, ES.1 governs. Deviations are recorded in section 18 with rationale and compensating controls. A recorded deviation never silently overrides ES.1 — an open deviation means ES.1 describes the target and section 18 describes what is actually deployed. |
