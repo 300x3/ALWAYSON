@@ -1718,14 +1718,26 @@ radio identity.
 
 The MeshChatX web interface is restricted to `127.0.0.1:18000`.
 
-The Reticulum `Public Gateway` is configured to listen on `0.0.0.0:4242`.
-Because this listener binds all local IPv4 interfaces, it is not
-loopback-restricted. Whether it is reachable from the LAN or Internet depends
-on firewall and upstream controls, which could not be verified without root
-privileges during the review. The host had `192.168.87.135/24` on `wlp3s0`,
-making `192.168.87.135:4242` a potential LAN path unless blocked. This does not
-prove successful external access. A loopback-only web UI does not make the
-underlying Reticulum gateway private.
+The Reticulum `Public Gateway` listens on `0.0.0.0:4242` and is **deliberately
+LAN-reachable**. This was previously left as an unverified caveat because the
+review lacked root; it is now resolved with root evidence (2026-09-30):
+
+| Fact | Verified value |
+|---|---|
+| Listener | `0.0.0.0:4242` — all IPv4 interfaces, not loopback-restricted |
+| Host address | `192.168.87.135/24` on `wlp3s0` |
+| UFW rule | `4242/tcp ALLOW Anywhere` — an explicit allow, not a default |
+| Reachability test | connecting to `192.168.87.135:4242` **succeeds** |
+| Web UI | `127.0.0.1:18000` only; `192.168.87.135:18000` correctly refused |
+
+So `:4242` is reachable from the local network by design. This is **not** a
+finding against the isolation model, which governs `ao-*` workloads: Reticulum
+MeshChatX is separate host tooling, and the mesh protocol is intended to be
+reachable by peers. What it does mean is that a loopback-only web UI does not
+make the underlying gateway private, and anyone auditing exposure should expect
+`:4242` to be visible on the LAN. For contrast, PostgreSQL is explicitly
+`5432/tcp DENY` from any non-loopback source, and KDE Connect `:1716` is denied
+too.
 
 ### 9.2.2 What each radio is for
 
