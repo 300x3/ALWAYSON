@@ -1418,8 +1418,8 @@ Mapping-result exporter
 | WebODM media/projects | `/media/scottw/500GBPHOTOGRAM/webodm/` |
 | Intermediate work | `/media/scottw/500GBPHOTOGRAM/webodm/nodeodm/` and `tmp/` |
 | Deliverables | `/media/scottw/500GBPHOTOGRAM/deliverables/` |
-| Mapping PostgreSQL | `/ALWAYSON/data/mapping/postgres/` or approved Podman volume |
-| Redis persistence | `/ALWAYSON/data/mapping/redis/` |
+| Mapping PostgreSQL | `~/webodm/dbdata` (bind mount on `ao-webodm-db`, verified 2026-09-30). `/ALWAYSON/data/mapping/postgres/` is **not** in use and is empty. |
+| Redis persistence | named Podman volume on `ao-webodm-broker`; the directory path `/ALWAYSON/data/mapping/redis/` is **not** in use |
 | Signed manifests | `/ALWAYSON/artifacts/mapping-manifests/` |
 
 ## 8.5 Mapping Mount Validation
@@ -2789,7 +2789,7 @@ Internal=true
 ## 13.5 Quadlet Service Template
 
 ```ini
-# /ALWAYSON/quadlet/mapping/webodm-web.container
+# /ALWAYSON/quadlet/mapping/ao-webodm-web.container   (illustrative template)
 [Unit]
 Description=ALWAYS ON WebODM Web Service
 After=network-online.target
@@ -2797,10 +2797,10 @@ Wants=network-online.target
 
 [Container]
 Image=REPLACE_WITH_APPROVED_IMAGE_DIGEST
-ContainerName=webodm-web
+ContainerName=ao-webodm-web
 Network=ao-mapping.network
 Volume=/media/scottw/500GBPHOTOGRAM/webodm/media:/webodm/app/media:Z
-Volume=/ALWAYSON/config/mapping/webodm:/config:ro,Z
+Volume=REPLACE_WITH_APPROVED_CONFIG_PATH:/config:ro,Z
 NoNewPrivileges=true
 
 [Service]
@@ -3800,10 +3800,14 @@ OK: all domain networks present; isolation domains internal-only
 it from a hardcoded list, so the list inside that script is the real source of truth and an
 entry added by hand would be silently lost on the next run. Both lists were updated.
 
-**The two egress networks are checked separately.** `ao-reporting-egress` and
-`ao-egress-community` are deliberately `Internal=false` — reaching a provider is the entire
-purpose of a separate egress network — so they are asserted against `Internal=false` in a
-separate `egress` list. Adding them to the `Internal=true` `expected` list would have made
+**Egress networks are checked separately.** A network that must reach a provider is
+deliberately `Internal=false`, so it is asserted against `Internal=false` in a
+separate `egress` list rather than the `Internal=true` `expected` list.
+
+That list now holds **`ao-reporting-egress` and `ao-sales` only**.
+`ao-egress-community` was retired and removed from this host on 2026-09-30;
+`ao-sales` replaced it for ActivityPub delivery. The `ALWAYSON` wallet folder is
+likewise retired (see §14.1.1). Adding them to the `Internal=true` `expected` list would have made
 validation report correct configuration as a violation.
 
 **`ao-fabrication` subnet is pinned.** `/ALWAYSON/quadlet/networks/ao-fabrication.network`
