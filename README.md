@@ -368,10 +368,10 @@ Compose, or any other orchestration mechanism or a Docker daemon.
 |---|---|
 | Kernel | `7.0.0-34-generic` |
 | Podman | `5.7.0` |
-| Podman networks | Ten `ao-*` networks present; internal workload-domain isolation verified |
+| Podman networks | **Twelve** `ao-*` networks present: **10** `Internal=true` workload domains (`ao-admin`, `ao-data`, `ao-fabrication`, `ao-field`, `ao-ledger-core`, `ao-ledger-ingest`, `ao-mapping`, `ao-payment`, `ao-sim-fabrication`, `ao-sim-vehicle`) plus **2** deliberately non-internal (`ao-sales` for ActivityPub delivery, `ao-reporting-egress` for Grafana/Metabase). The earlier "ten" figure counted only the internal domains; verified 2026-09-30 |
 | GPU | EVGA NVIDIA GTX 1080 |
 | NVIDIA driver | `580.178.04` |
-| NVIDIA integration | CDI devices registered, including `nvidia.com/gpu=0` |
+| NVIDIA integration | CDI devices registered, including `nvidia.com/gpu=0`; spec at `/etc/cdi/nvidia.yaml`, confirmed 2026-09-30 by running a container with `--device nvidia.com/gpu=0` and observing `/dev/nvidia0` injected |
 | Simulation stack | ROS 2 Lyrical at `/opt/ros/lyrical`; Gazebo Sim `10.5.0` |
 | Host PostgreSQL | PostgreSQL `18.6`, loopback-only |
 | Host Redis | Redis `8.0.5`, loopback-only |
