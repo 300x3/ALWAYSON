@@ -15,7 +15,7 @@ ExecStart=/ALWAYSON/scripts/operations/ao-fabrication-collect.py --once --verbos
 # No POSTGRES_PASSWORD here: it lives in the env file the db unit's
 # ExecStartPre writes from KDE Wallet, and is passed by the db unit's
 # EnvironmentFile being sourced at run time by the collector wrapper below.
-EnvironmentFile=-%h/secrets/fabrication-db.env
+EnvironmentFile=-%h/.local/share/ao-secrets/fabrication-db.env
 # A machine being offline must not fail the unit; the collector already
 # isolates per-machine errors and exits 0 when every machine merely failed.
 SuccessExitStatus=0

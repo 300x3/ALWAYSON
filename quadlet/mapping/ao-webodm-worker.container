@@ -9,7 +9,7 @@ Image=webodm/webodm_webapp@sha256:188267c654c27a0f5352b0ff27ebe777788637df06d948
 ContainerName=ao-webodm-worker
 Network=ao-mapping.network
 Volume=/media/scottw/500GBPHOTOGRAM/webodm/media:/webodm/app/media:Z
-EnvironmentFile=%h/secrets/webodm.env
+EnvironmentFile=%h/.local/share/ao-secrets/webodm.env
 Environment=WO_DEBUG=NO
 Environment=WO_DATABASE_HOST=ao-webodm-db
 Environment=WO_BROKER=redis://ao-webodm-broker:6379

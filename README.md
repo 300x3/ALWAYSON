@@ -2891,11 +2891,15 @@ authority per ES.1.
   (the last was added 2026-09-30; without a branch for its key the unit was
   restart-looping). New keys must be added as a `case` branch in that script
   or the unit fails.
-- **Env file locations are currently split.** The Mastodon and reporting units
-  read `%h/.local/share/ao-secrets/` (materialised by
-  `scripts/operations/ao-wallet-bridge.sh`); `ao-sales-db`, `ao-webodm-db` and
-  `ao-fabrication-db` still read `%h/secrets/`. Both are gitignored. This is a
-  known inconsistency, not a design decision — see the open item below.
+- **Single env root, resolved 2026-09-30.** Every unit now reads
+  `%h/.local/share/ao-secrets/`, materialised by
+  `scripts/operations/ao-wallet-bridge.sh` or by the unit's own
+  `fetch-kwallet-secret.sh` `ExecStartPre`. The split that had Mastodon and
+  reporting on `ao-secrets/` while the sales, webodm and fabrication databases
+  sat on `%h/secrets/` is closed; the three redundant copies were removed after
+  being confirmed byte-identical. `~/secrets/` still exists for unrelated
+  material (the Mastodon env symlink, operations and reporting) and is not part
+  of the unit delivery path.
 
 **This login-gated behaviour is intended, not a defect.** Services that consume
   Wallet secrets start after the operator's Plasma login and are not expected to
@@ -2970,10 +2974,12 @@ A 0600 copy of the four legacy entries was taken to
 `~/.local/share/ao-secrets/legacy-alwayson-folder.env` before the folder was
 removed. It is gitignored and is a rollback path only.
 
-**Remaining, not urgent:** env files are still written to two roots —
-`%h/.local/share/ao-secrets/` for the Mastodon and reporting units and
-`%h/secrets/` for the sales, webodm and fabrication database units. Both are
-gitignored so there is no exposure; they should converge on one.
+**Env file roots — CLOSED 2026-09-30.** All six units that consume an env file
+(`ao-mastodon-db`, `ao-sales-db`, `ao-webodm-db`, `ao-webodm-web`,
+`ao-webodm-worker`, `ao-fabrication-db`, plus the collector service) now read
+`%h/.local/share/ao-secrets/`. The three leftover files under `%h/secrets/` were
+verified byte-identical to their replacements before removal, so nothing was
+uniquely stored there.
 
 ## 14.2 Version Matrix
 

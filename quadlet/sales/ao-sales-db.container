@@ -10,7 +10,7 @@ Image=postgres@sha256:a65e6a841f6c4dbc4abda3d67fa3bc21824e9611064fcd82e87ea67aad
 ContainerName=ao-sales-db
 Network=ao-sales.network
 Volume=%h/webodm/sales-dbdata:/var/lib/postgresql/data:Z
-EnvironmentFile=%h/secrets/sales-db.env
+EnvironmentFile=%h/.local/share/ao-secrets/sales-db.env
 Environment=POSTGRES_DB=salesdb
 Environment=POSTGRES_USER=sales_migration_role
 NoNewPrivileges=true
@@ -25,7 +25,7 @@ HealthCmd=pg_isready
 HealthInterval=30s
 
 [Service]
-ExecStartPre=/ALWAYSON/scripts/operations/fetch-kwallet-secret.sh %h/secrets/sales-db.env sales-db-password
+ExecStartPre=/ALWAYSON/scripts/operations/fetch-kwallet-secret.sh %h/.local/share/ao-secrets/sales-db.env sales-db-password
 Restart=on-failure
 RestartSec=15
 MemoryMax=2G

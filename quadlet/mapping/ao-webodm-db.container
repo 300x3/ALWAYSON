@@ -10,7 +10,7 @@ Image=webodm/webodm_db@sha256:03f18ec0089325ec2b8975ba1781277bcdc212b6d86c9de33f
 ContainerName=ao-webodm-db
 Network=ao-mapping.network
 Volume=%h/webodm/dbdata:/var/lib/postgresql/data:Z
-EnvironmentFile=%h/secrets/webodm.env
+EnvironmentFile=%h/.local/share/ao-secrets/webodm.env
 Environment=POSTGRES_DB=webodm
 Environment=POSTGRES_USER=postgres
 NoNewPrivileges=true
@@ -18,7 +18,7 @@ HealthCmd=pg_isready
 HealthInterval=30s
 
 [Service]
-ExecStartPre=/ALWAYSON/scripts/operations/fetch-kwallet-secret.sh %h/secrets/webodm.env webodm-postgres-password
+ExecStartPre=/ALWAYSON/scripts/operations/fetch-kwallet-secret.sh %h/.local/share/ao-secrets/webodm.env webodm-postgres-password
 Restart=on-failure
 RestartSec=15
 MemoryMax=4G
