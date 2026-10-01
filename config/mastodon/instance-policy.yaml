@@ -7,7 +7,7 @@ mastodon:
   hosting: "self-hosted, containerized on the internal ao-sales network (scottw operator store); sole public exposure = Cloudflare Tunnel edge"
   operator_client: "Tokodon (KDE, /usr/bin/tokodon) - on the operator desktop, origin https://300x3.com"
   protocol: "https://300x3.com at the Cloudflare edge (TLS terminated there, Free plan $0); origin ports stay 127.0.0.1:3000 / 127.0.0.1:4000 loopback-only; tunnel ao-mastodon-federation (cloudflared-alwayson.service) is the only public path"
-  local_domain: "300x3.com"   # apex identity; handles user@300x3.com; www keeps storefront redirect
+  local_domain: "mastodon.300x3.com"   # dedicated Mastodon host; handles user@mastodon.300x3.com. 300x3.com / www keep the filedn storefront and are NOT routed to this origin (cloudflared config).
   public_federation: true            # ON 2026-09-30 (operator decision). ao-sales is Internal=false, expressly so
                                      # Sidekiq can deliver ActivityPub over outbound HTTPS/443. This replaces the
                                      # retired ao-egress-community network. Containment is by network membership:

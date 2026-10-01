@@ -1090,7 +1090,7 @@ def render_dot(inv: dict, view: str = "system") -> str:
     # ---- operator access ------------------------------------------------
     loops = [item for item in inv["listeners"] if item["scope"] == "loopback" and not item["host_noise"]]
     operator_label = ["<b>OPERATOR ACCESS (loopback only)</b>",
-                      "Konqueror / QGroundControl / DBeaver / Podman Desktop",
+                      "Konqueror / QGroundControl / Podman Desktop",
                       "no public port; listener-allowlist is empty"]
     for item in loops:
         operator_label.append("%s:%d/%s %s" % (item["address"], item["port"], item["proto"],

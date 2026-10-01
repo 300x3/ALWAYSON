@@ -381,13 +381,6 @@ desktop_software:
     status: implemented
     note: "Tokodon was removed completely per v6 ES.1. No Podman network attachment; loopback only."
 
-  - id: desktop-dbeaver
-    label: "DBeaver (SQL client)"
-    software: "DBeaver — SQL client for the host PostgreSQL 18 cluster"
-    connects: ["127.0.0.1:5432 (host PostgreSQL, ao-data reporting)"]
-    status: implemented
-    note: "Named in the v6 ES.2 master topology on the ao-data narrow-plumbing path."
-
   - id: desktop-sketchup
     label: "SketchUp / SketchUp Web (design, host)"
     software: "SketchUp desktop + SketchUp Web"

@@ -18,7 +18,7 @@ ar_salt="$("$WALLET_HELPER" kdewallet ao-mastodon mastodon-ar-derivation-salt)"
   exit 3
 }
 {
-  printf 'LOCAL_DOMAIN=300x3.com\n'
+  printf 'LOCAL_DOMAIN=mastodon.300x3.com\n'
   printf 'SINGLE_USER_MODE=false\n'
   printf 'DEFAULT_LOCALE=en\n'
   printf 'SECRET_KEY_BASE=%s\n' "$secret_key_base"

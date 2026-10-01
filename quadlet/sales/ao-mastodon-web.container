@@ -12,7 +12,7 @@ Image=ghcr.io/mastodon/mastodon@sha256:76436bccad38f134cb9a5a6e9c83445915790fc12
 ContainerName=mastodon-web
 Network=ao-sales.network
 # ao-sales carries the outbound route; ao-egress-community is retired.
-EnvironmentFile=%h/secrets/mastodon.env
+EnvironmentFile=%h/.local/share/ao-secrets/mastodon.env
 PublishPort=127.0.0.1:3000:3000
 NoNewPrivileges=true
 Exec=/bin/sh -c "bundle exec rails s -p 3000 -b 0.0.0.0"

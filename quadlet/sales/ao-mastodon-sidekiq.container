@@ -11,7 +11,7 @@ Image=ghcr.io/mastodon/mastodon@sha256:76436bccad38f134cb9a5a6e9c83445915790fc12
 ContainerName=mastodon-sidekiq
 Network=ao-sales.network
 # ao-sales carries the outbound route; ao-egress-community is retired.
-EnvironmentFile=%h/secrets/mastodon.env
+EnvironmentFile=%h/.local/share/ao-secrets/mastodon.env
 NoNewPrivileges=true
 Exec=/bin/sh -c "bundle exec sidekiq -q default -q push -q pull_request -q mailers -q scheduler"
 

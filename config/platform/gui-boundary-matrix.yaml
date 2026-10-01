@@ -53,7 +53,7 @@ entries:
     health_check: "QGC status indicator shows simulated vehicle heartbeats; MAVLink router process alive"
     shutdown: "Close QGC before stopping SITL/MAVLink router"
     status: "partial"
-    status_notes: "ArduPilot SITL binary built at ~/ardupilot/build/sitl/bin/arducopter. MAVLink telemetry validated 2026-08-31 (HEARTBEAT sysid 1, MAV_TYPE_QUADROTOR, over tcp:127.0.0.1:5760 via pymavlink); ao-ardupilot-sitl.service unit flags fixed (--console/--out removed). QGC connects via TCP 5760 autoconnect; interactive QGC workflow still unvalidated; optional UDP bridging deferred to MAVProxy (not installed)."
+    status_notes: "ArduPilot SITL binary built at /ALWAYSON/data/ardupilot/build/sitl/bin/arducopter. MAVLink telemetry validated 2026-08-31 (HEARTBEAT sysid 1, MAV_TYPE_QUADROTOR, over tcp:127.0.0.1:5760 via pymavlink); ao-ardupilot-sitl.service unit flags fixed (--console/--out removed). QGC connects via TCP 5760 autoconnect; interactive QGC workflow still unvalidated; optional UDP bridging deferred to MAVProxy (not installed)."
 
   - id: gazebo-vehicle-visualization
     scope_item: "Gazebo visualization workflow (vehicle)"
@@ -125,18 +125,17 @@ entries:
 
   - id: sales-support-admin
     scope_item: "Sales/support administration workflow"
-    gui: "Metabase (ao-admin) for routine reporting; DBeaver host client for exceptional SQL"
+    gui: "Metabase (ao-admin) for routine and ad-hoc reporting"
     purpose: "Order, receipt, fulfillment, entitlement, return, and support-case reporting and controlled administration."
     runtime_placement:
       metabase: "container in ao-admin; PostgreSQL application database metabase"
-      dbeaver: "host; no Podman network attachment"
     podman_network: ao-admin
     no_access_networks: [ao-data, ao-field, ao-ledger-core, ao-ledger-ingest, ao-mapping, ao-payment, ao-sales, ao-sim-fabrication, ao-sim-vehicle]
     data_source: "Read-only reporting views/projections over Sales PostgreSQL (loopback-only, 127.0.0.1:5432) via dedicated least-privilege reporting identities; roles per Section 15.1"
     access_boundary: "ao-admin receives only approved narrow reporting-view/projection paths; never superuser/owner/migration/backup/payment/Corda credentials; ao-data is not a bypass."
-    startup: "systemctl --user start ao-metabase.service; DBeaver launched by operator as needed"
-    health_check: "Metabase loopback listener + DB health endpoint; DBeaver connects with reporting identity only"
-    shutdown: "systemctl --user stop ao-metabase.service; close DBeaver"
+    startup: "systemctl --user start ao-metabase.service"
+    health_check: "Metabase loopback listener + DB health endpoint"
+    shutdown: "systemctl --user stop ao-metabase.service"
     status: "in_progress"
     status_notes: >-
       Metabase is deployed on the host PostgreSQL application database metabase;
