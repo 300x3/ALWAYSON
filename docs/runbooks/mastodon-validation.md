@@ -10,7 +10,7 @@ README §19 with an operator present for interactive steps.
 | Tokodon installed | ✅ `/usr/bin/tokodon` |
 | Mastodon Quadlet units in repo | ✅ `quadlet/sales/ao-mastodon-{db,redis,web,sidekiq,streaming}.container` |
 | Mastodon stack running | ❌ NOT running — port 127.0.0.1:3000/4000 closed; units not found in any user session |
-| Secrets present | ✅ `secrets/mastodon/mastodon.env`, `openclaw-mastodon.env` (gitignored) |
+| Secrets present | ✅ KDE Wallet `ao-mastodon` (the sole authority); materialized 0600 under `%h/.local/share/ao-secrets/`, never in `secrets/` |
 | Instance policy | ✅ `config/mastodon/instance-policy.yaml` — local_domain `300x3`, loopback-only, no federation |
 | LM Studio models | ✅ present under `~/.lmstudio/models` |
 | LM Studio server | ❌ port 1234 not listening — app must be started and a model loaded |
@@ -76,7 +76,8 @@ Then resume the checklist at step 2 (health verification).
    (`tootctl accounts approve admin|bot`).
 6. **OpenClaw local reply bridge:** `mastodon-openclaw-bridge.service` is
    enabled and active on the desktop. It authenticates as `bot` using the
-   protected token in `secrets/mastodon/openclaw-mastodon.env`, polls the local
+   protected token held in KDE Wallet (`ao-mastodon/openclaw-bot-access-token`),
+   polls the local
    Mastodon notification API every 10 seconds, sends new mentions/replies to
    OpenClaw, and posts public threaded replies locally. Historical
    notifications and the bot's own posts are skipped. The bridge posts only to

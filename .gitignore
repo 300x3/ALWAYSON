@@ -10,6 +10,10 @@ pcloud/restore-cache/
 .env
 !config/mapping/photogrammetry-volume.env
 config/mastodon/patches/
+# Superseded 2026-10-01 by grafana-admin.env, which holds ONLY non-secret
+# settings and IS tracked. The admin password moved to KDE Wallet
+# (ao-admin/grafana-admin-password). Kept ignored so a reintroduced cleartext
+# copy can never be committed.
 config/platform/monitoring/grafana.env
 ALWAYSON/secrets/
 logs/operations/
@@ -23,6 +27,23 @@ __pycache__/
 # ao-sales.network.BAK-20260930-161848. These are operator safety copies of
 # files that still exist, not history, so they are noise in the index.
 *.BAK-*
+
+# Cross-session handoff notes (README 4.1 rule 11 companions). These are
+# INTERNAL operator/agent coordination material: they name the host, the
+# operator account, kernel and package versions, and open security findings.
+# This repository is PUBLIC, so they must never be committed. Four of these
+# files were tracked and pushed by mistake on 2026-10-01 and have been
+# untracked here; see the note in the commit message. Untracking stops future
+# exposure but does NOT remove them from git history.
+# NOTE: this directory name contains SPACES and must NOT be quoted. Verified
+# 2026-10-01 by testing three forms against `git check-ignore`: the bare form
+# matches, the double-quoted form does NOT (git treats the quote characters as
+# part of the literal pattern and never matches). A trailing slash is fine.
+COORDINATION BETWEEN AI/
+
+# Runtime coordination folders that must never enter the index.
+.playwright-mcp/
+GAZEBO/worlds-run/
 
 # Generated topology binaries. build_svg.py is the source and IS tracked;
 # everything it writes is reproducible with one command, so it is not.

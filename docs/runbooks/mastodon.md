@@ -144,8 +144,9 @@ Expect HTTP 200 with JSON containing the new status `id` (verify at
 ### Permanent local OpenClaw reply bridge
 
 The desktop user service `mastodon-openclaw-bridge.service` is enabled and
-active. It uses the protected bot token in
-`secrets/mastodon/openclaw-mastodon.env`, polls the local Mastodon notification
+active. It uses the protected bot token held in KDE Wallet
+(`ao-mastodon/openclaw-bot-access-token`; materialized on demand by
+`scripts/operations/fetch-openclaw-mastodon-env.sh`), polls the local Mastodon notification
 API every 10 seconds, and sends each new mention/reply to OpenClaw. Replies are
 posted publicly as threaded statuses in the local instance. The cursor is stored
 in `~/.openclaw/mastodon-bridge-state.json`; historical notifications and the

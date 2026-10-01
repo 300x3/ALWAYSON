@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 # ALWAYS ON - idempotently create the reporting application databases and
-# least-privilege owners. Run as root; credentials are read from 0600 files.
+# least-privilege owners. Run as root; credentials are read from KDE Wallet,
+# which is the sole secret authority (README 4.1 rule 7 / 14.1.1).
 set -Eeuo pipefail
 SECRETS=/ALWAYSON/secrets/reporting
 HBA=/etc/postgresql/18/main/pg_hba.conf
+WALLET_HELPER=/ALWAYSON/scripts/ops/wallet-read-secret.py
 umask 077
 # The reporting containers share only PostgreSQL's Unix socket directory.
 # Add role-specific SCRAM rules rather than enabling passwordless local access.
@@ -22,13 +24,14 @@ for rule in \
     printf '%s\n' "$rule" >>"$HBA"
   fi
 done
-get_env() {
-  local file=$1 key=$2
-  sed -n "s/^${key}=//p" "$file" | tail -n1
+wallet_pass() {
+  "$WALLET_HELPER" kdewallet ao-admin "$1" 2>/dev/null
 }
-META_PASS="$(get_env "$SECRETS/metabase.env" MB_DB_PASS)"
-GRAF_PASS="$(get_env "$SECRETS/grafana-postgres.env" GF_DATABASE_PASSWORD)"
-[[ -n "$META_PASS" && -n "$GRAF_PASS" ]] || { echo 'missing reporting database credentials' >&2; exit 2; }
+META_PASS="$(wallet_pass metabase-db-password)"
+GRAF_PASS="$(wallet_pass grafana-db-password)"
+[[ -n "$META_PASS" && -n "$GRAF_PASS" ]] || { echo 'missing reporting database credentials in KDE Wallet ao-admin' >&2; exit 2; }
+# Superseded plaintext copies from before the wallet migration; never read.
+rm -f "$SECRETS/metabase.env" "$SECRETS/grafana-postgres.env"
 runuser -u postgres -- psql -v ON_ERROR_STOP=1 --set=meta_pass="$META_PASS" --set=graf_pass="$GRAF_PASS" <<'SQL'
 SELECT format('CREATE ROLE metabase_app LOGIN PASSWORD %L', :'meta_pass')
 WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname='metabase_app') \gexec

@@ -21,6 +21,22 @@ ao_audit() {
     "$(ao_now_utc)" "${SUDO_USER:-$USER}" "${0##*/}" "$*" >> "$AO_AUDIT_LOG"
 }
 
+# ao_audit_secret() - like ao_audit, but refuses to record a message that
+# contains a credential. Rule 7 forbids secrets in the journal; a caller that
+# builds its message from a wallet read could otherwise leak one by accident.
+# The message is checked against a credential-shaped pattern and redacted rather
+# than dropped, so the action is still recorded.
+ao_audit_secret() {
+  local msg="$*"
+  if printf '%s' "$msg" | grep -qE '(PASSWORD|TOKEN|SECRET|API_?KEY|BEARER)[=: ]+[A-Za-z0-9+/_.-]{6,}'; then
+    msg="$(printf '%s' "$msg" | sed -E 's/((PASSWORD|TOKEN|SECRET|API_?KEY|BEARER)[=: ]+)[A-Za-z0-9+/_.-]{6,}/\1<redacted>/gI')"
+    printf '%s actor=%s script=%s REDACTED-BY-AUDIT-GUARD %s\n' \
+      "$(ao_now_utc)" "${SUDO_USER:-$USER}" "${0##*/}" "$msg" >> "$AO_AUDIT_LOG"
+    return 0
+  fi
+  ao_audit "$@"
+}
+
 ao_require_cmds() {
   local missing=0 c
   for c in "$@"; do

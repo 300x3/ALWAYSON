@@ -3,13 +3,19 @@
 # Origin: https://300x3.com (Cloudflare Tunnel edge; WORK 000060).
 # Env override MASTODON_SERVER is honored; loopback default kept for
 # pre-cutover diagnostics only.
-# Reads credentials from /ALWAYSON/secrets/mastodon/openclaw-mastodon.env
-# (gitignored; mirrored in KDE Wallet ao-mastodon).
+# Credentials are NOT read from disk. They are materialized on demand from KDE
+# Wallet (ao-mastodon) into a 0600 temp file, used, and removed. This script
+# used to read /ALWAYSON/secrets/mastodon/openclaw-mastodon.env, a second
+# plaintext copy of the bot token; KDE Wallet is the sole authority now
+# (README 4.1 rule 7 / 14.1.1).
 # Usage: mastodon-post.sh "status text" [--visibility public|private|unlisted]
 set -Eeuo pipefail
 
-ENV=/ALWAYSON/secrets/mastodon/openclaw-mastodon.env
-[ -f "$ENV" ] || { echo "ERROR: $ENV missing (run provision-openclaw-bot.sh)" >&2; exit 3; }
+umask 077
+ENV="$(mktemp -t ao-openclaw-env.XXXXXX)"
+trap 'shred -u "$ENV" 2>/dev/null || rm -f "$ENV"' EXIT
+/ALWAYSON/scripts/operations/fetch-openclaw-mastodon-env.sh "$ENV" >/dev/null
+[ -f "$ENV" ] || { echo "ERROR: could not materialize bot credentials from KDE Wallet ao-mastodon" >&2; exit 3; }
 set -a; . "$ENV"; set +a
 
 SERVER="${MASTODON_SERVER:-http://127.0.0.1:3000}"
