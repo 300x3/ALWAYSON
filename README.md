@@ -93,7 +93,7 @@ in §3, in Appendix A, or anywhere else in the document.
 | Corda uses PostgreSQL | Corda is built on V5 against `cordadb` on host PostgreSQL 18; the V4 test install and its H2 database were removed 2026-09-28 and no data is migrated (§18.2) |
 | Metabase works | It runs on the host and serves its login page; the earlier "not serving" finding was a different, undeployed container |
 | RF interference may simply be interference | WORK 000700 closes on a recorded characterization, not a fix |
-| Consolidated topology | ES.2 is the single authoritative master diagram; §3.1 is a detail view of it, drawn from the same graphic rather than as separate ASCII |
+| Consolidated topology | ES.2 is the single authoritative master diagram. §3.1, §4.3, and §3.3.2 are detail views of it, drawn as zooms of that same graphic. The former ASCII topology fallback has been removed now that the graphic is verified and published |
 | Implementation status consolidated | All implementation statuses are tracked once, as the single list in **ES.3**. The former §3.2 status table is deleted, and the status columns in §19 and §20 now reference ES.3 IDs instead of restating a status |
 | Work and issue items consolidated | Section 19 is one table of remaining items, each naming the standard it serves |
 | Simulation renders relocated | The three Gazebo model views sit in §10.2 with captions |
@@ -115,6 +115,18 @@ in the sections referenced.
 ![ALWAYS ON — topology, left section](assets/alwayson-single-topology-left.png)
 
 ![ALWAYS ON — topology, right section](assets/alwayson-single-topology-right.png)
+
+The panels above are the same graphic folded at its seam, for reading at a larger
+scale. For a fully zoomable, resolution-independent view, or to open the two
+portrait panels side by side, use the vector and self-contained viewer:
+
+| Artefact | Use it for |
+|---|---|
+| [alwayson-single-topology.svg](assets/alwayson-single-topology.svg) | Vector master. Scales to any zoom with no loss; opens in a browser or Inkscape |
+| [alwayson-single-topology.html](assets/alwayson-single-topology.html) | Self-contained interactive viewer — works offline, no server needed |
+
+Every detail view in this document is a zoom of that one master graphic, never a
+separate diagram.
 
 **The only public entries.** Nothing reaches an internal service directly. There are exactly four, each purpose-built and each carrying nothing but its own approved traffic:
 
@@ -138,88 +150,32 @@ in the sections referenced.
 | Where do secrets come from? | KDE Wallet, after Plasma login, by design. See §14.1.1. |
 | Does monitoring need Grafana? | No. Prometheus is for security only; it acts alone and independently on the other systems to ensure security and to address any problems. Grafana is for stable dashboards and metrics; Metabase is for ad-hoc reporting by users, and a recurring ad-hoc report is promoted into a stable Grafana dashboard. Both read the databases that already exist. |
 
-The remaining text form of the topology, for readers who cannot view the diagram:
+The five points below are the ones most often asked about. Each is drawn in the master
+graphic above.
 
-```text
-  EXTERNAL (no route to any internal service below except via an adapter)
-  ───────────────────────────────────────────────────────────────────────────
-  storefront 300x3.com — static pCloud Public Folder: products, docs, legal
-  Mastodon    mastodon.300x3.com — federated via dedicated Cloudflare Tunnel
-  payment provider (PayPal / Zelle / Coinbase stablecoin) — hosted checkout
-  website email > PDF > Corda processing
-  pCloud archive (encrypted egress)
-
-        │                                   │
-        │ public response, PDF, webhook     │ outbound: only via adapters
-        ▼                                   ▼
-  ╔══════════════════════╗   ╔══════════════════════════════════════════╗
-  ║ ao-ingress-payment   ║   ║ ao-egress-archive  ("data sales")       ║
-  ║ webhook verify       ║   ║ pCloud / IPFS — primarily maps and       ║
-  ║ PayPal · Zelle ·     ║   ║ telemetry/IoT data; destination           ║
-  ║ Coinbase intake      ║   ║ allowlist                               ║
-  ║ normalize · rate-limit║  ╚══════════════════════════════════════════╝
-  ╚═════════╤════════════╝                  │
-            │ verified normalized payment    │ signed minimized manifest
-            │ event + website PDF intake     ▼
-            ▼                    ╔════════════════════════════════════════╗
-  ┌──────────────────────────┐   ║ ao-ledger-ingest  [Internal]          ║
-  │ ao-sales   [Internal]    │   ║ mTLS · authorize · validate · sign    ║
-  │ sales API · OpenClaw     │   ║ idempotency · timestamp/nonce · audit ║
-  │ Mastodon web/stream/pub  │   ╚═══════════════╤════════════════════════╝
-  │ PDF intake / PDF output  │                   │ approved state transition
-  │ Konqueror client (host)  │                   ▼
-  └───────────┬──────────────┘   ┌──────────────────────────────┐
-              │ signed PDF +       │ ao-ledger-core  [Internal]   │
-              │ manifests           │ Corda node · PKI             │
-              ▼                     │ cordadb — PostgreSQL 18      │
-     quarantine → validate → hash  └──────────────┬───────────────┘
-              │                                    │
-              ▼                     ┌──────────────┴───────────────┐
-      ┌────────────────────┐        │ ao-data  (narrow plumbing)  │
-      │ ao-payment  salesdb│        │ PostgreSQL 18 · Redis 8     │
-      │ reconciliation     │        │ Grafana · Metabase · DBeaver│
-      └────────────────────┘        └──────────────┬───────────────┘
-                                               │
-  ┌─────────────────────────┐  ┌────┴──────────────┐   ┌─────────────────┐
-  │ ao-mapping  [Internal]  │  │ ao-sim-vehicle    │   │ ao-sim-fab      │
-  │ WebODM · NodeODM        │  │ ROS 2 Lyrical     │   │ ROS 2 Lyrical   │
-  │ imagery intake/export   │  │ Gazebo 10.5.0     │   │ Gazebo 10.5.0   │
-  │ 500GBPHOTOGRAM ext4     │  │ ArduPilot SITL    │   │ facility + robot│
-  └─────────────────────────┘  │ QGC  DOMAIN=21    │   │ cells DOMAIN=22 │
-                               │ PART=alwayson_veh │   └─────────────────┘
-  ┌─────────────────────────┐  └───────────────────┘
-  │ DESIGN (host)           │   Radio profiles:  PEOPLE-RADIO 915/125 public
-  │ SketchUp · SketchUp Web │   DRONE-RADIO  917/250 authenticated
-  └─────────────────────────┘
-
-  The fabrication machines — MainsailOS, Moonraker, Klipper, the individual
-  additive-manufacturing machines (3D printers and CNC), and the BigTreeTech CB1 —
-  are real machines, not simulation nodes, so they are NOT drawn as
-  `ao-sim-fabrication` children. ao-sim-fabrication coordinates all industrial
-  engineering and production related details, receiving specific production data
-  from each machine, and it runs the kitchen. See ES.1 and §10.2.
-
-  Post-sale transfer (authorized recipient only — no Corda/archive dependency)
-  ───────────────────────────────────────────────────────────────────────────
-  approved map/imagery or telemetry package → package · hash · recipient
-  authorization → IPFS transfer (private swarm / pinning / encryption)
-
-  SECRETS — KDE Wallet is the authority (ES.1)
-  ───────────────────────────────────────────────────────────────────────────
-  Plasma login → kwalletd6 unlock → fetch-kwallet-secret.sh (ExecStartPre, ≤60s)
-  → 0600 env file per unit. Services needing Wallet secrets start after login
-  BY DESIGN. All services run under the operator account; no separate service user.
-
-  MONITORING — Prometheus is for security only; Grafana is dashboards/metrics;
-               Metabase is reporting. Each tool keeps its own application database
-               and reads the business databases read-only; none of them is the
-               system of record.
-  ───────────────────────────────────────────────────────────────────────────
-  host + services + exporters → Prometheus TSDB · rules · alerts  ← acts alone
-                                                │
-                                                └─→ Grafana (dashboards/metrics)
-  ao-admin carries Prometheus, node_exporter, Grafana, Metabase, backup/restore
-```
+- **The fabrication machines are real machines, not simulation nodes.** MainsailOS,
+  Moonraker, Klipper, the individual additive-manufacturing machines (3D printers and
+  CNC), and the BigTreeTech CB1 are therefore not drawn as `ao-sim-fabrication`
+  children. `ao-sim-fabrication` coordinates all industrial engineering and production
+  related details for the rehearsal, receiving specific production data from each
+  machine, and it runs the kitchen. Real production data is handled by the separate
+  `ao-fabrication` domain. See ES.1 and §10.2.
+- **Post-sale transfer is authorized-recipient only**, with no Corda or archive
+  dependency: an approved map/imagery or telemetry package is transferred as
+  package · hash · recipient authorization over IPFS (private swarm, pinning,
+  encryption). See §11.
+- **Secrets come from KDE Wallet**, which is the authority. Plasma login →
+  `kwalletd6` unlock → `fetch-kwallet-secret.sh` (`ExecStartPre`, ≤60s) → a 0600 env
+  file per unit. Services needing Wallet secrets start after login **by design**. All
+  services run under the operator account; there is no separate service user. See
+  §14.1.1.
+- **Monitoring is split by purpose.** Prometheus is for security only and acts alone
+  and independently on the other systems to ensure security and address any problems.
+  Grafana is for stable dashboards and metrics. Metabase is for ad-hoc reporting. Each
+  keeps its own application database and reads the business databases read-only; none
+  of them is the system of record. See §3.3.2 and §17.
+- **Radio profiles** are `PEOPLE-RADIO` 915 MHz/125 kHz (public) and `DRONE-RADIO`
+  917 MHz/250 kHz (authenticated). See §9.
 
 
 ### ES.3 Implementation Status and Current Work
