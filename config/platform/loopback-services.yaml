@@ -40,6 +40,10 @@ meta:
     - { port: 3001, unit: quadlet/operations/ao-grafana.container }
     - { port: 3002, unit: quadlet/operations/ao-metabase.container }
     - { port: 9090, unit: quadlet/operations/ao-prometheus.container }
+    # Loopback-only, operator-approved 2026-10-01 so the WebODM UI opens in a
+    # browser without an SSH tunnel. 127.0.0.1:8000:8000 in
+    # quadlet/mapping/ao-webodm-web.container.
+    - { port: 8000, unit: quadlet/mapping/ao-webodm-web.container }
   # Host services that publish no container port.
   host_services:
     - { port: 3300, unit: scripts/operations/mastodon-local-proxy.py }
@@ -48,7 +52,7 @@ meta:
 services:
   # --- ao-sales: Mastodon ------------------------------------------------
   - name: Mastodon local proxy
-    url: http://127.0.0.1:3300/
+    url: https://127.0.0.1:3300/
     expect_status: [200]
     expect_title: Mastodon
     expect_body: mastodon.300x3.com
@@ -59,13 +63,30 @@ services:
     # harness being impatient, not a fault in the proxy.
     nav_timeout_ms: 60000
     wait_until: load
+    # The certificate is self-signed for 127.0.0.1, so a browser harness must
+    # accept it explicitly or this entry reports a cert error instead of a
+    # reachability result. Chrome/Chromium: --ignore-certificate-errors.
     note: >-
-      Loopback reverse proxy onto :3000. This, not :3000, is the reachable
-      entry point for the Mastodon UI: mastodon-web sets RAILS_FORCE_SSL=true
-      and answers :3000 with "301 -> https://127.0.0.1:3000/", but no TLS
-      listener exists there, so https://127.0.0.1:3000/ fails to connect
-      (verified STATUS=000). The proxy injects X-Forwarded-Proto: https so
-      Rails serves content over plain HTTP. See
+      Loopback TLS-terminating reverse proxy onto :3000. This, not :3000, is
+      the reachable entry point for the Mastodon UI. mastodon-web runs
+      RAILS_ENV=production and upstream HARDCODES config.force_ssl = true
+      (config/environments/production.rb) plus
+      "https = Rails.env.production? || ..." (config/initializers/1_hosts.rb);
+      neither is switchable by environment variable, so Rails always generates
+      absolute https:// asset URLs. Answering :3000 directly therefore produces
+      "301 -> https://127.0.0.1:3000/" on a port with no TLS listener, and the
+      browser's request for https://127.0.0.1:3300/custom.css never completes;
+      being render-blocking, it stops DOMContentLoaded firing and the page
+      appears to hang. Verified 2026-10-01: that request hung until the client
+      gave up, while every URL returned 4-27ms to curl, and Puma logged
+      "Are you trying to open an SSL connection to a non-SSL Puma?".
+      FIX: the proxy now terminates TLS on 127.0.0.1:3300 with a self-signed
+      cert (secrets/mastodon/mastodon-local.crt) and still injects
+      X-Forwarded-Proto: https so generated URLs match the listener. Measured
+      after the fix: /explore load event 262ms, zero pending requests, down
+      from a 60s+ timeout with three permanently hung requests. Federation is
+      unaffected - mastodon-web is not modified and the Cloudflare Tunnel
+      ingress still targets http://127.0.0.1:3000. See
       scripts/operations/mastodon-local-proxy.py.
 
   - name: Mastodon web origin (transport only)
@@ -140,18 +161,19 @@ services:
   # --- correctly not reachable over loopback ----------------------------
   - name: WebODM web UI
     url: http://127.0.0.1:8000/
-    verifiable: false
-    reason: >-
-      No host listener exists and that is correct. ao-webodm-webapp publishes
-      no port: its ports column is empty and podman reports nothing bound on
-      the host. The service was confirmed HEALTHY on 2026-10-01 by probing it
-      from inside the ao-mapping network instead: ao-webodm-webapp sits at
-      10.89.3.18 and answers HTTP 302 when reached from ao-nodeodm on the same
-      network. So the application is up and serving; it is simply not exposed
-      to the host, and operator access is an SSH tunnel to the container.
-      Opening a loopback listener needs separate operator approval, so this
-      stays unverifiable from the host by design rather than being opened up
-      to make a test pass.
+    expect_status: [200]
+    expect_landing_path: /login/
+    expect_title: WebODM
+    expect_body: null
+    # PROMOTED from unverifiable to verified on 2026-10-01. The earlier entry
+    # recorded "no host listener exists and that is correct", with operator
+    # access by SSH tunnel. The operator approved a loopback listener, so
+    # ao-webodm-web.container now sets PublishPort=127.0.0.1:8000:8000 and
+    # podman reports 127.0.0.1:8000->8000/tcp. Root issues "302 -> /login/" and
+    # the browser follows it, so the rendered landing page is "Login - WebODM".
+    # This is loopback-only: 10.42.0.1:8000 and 192.168.87.135:8000 both refuse,
+    # and ao-mapping remains Internal=true. Re-check that refusal if this entry
+    # is ever edited, so the promotion cannot quietly become public exposure.
 
   - name: MeshChatX local UI
     url: https://127.0.0.1:18000/

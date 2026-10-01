@@ -1,6 +1,10 @@
 # /ALWAYSON/quadlet/mapping/ao-webodm-web.container
-# ALWAYS ON WebODM Web UI/API - internal to ao-mapping only (no PublishPort;
-# operator access via SSH tunnel per Section 1.3)
+# ALWAYS ON WebODM Web UI/API.
+# PublishPort is LOOPBACK ONLY (127.0.0.1:8000) so the operator can reach the
+# WebODM UI at http://127.0.0.1:8000/ from a browser on this machine without an
+# SSH tunnel. It binds no public interface: the LAN address still refuses, and
+# ao-mapping stays Internal=true. Operator-approved 2026-10-01.
+# WO_PORT=8000 below is the in-container port; the mapping is what exposes it.
 [Unit]
 Description=ALWAYS ON WebODM Web
 After=ao-webodm-db.service ao-webodm-broker.service
@@ -13,6 +17,7 @@ Network=ao-mapping.network
 Volume=/media/scottw/500GBPHOTOGRAM/webodm/media:/webodm/app/media:Z
 EnvironmentFile=%h/.local/share/ao-secrets/webodm.env
 Environment=WO_PORT=8000
+PublishPort=127.0.0.1:8000:8000
 Environment=WO_HOST=ao-webodm-webapp
 Environment=WO_DEBUG=NO
 Environment=WO_DATABASE_HOST=ao-webodm-db
