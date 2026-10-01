@@ -224,7 +224,7 @@ rather than restating a status. One component, one status, one place to change i
 | ST-09 | Ledger core — Corda on `cordadb` | Blocked | Corda 5.2.2 **CLI installed** 2026-09-30, SHA-256 verified; **no node** — `cordadb` holds 0 tables and its owner role has no working password, so `preinstall check-postgres` cannot pass. Details in §18.3.1. Corda 4 and its H2 database were removed 2026-09-28 with no data migrated | **Deferred by operator 2026-09-30 until the rest of the system is complete**, so the ledger opens with real entries rather than test data. Then complete the key and certificate ceremony (§18.3) and create the node |
 | ST-10 | Ledger ingestion gateway — `ao-ledger-ingest` | Planned | mTLS validation, authorization, audit, and idempotency specified; not deployed | Deploy behind the adapter boundary once the ceremony is complete |
 | ST-11 | Sales and orders — `ao-sales` database | Implemented | Sales DB deployed; order, receipt, and fulfillment records supported | Confirm the reporting projection |
-| ST-12 | Payment adapters — `ao-ingress-payment` | In progress | **Deployed 2026-10-01** on `ao-payment` (its own domain, §5.4 one-network rule respected). Adapter, host relay, and reconciliation CLI written; PayPal signature verification, replay guard, and Zelle manual-only refusal tested and passing. Schema: Zelle casing normalised to `Zelle` across DB and JSON schema; reconciliation columns added to `payment_references`. **Not enabled against live traffic** — the four `ao-payment` wallet entries do not exist yet, so it runs with no DSN and no webhook secret and cannot accept a payment | Create the four `ao-payment` wallet entries, then approve enabling the Cloudflare Tunnel route to `127.0.0.1:8900` (§18.4 operator approval) |
+| ST-12 | Payment adapters — `ao-ingress-payment` | In progress | **Deployed 2026-10-01** on `ao-payment` (its own domain, §5.1 one-network rule respected). Adapter, host relay, and reconciliation CLI written; PayPal signature verification, replay guard, and Zelle manual-only refusal tested and passing. Schema: Zelle casing normalised to `Zelle` across DB and JSON schema; reconciliation columns added to `payment_references`. **Not enabled against live traffic** — the four `ao-payment` wallet entries do not exist yet, so it runs with no DSN and no webhook secret and cannot accept a payment | Create the four `ao-payment` wallet entries, then approve enabling the Cloudflare Tunnel route to `127.0.0.1:8900` (§18.4 operator approval) |
 | ST-13 | Mastodon local stack | Implemented (live on `scottw`) | All 5 containers active under `scottw` in the single `ao-sales` store; `ao-sales` is `Internal=false` so Sidekiq can deliver ActivityPub. Database migrated (100 tables). `LOCAL_DOMAIN=mastodon.300x3.com` (300x3.com is the filedn storefront and is not routed here). Env wallet-backed via `%h/.local/share/ao-secrets/`, `RAILS_FORCE_SSL=true`. v4.3.7; WebFinger resolves; Sidekiq 6.5.12 processing; outbound 443 open. Accounts `@aoadmin` (Owner) and `@bot` verified authenticating with KDE Wallet passwords — note `admin` is a reserved username, so the Owner handle is `aoadmin` while the email stays `admin@300x3.com` | Confirm remote-to-remote delivery and a reverse follow |
 | ST-14 | Mastodon federation edge — Cloudflare Tunnel | Implemented (bidirectional) | Tunnel active; HTTP/2 connector up; WebFinger 200 for `acct:aoadmin@mastodon.300x3.com`. **Inbound proven**: signed `POST /inbox` from `mastodon.social` and `avision-it.social` return 202. **Outbound proven**: `@bot` follows `@Gargron@mastodon.social` and the remote returned a signed activity recorded as a reverse follow. The earlier silent outbound failure was an instance actor with empty `uri`/`inbox`, now repaired on every web start | Sustained delivery monitoring |
 | ST-15 | OpenClaw and LM Studio support chat | In progress | Local stack in progress; OAuth/client issues recorded | Complete OpenClaw and local LLM validation  |
@@ -2722,6 +2722,7 @@ method, and rationale.
 │   ├── mapping/           # ao-webodm-{webapp,worker,db,broker}, ao-nodeodm
 │   ├── operations/        # grafana, metabase, prometheus, node-exporter, bridges
 │   ├── fabrication/       # ao-fabrication-db and the host-side collector
+│   ├── payment/           # ao-ingress-payment and ao-payment-relay
 │   └── sim-vehicle/       # ao-ardupilot-sitl
 ├── config/
 │   ├── platform/          # network CIDRs, version matrix, topology model,
@@ -2763,12 +2764,13 @@ them or assumes they were lost:
 | Claimed path | State |
 |---|---|
 | `storefront/` | not created; the storefront is served from filedn, not built here |
-| `quadlet/{volumes,payment,field,sim-fabrication,ledger,archive,mastodon,pcloud,ipfs}/` | not created; Mastodon definitions live in `quadlet/sales/`, and the payment, field, sim-fabrication and ledger domains have no containers yet (see ST-10, ST-12, ST-22) |
+| `quadlet/{volumes,field,sim-fabrication,ledger,archive,mastodon,pcloud,ipfs}/` | not created; Mastodon definitions live in `quadlet/sales/`, and the payment, field, sim-fabrication and ledger domains have no containers yet (see ST-10, ST-12, ST-22) |; `quadlet/payment/` is listed here but became real on 2026-10-01 (see Section 18.4.1)
 | `config/{platform,storefront,...}` flat list | superseded by the `config/` listing above |
 | `tests/` | not created; validation lives in `scripts/validation/` |
 
-`quadlet/fabrication/` and `agents/`, `assets/`, `forms/`, `docs/faith/` are real
-and were missing from the previous diagram.
+`quadlet/fabrication/`, `quadlet/payment/`, `agents/`, `assets/`, `forms/`,
+`docs/faith/` are real. `quadlet/payment/` was added 2026-10-01; the first two
+were missing from the previous diagram.
 
 
 The repository already exists on `main` and `.gitignore` is populated with the
@@ -3467,6 +3469,7 @@ remains on the federation edge.
 ├── operations/      # wallet bridge, service start helpers, local proxy, collectors
 ├── ops/             # wallet read/write helpers, kwallet provisioning
 ├── openclaw/        # chat relay for the ao-sales chat path
+├── payment/         # ao-ingress-payment adapter, host relay, reconciliation CLI
 ├── sales/           # sales-domain helpers
 ├── lib/             # shared shell library (common.sh)
 └── sync-lmstudio-readme-preset.sh
@@ -3779,7 +3782,7 @@ be reached from outside the domain. Public provider webhooks therefore
 terminate at the host and a host-side relay forwards them in. This is the
 `ao-fabrication-collect` pattern (§3.3.0) in reverse: the host performs the hop
 the internal domain cannot, and the container joins no second network, so the
-§5.4 one-network attachment rule holds.
+§5.1 one-network attachment rule holds.
 
 | Component | Location | Role |
 |---|---|---|
@@ -3793,6 +3796,15 @@ Rootless Podman gives the host no route into an `Internal=true` network, so the
 adapter publishes `127.0.0.1:8899`, matching `ao-sales-db` (`15432`) and
 `ao-fabrication-db` (`15433`). Verified: `10.42.0.1` and `192.168.87.135` refuse
 both ports.
+
+| Port | Listener | Owner | Exposure |
+|---|---|---|---|
+| `127.0.0.1:8899` | `ao-ingress-payment` | `ao-payment` | Loopback only; published because rootless Podman gives the host no route into an `Internal=true` network |
+| `127.0.0.1:8900` | `ao-payment-relay` | host service | Loopback only; **no public route exists** to this port |
+
+These two are not yet recorded in `config/platform/loopback-services.yaml`,
+which another session currently has uncommitted edits to; that file is its
+author's to change, so the ports are recorded here in the meantime.
 
 **Controls implemented and tested.** PayPal events are rejected with 401 unless
 the transmission signature verifies, and the signature is checked before any row
