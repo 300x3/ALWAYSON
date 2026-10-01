@@ -41,6 +41,14 @@ ar_salt="$("$WALLET_HELPER" kdewallet ao-mastodon mastodon-ar-derivation-salt)"
   printf 'ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT=%s\n' "$ar_salt"
   printf 'RAILS_FORCE_SSL=true\n'
   printf 'LOCAL_HTTPS=true\n'
+  # Host authorization (config/initializers/1_hosts.rb) builds config.hosts from
+  # LOCAL_DOMAIN + WEB_DOMAIN + ALTERNATE_DOMAINS only. Without the loopback
+  # entries, every request that arrives via 127.0.0.1 with a Host of
+  # localhost:3000 is refused by ActionDispatch::HostAuthorization, which
+  # includes the local proxy health check and any direct loopback probe.
+  # This does NOT widen the public exposure: the Cloudflare Tunnel is still the
+  # only public path, and no listener is published on ao-sales.
+  printf 'ALTERNATE_DOMAINS=localhost,localhost:3000,127.0.0.1,127.0.0.1:3000\n'
 } >"$OUTPUT.tmp"
 mv "$OUTPUT.tmp" "$OUTPUT"
 chmod 0600 "$OUTPUT"
