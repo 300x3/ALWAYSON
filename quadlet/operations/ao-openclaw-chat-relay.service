@@ -1,0 +1,37 @@
+# /home/scottw/.config/systemd/user/openclaw-chat-relay.service
+# CORS-terminating relay between the 300x3.com website chat box and the OpenClaw
+# gateway. Binds loopback only; the Cloudflare Tunnel publishes it as
+# chat.300x3.com/chat (see deviation 18.7 in /ALWAYSON/README.md).
+[Unit]
+Description=ALWAYS ON OpenClaw website chat relay (300x3.com chat box)
+Documentation=file:/ALWAYSON/scripts/openclaw/chat-relay.py
+# Starts at graphical login with the gateway (KDE Wallet unlock), not at boot:
+# the relay authenticates to the gateway with a wallet-held shared secret.
+After=ao-openclaw-gateway.service graphical-session.target
+PartOf=graphical-session.target
+Wants=network-online.target
+After=network-online.target
+StartLimitBurst=5
+StartLimitIntervalSec=60
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /ALWAYSON/scripts/openclaw/chat-relay.py
+Restart=always
+RestartSec=5
+TimeoutStopSec=30
+SuccessExitStatus=0 143
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+Environment=HOME=/home/scottw
+Environment=CHAT_RELAY_HOST=127.0.0.1
+Environment=CHAT_RELAY_PORT=18790
+Environment=OPENCLAW_GATEWAY_URL=http://127.0.0.1:18789
+Environment=CHAT_RELAY_ALLOWED_ORIGINS=https://filedn.com,https://www.300x3.com,https://300x3.com
+Environment=PYTHONUNBUFFERED=1
+PassEnvironment=DBUS_SESSION_BUS_ADDRESS XDG_RUNTIME_DIR
+
+[Install]
+WantedBy=graphical-session.target

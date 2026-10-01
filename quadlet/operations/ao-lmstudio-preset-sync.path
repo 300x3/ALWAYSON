@@ -1,0 +1,9 @@
+[Unit]
+Description=Watch /ALWAYSON/README.md and sync LM Studio preset
+
+[Path]
+PathChanged=/ALWAYSON/README.md
+Unit=ao-lmstudio-preset-sync.service
+
+[Install]
+WantedBy=default.target

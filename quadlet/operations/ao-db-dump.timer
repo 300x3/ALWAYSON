@@ -1,0 +1,14 @@
+[Unit]
+Description=ALWAYS ON nightly PostgreSQL domain dumps (03:00)
+# Armed only during a login session: host-DB passwords come from KDE Wallet,
+# so a pre-login firing could only fail. Persistent=true catches a missed
+# 03:00 slot at the next login.
+PartOf=graphical-session.target
+
+[Timer]
+OnCalendar=*-*-* 03:00:00
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=graphical-session.target

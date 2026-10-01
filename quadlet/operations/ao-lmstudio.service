@@ -1,0 +1,17 @@
+# ALWAYS ON - headless LM Studio daemon + automatic Nemotron model load.
+# Starts at boot via user lingering (no graphical login required); the KDE
+# login screen / user credential gate is unaffected and stays in place.
+[Unit]
+Description=ALWAYS ON headless LM Studio daemon and Nemotron model autoloader
+After=lmstudio-memory-policy.service
+
+[Service]
+Type=simple
+ExecStart=/home/scottw/.local/bin/ao-lmstudio-supervisor
+ExecStop=/home/scottw/.local/bin/ao-lmstudio-stop
+TimeoutStopSec=30
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=default.target

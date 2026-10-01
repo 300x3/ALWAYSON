@@ -1,0 +1,7 @@
+[Unit]
+Description=ALWAYS ON PostgreSQL domain dumps (mastodon, sales, webodm)
+
+[Service]
+Type=oneshot
+ExecStart=/ALWAYSON/scripts/backup/dump-all-postgres.sh
+TimeoutStartSec=900

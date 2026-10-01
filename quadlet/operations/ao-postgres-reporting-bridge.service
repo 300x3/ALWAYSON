@@ -1,6 +1,8 @@
 [Unit]
 Description=ALWAYS ON PostgreSQL reporting bridge
-After=network-online.target
+# Starts at login with the reporting containers it serves (ao-admin gateway
+# address only exists once those containers' networks are created).
+After=network-online.target graphical-session.target
 
 [Service]
 Type=simple
@@ -14,4 +16,4 @@ ProtectHome=true
 ReadOnlyPaths=/run/user/1000/podman
 
 [Install]
-WantedBy=default.target
+WantedBy=graphical-session.target

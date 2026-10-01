@@ -1,0 +1,6 @@
+[Unit]
+Description=Regenerate LM Studio ALWAYS ON README knowledge preset
+
+[Service]
+Type=oneshot
+ExecStart=/ALWAYSON/scripts/sync-lmstudio-readme-preset.sh
