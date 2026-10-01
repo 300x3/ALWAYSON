@@ -165,7 +165,7 @@ this host and are deliberately left as they are:
 | Listener | Process | Status |
 |---|---|---|
 | `0.0.0.0:4242` | ReticulumMeshChat | Documented, part of the mesh tooling |
-| `*:6144`, `*:8080` | Domoticz | Not connected to anything yet and intentionally so for the foreseeable future (operator decision 2026-09-30). Left bound; not an `ao-*` service and not part of this project's surface. |
+| `*:6144`, `*:8080` | Domoticz | Not connected to anything yet and intentionally so for the foreseeable future (operator decision 2026-09-30). Left bound; not an `ao-*` service. Intended future use is other equipment on the equipment LAN — see §3.3.0.2. |
 
 They are recorded here so the "no public listener" claim is read accurately: it
 is true of every `ao-*` service, and these are the known exceptions owned by
@@ -554,6 +554,31 @@ this path.
 `/printer/objects/query?print_stats` with `print_duration`, `filament_used` and `state`
 — i.e. genuine per-machine production data. Note that Moonraker currently serves
 **unauthenticated reads**; see §10.3 for the open item on API keys.
+
+#### 3.3.0.2 Planned: Domoticz for non-fabrication equipment (operator intent)
+
+**Planned, not deployed. No device is connected and none is to be connected yet
+(operator decision 2026-09-30).** This records intent so the design is not
+re-derived later; it changes nothing today.
+
+Domoticz is expected eventually to cover other directly connected equipment on
+the same **equipment LAN** (`10.42.0.0/24`) — the segment the desktop already
+manages. It is not part of `ao-fabrication`, is not simulation, and does not
+write to `a_fab`; per-machine production data stays with the Moonraker collector
+above.
+
+**Why the host is the right place, same as the collector.** The desktop holds
+`10.42.0.1/24` on `eno1`, so a host process reaches that LAN directly. A
+container on an `Internal=true` domain could not (§3.3.0.1). Domoticz running on
+the host therefore needs no relay, no opened domain, and no new listener to reach
+those devices — the same conclusion already reached for `ao-fabrication-collect`.
+
+**Listener posture to settle before anything is connected.** Domoticz currently
+binds `*:6144` and `*:8080` on all interfaces while it has no devices attached.
+Those bindings are the *web UI* surface, not the device path, and are independent
+of this plan. When devices are added, the operator should decide whether the UI
+stays on all interfaces or is bound to loopback plus the equipment LAN. That is a
+host-level decision outside the `ao-*` boundary and is deliberately not made here.
 
 `a_fab` holds per-machine production data only. It is **not** a ledger, **not** a sales
 record, and **not** a backup target. Anything that must become provable leaves
