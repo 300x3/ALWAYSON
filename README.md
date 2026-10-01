@@ -225,7 +225,7 @@ rather than restating a status. One component, one status, one place to change i
 | ST-10 | Ledger ingestion gateway — `ao-ledger-ingest` | Planned | mTLS validation, authorization, audit, and idempotency specified; not deployed | Deploy behind the adapter boundary once the ceremony is complete |
 | ST-11 | Sales and orders — `ao-sales` database | Implemented | Sales DB deployed; order, receipt, and fulfillment records supported | Confirm the reporting projection |
 | ST-12 | Payment adapters — `ao-ingress-payment` | In progress | **Deployed 2026-10-01** on `ao-payment` (its own domain, §5.1 one-network rule respected). Adapter, host relay, and reconciliation CLI written; PayPal signature verification, replay guard, and Zelle manual-only refusal tested and passing. Schema: Zelle casing normalised to `Zelle` across DB and JSON schema; reconciliation columns added to `payment_references`. **Not enabled against live traffic** — the four `ao-payment` wallet entries do not exist yet, so it runs with no DSN and no webhook secret and cannot accept a payment | Create the four `ao-payment` wallet entries, then approve enabling the Cloudflare Tunnel route to `127.0.0.1:8900` (§18.4 operator approval) |
-| ST-13 | Mastodon local stack | Implemented (live on `scottw`) | All 5 containers active under `scottw` in the single `ao-sales` store; `ao-sales` is `Internal=false` so Sidekiq can deliver ActivityPub. Database migrated (100 tables). `LOCAL_DOMAIN=mastodon.300x3.com` (300x3.com is the filedn storefront and is not routed here). Env wallet-backed via `%h/.local/share/ao-secrets/`, `RAILS_FORCE_SSL=true`. v4.3.7; WebFinger resolves; Sidekiq 6.5.12 processing; outbound 443 open. Accounts `@aoadmin` (Owner) and `@bot` verified authenticating with KDE Wallet passwords — note `admin` is a reserved username, so the Owner handle is `aoadmin` while the email stays `admin@300x3.com` | Confirm remote-to-remote delivery and a reverse follow |
+| ST-13 | Mastodon local stack | Implemented (live on `scottw`) | All 5 containers active under `scottw` in the single `ao-sales` store; `ao-sales` is `Internal=false` so Sidekiq can deliver ActivityPub. Database migrated (100 tables). `LOCAL_DOMAIN=mastodon.300x3.com` (300x3.com is the filedn storefront and is not routed here). Env wallet-backed via `%h/.local/share/ao-secrets/`, `RAILS_FORCE_SSL=false` (inert — upstream hardcodes `config.force_ssl = true`; see §9.2.1 for why the local UI is served over TLS by the loopback proxy instead). v4.3.7; WebFinger resolves; Sidekiq 6.5.12 processing; outbound 443 open. Accounts `@aoadmin` (Owner) and `@bot` verified authenticating with KDE Wallet passwords — note `admin` is a reserved username, so the Owner handle is `aoadmin` while the email stays `admin@300x3.com` | Confirm remote-to-remote delivery and a reverse follow |
 | ST-14 | Mastodon federation edge — Cloudflare Tunnel | Implemented (bidirectional) | Tunnel active; HTTP/2 connector up; WebFinger 200 for `acct:aoadmin@mastodon.300x3.com`. **Inbound proven**: signed `POST /inbox` from `mastodon.social` and `avision-it.social` return 202. **Outbound proven**: `@bot` follows `@Gargron@mastodon.social` and the remote returned a signed activity recorded as a reverse follow. The earlier silent outbound failure was an instance actor with empty `uri`/`inbox`, now repaired on every web start | Sustained delivery monitoring |
 | ST-15 | OpenClaw and LM Studio support chat | In progress | Local stack in progress; OAuth/client issues recorded | Complete OpenClaw and local LLM validation  |
 | ST-16 | Konqueror — dedicated automation browser | Implemented | Designated as the automation browser in ES.1 | Retain as the only browser role for automation |
@@ -1648,11 +1648,24 @@ separate from the ALWAYS ON mapping service listener on `127.0.0.1:8000`.
 | MeshChatX native backend / web UI | Field / Reticulum | `https://127.0.0.1:18000` | Loopback only | `scottw` user service |
 | WebODM web service | Mapping / `ao-mapping` | `127.0.0.1:8000` — **loopback only**, published 2026-10-01 | Loopback only; the LAN addresses still refuse and `ao-mapping` remains `Internal=true`. This replaces the earlier "no host listener / SSH tunnel" state, which was approved by the operator so the WebODM UI opens directly at `http://127.0.0.1:8000/` without a tunnel | `ao-webodm-web.container` |
 | Reticulum transport | Field / Reticulum | Reticulum-configured interfaces | No HTTP listener | Embedded MeshChatX backend |
+| Mastodon local UI proxy | Sales / local operator access | `https://127.0.0.1:3300` — **loopback only, self-signed TLS** | Loopback only; LAN addresses refuse. Added 2026-10-01 | `scottw` user service (`mastodon-local-proxy.service`) |
 
 MeshChatX uses its self-signed local certificate; clients must use HTTPS and accept the local certificate. The MeshChatX port is not a public ingress and must not be published through
 Podman, nginx, Cloudflare, or a router. WebODM and MeshChatX must not share a
 listener. The desktop launcher and watchdog must use port `18000`; changing one
 without the others is a configuration error.
+
+The Mastodon local UI proxy on `https://127.0.0.1:3300` also uses a self-signed
+certificate, and the same acceptance applies. It is loopback-only and is not a
+public ingress. It exists because upstream Mastodon hardcodes
+`config.force_ssl = true` in `config/environments/production.rb` and
+`https = Rails.env.production?` in `config/initializers/1_hosts.rb`; neither is
+switchable by environment variable, so Rails always emits absolute `https://`
+asset URLs. Served over plain HTTP, the browser's request for a render-blocking
+stylesheet never completes and the page hangs even though every URL answers
+curl in milliseconds. The proxy terminates TLS on loopback and injects
+`X-Forwarded-Proto: https` so those URLs resolve. `mastodon-web` itself is not
+modified and federation through the Cloudflare Tunnel is unaffected.
 
 ```text
 Heltec WiFi LoRa 32 V3
@@ -3312,10 +3325,20 @@ Environment changes applied to the authoritative service-account
 
 ```text
 LOCAL_DOMAIN=mastodon.300x3.com
-LOCAL_HTTPS=true
+LOCAL_HTTPS=false
 RAILS_FORCE_SSL=false  # Cloudflare edge terminates public TLS
 ALTERNATE_DOMAINS=localhost,127.0.0.1
 ```
+
+Both switches above are **inert** and are set only to agree with intent.
+Upstream hardcodes `config.force_ssl = true`
+(`config/environments/production.rb`) and
+`https = Rails.env.production?` (`config/initializers/1_hosts.rb`), so in
+production Rails always emits absolute `https://` URLs and always redirects
+plain HTTP. Setting these to `false` does not change that; it was verified on
+2026-10-01 that `http://127.0.0.1:3000/` still answers
+`301 -> https://127.0.0.1:3000/`. The local UI is therefore served over TLS by
+the loopback proxy (§9.2.1), not by relaxing Mastodon.
 
 - Login emails remain `admin@300x3.com` and `bot@300x3.com`.
 - Canonical ActivityPub identities are
@@ -3456,6 +3479,7 @@ remains on the federation edge.
 │   ├── check-secrets-exposure.sh
 │   ├── check-gpu-runtime.sh
 │   ├── check-ledger-ingest.sh
+│   ├── check-deployment-conformance.sh
 │   └── capture-version-matrix.sh
 ├── mapping/
 ├── radio/
@@ -3813,6 +3837,39 @@ returns 501 on any inbound POST, because §18.4 forbids automated Zelle
 verification and Zelle publishes no webhook. Bodies are capped at 256 KiB. Only a
 SHA-256 hash and an opaque reference are stored; raw payloads are never persisted.
 
+### 18.4.2 Deployment conformance validation (2026-10-01)
+
+An audit comparing every deployed unit against the repository found that
+`ao-grafana` and `ao-metabase` were still reading `EnvironmentFile` from
+`~/.local/share/alwayson-secrets/`. The repository definitions said
+`ao-secrets`. Both services were healthy only because the earlier secrets
+rename had created a copy of the directory rather than moving it, so both were
+one rename away from failing to start while every existing validator passed.
+`check-secrets-exposure.sh` cannot catch this: it inspects tracked content, not
+what is actually deployed.
+
+`scripts/validation/check-deployment-conformance.sh` closes that gap. It checks:
+
+1. every deployed `ao-*` unit has a source file in `quadlet/`;
+2. every deployed unit is byte-identical to that source;
+3. no deployed unit references a retired `300x3-` or `alwayson-` path;
+4. every enabled `ao-*` unit is active — judging `oneshot` units by their last
+   `Result` and their timer or path, since they are idle between runs;
+5. every network in the CIDR registry exists in Podman;
+6. no container carries an unaccepted name prefix.
+
+Generated units (the `podman-user-generator` output) are excluded, since they
+are derived from the `.container` files the check already covers. Two
+deliberate exceptions are recorded in the script: `mastodon-*` containers, which
+are a naming exception pending an operator decision, and the two `ao-font-*`
+incident-diagnostic units from 2026-09-30, which are not project
+infrastructure.
+
+Running it also surfaced two problems that had gone unnoticed: a duplicate
+stale copy of `ao-postgres-reporting-bridge.service` in `containers/systemd/`
+shadowing the real one in `systemd/user/`, and two orphaned `.volume` unit
+files for volumes no container mounts.
+
 **Not enabled.** The four `ao-payment` wallet entries do not exist yet, so the
 adapter runs with no DSN and no webhook secret: it records nothing and rejects
 every event. The Cloudflare Tunnel route to `127.0.0.1:8900` is **not** created;
@@ -4065,7 +4122,7 @@ operator surface, the discrepancy is stated.
 | Item | Evidence | Status — see ES.3 |
 |---|---|---|
 | Host inventory | Inventory report completed | ST-01 (see ES.3) |
-| Loopback service reachability | `scripts/validation/check-local-services.js` drives Chrome under Playwright against the inventory in `config/platform/loopback-services.yaml`; **14 pass, 0 fail, 1 unverifiable** (2026-10-01), repeated runs stable. Every loopback service also refuses on the LAN address `10.42.0.1`, so the loopback boundary holds. UNVERIFIABLE means *correctly unreachable*, not untested: WebODM publishes no port and is reached by SSH tunnel, verified healthy by an HTTP 302 from `ao-nodeodm` on `ao-mapping` | ST-01 (see ES.3) |
+| Loopback service reachability | `scripts/validation/check-local-services.js` drives Chrome under Playwright against the inventory in `config/platform/loopback-services.yaml`; **15 pass, 0 fail, 0 unverifiable** (2026-10-01, re-run after the WebODM loopback publication and the Mastodon proxy TLS change; earlier runs were 14 pass / 1 unverifiable). The previous UNVERIFIABLE entry is gone: WebODM now publishes `127.0.0.1:8000` and is checked like any other loopback service, its expectation being the followed `200` on `/login/`. The Mastodon proxy is now `https://127.0.0.1:3300` and passes because the harness already sets `--ignore-certificate-errors` and `ignoreHTTPSErrors: true` for the self-signed certificate. Every loopback service also refuses on the LAN address `10.42.0.1`, so the loopback boundary holds | ST-01 (see ES.3) |
 | Operator console `:8099` and Gazebo portal `:8765` | Both verified 200. The console has no unit and is started by hand for the check, then stopped. **Discrepancy:** `config/platform/topology-model.yaml` and `config/platform/version-matrix.yaml` record `:8765` as `foxglove_bridge`; it is the `gazebo-portal` container and `foxglove_bridge` was not listening. To reconcile when the Gazebo work lands | ST-05, ST-08 (see ES.3) |
 | Photogrammetry drive | UUID verified; directory tree created | ST-03 (see ES.3) |
 | Package/version matrix | Captured and refreshed | ST-01 (see ES.3) |
