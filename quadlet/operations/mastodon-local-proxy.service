@@ -1,0 +1,16 @@
+[Unit]
+Description=ALWAYS ON Mastodon local HTTP proxy (127.0.0.1:3300 -> :3000)
+Documentation=file:///ALWAYSON/scripts/operations/mastodon-local-proxy.py
+# Loopback-only (binds 127.0.0.1, README 4.1 rule 6 — no public port).
+# Injects X-Forwarded-Proto: https so mastodon-web's RAILS_FORCE_SSL does not
+# 301-loop plain-HTTP browsers; touches no Mastodon config or credentials.
+After=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /ALWAYSON/scripts/operations/mastodon-local-proxy.py 3300 3000
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=default.target
