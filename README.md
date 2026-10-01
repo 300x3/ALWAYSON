@@ -2701,70 +2701,66 @@ method, and rationale.
 /ALWAYSON/
 ├── README.md
 ├── VERSION
-├── docs/
-├── storefront/
-│   ├── source/
-│   ├── build/
-│   ├── releases/
-│   ├── manifests/
-│   └── pcloud-public-folder/
+├── AGENTS.md
 ├── quadlet/
-│   ├── networks/
-│   ├── volumes/
-│   ├── sales/
-│   ├── payment/
-│   ├── field/
-│   ├── mapping/
-│   ├── sim-vehicle/
-│   ├── sim-fabrication/
-│   ├── ledger/
-│   ├── archive/
-│   └── operations/
+│   ├── networks/          # the 12 ao-* .network definitions
+│   ├── sales/             # ao-mastodon-{db,redis,web,sidekiq,streaming}, ao-sales-db
+│   ├── mapping/           # ao-webodm-{webapp,worker,db,broker}, ao-nodeodm
+│   ├── operations/        # grafana, metabase, prometheus, node-exporter, bridges
+│   ├── fabrication/       # ao-fabrication-db and the host-side collector
+│   └── sim-vehicle/       # ao-ardupilot-sitl
 ├── config/
-│   ├── platform/
-│   ├── storefront/
-│   ├── sales/
-│   ├── payment/
-│   ├── drone/
-│   ├── field/
-│   ├── mapping/
-│   ├── sim-vehicle/
-│   ├── sim-fabrication/
-│   ├── ledger/
-│   ├── mastodon/
-│   ├── pcloud/
-│   └── ipfs/
-├── secrets/
-├── data/
-├── artifacts/
-├── ipfs/
-├── pcloud/
-├── backups/
-├── logs/
-├── scripts/
-├── tests/
-└── tmp/
+│   ├── platform/          # network CIDRs, version matrix, topology model,
+│   │                      # GUI boundary matrix, monitoring
+│   ├── sales/  mastodon/  mapping/  field/  drone/  ledger/
+│   ├── sim-vehicle/  sim-fabrication/  models/  storefront/
+│   └── pcloud/  ipfs/
+├── scripts/               # operations, mastodon, backup, restore, validation, deploy
+├── docs/                  # runbooks, compliance, faith
+├── forms/                 # Corda sale-receipt forms
+├── assets/                # README diagrams
+├── agents/                # agent instructions
+├── secrets/               # IGNORED - runtime secret material, never in git
+├── data/                  # IGNORED - persistent runtime data (restic, corda-install)
+├── logs/                  # IGNORED - operational logs
+├── artifacts/  backups/   # IGNORED - generated artefacts and restore material
+├── pcloud/  ipfs/         # IGNORED - transfer working areas
+└── tmp/                   # IGNORED
 ```
 
-Initialize source control:
+### 13.3.1 Directories that exist but are not in the diagram
 
-```bash
-cd /ALWAYSON
-git init
-git branch -M main
+Recorded 2026-09-30 so the tree above is not read as exhaustive. These are
+present on disk and are either generated views or archived history:
 
-cat > .gitignore <<'EOF'
-secrets/
-data/
-logs/
-tmp/
-backups/
-pcloud/restore-cache/
-EOF
+| Path | What it is |
+|---|---|
+| `TOPOLOGY/` | topology graphic source and review material |
+| `LOGOS-JOURNALS/` | operations journal (gitignored) |
+| `GAZEBO/`, `SIMULATION.png`, `WEBSITEMAIN.png` | simulation and storefront imagery |
+| `README - ARCHIVE/` | superseded README versions and review comments |
 
-git add .gitignore
-git commit -m "Initialize ALWAYS ON configuration repository"
-```
+### 13.3.2 Diagram entries with no directory yet
+
+The earlier revision of this tree listed these paths. They are **design intent
+for domains that are not built**, and are listed here so nobody goes looking for
+them or assumes they were lost:
+
+| Claimed path | State |
+|---|---|
+| `storefront/` | not created; the storefront is served from filedn, not built here |
+| `quadlet/{volumes,payment,field,sim-fabrication,ledger,archive,mastodon,pcloud,ipfs}/` | not created; Mastodon definitions live in `quadlet/sales/`, and the payment, field, sim-fabrication and ledger domains have no containers yet (see ST-10, ST-12, ST-22) |
+| `config/{platform,storefront,...}` flat list | superseded by the `config/` listing above |
+| `tests/` | not created; validation lives in `scripts/validation/` |
+
+`quadlet/fabrication/` and `agents/`, `assets/`, `forms/`, `docs/faith/` are real
+and were missing from the previous diagram.
+
+
+The repository already exists on `main` and `.gitignore` is populated with the
+ignored paths marked above, plus Python bytecode, `*.BAK-*` unit backups and
+generated topology binaries. A secret-exposure check runs over every tracked
+file: `scripts/validation/check-secrets-exposure.sh`.
 
 ## 13.4 Quadlet Network Template
 
@@ -3586,6 +3582,46 @@ ceremony.
 
 **Rule:** Do not generate, replace, export, or activate production ledger keys
 without explicit operator approval and recorded ceremony output.
+
+### 18.3.1 Software installed; node not created (2026-09-30)
+
+The blocker is now the *ceremony only* — the software half is done.
+
+| Step | State |
+|---|---|
+| Locate the release | `corda/corda-runtime-os`, tag `release-5.2.2.0` ("Corda 5.2.2", 2024-11-28) |
+| Download artefacts | installer 210.9 MB, combined-worker 84.3 MB, notary plugin 62 KB |
+| Integrity check | all three SHA-256 verified against the vendor-published sidecar digests |
+| Install | `~/.corda/cli` — `corda-cli.jar` plus 10 plugins, 222 MB |
+| Verify runs | `corda-cli --version` → 5.2.2, commit `efff866b` |
+| Create node | **not done** |
+| Key ceremony | **not done** — operator only |
+
+Pinned artefacts are kept in `data/corda-install/` (gitignored, ~295 MB). Because
+that path is ignored they are not backed up by the repository; copy them
+off-host if they need to survive a rebuild.
+
+**Why the node cannot be created yet.** `cordadb` exists on the host cluster but
+holds 0 tables, and its owner role `corda` has `rolcanlogin = true` with no
+working password:
+
+```
+FATAL:  password authentication failed for user "corda"
+```
+
+`corda-cli preinstall check-postgres` therefore cannot pass. Supplying that
+credential is the key and certificate ceremony, so it is deliberately not
+automated.
+
+**Caution for the ceremony:** the host runs **Java 25**. Corda 5 targets Java
+17–21. The CLI runs under 25, but the combined worker has not been exercised and
+may require an older JDK.
+
+**Correction of an earlier record.** This section previously implied Corda 5
+could not be obtained. That was wrong: `corda/corda` is the legacy 4.x
+repository, and Corda 5 ships from `corda/corda-runtime-os` as public GitHub
+release assets needing no vendor credentials. `software.r3.com` does return 403
+anonymously, but that is not the distribution path.
 
 ## 18.4 Payment Provider Decision
 
