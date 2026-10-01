@@ -3556,25 +3556,25 @@ strategy in force is local-only, not 3-2-1:
 |---|---|---|
 | Primary | live system | yes |
 | Backup | restic repository `/var/backups/alwayson-restic` | yes, **on this same host** |
-| Off-site | pCloud | **not configured** — intended as a dedicated `ALWAYSON` folder at the pCloud account root (operator decision 2026-09-30), not yet created |
+| Off-site | pCloud | folder `ALWAYSON-RESTIC2PCLOUD` **created** at the pCloud account root 2026-09-30; empty, and restic does not yet point at it |
 
 Two consequences to be aware of. First, the restic repository is on the same
 machine as the data it protects, so it does not survive loss of this host. Second,
 `ao-egress-archive` is not a substitute: per §11.6 it is a sale-transfer store
 with no restore duty. Nothing outside this host currently holds a copy.
 
-**Intended off-site target (not built).** A dedicated `ALWAYSON` folder at the
-pCloud account root, per operator decision 2026-09-30. To close this gap, point
-the restic repository at that folder (rclone WebDAV or SFTP) once it exists. The
+**Off-site target, folder created but not in use.** The pCloud folder
+`ALWAYSON-RESTIC2PCLOUD` was created at the pCloud account root on 2026-09-30
+(empty; nothing has been uploaded). It is the intended restic destination. To
+close this gap, point the restic repository at it (rclone WebDAV or SFTP). The
 repository is encrypted client-side, so pCloud would hold ciphertext and never
 see plaintext — which keeps it inside the §11.6 boundary, since that governs
 sale-transfer staging and explicitly not the backup set.
 
-Note the folder name: `ALWAYSON` matches the project name rather than the `ao-`
-infrastructure prefix. That is a human-facing cloud folder, not a `ao-*` network,
-unit, container or database, so the naming standard does not bind it; if it is
-ever referenced from configuration or documentation, `ao-*` should be used
-there.
+The name is the operator's choice rather than the `ao-` infrastructure prefix, and
+is deliberately self-describing: a transfer destination for restic, not an `ao-*`
+network, unit, container or database. Anything referencing it from configuration or
+documentation should use the full name, not a shortened `ao-` form.
 
 | Frequency | Required activity |
 |---|---|
