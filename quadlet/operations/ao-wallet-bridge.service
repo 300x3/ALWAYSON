@@ -2,8 +2,8 @@
 # Materializes KWallet secrets to 0600 env files for wallet-dependent services.
 # KDE Wallet stays the center: values live in the wallet, files are delivery
 # copies refreshed at login. Never log secret values.
-# 2026-09-29: sole operator (scottw+sudo). Bridge materializes secrets, then
-# starts the headless ao-sales stack via narrow sudo helper (no password
+# 2026-09-29: sole operator. Bridge materializes secrets, then
+# starts the sales stack in this same user manager (no escalation needed)
 # at login; wallet itself unlocked by login/PAM).
 [Unit]
 Description=ALWAYS ON KWallet bridge (sales secrets)
@@ -13,7 +13,13 @@ Wants=graphical-session.target
 [Service]
 Type=oneshot
 ExecStart=/ALWAYSON/scripts/operations/ao-wallet-bridge.sh
-ExecStart=/usr/bin/sudo -n /ALWAYSON/scripts/operations/start-sales-stack.sh
+# 2026-09-30: no sudo wrapper. start-sales-stack.sh now starts the units in this
+# same scottw user manager, so it needs no privilege escalation. The previous
+# "sudo -n" call required a NOPASSWD sudoers entry that does not exist on this
+# host, which made the whole oneshot fail with status=1 even though the KWallet
+# bridge itself had already succeeded. Granting passwordless sudo is not needed
+# and not wanted; the unit stays entirely unprivileged.
+ExecStart=/ALWAYSON/scripts/operations/start-sales-stack.sh
 RemainAfterExit=yes
 
 [Install]
