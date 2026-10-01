@@ -1,6 +1,18 @@
-# ALWAYS ON - Heltec WiFi LoRa 32 V3 (CP2102 / CP2102N USB-UART bridge)
-# Provides the stable /dev/heltec-v3 symlink required by Section 9.2/12.2,
-# excludes ModemManager from claiming the port, and enforces dialout perms.
-# Install with:  pkexec bash /ALWAYSON/scripts/bootstrap/install-heltec-udev.sh
-SUBSYSTEM=="tty", ATTRS{idVendor}=="10c4", ATTRS{idProduct}=="ea60", ENV{ID_MM_DEVICE_IGNORE}="1", MODE="0660", GROUP="dialout", SYMLINK+="heltec-v3"
-SUBSYSTEM=="tty", ATTRS{idVendor}=="10c4", ATTRS{idProduct}=="ea71", ENV{ID_MM_DEVICE_IGNORE}="1", MODE="0660", GROUP="dialout", SYMLINK+="heltec-v3"
+# ALWAYS ON - stable name for the Heltec V3 LoRa board.
+#
+# 2026-09-30: this rule previously matched on vendor/product alone
+# (10c4:ea60). Both ALWAYS ON LoRa radios are CP2102 boards reporting the SAME
+# generic ids and the SAME placeholder serial "_0001", so the rule fired on
+# them and created /dev/heltec-v3 -> ttyUSB0, which is the DRONE-RADIO. Any
+# consumer of that symlink would have talked to the drone radio's private
+# Reticulum RNode.
+#
+# Fix: require a real, non-placeholder serial. Generic CP2102 clones report
+# ID_SERIAL_SHORT=0001 and are excluded, so the two radios are never claimed.
+# The Reticulum interfaces do not use this symlink at all - they address the
+# radios by /dev/serial/by-path topology, which is unambiguous.
+#
+# Still to confirm when the Heltec is actually connected: its real by-path and
+# serial. If it too reports 0001, this rule must be re-keyed on by-path instead.
+ACTION=="add", SUBSYSTEM=="tty", ATTRS{idVendor}==="10c4", ATTRS{idProduct}=="ea60", ENV{ID_SERIAL_SHORT}!="0001", ENV{ID_MM_DEVICE_IGNORE}="1", MODE="0660", GROUP="dialout", SYMLINK+="heltec-v3"
+ACTION=="add", SUBSYSTEM=="tty", ATTRS{idVendor}==="10c4", ATTRS{idProduct}=="ea71", ENV{ID_SERIAL_SHORT}!="0001", ENV{ID_MM_DEVICE_IGNORE}="1", MODE="0660", GROUP="dialout", SYMLINK+="heltec-v3"
