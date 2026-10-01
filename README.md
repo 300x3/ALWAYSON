@@ -2338,22 +2338,6 @@ The encryption key must be held by the approved KMS/wallet/key-management
 process and must never be stored in Corda, PostgreSQL, Git, HTML, logs, or the
 transaction bundle.
 
-### Never store in Corda
-
-```text
-card numbers
-CVV
-bank credentials
-payment-provider secret keys
-passwords
-OAuth tokens
-private keys
-TLS private keys
-KMS master keys
-data-encryption keys
-recovery phrases
-```
-
 Corda tracks the transaction ID, state, hashes, references, and authorized
 signatures. PostgreSQL retains the operational/reporting projection keyed by
 the same transaction ID. Metabase reports the confirmed state and Grafana shows
@@ -3845,3 +3829,4 @@ scripts/mastodon/federate-local.sh
 
 Do not add API keys, passwords, tunnel credential JSON, or other secrets to
 this reference list.
+
