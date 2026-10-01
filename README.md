@@ -1695,6 +1695,21 @@ curl in milliseconds. The proxy terminates TLS on loopback and injects
 `X-Forwarded-Proto: https` so those URLs resolve. `mastodon-web` itself is not
 modified and federation through the Cloudflare Tunnel is unaffected.
 
+**The certificate is pre-trusted — there is no warning to click through.** It is
+installed as a trusted CA (`CT,C,C`) in both `~/.pki/nssdb` (shared NSS store)
+and the snap Firefox profile's `cert9.db`. Re-import with:
+
+```bash
+certutil -d sql:$HOME/.pki/nssdb -A -n "ALWAYS ON local Mastodon" \
+  -t "CT,C,C" -i /ALWAYSON/secrets/mastodon/mastodon-local.crt
+certutil -d sql:$HOME/.snap/firefox/common/.mozilla/firefox/<profile> \
+  -A -n "ALWAYS ON local Mastodon" -t "CT,C,C" \
+  -i /ALWAYSON/secrets/mastodon/mastodon-local.crt
+```
+
+Firefox must be **closed** before its `cert9.db` is modified. Regenerating the
+certificate requires repeating both commands.
+
 ```text
 Heltec WiFi LoRa 32 V3
        │ USB-C serial
