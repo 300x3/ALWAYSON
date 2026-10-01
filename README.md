@@ -47,7 +47,6 @@
 | 19 | Open Implementation Items | 74 |
 | 20 | Current Verification Evidence | 77 |
 | 21 | Status References | 80 |
-| Appendix A | Revision History | 81 |
 
 ## Executive Summary
 
@@ -83,7 +82,7 @@
 ### ES.1.1 Change Summary
 
 This is the **single copy** of the change summary for this revision. It is not repeated
-in §3, in Appendix A, or anywhere else in the document.
+in §3 or anywhere else in the document.
 
 | Change | Effect on this document |
 |---|---|
@@ -97,7 +96,6 @@ in §3, in Appendix A, or anywhere else in the document.
 | Implementation status consolidated | All implementation statuses are tracked once, as the single list in **ES.3**. The former §3.2 status table is deleted, and the status columns in §19 and §20 now reference ES.3 IDs instead of restating a status |
 | Work and issue items consolidated | Section 19 is one table of remaining items, each naming the standard it serves |
 | Simulation renders relocated | The three Gazebo model views sit in §10.2 with captions |
-| Appendix A reduced | Appendix A is the revision index only; it carries no change summary |
 
 The open work items are carried as a running list. They are recorded once, in
 ES.3 Current Work and §19 Open Implementation Items, and are deliberately not
@@ -397,8 +395,7 @@ copy of either one is how the two copies drift apart:
   workflow boundary matrix) and §20 (validation evidence) no longer restate a status;
   they reference the ES.3 ID for that component, so there is one status per component
   and one place to change it.
-- **The change summary** is recorded once, in **ES.1.1 Change Summary**. Appendix A is
-  the revision index only and carries no change summary.
+- **The change summary** is recorded once, in **ES.1.1 Change Summary**.
 
 Neither table is repeated anywhere else in this document.
 
