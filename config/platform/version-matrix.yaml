@@ -34,17 +34,29 @@ simulation:
 
 sales:
   mastodon:
-    local_domain: "300x3.com"
+    local_domain: "mastodon.300x3.com"   # corrected 2026-10-01; was recorded as 300x3.com, which is the storefront and is not routed here
     web_domain: null              # single-domain apex deployment (WEB_DOMAIN removed 2026-09-22)
-    image_web: "ghcr.io/mastodon/mastodon:v4.3.7"          # tag (registry denies anon digest lookup)
-    image_streaming: "ghcr.io/mastodon/mastodon-streaming:v4.3.7"
-    image_sidekiq: "ghcr.io/mastodon/mastodon:v4.3.7"
-    image_nginx: "docker.io/library/nginx:alpine"
+    image_web: "ghcr.io/mastodon/mastodon@sha256:76436bccad38f134cb9a5a6e9c83445915790fc12caf60e3a8ee9cbef8376a56 (v4.3.7)"
+    image_streaming: "ghcr.io/mastodon/mastodon-streaming@sha256:24834e873cc79ae0677c7e5938e575b4367f2c1c6df46376eb7aa937ee467f4b (v4.3.7)"
+    image_sidekiq: "ghcr.io/mastodon/mastodon@sha256:76436bccad38f134cb9a5a6e9c83445915790fc12caf60e3a8ee9cbef8376a56 (v4.3.7)"
+    image_nginx: "REMOVED 2026-10-01 - the gazebo-portal nginx:alpine container was retired mid-session; the :8765 portal is now a python3 host process serving GAZEBO/portal/index.html"
     image_postgres: "docker.io/library/postgres@sha256:a65e6a841f6c4dbc4abda3d67fa3bc21824e9611064fcd82e87ea67aad60a0c3"
     image_redis: "docker.io/library/redis@sha256:91d0f7e8c748ec7a4c2b4fb2c4f84edab794dd91d01e095e38dc906db9d684ab"
     db_version: "17 (bundled in postgres digest above)"
     streaming_version: "v4.3.7"
-    note: "Federated apex deployment: LOCAL_DOMAIN=300x3.com served via Cloudflare Tunnel ao-mastodon-federation (WORK 000060 2026-09-22); origin ports stay 127.0.0.1:3000/4000; HTTPS enforced (RAILS_FORCE_SSL=true). Mastodon images tag-pinned; pin digests for production promotion."
+    note: "Federated apex deployment: LOCAL_DOMAIN=mastodon.300x3.com served via the Cloudflare Tunnel (WORK 000060 2026-09-22); origin ports stay 127.0.0.1:3000/4000. All three Mastodon images are DIGEST-pinned as of 2026-10-01 - this row previously recorded tags, which understated the actual pinning. RAILS_FORCE_SSL/LOCAL_HTTPS are set false but are INERT: upstream hardcodes config.force_ssl=true, so the local UI is served over TLS by the loopback proxy at https://127.0.0.1:3300 (README 9.2.1)."
+
+operations:
+  # All four digest-pinned 2026-10-01 (README 4.1 rule 9). They previously ran
+  # from version tags only, which meant a re-pull could change what "11.6.0"
+  # actually was. Digests are those of the images already validated in place.
+  image_grafana: "docker.io/grafana/grafana-oss@sha256:b739cda4b61ba3b90707578b643a22cd851fecf4498e6c6ec2d8f9d622a5d0b2 (11.6.0)"
+  image_metabase: "docker.io/metabase/metabase@sha256:fc96bfa830bdc2d65362a02b75c21bbe159bfd0347927c0b1dd58b4864fe2e16 (v0.54.1)"
+  image_prometheus: "docker.io/prom/prometheus@sha256:d47ad27caa12a6f81491a5f6e0d724d6eee5954b4e1bf23961ef13666fc23679 (v3.4.1)"
+  image_node_exporter: "docker.io/prom/node-exporter@sha256:863b62ff9f392b6f472e22b4b670ad1cabb66b3042502ebd4b2cd192733e1bce (v1.9.1)"
+  image_postgres_shared: "docker.io/library/postgres@sha256:a65e6a841f6c4dbc4abda3d67fa3bc21824e9611064fcd82e87ea67aad60a0c3 (also used by ao-fabrication-db, ao-sales-db, mastodon-db)"
+  image_ingress_payment: "docker.io/library/python@sha256:79e7a9b9ff1cbceff819f856fb374477792a5967759d94df266de7b7b4120e6f"
+  note: "Grafana/Metabase report ao-admin, Prometheus/node-exporter the same. mastodon-streaming shows a tag in podman's display name but its running image ID matches the pinned digest exactly."
 
 ledger:
   corda_version: "5.2.2 CLI INSTALLED 2026-09-30 at ~/.corda/cli from corda/corda-runtime-os tag release-5.2.2.0, SHA-256 verified; corda-cli reports commit efff866b. NO NODE: cordadb has 0 tables and its owner role has no working password, so the key/certificate ceremony (operator) is still outstanding."

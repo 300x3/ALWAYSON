@@ -5,7 +5,8 @@ Description=ALWAYS ON Metabase (ao-admin)
 After=network-online.target
 
 [Container]
-Image=docker.io/metabase/metabase:v0.54.1
+# Digest-pinned 2026-10-01 (README 4.1 rule 9). Tag was metabase:v0.54.1.
+Image=docker.io/metabase/metabase@sha256:fc96bfa830bdc2d65362a02b75c21bbe159bfd0347927c0b1dd58b4864fe2e16
 Entrypoint=["/opt/java/openjdk/bin/java","-jar","/app/metabase.jar"]
 EnvironmentFile=%h/.local/share/ao-secrets/reporting-metabase.env
 ContainerName=ao-metabase

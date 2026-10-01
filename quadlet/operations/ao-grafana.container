@@ -7,7 +7,8 @@ After=network-online.target ao-prometheus.service
 Requires=ao-prometheus.service
 
 [Container]
-Image=docker.io/grafana/grafana-oss:11.6.0
+# Digest-pinned 2026-10-01 (README 4.1 rule 9). Tag was grafana-oss:11.6.0.
+Image=docker.io/grafana/grafana-oss@sha256:b739cda4b61ba3b90707578b643a22cd851fecf4498e6c6ec2d8f9d622a5d0b2
 ContainerName=ao-grafana
 Network=ao-admin.network
 Network=ao-reporting-egress.network

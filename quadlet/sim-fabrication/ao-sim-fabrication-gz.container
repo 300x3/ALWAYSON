@@ -26,7 +26,12 @@ After=network-online.target
 Wants=network-online.target
 
 [Container]
-Image=localhost/gz-sim10-server:latest
+# Digest-pinned 2026-10-01. This is a LOCALLY BUILT image, so the digest is the
+# immutability record of the exact build that was validated - not an upstream
+# release reference. Rebuilding gz-sim10-server makes this unit fail to start
+# (by design: an unreviewed physics build must not silently take the place of a
+# validated one). Re-pin deliberately after re-running the Gazebo validation.
+Image=localhost/gz-sim10-server@sha256:55f8dbcf8decb0b97c6be7cf2fde8859b0fd05735c7a759df09a12e091933581
 ContainerName=ao-sim-fabrication-gz
 Network=ao-sim-fabrication.network
 Volume=/ALWAYSON/GAZEBO:/ALWAYSON/GAZEBO:ro,Z

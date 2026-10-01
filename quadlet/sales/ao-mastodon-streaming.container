@@ -7,7 +7,10 @@ Wants=ao-mastodon-redis.service
 PartOf=graphical-session.target
 
 [Container]
-Image=ghcr.io/mastodon/mastodon-streaming:v4.3.7
+# Digest-pinned 2026-10-01 (README 4.1 rule 9). Tag was mastodon-streaming:v4.3.7;
+# mastodon-web/sidekiq were already digest-pinned, so this closes the gap
+# within the same stack.
+Image=ghcr.io/mastodon/mastodon-streaming@sha256:24834e873cc79ae0677c7e5938e575b4367f2c1c6df46376eb7aa937ee467f4b
 ContainerName=mastodon-streaming
 Network=ao-sales.network
 EnvironmentFile=%h/.local/share/ao-secrets/mastodon.env

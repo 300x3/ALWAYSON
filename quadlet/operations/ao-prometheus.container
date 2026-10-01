@@ -5,7 +5,8 @@ Description=ALWAYS ON Prometheus (ao-admin)
 After=network-online.target
 
 [Container]
-Image=docker.io/prom/prometheus:v3.4.1
+# Digest-pinned 2026-10-01 (README 4.1 rule 9). Tag was prom/prometheus:v3.4.1.
+Image=docker.io/prom/prometheus@sha256:d47ad27caa12a6f81491a5f6e0d724d6eee5954b4e1bf23961ef13666fc23679
 ContainerName=ao-prometheus
 Network=ao-admin.network
 Volume=/ALWAYSON/config/platform/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro,Z
