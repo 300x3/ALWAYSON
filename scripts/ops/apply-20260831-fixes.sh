@@ -1,7 +1,12 @@
 #!/usr/bin/env bash
 # ALWAYS ON - combined privileged fixes, 2026-08-31 (operator-authorized via pkexec):
-#  1. Run quadlet/operations/pkexec-post-deploy.sh (WebODM system-store recovery +
-#     Metabase metaread role)
+#  1. Metabase metaread role — WAS quadlet/operations/pkexec-post-deploy.sh,
+#     which was DELETED 2026-10-01. It generated a plaintext password to
+#     /ALWAYSON/secrets/metaread.credential, which nothing read, while the
+#     wallet-first replacement had already existed. The role work it did is
+#     now done by scripts/ops/provision-metaread.sh (reads
+#     ao-admin/metaread-password from KDE Wallet, retains no plaintext copy).
+#     Call that instead.
 #  2. Fix ownership of /ALWAYSON/backups/postgres (root-owned from Aug 25 system-store
 #     era) so the scottw-level db-dump timer can write
 #  3. Fix /etc/systemd/user/ao-ardupilot-sitl.service: remove --console (stdio mode,
@@ -13,8 +18,8 @@ LOG=/ALWAYSON/logs/operations/apply-20260831-fixes.log
 exec > >(tee -a "$LOG") 2>&1
 printf '===== %s : apply-20260831-fixes =====\n' "$(date --iso-8601=seconds)"
 
-step '1. pkexec-post-deploy (WebODM + metaread role)'
-bash /ALWAYSON/quadlet/operations/pkexec-post-deploy.sh || echo 'NOTE: pkexec-post-deploy reported errors (review its log)'
+step '1. Metabase metaread role (via wallet-first provisioner)'
+bash /ALWAYSON/scripts/ops/provision-metaread.sh || echo 'NOTE: provision-metaread reported errors (review its log)'
 
 step '2. Fix /ALWAYSON/backups/postgres ownership for scottw db-dump timer'
 chown -R scottw:scottw /ALWAYSON/backups/postgres

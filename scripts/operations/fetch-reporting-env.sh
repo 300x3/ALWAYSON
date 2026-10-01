@@ -18,6 +18,43 @@ OUTPUT="${2:?usage: fetch-reporting-env.sh <metabase|grafana> <output-env-file>}
 WALLET_HELPER=/ALWAYSON/scripts/ops/wallet-read-secret.py
 umask 077
 
+# 2026-10-01: this script had NO wait for the wallet to be unlocked. It read
+# KWallet immediately, so at login it raced kwalletd and returned 3
+# ("KDE Wallet entry unavailable"), which failed the ExecStartPre and left
+# ao-metabase down -- the same class of fault as the ao-grafana outage fixed in
+# fetch-kwallet-secret.sh the same day. Both scripts must tolerate the gap
+# between kwalletd APPEARING on the session bus and the wallet being OPEN.
+#
+# isOpen(handle) is the real readiness question. KWallet also declares an
+# isOpen(wallet, app) overload; dbus-python binds the proxy to the last declared
+# signature, so the app-name form raises TypeError. Use the one-argument form.
+kwallet_ready() {
+    python3 - <<'PY' >/dev/null 2>&1
+import dbus
+bus = dbus.SessionBus()
+kw = bus.get_object('org.kde.kwalletd6', '/modules/kwalletd6')
+iface = dbus.Interface(kw, 'org.kde.KWallet')
+h = iface.open('kdewallet', 0, 'ao-secret-reader')
+if not isinstance(h, int) or h < 0:
+    raise SystemExit(1)
+try:
+    if not bool(iface.isOpen(h)):
+        raise SystemExit(1)
+finally:
+    iface.close(h, False, 'ao-secret-reader')
+PY
+}
+
+# Wait up to ~60s for the wallet to actually be open.
+for _i in $(seq 1 30); do
+    kwallet_ready && break
+    sleep 2
+done
+if ! kwallet_ready; then
+    echo "ERROR: KDE Wallet not unlocked on the session bus after 60s" >&2
+    exit 3
+fi
+
 case "$ROLE" in
   metabase)
     folder=ao-admin
