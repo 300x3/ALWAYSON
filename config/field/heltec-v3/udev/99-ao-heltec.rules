@@ -1,18 +1,19 @@
-# ALWAYS ON - stable name for the Heltec V3 LoRa board.
+# ALWAYS ON - stable names for the two Heltec LoRa 32 V3 RNodes (SX1262).
 #
-# 2026-09-30: this rule previously matched on vendor/product alone
-# (10c4:ea60). Both ALWAYS ON LoRa radios are CP2102 boards reporting the SAME
-# generic ids and the SAME placeholder serial "_0001", so the rule fired on
-# them and created /dev/heltec-v3 -> ttyUSB0, which is the DRONE-RADIO. Any
-# consumer of that symlink would have talked to the drone radio's private
-# Reticulum RNode.
+# Both boards are Silicon Labs CP2102 (10c4:ea60) and both report the SAME
+# serial ("Silicon_Labs_CP2102_USB_to_UART_Bridge_Controller_0001"), so no
+# serial-based rule can tell them apart. They are identified by USB port
+# topology instead, via ID_PATH, which is what Reticulum itself uses.
 #
-# Fix: require a real, non-placeholder serial. Generic CP2102 clones report
-# ID_SERIAL_SHORT=0001 and are excluded, so the two radios are never claimed.
-# The Reticulum interfaces do not use this symlink at all - they address the
-# radios by /dev/serial/by-path topology, which is unambiguous.
+#   ao-drone-radio  -> ttyUSB0   DRONE-RADIO    917 MHz / 250 kHz / SF7
+#   ao-people-radio -> ttyUSB1   PEOPLE-RADIO   915 MHz / 125 kHz / SF7
 #
-# Still to confirm when the Heltec is actually connected: its real by-path and
-# serial. If it too reports 0001, this rule must be re-keyed on by-path instead.
-ACTION=="add", SUBSYSTEM=="tty", ATTRS{idVendor}==="10c4", ATTRS{idProduct}=="ea60", ENV{ID_SERIAL_SHORT}!="0001", ENV{ID_MM_DEVICE_IGNORE}="1", MODE="0660", GROUP="dialout", SYMLINK+="heltec-v3"
-ACTION=="add", SUBSYSTEM=="tty", ATTRS{idVendor}==="10c4", ATTRS{idProduct}=="ea71", ENV{ID_SERIAL_SHORT}!="0001", ENV{ID_MM_DEVICE_IGNORE}="1", MODE="0660", GROUP="dialout", SYMLINK+="heltec-v3"
+# A single "/dev/heltec-v3" symlink is deliberately NOT provided: both devices
+# are Heltec V3, so one name could only ever point at one of them. Use the
+# per-band names above, or the by-path links directly.
+#
+# Reticulum config lives at ~/.reticulum/config and addresses these radios by
+# by-path, so these symlinks are additive and do not affect mesh operation.
+
+ACTION=="add", SUBSYSTEM=="tty", ENV{ID_VENDOR_ID}=="10c4", ENV{ID_MODEL_ID}=="ea60", ENV{ID_PATH}=="pci-0000:05:00.0-usb-0:1:1.0", SYMLINK+="ao-drone-radio", MODE="0660", GROUP="dialout", ENV{ID_MM_DEVICE_IGNORE}="1"
+ACTION=="add", SUBSYSTEM=="tty", ENV{ID_VENDOR_ID}=="10c4", ENV{ID_MODEL_ID}=="ea60", ENV{ID_PATH}=="pci-0000:00:14.0-usb-0:13:1.0", SYMLINK+="ao-people-radio", MODE="0660", GROUP="dialout", ENV{ID_MM_DEVICE_IGNORE}="1"

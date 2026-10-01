@@ -353,7 +353,7 @@ Compose, or any other orchestration mechanism or a Docker daemon.
 | Sales and support | Sales API, PostgreSQL, Mastodon integration, OpenClaw, and LM Studio |
 | Drone compute | Raspberry Pi 5 with Waveshare SX1262-class LoRa top-hat |
 | Drone autopilot | 3DR N1 connected to Raspberry Pi 5 by MAVLink |
-| Desktop radio | Heltec WiFi LoRa 32 V3 through stable USB serial path |
+| Desktop radios | Two Heltec LoRa 32 V3 (SX1262), distinguished by USB port topology as `/dev/ao-drone-radio` (ttyUSB0, DRONE-RADIO 917 MHz) and `/dev/ao-people-radio` (ttyUSB1, PEOPLE-RADIO 915 MHz) |
 | Field protocol | RNS/Reticulum and MeshChatX over raw LoRa unless a true LoRaWAN deployment is selected |
 | Mapping | WebODM and supporting services under Podman |
 | Mapping storage | `/media/scottw/500GBPHOTOGRAM/` |
