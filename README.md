@@ -934,6 +934,36 @@ router. Verified 2026-10-01 by `scripts/validation/check-local-services.js`
 | LM Studio | `http://127.0.0.1:1234/` | Bearer-token API only — no browsable UI, so not bookmarked |
 | Mastodon streaming / OpenClaw chat relay | `http://127.0.0.1:4000/`, `http://127.0.0.1:18790/` | APIs, not UIs; a bare `/` returns `400`/`404` by design |
 
+### 5.1.2 Domain Networks
+
+Every `ao-*` network in one place: what §5.1 says belongs to it, and what is
+actually attached. Verified against `podman network ls` on 2026-10-01; the
+CIDR registry is `config/platform/network-cidrs.yaml` and
+`scripts/validation/check-network-isolation.sh` asserts the subnets and
+`Internal` flags. **10 of 12 are `Internal=true`**; the two exceptions are
+recorded decisions, not drift.
+
+| Network | Subnet | Internal | Belongs to (§5.1) | Attached now |
+|---|---|---|---|---|
+| `ao-sales` | 10.89.0.0/24 | **false** | Mastodon stack, `ao-sales-db`, orders and AI chat | `mastodon-web` `-sidekiq` `-db` `-redis` `-streaming`, `ao-sales-db` (6) |
+| `ao-payment` | 10.89.1.0/24 | true | Provider webhook verifier, payment adapter | `ao-ingress-payment` (1) |
+| `ao-field` | 10.89.2.0/24 | true | Heltec gateway, RNS/MeshChatX, telemetry spool, mission-release | **none** — gateway runs on host USB serial (ST-22) |
+| `ao-mapping` | 10.89.3.0/24 | true | WebODM, NodeODM, Redis, mapping DB, imagery intake/exporter | `ao-webodm-webapp` `-worker` `-db` `-broker`, `ao-nodeodm` (5) |
+| `ao-sim-vehicle` | 10.89.4.0/24 | true | ROS 2, Gazebo, ArduPilot SITL, MAVLink, QGC | **none** — Gazebo is host-installed; `ao-ardupilot-sitl.container` never deployed |
+| `ao-sim-fabrication` | 10.89.5.0/24 | true | ROS 2, Gazebo; rehearses the engineering/production flow | `ao-sim-fabrication-gz` (1) |
+| `ao-ledger-ingest` | 10.89.6.0/24 | true | mTLS validation gateway, authorization, audit, idempotency | **none** — ST-10 Planned, not deployed |
+| `ao-ledger-core` | 10.89.7.0/24 | true | Corda node, Corda database, certificate/keystore | **none** — ST-09 Blocked; CLI installed, no node created (§18.3.1) |
+| `ao-data` | 10.89.8.0/24 | true | Narrow controlled data plumbing **where unavoidable** | **none — correct by design.** ST-29: host services stay loopback-only; §5.1 forbids it becoming a universal shared network |
+| `ao-admin` | 10.89.9.0/24 | true | Prometheus, node_exporter, Grafana, Metabase, backup/restore | `ao-grafana`, `ao-metabase`, `ao-prometheus`, `ao-node-exporter` (4) |
+| `ao-reporting-egress` | 10.89.10.0/24 | **false** | Egress for reporting sources only | `ao-grafana`, `ao-metabase` (also on `ao-admin`) |
+| `ao-fabrication` | 10.89.12.0/24 | true | Real (non-simulated) fabrication; per-machine production data | `ao-fabrication-db` (1) |
+
+**Five networks are empty, and four of them for traceable reasons** — each maps
+to an ES.3 status that predicts it: ST-22 in progress, ST-10 planned, ST-09
+blocked, and the never-deployed ArduPilot SITL unit. Only `ao-data` is empty
+*by design*. `10.89.11.0/24` is deliberately unallocated: it was recorded as
+folded into `ao-sales` and remains OPEN in §18.6.
+
 ## 5.2 Controlled Ingress and Egress Adapters
 
 **Combined into the single matrix in §5.1, group B.** The three controlled adapters
