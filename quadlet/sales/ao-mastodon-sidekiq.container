@@ -13,7 +13,14 @@ Network=ao-sales.network
 # ao-sales carries the outbound route; ao-egress-community is retired.
 EnvironmentFile=%h/.local/share/ao-secrets/mastodon.env
 NoNewPrivileges=true
-Exec=/bin/sh -c "bundle exec sidekiq -q default -q push -q pull_request -q mailers -q scheduler"
+# Queue list is taken from the image's shipped config/sidekiq.yml, which defines
+#   [default 8] [push 6] [ingress 4] [mailers 2] [pull] [scheduler]
+# Do NOT add -q flags here. Passing -q OVERRIDES sidekiq.yml entirely.
+# The previous explicit list omitted `ingress` and misspelled `pull` as
+# `pull_request`, which silently orphaned ActivityPub::ProcessingWorker (all
+# inbound federation) plus 33 pull-queue workers. See
+# COORDINATION BETWEEN AI/F. 2026-10-01-inbound-federation-sidekiq-queue.md
+Exec=/bin/sh -c "bundle exec sidekiq"
 
 [Service]
 WorkingDirectory=%h
