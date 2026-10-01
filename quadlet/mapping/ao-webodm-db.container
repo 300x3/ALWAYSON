@@ -7,7 +7,7 @@ Wants=network-online.target
 
 [Container]
 Image=webodm/webodm_db@sha256:03f18ec0089325ec2b8975ba1781277bcdc212b6d86c9de33f6409d313e90430
-ContainerName=db
+ContainerName=ao-webodm-db
 Network=ao-mapping.network
 Volume=%h/webodm/dbdata:/var/lib/postgresql/data:Z
 EnvironmentFile=%h/secrets/webodm.env

@@ -9,9 +9,9 @@ MU=ao-sales
 export HOME=/home/$MU XDG_RUNTIME_DIR=/run/user/$(id -u $MU)
 P() { runuser -u $MU -- env HOME=$HOME XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR podman "$@"; }
 [[ -f /home/$MU/init/01-database.sql ]] || { echo "ERROR: schema sql missing" >&2; exit 10; }
-P cp /home/$MU/init/01-database.sql sales-db:/tmp/
-P exec sales-db psql -v ON_ERROR_STOP=1 -U sales_migration_role -d salesdb -f /tmp/01-database.sql
+P cp /home/$MU/init/01-database.sql ao-sales-db:/tmp/
+P exec ao-sales-db psql -v ON_ERROR_STOP=1 -U sales_migration_role -d salesdb -f /tmp/01-database.sql
 # sync API role password with provisioned secret
 APIPASS=$(DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus XDG_RUNTIME_DIR=/run/user/1000 /ALWAYSON/scripts/operations/fetch-postgres-password.sh ao-sales sales-api-db-password)
-P exec sales-db psql -U sales_migration_role -d salesdb -c "ALTER ROLE sales_api_role PASSWORD '$APIPASS'"
+P exec ao-sales-db psql -U sales_migration_role -d salesdb -c "ALTER ROLE sales_api_role PASSWORD '$APIPASS'"
 echo "SALES_SCHEMA_APPLIED"
