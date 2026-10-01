@@ -221,7 +221,7 @@ rather than restating a status. One component, one status, one place to change i
 | ST-06 | MeshChatX version provenance | Complete with verification pending | Desktop metadata declares 4.9.1; executable hash matches the local manifest | Confirm the running-version check against the declared version |
 | ST-07 | Vehicle simulation — `ao-sim-vehicle` | Implemented (headless runtime) | Headless Gazebo 300-iteration and ROS-Gazebo bridge tests passed; ArduPilot SITL HEARTBEAT validated over MAVLink. `ao-ardupilot-sitl` is **enabled=false and stopped by design** — the simulator is started on demand, so `inactive` here is the expected state, not a fault (verified 2026-09-30) | **Build the baseline capability required by ES.1: 3D world setup, boning, reinforcement learning objects, and an HTML portal to operation** |
 | ST-08 | Fabrication and facility simulation — `ao-sim-fabrication` | Implemented (headless runtime) | Headless Gazebo 300-iteration and bridge test passed; model views rendered in §10.2 | **Build the same baseline capability required by ES.1: 3D world setup, boning, reinforcement learning objects, and an HTML portal to operation** |
-| ST-09 | Ledger core — Corda on `cordadb` | Blocked | Corda 5.2.2 **CLI installed** 2026-09-30, SHA-256 verified; **no node** — `cordadb` holds 0 tables and its owner role has no working password, so `preinstall check-postgres` cannot pass. Details in §18.3.1. Corda 4 and its H2 database were removed 2026-09-28 with no data migrated | Complete the operator key and certificate ceremony (§18.3), then create the node |
+| ST-09 | Ledger core — Corda on `cordadb` | Blocked | Corda 5.2.2 **CLI installed** 2026-09-30, SHA-256 verified; **no node** — `cordadb` holds 0 tables and its owner role has no working password, so `preinstall check-postgres` cannot pass. Details in §18.3.1. Corda 4 and its H2 database were removed 2026-09-28 with no data migrated | **Deferred by operator 2026-09-30 until the rest of the system is complete**, so the ledger opens with real entries rather than test data. Then complete the key and certificate ceremony (§18.3) and create the node |
 | ST-10 | Ledger ingestion gateway — `ao-ledger-ingest` | Planned | mTLS validation, authorization, audit, and idempotency specified; not deployed | Deploy behind the adapter boundary once the ceremony is complete |
 | ST-11 | Sales and orders — `ao-sales` database | Implemented | Sales DB deployed; order, receipt, and fulfillment records supported | Confirm the reporting projection |
 | ST-12 | Payment adapters — `ao-ingress-payment` | Planned | Sales DB deployed; payment provider, verifier, and API pending; blocked on the provider decision | Select the provider and implement the verifier and API, including the website email > PDF > Corda intake path |
@@ -3697,6 +3697,11 @@ scope, restore procedure, and separation from sales/mapping databases.
 
 **Status:** Blocked. MUST BE ADDRESSED BEFORE ADDITIONAL CORDA DEVELOPMENT
 
+**Deferred by operator, 2026-09-30.** The ceremony is deliberately not performed
+until the rest of the system is complete: the ledger must open with real entries,
+not test transactions from an initial deployment. The blocker itself is unchanged
+— it is the ceremony and nothing else.
+
 **Condition:** Corda node deployment requires the operator key and certificate
 ceremony.
 
@@ -3755,9 +3760,10 @@ FATAL:  password authentication failed for user "corda"
 credential is the key and certificate ceremony, so it is deliberately not
 automated.
 
-**Caution for the ceremony:** the host runs **Java 25**. Corda 5 targets Java
-17–21. The CLI runs under 25, but the combined worker has not been exercised and
-may require an older JDK.
+**JDK for the ceremony (resolved 2026-09-30):** the host default is **Java
+25**, outside Corda 5's supported 17–21 range. JDK 17 is already installed and
+`~/.corda/cli/corda-cli.sh` is pinned to it via `JAVA_HOME`, so the CLI cannot
+silently fall back to 25. Any combined worker must start under the same JDK.
 
 **Correction of an earlier record.** This section previously implied Corda 5
 could not be obtained. That was wrong: `corda/corda` is the legacy 4.x
