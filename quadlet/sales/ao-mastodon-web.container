@@ -13,12 +13,20 @@ ContainerName=mastodon-web
 Network=ao-sales.network
 # ao-sales carries the outbound route; ao-egress-community is retired.
 EnvironmentFile=%h/.local/share/ao-secrets/mastodon.env
+Volume=/ALWAYSON/scripts/mastodon/repair-instance-actor.rb:/repair-instance-actor.rb:ro
 PublishPort=127.0.0.1:3000:3000
 NoNewPrivileges=true
 Exec=/bin/sh -c "bundle exec rails s -p 3000 -b 0.0.0.0"
 
 [Service]
 WorkingDirectory=%h
+# The instance actor's uri/inbox are only populated by before_create callbacks.
+# If the database was first created under a different LOCAL_DOMAIN they stay
+# empty, and Mastodon signs every outgoing ActivityPub request as an actor with
+# no id or inbox - which every remote server rejects with HTTP 401. Outbound
+# federation then fails silently. Repairing on every start keeps the actor
+# correct across domain changes. The runner is idempotent.
+ExecStartPre=/usr/bin/podman run --rm --network ao-sales --env-file %h/.local/share/ao-secrets/mastodon.env --entrypoint /bin/sh ghcr.io/mastodon/mastodon@sha256:76436bccad38f134cb9a5a6e9c83445915790fc12caf60e3a8ee9cbef8376a56 -c "cd /opt/mastodon && bundle exec rails runner /repair-instance-actor.rb || true"
 Restart=on-failure
 RestartSec=15
 MemoryMax=4G
