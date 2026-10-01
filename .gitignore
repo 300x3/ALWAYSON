@@ -13,3 +13,38 @@ config/mastodon/patches/
 config/platform/monitoring/grafana.env
 ALWAYSON/secrets/
 logs/operations/
+
+# Python bytecode caches. Regenerated on every run; never belongs in the
+# repository. One such file was tracked by mistake and was removed.
+__pycache__/
+*.py[cod]
+
+# Timestamped backups of live unit and script files, e.g.
+# ao-sales.network.BAK-20260930-161848. These are operator safety copies of
+# files that still exist, not history, so they are noise in the index.
+*.BAK-*
+
+# Generated topology binaries. build_svg.py is the source and IS tracked;
+# everything it writes is reproducible with one command, so it is not.
+# Scoped to the topology folders so that assets/ keeps its committed copies
+# of the README diagrams.
+TOPOLOGY/TOPOLOGY - SINGLE GRAPHIC/*.png
+TOPOLOGY/TOPOLOGY - SINGLE GRAPHIC/*.pdf
+TOPOLOGY/TOPOLOGY - SINGLE GRAPHIC/*.svg
+TOPOLOGY/TOPOLOGY - SINGLE GRAPHIC/*.html
+TOPOLOGY/TOPOLOGY - SINGLE GRAPHIC/*.json
+TOPOLOGY/TOPOLOGY - SINGLE GRAPHIC/bands/
+TOPOLOGY/TOPOLOGY - ARCHIVE/*.png
+TOPOLOGY/TOPOLOGY - ARCHIVE/*.pdf
+TOPOLOGY/TOPOLOGY - ARCHIVE/*.svg
+TOPOLOGY/TOPOLOGY - ARCHIVE/*.html
+TOPOLOGY/TOPOLOGY - ARCHIVE/*.dot
+# Its subfolder of superseded v7 graphics: ignore the images by extension but
+# keep the README that explains them, so the note travels with the folder.
+# Extension patterns rather than "<dir>/" because git will not re-include a
+# file whose parent directory is itself excluded.
+TOPOLOGY/TOPOLOGY - ARCHIVE/*/*.png
+TOPOLOGY/TOPOLOGY - ARCHIVE/*/*.pdf
+TOPOLOGY/TOPOLOGY - ARCHIVE/*/*.svg
+TOPOLOGY/TOPOLOGY - ARCHIVE/*/*.html
+TOPOLOGY/TOPOLOGY - ARCHIVE/*/*.dot
