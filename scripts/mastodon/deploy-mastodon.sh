@@ -9,7 +9,8 @@
 # TTY, so the operator must run the start steps from a real terminal.
 #
 # Usage:
-#   deploy-mastodon.sh genenv   # write secrets/mastodon/mastodon.env + KWallet
+#   deploy-mastodon.sh genenv   # FIRST-TIME ONLY: create the ao-secrets env + KWallet.
+#                                # Refuses if the env already exists (it is live).
 #   deploy-mastodon.sh deploy    # ensure network; print enable instructions
 #   deploy-mastodon.sh create <handle> <email> [password]   # owner + wallet
 #   deploy-mastodon.sh status
@@ -17,14 +18,36 @@ set -Eeuo pipefail
 IFS=$'\n\t'
 . /ALWAYSON/scripts/lib/common.sh
 
-SEC=/ALWAYSON/secrets/mastodon/mastodon.env
+# SINGLE authoritative env file. It lives outside /ALWAYSON so the credential
+# copy cannot drift from the copy the Quadlet actually loads
+# (EnvironmentFile= in quadlet/sales/ao-mastodon-web.container). The previous
+# location, /ALWAYSON/secrets/mastodon/mastodon.env, was a second copy that
+# went stale on DB_PASS/POSTGRES_PASSWORD and is no longer kept: two files that
+# must stay identical are the drift mechanism, not a safeguard. The working
+# values are also held in KDE Wallet (kdewallet / ao-mastodon / mastodon-env).
+# See README 14.1.1.
+# NOTE: this must be $HOME, not $AO_ROOT. AO_ROOT is /ALWAYSON, so
+# "${AO_ROOT}/.local/..." resolves INSIDE the repo and silently writes a second
+# copy there - which is how the drift started. Verified 2026-10-01.
+SEC="$HOME/.local/share/ao-secrets/mastodon.env"
 KW=/ALWAYSON/scripts/ops/kwallet-provision.sh
 W=kdewallet
 FOLDER=ao-mastodon
 
 genenv() {
   ao_require_cmds openssl
-  install -d -m 0700 -o scottw -g scottw /ALWAYSON/secrets/mastodon
+  # NON-DESTRUCTIVE: this file is the live EnvironmentFile for mastodon-web.
+  # Regenerating it from scratch would mint new SECRET_KEY_BASE/OTP_SECRET/
+  # POSTGRES_PASSWORD values and write LOCAL_DOMAIN=localhost, which would
+  # invalidate every session, break DB auth, and redirect the public hostname -
+  # i.e. break the running instance and its federation. Refuse instead.
+  if [[ -f "$SEC" ]]; then
+    echo "REFUSING: $SEC already exists and is the live mastodon-web env." >&2
+    echo "  Its values are in KDE Wallet: kdewallet / ao-mastodon / mastodon-env" >&2
+    echo "  Edit it in place, or back it up first. See README 14.1.1." >&2
+    return 1
+  fi
+  install -d -m 0700 -o scottw -g scottw "$(dirname "$SEC")"
   local K O P
   K=$(test -f "$SEC" && sed -n 's/^SECRET_KEY_BASE=//p' "$SEC" | tail -1 || true)
   K=${K:-$(openssl rand -hex 64)}

@@ -5,7 +5,11 @@
 set -Eeuo pipefail
 cd /ALWAYSON
 KW=scripts/ops/kwallet-provision.sh
-ENV=secrets/mastodon/mastodon.env
+# The single authoritative env file - the same one
+# quadlet/sales/ao-mastodon-web.container loads via EnvironmentFile=. The old
+# repo-local secrets/mastodon/mastodon.env is gone; keeping a second copy is
+# what let the encryption keys and DB credentials diverge. See README 14.1.1.
+ENV="$HOME/.local/share/ao-secrets/mastodon.env"
 
 have() { grep -q "^$1=" "$ENV" 2>/dev/null && [ -n "$(sed -n "s/^$1=//p" "$ENV" | tail -1)" ]; }
 
