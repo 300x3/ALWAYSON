@@ -36,6 +36,10 @@ wallet_folder_for() {
             echo "ao-mastodon" ;;
         sales-db-password)   echo "ao-sales" ;;
         webodm-postgres-password) echo "ao-mapping" ;;
+    payment-db-password)            folder=ao-payment   ; pass_key=payment-db-password          ;;
+    payment-paypal-webhook-id)      folder=ao-payment   ; pass_key=payment-paypal-webhook-id    ;;
+    payment-paypal-webhook-secret)  folder=ao-payment   ; pass_key=payment-paypal-webhook-secret;;
+    payment-coinbase-webhook-secret) folder=ao-payment ; pass_key=payment-coinbase-webhook-secret;;
         fabrication-db-password) echo "ao-fabrication" ;;
         *) echo "" ;;
     esac

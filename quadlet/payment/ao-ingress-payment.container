@@ -1,0 +1,65 @@
+# /ALWAYSON/quadlet/payment/ao-ingress-payment.container
+#
+# ALWAYS ON payment ingress adapter (README Section 7.2, 18.4). Owning domain is
+# ao-payment exclusively: this container is attached to ao-payment and to no
+# other ao-* network, per the Section 5.4 attachment rule.
+#
+# ao-payment is Internal=true, so this container has NO route to the internet.
+# That is intentional and is the whole reason for the shape below:
+#   public webhook -> Cloudflare Tunnel -> host relay -> this container
+# The host performs the public hop and hands the request in, the same shape as
+# ao-fabrication-collect (Section 3.3.0). No port is published and no second
+# network is joined; reaching salesdb is done by the host-side relay, not by
+# broadening this container's membership.
+#
+# Written but NEVER enabled against live traffic by this unit alone. Section 18.4
+# requires operator approval before payment acceptance is enabled; see README.
+[Unit]
+Description=ALWAYS ON payment ingress adapter (ao-ingress-payment)
+After=graphical-session.target network-online.target ao-sales-db.service
+Wants=network-online.target
+PartOf=graphical-session.target
+
+[Container]
+Image=docker.io/library/python@sha256:79e7a9b9ff1cbceff819f856fb374477792a5967759d94df266de7b7b4120e6f
+ContainerName=ao-ingress-payment
+Network=ao-payment.network
+# Loopback only. Rootless Podman gives the host no route into an Internal=true
+# network (the host routes 10.89.1.x via the LAN gateway), so the host cannot
+# dial the container directly. This matches every other domain here: ao-sales-db
+# 127.0.0.1:15432, ao-fabrication-db 127.0.0.1:15433. Bound to loopback, so it
+# is never reachable from the LAN.
+PublishPort=127.0.0.1:8899:8899
+# Deliberately not privileged and given no capabilities beyond defaults.
+NoNewPrivileges=true
+ReadOnly=true
+Volume=/ALWAYSON/scripts/payment:/opt/ao-payment:ro,Z
+EnvironmentFile=%h/.local/share/ao-secrets/payment.env
+Exec=/usr/local/bin/python3 /opt/ao-payment/ao-payment-adapter.py --host 0.0.0.0 --port 8899
+HealthCmd=/usr/local/bin/python3 -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8899/health',timeout=5).status==200 else 1)" -q -O- http://127.0.0.1:8899/health || exit 1
+HealthInterval=30s
+HealthRetries=3
+HealthStartPeriod=10s
+
+[Service]
+# Credentials come from KDE Wallet folder ao-payment. Written by the wallet
+# bridge into a 0600 file; never logged, never committed.
+# The leading "-" makes each prefetch non-fatal. The wallet entries for
+# ao-payment do not exist yet and are created by the operator, not by this
+# system. A missing entry must not wedge the unit: the adapter then runs with
+# no DSN and no webhook secret, which means it records nothing and rejects
+# every PayPal event with 401. It cannot accept a payment in that state, so
+# failing open here would be the wrong direction. Create these four entries
+# under the ao-payment KDE Wallet folder to enable real operation:
+#   payment-db-password, payment-paypal-webhook-id,
+#   payment-paypal-webhook-secret, payment-coinbase-webhook-secret
+ExecStartPre=-/ALWAYSON/scripts/operations/fetch-kwallet-secret.sh %h/.local/share/ao-secrets/payment.env payment-db-password
+ExecStartPre=-/ALWAYSON/scripts/operations/fetch-kwallet-secret.sh %h/.local/share/ao-secrets/payment.env payment-paypal-webhook-id
+ExecStartPre=-/ALWAYSON/scripts/operations/fetch-kwallet-secret.sh %h/.local/share/ao-secrets/payment.env payment-paypal-webhook-secret
+ExecStartPre=-/ALWAYSON/scripts/operations/fetch-kwallet-secret.sh %h/.local/share/ao-secrets/payment.env payment-coinbase-webhook-secret
+Restart=on-failure
+RestartSec=15
+TimeoutStartSec=120
+
+[Install]
+WantedBy=graphical-session.target

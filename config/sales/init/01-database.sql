@@ -224,7 +224,7 @@ CREATE TABLE IF NOT EXISTS sale_evidence (
   evidence_type       text NOT NULL CHECK (evidence_type IN (
                         'sale_request','payment_validation','funds_transfer_verification')),
   provider            text NOT NULL CHECK (provider IN (
-                        'website','paypal','zelle','coinbase','bank','manual_reconciliation')),
+                        'website','paypal','Zelle','coinbase','bank','manual_reconciliation')),
   source_reference    text NOT NULL,
   received_at_utc     timestamptz NOT NULL DEFAULT now(),
   validated_by        text,

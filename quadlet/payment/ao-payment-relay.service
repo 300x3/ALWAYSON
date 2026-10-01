@@ -1,0 +1,29 @@
+# /ALWAYSON/quadlet/payment/ao-payment-relay.service
+#
+# ALWAYS ON host-side relay into ao-ingress-payment (README Section 7.2).
+#
+# ao-payment is Internal=true so the adapter cannot be reached from outside the
+# domain. Public provider webhooks terminate at the host and this relay forwards
+# them in. Same shape as ao-fabrication-collect (Section 3.3.0), reversed: the
+# host performs the hop the internal domain cannot.
+#
+# Binds 127.0.0.1 ONLY. Nothing is exposed to the LAN. Cloudflare Tunnel is what
+# would route public traffic here, and that route is NOT enabled: adding it is a
+# separate operator approval because it changes the public surface.
+[Unit]
+Description=ALWAYS ON payment ingress relay (loopback -> ao-payment)
+After=graphical-session.target ao-ingress-payment.service
+Wants=ao-ingress-payment.service
+
+[Service]
+Type=simple
+ExecStart=/ALWAYSON/scripts/payment/ao-payment-relay.py --host 127.0.0.1 --port 8900
+Restart=on-failure
+RestartSec=10
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+# The adapter needs no privileges at all; it is a plain HTTP forwarder.
+
+[Install]
+WantedBy=graphical-session.target
