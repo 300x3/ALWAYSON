@@ -36,10 +36,8 @@ wallet_folder_for() {
             echo "ao-mastodon" ;;
         sales-db-password)   echo "ao-sales" ;;
         webodm-postgres-password) echo "ao-mapping" ;;
-    payment-db-password)            folder=ao-payment   ; pass_key=payment-db-password          ;;
-    payment-paypal-webhook-id)      folder=ao-payment   ; pass_key=payment-paypal-webhook-id    ;;
-    payment-paypal-webhook-secret)  folder=ao-payment   ; pass_key=payment-paypal-webhook-secret;;
-    payment-coinbase-webhook-secret) folder=ao-payment ; pass_key=payment-coinbase-webhook-secret;;
+          payment-db-password|payment-paypal-webhook-id|payment-paypal-webhook-secret|payment-coinbase-webhook-secret)
+              echo "ao-payment" ;;
         fabrication-db-password) echo "ao-fabrication" ;;
         *) echo "" ;;
     esac
@@ -93,6 +91,21 @@ print(val, end='')
                 printf 'POSTGRES_PASSWORD=%s\n' "$val"
                 printf 'POSTGRES_USER=mastodon\n'
                 printf 'POSTGRES_DB=mastodon\n'
+                ;;
+            payment-credentials)
+                # Writes the COMPLETE env file in one pass, deliberately.
+                # Every invocation rewrites the whole output file, so one
+                # ExecStartPre per key would each erase the previous one's
+                # output and leave the adapter with no PAYMENT_DSN at all.
+                # Assembled from wallet material only; nothing is echoed.
+                dbp=$(fetch_secret "payment-db-password")
+                ppi=$(fetch_secret "payment-paypal-webhook-id")
+                pps=$(fetch_secret "payment-paypal-webhook-secret")
+                cbs=$(fetch_secret "payment-coinbase-webhook-secret")
+                printf 'PAYMENT_DSN=postgresql://sales_migration_role:%s@127.0.0.1:15432/salesdb\n' "$dbp"
+                printf 'PAYPAL_WEBHOOK_ID=%s\n' "$ppi"
+                printf 'PAYPAL_WEBHOOK_SECRET=%s\n' "$pps"
+                printf 'COINBASE_WEBHOOK_SECRET=%s\n' "$cbs"
                 ;;
             mastodon-secret-key-base)
                 val=$(fetch_secret "mastodon-secret-key-base")

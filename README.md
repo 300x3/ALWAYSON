@@ -906,6 +906,34 @@ recorded as group C row "Community publication".
 </tbody>
 </table>
 
+### 5.1.1 Local Browser Addresses
+
+The loopback address for each GUI above, so the operator does not have to
+derive it from the Quadlet units. All are `127.0.0.1`-bound only; the LAN
+addresses refuse, and none is published through Podman, nginx, Cloudflare, or a
+router. Verified 2026-10-01 by `scripts/validation/check-local-services.js`
+(15 pass, 0 fail) and mirrored in the Firefox bookmarks folder
+`SERVERS → SERVERS (THIS MACHINE)`.
+
+| Software / GUI | Address | Notes |
+|---|---|---|
+| ALWAYS ON operator console | `http://127.0.0.1:8099/` | Not a deployed service; started on demand |
+| ALWAYS ON sim console (Foxglove + ROS 2) | `http://127.0.0.1:8099/sim` | Same process; the only thing presenting Foxglove |
+| Podman / systemd status view | `http://127.0.0.1:8099/podman` | Same process |
+| Gazebo factory.world portal | `http://127.0.0.1:8765/` | HTML portal; not a 3D viewer |
+| Mastodon local UI | `https://127.0.0.1:3300/` | **Self-signed cert — accept once.** Terminates TLS because upstream hardcodes `config.force_ssl = true`; `http://127.0.0.1:3000/` 301s to a TLS port that does not exist and hangs the browser |
+| Mastodon web origin (transport) | `http://127.0.0.1:3000/` | Answers `301` only; not usable as a browser entry point |
+| WebODM | `http://127.0.0.1:8000/` | Redirects to `/login/`. Loopback published 2026-10-01; no SSH tunnel needed |
+| Grafana | `http://127.0.0.1:3001/` | Redirects to `/login` |
+| Metabase | `http://127.0.0.1:3002/` | |
+| Prometheus | `http://127.0.0.1:9090/` | Redirects to `/query` |
+| OpenClaw control | `http://127.0.0.1:18789/` | |
+| MeshChatX | `https://127.0.0.1:18000/` | **Self-signed cert.** Reticulum; not a public ingress |
+| Domoticz | `http://127.0.0.1:8080/` | Host service, not an `ao-*` container |
+| CUPS (printers) | `http://127.0.0.1:631/` | Host service |
+| LM Studio | `http://127.0.0.1:1234/` | Bearer-token API only — no browsable UI, so not bookmarked |
+| Mastodon streaming / OpenClaw chat relay | `http://127.0.0.1:4000/`, `http://127.0.0.1:18790/` | APIs, not UIs; a bare `/` returns `400`/`404` by design |
+
 ## 5.2 Controlled Ingress and Egress Adapters
 
 **Combined into the single matrix in §5.1, group B.** The three controlled adapters
@@ -3886,6 +3914,12 @@ adding it changes the public surface and needs separate operator approval.
   to `payment_references`, plus constraints: a manual-provider payment cannot
   reach `verified` without an `approved_by`, and the provider spelling is
   constrained to match the receipt schema.
+
+The four `ao-payment` wallet entries are fetched by a single
+`payment-credentials` case rather than one `ExecStartPre` per key. Every call to
+`fetch-kwallet-secret.sh` rewrites the whole output file, so four separate calls
+would each erase the previous one's output and leave the adapter with only the
+last value and no `PAYMENT_DSN`. One call composes the complete file.
 
 **Still outstanding.** No public route is configured, no credential exists, and
 the website email → PDF → Corda intake path is not built.
