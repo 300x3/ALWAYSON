@@ -886,7 +886,7 @@ recorded as group C row "Community publication".
 
 <tr><td colspan="7" style="background-color:#c9ccd1; border-top:2px solid #8a8f98; border-bottom:1px solid #8a8f98; padding:5px 8px; font-weight:bold; letter-spacing:0.04em;">D · GUI AND WORKFLOW ATTACHMENT MAP — each row is attached to exactly <em>one</em> owning network and denied all the others</td></tr>
 <tr><td>1 · Mastodon web / Konqueror client</td><td><code>ao-sales</code></td><td>Approved <code>localhost</code> Mastodon web/streaming origin; loopback-only publication when enabled.</td><td>—</td><td>—</td><td>Loopback origin only</td><td>ST-13, ST-14</td></tr>
-<tr><td>2 · WebODM browser UI</td><td><code>ao-mapping</code></td><td>No published port at all — <code>ao-webodm-web</code> sets no <code>PublishPort</code> and podman reports nothing bound. Operator access is an SSH tunnel to the container, not a host listener. Opening a loopback listener requires separate operator approval.</td><td>—</td><td>—</td><td>None; internal to <code>ao-mapping</code> only</td><td>ST-03</td></tr>
+<tr><td>2 · WebODM browser UI</td><td><code>ao-mapping</code></td><td>Loopback listener published 2026-10-01 with operator approval: <code>ao-webodm-web</code> sets <code>PublishPort=127.0.0.1:8000:8000</code>, so podman now reports <code>127.0.0.1:8000-&gt;8000/tcp</code> and the UI opens at <code>http://127.0.0.1:8000/</code> with no SSH tunnel. This supersedes the earlier no-port/SSH-tunnel-only state. It is loopback-only: 10.42.0.1:8000 and 192.168.87.135:8000 both refuse, and <code>ao-mapping</code> stays <code>Internal=true</code>.</td><td>—</td><td>—</td><td>None; internal to <code>ao-mapping</code> only</td><td>ST-03</td></tr>
 <tr><td>3 · QGroundControl simulation client</td><td><code>ao-sim-vehicle</code></td><td>Approved local SITL/MAVLink-router endpoint; <code>ROS_DOMAIN_ID=21</code>; <code>GZ_PARTITION=alwayson_vehicle_sim</code>.</td><td>—</td><td>—</td><td>None</td><td>ST-21</td></tr>
 <tr><td>4 · Gazebo visualization — vehicle</td><td><code>ao-sim-vehicle</code></td><td>Approved vehicle ROS/Gazebo visualization path; separate DDS/interface policy remains required.</td><td>—</td><td>—</td><td>None</td><td>ST-07</td></tr>
 <tr><td>5 · Gazebo visualization — fabrication</td><td><code>ao-sim-fabrication</code></td><td>Approved fabrication ROS/Gazebo visualization path; <code>ROS_DOMAIN_ID=22</code>; <code>GZ_PARTITION=alwayson_fabrication_sim</code>.</td><td>—</td><td>—</td><td>None</td><td>ST-08</td></tr>
@@ -1646,7 +1646,7 @@ separate from the ALWAYS ON mapping service listener on `127.0.0.1:8000`.
 | Service | Domain | Listener | Exposure | Ownership |
 |---|---|---|---|---|
 | MeshChatX native backend / web UI | Field / Reticulum | `https://127.0.0.1:18000` | Loopback only | `scottw` user service |
-| WebODM web service | Mapping / `ao-mapping` | **No host listener** (was wrongly recorded as `127.0.0.1:8000`) | Internal to `ao-mapping`; SSH tunnel for access | `ao-webodm-web.container` |
+| WebODM web service | Mapping / `ao-mapping` | `127.0.0.1:8000` — **loopback only**, published 2026-10-01 | Loopback only; the LAN addresses still refuse and `ao-mapping` remains `Internal=true`. This replaces the earlier "no host listener / SSH tunnel" state, which was approved by the operator so the WebODM UI opens directly at `http://127.0.0.1:8000/` without a tunnel | `ao-webodm-web.container` |
 | Reticulum transport | Field / Reticulum | Reticulum-configured interfaces | No HTTP listener | Embedded MeshChatX backend |
 
 MeshChatX uses its self-signed local certificate; clients must use HTTPS and accept the local certificate. The MeshChatX port is not a public ingress and must not be published through
@@ -3544,15 +3544,35 @@ Logs are classified per §4.2 and are never a place to record secrets.
 
 ## 17.1 Backup and Restore Policy
 
-Use a 3-2-1 strategy: three copies, two media types, and one off-host/off-site
-copy.
+**Target policy: 3-2-1** — three copies, two media types, and one off-host or
+off-site copy.
+
+**Current state, stated plainly (2026-09-30): the off-site copy does not exist
+yet.** The operator has decided backups stay local via restic for now, with a
+dedicated pCloud folder to follow once off-site backup is set up. Until then the
+strategy in force is local-only, not 3-2-1:
+
+| Copy | Where | State |
+|---|---|---|
+| Primary | live system | yes |
+| Backup | restic repository `/var/backups/alwayson-restic` | yes, **on this same host** |
+| Off-site | pCloud | **not configured** — a dedicated folder is intended, not yet created |
+
+Two consequences to be aware of. First, the restic repository is on the same
+machine as the data it protects, so it does not survive loss of this host. Second,
+`ao-egress-archive` is not a substitute: per §11.6 it is a sale-transfer store
+with no restore duty. Nothing outside this host currently holds a copy.
+
+To close this: give pCloud its own folder and point the restic repository at it
+(rclone WebDAV or SFTP). The repository is encrypted client-side, so the remote
+never sees plaintext.
 
 | Frequency | Required activity |
 |---|---|
 | Continuous or 15-minute where enabled | Database WAL/archive strategy for critical recovery objectives |
 | Hourly incremental | Configuration, manifests, sales records, field telemetry, current project data |
 | Daily | PostgreSQL dumps for `salesdb`, `mastodon`, `webodm`, and `cordadb` when active; Corda backup; mapping manifests; simulation exports; storefront releases |
-| Weekly | Repository integrity check and off-host copy validation |
+| Weekly | Repository integrity check. Off-host copy validation applies only once a pCloud repository exists |
 | Monthly | Isolated restore test |
 | Quarterly | Full disaster-recovery exercise |
 
