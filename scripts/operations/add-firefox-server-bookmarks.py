@@ -1,33 +1,58 @@
 #!/usr/bin/env python3
 # ALWAYS ON - scripts/operations/add-firefox-server-bookmarks.py
-# Adds the "ALWAYS ON Servers" folder to the bookmarks toolbar of a standard
-# Firefox profile (places.sqlite) with one bookmark per local service.
+# Adds the "SERVERS (THIS MACHINE)" folder to the bookmarks toolbar of a
+# standard Firefox profile (places.sqlite) with one bookmark per locally
+# hosted service that is actually running and reachable over HTTP(S).
 #
 # MUST run while that Firefox is closed: Firefox caches Places in memory and
 # rewrites the database on exit, so rows added while it runs are lost.
 # Always back up places.sqlite (+ -wal/-shm) before running.
 #
-# Usage: python3 add-firefox-server-bookmarks.py <profile-dir> [--dry-run]
+# ITEMS below was verified live on 2026-10-01 with curl against the host's
+# listening sockets and `podman ps`; see README work queue. Only services that
+# answered an HTTP probe are listed. Re-verify with:
+#   for u in <urls>; do curl -sk -o /dev/null -m 6 -w "%{http_code} $u\n" "$u"; done
+#
+# Usage: python3 add-firefox-server-bookmarks.py <profile-dir> [--dry-run] [--folder-id N]
 import os
 import sqlite3
 import sys
 import time
 import uuid
 
-FOLDER_TITLE = "ALWAYS ON Servers"
+FOLDER_TITLE = "SERVERS (THIS MACHINE)"
 ITEMS = [
     ("ALWAYS ON Console", "http://127.0.0.1:8099/"),
-    ("WebODM", "http://127.0.0.1:8000/"),
-    ("Foxglove (ROS 2 + Gazebo)", "http://127.0.0.1:8099/sim"),
-    ("Podman", "http://127.0.0.1:8099/podman"),
+    ("ALWAYS ON Sim (Foxglove + ROS 2)", "http://127.0.0.1:8099/sim"),
+    ("Podman Manager", "http://127.0.0.1:8099/podman"),
+    ("Gazebo Portal (factory.world)", "http://127.0.0.1:8765/"),
     ("Grafana", "http://127.0.0.1:3001/"),
     ("Metabase", "http://127.0.0.1:3002/"),
     ("Prometheus", "http://127.0.0.1:9090/"),
-    ("Mastodon (local)", "http://127.0.0.1:3300/"),
-    ("OpenClaw", "http://127.0.0.1:18789/"),
-    ("MeshChatX", "https://127.0.0.1:18000/"),
+    ("Mastodon (local)", "https://127.0.0.1:3300/"),
+    ("OpenClaw Control", "http://127.0.0.1:18789/"),
+    ("MeshChatX (Reticulum)", "https://127.0.0.1:18000/"),
     ("Domoticz", "http://127.0.0.1:8080/"),
+    ("WebODM", "http://127.0.0.1:8000/"),
+    ("CUPS (printers)", "http://127.0.0.1:631/"),
 ]
+
+# Deliberately NOT bookmarked:
+#   http://127.0.0.1:3484/  ClineKanban - not listening.
+#   http://10.42.0.96/config Mainsail - different machine, unreachable.
+#   http://127.0.0.1:1234/  LM Studio  - bearer-token API, no browsable UI.
+#   http://127.0.0.1:4000/  Mastodon streaming - WebSocket API, not a UI.
+#   http://127.0.0.1:18790/ OpenClaw chat relay - a bare / is a 404, reached
+#                                    through the Cloudflare Tunnel hostname.
+#   http://127.0.0.1:3300/  Mastodon over PLAIN http - the :3300 proxy is a TLS
+#                                    listener now, so plain http to it fails.
+#                                    Use https://127.0.0.1:3300/ instead.
+#   http://127.0.0.1:3000/  Mastodon direct - answers "301 ->
+#                                    https://127.0.0.1:3000/" because upstream
+#                                    hardcodes config.force_ssl = true, and
+#                                    Puma speaks no TLS. Bookmarking it hangs
+#                                    the browser on a render-blocking
+#                                    stylesheet. Use the :3300 proxy instead.
 
 
 def guid():
@@ -119,6 +144,48 @@ def place_id(cur, url, title):
     return cur.lastrowid
 
 
+def firefox_running(profile):
+    """True if a Firefox process is actually using this profile.
+
+    A profile 'lock' entry is not a reliable signal: snap Firefox leaves a
+    stale `lock` symlink behind after a clean exit, so a file-presence test
+    blocks every run. Check for a live process instead.
+
+    Matching is done on /proc/<pid>/exe rather than the command line: this
+    script's own argv contains both the word "firefox" and the profile path,
+    so a `ps args` grep matches itself and always reports "running".
+
+    Snap Firefox is handled specially: it does NOT pass "-profile <dir>", so
+    the profile path never appears in its cmdline and a cmdline-only test
+    wrongly reports "not running" while the profile is very much in use - which
+    lets a write land in a live places.sqlite that Firefox later overwrites
+    from memory. When a snap firefox binary is alive and its cmdline does not
+    name a profile, we cannot attribute it, so we assume it is ours and block.
+    Erring toward "busy" only costs a re-run; erring toward "idle" corrupts.
+    """
+    real = os.path.realpath(profile)
+    snap_seen = False
+    for entry in os.listdir("/proc"):
+        if not entry.isdigit():
+            continue
+        pid = int(entry)
+        try:
+            exe = os.path.realpath(os.readlink("/proc/%d/exe" % pid))
+            with open("/proc/%d/cmdline" % pid, "rb") as fh:
+                cmdline = fh.read().replace(b"\0", b" ").decode("utf-8", "replace")
+        except OSError:
+            continue  # process exited, or not ours to inspect
+        if os.path.basename(exe) not in ("firefox", "firefox-bin"):
+            continue
+        if "ms-playwright" in exe:  # our automation browser, throwaway profile
+            continue
+        if real in cmdline:
+            return True
+        if exe.startswith("/snap/firefox"):
+            snap_seen = True
+    return snap_seen
+
+
 def main():
     if len(sys.argv) < 2:
         sys.exit("usage: add-firefox-server-bookmarks.py <profile-dir> [--dry-run]")
@@ -127,8 +194,8 @@ def main():
     db = os.path.join(profile, "places.sqlite")
     if not os.path.exists(db):
         sys.exit("places.sqlite not found in %s" % profile)
-    if os.path.exists(os.path.join(profile, "lock")):
-        sys.exit("profile locked - close Firefox first (%s/lock exists)" % profile)
+    if firefox_running(profile):
+        sys.exit("Firefox is running with %s - close it first" % profile)
 
     con = sqlite3.connect(db)
     cur = con.cursor()
@@ -140,21 +207,54 @@ def main():
     toolbar_id = row[0]
 
     stamp = now_us()
-    existing = cur.execute(
-        "SELECT id FROM moz_bookmarks WHERE parent=? AND title=? AND type=2",
-        (toolbar_id, FOLDER_TITLE),
-    ).fetchone()
-    if existing:
-        folder_id = existing[0]
-        print("folder exists (id %d) - adding missing bookmarks only" % folder_id)
+    # Resolve the folder. --folder-id targets one explicitly (needed when the
+    # operator has moved the folder, or when a stale duplicate still exists).
+    forced = None
+    if "--folder-id" in sys.argv:
+        forced = int(sys.argv[sys.argv.index("--folder-id") + 1])
+    if forced is not None:
+        row = cur.execute(
+            "SELECT id, parent, title FROM moz_bookmarks WHERE id=? AND type=2",
+            (forced,),
+        ).fetchone()
+        if not row:
+            sys.exit("no bookmark folder with id %d" % forced)
+        folder_id = row[0]
+        print("using folder id %d %r (parent %d) as instructed" % (folder_id, row[2], row[1]))
     else:
-        cur.execute(
-            "INSERT INTO moz_bookmarks (type, parent, position, title, dateAdded,"
-            " lastModified, guid) VALUES (2, ?, 0, ?, ?, ?, ?)",
-            (toolbar_id, FOLDER_TITLE, stamp, stamp, guid()),
-        )
-        folder_id = cur.lastrowid
-        print("created folder %r (id %d) on bookmarks toolbar" % (FOLDER_TITLE, folder_id))
+        # Find the folder by title ANYWHERE, not just directly under the toolbar.
+        # An earlier version scoped this to parent=toolbar, so if the operator
+        # had dragged the folder somewhere else the lookup missed and a SECOND
+        # folder with the same title was created. Look globally, prefer a
+        # toolbar-parented folder, and refuse to guess when ambiguous.
+        matches = cur.execute(
+            "SELECT id, parent FROM moz_bookmarks WHERE title=? AND type=2", (FOLDER_TITLE,)
+        ).fetchall()
+        on_toolbar = [m for m in matches if m[1] == toolbar_id]
+        if len(on_toolbar) == 1:
+            folder_id = on_toolbar[0][0]
+            print("folder exists on toolbar (id %d) - adding missing bookmarks only" % folder_id)
+        elif len(matches) == 1:
+            folder_id = matches[0][0]
+            print(
+                "NOTE: folder %r (id %d) is not on the toolbar - it lives under "
+                "parent %d (the operator probably moved it). Reusing it rather "
+                "than creating a duplicate." % (FOLDER_TITLE, folder_id, matches[0][1])
+            )
+        elif len(matches) > 1:
+            sys.exit(
+                "several folders titled %r exist (ids %s) - pass --folder-id N to "
+                "choose one, after deleting the stale duplicate in Firefox"
+                % (FOLDER_TITLE, ", ".join(str(m[0]) for m in matches))
+            )
+        else:
+            cur.execute(
+                "INSERT INTO moz_bookmarks (type, parent, position, title, dateAdded,"
+                " lastModified, guid) VALUES (2, ?, 0, ?, ?, ?, ?)",
+                (toolbar_id, FOLDER_TITLE, stamp, stamp, guid()),
+            )
+            folder_id = cur.lastrowid
+            print("created folder %r (id %d) on bookmarks toolbar" % (FOLDER_TITLE, folder_id))
 
     position = cur.execute(
         "SELECT COALESCE(MAX(position), -1) FROM moz_bookmarks WHERE parent=?",
