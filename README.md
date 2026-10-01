@@ -57,7 +57,7 @@
 |---|---|
 | OpenClaw | Public marketing/contact across website chat, email, Mastodon, approved social channels; direct Mastodon publisher; local output is standardized PDFs for order/follow-up/support/payment workflows, which are then processed into the sales, payment, and ledger records |
 | LM Studio | Fundamental local LLM host for OpenClaw |
-| Browser | Konqueror — dedicated browser for automation; Tokodon removed completely |
+| Browser | Konqueror — dedicated browser for automation |
 | RNode client | MeshChatX exclusively, and provides the Reticulum network stack controls. **End-to-end encryption** is built into the stack: all communication is secured with strong modern encryption by default, all encryption keys are ephemeral, forward secrecy applies by default, and it is not possible to establish unencrypted links or send unencrypted packets |
 | Radios | `PEOPLE-RADIO` = public human chat; `DRONE-RADIO` = authenticated private drone mission/status traffic; a local switch connects the fabrication equipment, a local router connects the IoT devices, and Wi-Fi/Ethernet from the main desktop reaches the main internet; the main desktop manages all DHCP |
 | QGroundControl | Desktop primary mission planning; KaliOS RPi5 fallback/out-of-range mission-update operation; and drone — KaliOS on the Raspberry Pi 5 with the Autopilot Module, running ArduPilot. Also receives **midflight mission updates** relayed by **DRONE-RADIO** to the QGC session on the Pi5 drone (§9.2.2) |
@@ -206,8 +206,8 @@ rather than restating a status. One component, one status, one place to change i
 | ST-12 | Payment adapters — `ao-ingress-payment` | Planned | Sales DB deployed; payment provider, verifier, and API pending; blocked on the provider decision | Select the provider and implement the verifier and API, including the website email > PDF > Corda intake path |
 | ST-13 | Mastodon local stack | In progress (redeploy) | Quadlet definitions are consolidated onto `ao-sales` and `Internal=false` with Sidekiq present for federation; the operator-account store was found empty on inspection, so the 5 containers are stopped pending either migration of the retired store's data or approval of a fresh initialisation (§20.0) | Migrate or re-initialise the database, then start DB, Redis, web, streaming and Sidekiq under `scottw` and re-verify web, Sidekiq processing and ActivityPub delivery |
 | ST-14 | Mastodon federation edge — Cloudflare Tunnel | Partial | Dedicated tunnel `ao-mastodon-federation` active; HTTP/2 connector up; actor and WebFinger 200; canonical accounts `admin@` and `bot@`; local-to-remote follows confirmed | Complete the signed round-trip and reverse-follow evidence |
-| ST-15 | OpenClaw and LM Studio support chat | In progress | Local stack in progress; OAuth/client issues recorded | Complete OpenClaw and local LLM validation (Tokodon removed per ES.1) |
-| ST-16 | Konqueror — dedicated automation browser | Implemented | Designated as the automation browser in ES.1; Tokodon removed completely | Retain as the only browser role for automation |
+| ST-15 | OpenClaw and LM Studio support chat | In progress | Local stack in progress; OAuth/client issues recorded | Complete OpenClaw and local LLM validation  |
+| ST-16 | Konqueror — dedicated automation browser | Implemented | Designated as the automation browser in ES.1 | Retain as the only browser role for automation |
 | ST-30 | **Real fabrication — `ao-fabrication`** | **In progress — network, database and collector built; blocked on one credential** | Architecture in §10.3 and §3.3.0. `Internal=true` network on the pinned `10.89.12.0/24`, registered (§18.6). First machine verified live at `10.42.0.96` (Mainsail/Moonraker, `klippy_state: ready`). **`a_fab` created** (loopback-only `127.0.0.1:15433`) and the **host-side pull-only collector** written and verified reaching the machine. **Credential created 2026-09-30** (KDE Wallet `fabrication-db-password`, 32 chars, generated not invented; `~/secrets/fabrication-db.env` 0600). **Collector verified writing** (`1 ok, 0 failed`) and **`ao-fabrication-collect.timer` enabled and running** (`Result=success`). Note `pg_hba` trusts 127.0.0.1, so the role password must be set explicitly or TCP auth fails while the socket appears to work | Resolve the Moonraker API-key open item; add a second machine to `fabrication-machines.json`; keep it separate from `ao-sim-fabrication` |
 | ST-17 | **Sale-transfer** egress — `ao-egress-archive` | Partially implemented | Local **restic backup and restore validation complete** (§17.1 — this is the backup). IPFS/pCloud **sale transfer** not yet exercised. **Not a backup by design** (§11.6). | Provision pCloud/transfer credentials; implement and test the **`ao-sales` authorisation** gate before any transfer |
 | ST-18 | Backup and restore | Implemented | Encrypted restic snapshot `548d9910`; file hash validated; database 14/14 tables restored; recurring schedule automated 2026-08-31 (restic nightly 03:30, weekly integrity verify Sun 04:30, nightly domain DB dumps 03:00) | Schedule recurring restore tests |
@@ -3134,8 +3134,7 @@ The 300X3 Mastodon instance (Mastodon 4.3.7, containerized in the authoritative
 `ao-sales` rootless Podman store) is publicly federated at
 **`https://mastodon.300x3.com`**. The main storefront remains on
 `https://300x3.com` and `https://www.300x3.com`; it is not routed to Mastodon.
-Operators use Konqueror and OpenClaw on the desktop. Tokodon is removed completely
-(ES.1) and is not a supported client.
+Operators use Konqueror and OpenClaw on the desktop. 
 
 Architecture requirements and verified state:
 
@@ -3854,7 +3853,7 @@ this reference list.
 | Revision | Date | Change |
 |---|---|---|
 | v1 | 2026-09-28 | Consolidated single-file plan. |
-| v2 | 2026-09-28 | Structural and consistency revision. Removed the duplicated title/banner block. Renamed the summary sections ES.1-ES.4 to end the collision with body sections 1-21. Resolved Tokodon references against ES.1. Qualified Grafana as optional. Scoped IPFS to post-sale. Deleted the duplicated prohibited-secret list in 11.4. Numbered the unnumbered headings in 11.2 and repaired the broken ordered lists and the truncated 15.4 status prose. Separated two confusable federation/local-operation identifiers. |
+| v2 | 2026-09-28 | Structural and consistency revision. Removed the duplicated title/banner block. Renamed the summary sections ES.1-ES.4 to end the collision with body sections 1-21. Qualified Grafana as optional. Scoped IPFS to post-sale. Deleted the duplicated prohibited-secret list in 11.4. Numbered the unnumbered headings in 11.2 and repaired the broken ordered lists and the truncated 15.4 status prose. Separated two confusable federation/local-operation identifiers. |
 | v4 | 2026-09-28 | **Operator decisions applied, topology consolidated, layout optimized.** |
 
 The change summary for this revision is recorded once, in **ES.1.1 Change Summary**,
