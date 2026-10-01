@@ -159,17 +159,20 @@ The five points below are the ones most often asked about. Each is drawn in the 
 graphic above.
 
 **Non-`ao-*` listeners on this host (not part of ALWAYS ON).** The isolation
-statements above describe `ao-*` infrastructure. Three other services listen on
-this host and are deliberately left as they are:
+statements above describe `ao-*` infrastructure. A small number of other services
+listen here; they are recorded so the exposure picture is exact rather than
+overstated:
 
 | Listener | Process | Status |
 |---|---|---|
 | `0.0.0.0:4242` | ReticulumMeshChat | Documented, part of the mesh tooling |
-| `*:6144`, `*:8080` | Domoticz | Not connected to anything yet and intentionally so for the foreseeable future (operator decision 2026-09-30). Left bound; not an `ao-*` service. Intended future use is other equipment on the equipment LAN — see §3.3.0.2. |
+| ~~`*:6144`~~ | Domoticz shared server | **Removed 2026-09-30.** `RemoteSharedPort` set to 0; the listener no longer exists. | 
+| `127.0.0.1:8080` | Domoticz web UI | **Loopback-only 2026-09-30** (operator: needs access from this machine only). Started with `-wwwbind 127.0.0.1 -nomdns`. Verified: loopback 200, LAN address refused. Not an `ao-*` service; intended future use is other equipment on the equipment LAN — see §3.3.0.2. |
 
-They are recorded here so the "no public listener" claim is read accurately: it
-is true of every `ao-*` service, and these are the known exceptions owned by
-other tooling.
+The Domoticz UI was moved to loopback on 2026-09-30, so the only remaining
+non-loopback listeners are ReticulumMeshChat (documented) and `dnsmasq`/`socat`,
+which are bound to the equipment LAN the desktop manages. The "no public
+listener" claim is therefore true of every `ao-*` service and of Domoticz.
 
 - **The fabrication machines are real machines, not simulation nodes.** MainsailOS,
   Moonraker, Klipper, the individual additive-manufacturing machines (3D printers and
@@ -573,12 +576,18 @@ container on an `Internal=true` domain could not (§3.3.0.1). Domoticz running o
 the host therefore needs no relay, no opened domain, and no new listener to reach
 those devices — the same conclusion already reached for `ao-fabrication-collect`.
 
-**Listener posture to settle before anything is connected.** Domoticz currently
-binds `*:6144` and `*:8080` on all interfaces while it has no devices attached.
-Those bindings are the *web UI* surface, not the device path, and are independent
-of this plan. When devices are added, the operator should decide whether the UI
-stays on all interfaces or is bound to loopback plus the equipment LAN. That is a
-host-level decision outside the `ao-*` boundary and is deliberately not made here.
+**Listener posture: settled (operator, 2026-09-30).** Domoticz only ever needs to be
+reachable from this machine, so it was moved to loopback before any device was
+attached:
+
+- the web UI is started `-wwwbind 127.0.0.1 -nomdns` and now serves only
+  `127.0.0.1:8080`; the LAN address actively refuses
+- the shared server on `*:6144` was disabled outright (`RemoteSharedPort = 0`) and
+  the listener no longer exists
+
+Neither change affects reaching devices on `10.42.0.0/24`, which is a host-side
+path independent of the web listeners. Verified after the change: loopback
+returns 200 and `10.42.0.1:8080` is refused.
 
 `a_fab` holds per-machine production data only. It is **not** a ledger, **not** a sales
 record, and **not** a backup target. Anything that must become provable leaves
