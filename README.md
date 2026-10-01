@@ -3688,9 +3688,31 @@ The blocker is now the *ceremony only* — the software half is done.
 | Create node | **not done** |
 | Key ceremony | **not done** — operator only |
 
-Pinned artefacts are kept in `data/corda-install/` (gitignored, ~295 MB). Because
-that path is ignored they are not backed up by the repository; copy them
-off-host if they need to survive a rebuild.
+**Artefact recovery (no local backup needed).** These are immutable vendor
+releases published as public GitHub assets, so the durable record is the source
+and digest rather than a stored copy. Re-download and verify with:
+
+```text
+base=https://github.com/corda/corda-runtime-os/releases/download/release-5.2.2.0
+corda-cli-installer-5.2.2.0.zip
+  sha256 131fa2f06bb2f5f0aafbebf38033911caa7b5505f50510ee015754645bd687c2
+corda-combined-worker-5.2.2.0.jar
+  sha256 34607be9a917c29328e9c9713b3f7230dd2c35f9073ddbef9171e62d1ccae311
+notary-plugin-non-validating-server-5.2.2.0-package.cpb
+  sha256 a7956b8b0773aeed7ae30cea593f4174e01ea3f1b9f06b8921e6964a05ce783f
+```
+
+The local copies in `data/corda-install/` (~295 MB) are a convenience only.
+`data/` is **not** in the restic path set, which covers `config`, `artifacts`,
+`backups/postgres` and the manifests directory. The `.sha256sum` sidecars are
+small and were copied into `artifacts/` so the expected digests themselves are
+backed up; a rebuild is therefore reproducible without storing 295 MB.
+
+**Java version.** `~/.corda/cli/corda-cli.sh` pins `JAVA_HOME` to
+`/usr/lib/jvm/java-17-openjdk-amd64`. Corda 5.2.2 supports Java 17–21 and the
+host default is Java 25, which is outside that range, so the pin prevents the
+CLI from silently running on an unsupported JVM. The wrapper exits non-zero if
+the pinned JDK is missing rather than falling back.
 
 **Why the node cannot be created yet.** `cordadb` exists on the host cluster but
 holds 0 tables, and its owner role `corda` has `rolcanlogin = true` with no
