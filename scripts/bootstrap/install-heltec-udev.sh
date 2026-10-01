@@ -7,8 +7,8 @@
 # Run via:  pkexec bash /ALWAYSON/scripts/bootstrap/install-heltec-udev.sh
 set -Eeuo pipefail
 
-SRC=/ALWAYSON/config/field/heltec-v3/udev/99-alwayson-heltec.rules
-DST=/etc/udev/rules.d/99-alwayson-heltec.rules
+SRC=/ALWAYSON/config/field/heltec-v3/udev/99-ao-heltec.rules
+DST=/etc/udev/rules.d/99-ao-heltec.rules
 
 [ "$(id -u)" -eq 0 ] || { echo "ERROR: must run as root (pkexec)" >&2; exit 1; }
 [ -f "$SRC" ] || { echo "ERROR: rule source missing: $SRC" >&2; exit 1; }

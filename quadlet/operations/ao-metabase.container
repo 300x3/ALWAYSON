@@ -7,7 +7,7 @@ After=network-online.target
 [Container]
 Image=docker.io/metabase/metabase:v0.54.1
 Entrypoint=["/opt/java/openjdk/bin/java","-jar","/app/metabase.jar"]
-EnvironmentFile=%h/.local/share/alwayson-secrets/reporting-metabase.env
+EnvironmentFile=%h/.local/share/ao-secrets/reporting-metabase.env
 ContainerName=ao-metabase
 Network=ao-admin.network
 Network=ao-reporting-egress.network
@@ -18,7 +18,7 @@ NoNewPrivileges=true
 DropCapability=all
 
 [Service]
-ExecStartPre=/usr/bin/bash -c 'install -d -m 0700 %h/.local/share/alwayson-secrets && /ALWAYSON/scripts/operations/fetch-reporting-env.sh metabase %h/.local/share/alwayson-secrets/reporting-metabase.env'
+ExecStartPre=/usr/bin/bash -c 'install -d -m 0700 %h/.local/share/ao-secrets && /ALWAYSON/scripts/operations/fetch-reporting-env.sh metabase %h/.local/share/ao-secrets/reporting-metabase.env'
 MemoryMax=2G
 Restart=on-failure
 

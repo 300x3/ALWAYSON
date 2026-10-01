@@ -9,7 +9,7 @@
 #         present. Stale/legacy instances are cleaned via anchored pkill.
 #   v2.2: v2.1 checked only that the socat was alive, never that the SOURCE
 #         podman.socket actually answered. After 2026-09-24 the
-#         alwayson-sales and alwayson-ledger podman.socket units sat in
+#         ao-sales and ao-ledger podman.socket units sat in
 #         trigger-limit-hit, so their socats stayed "healthy" while bridging
 #         to a dead backend -> sales.sock/ledger.sock EOF on every request.
 #         That silently broke the nightly mastodon DB backup. v2.2 adds an
@@ -19,7 +19,7 @@ set -u
 BRIDGE_DIR=/run/ao-podman
 RETRY_SECS=15
 # Minimum seconds between podman.socket reset attempts for one domain. Prevents
-# an endless reset/respawn loop when a backend stays broken (e.g. alwayson-ledger,
+# an endless reset/respawn loop when a backend stays broken (e.g. ao-ledger,
 # whose podman backend fails for an unrelated reason).
 RESET_BACKOFF_SECS=300
 
@@ -82,9 +82,9 @@ declare -A SOURCES=(
 # Service account that owns each source socket, used to reset a failed
 # podman.socket via `systemctl --user --machine=<user>@`.
 declare -A OWNERS=(
-  [mapping]=alwayson-mapping
-  [sales]=alwayson-sales
-  [ledger]=alwayson-ledger
+  [mapping]=ao-mapping
+  [sales]=ao-sales
+  [ledger]=ao-ledger
 )
 
 echo "$(date --iso-8601=seconds) ao-podman-bridge v2.2 starting"

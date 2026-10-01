@@ -2,13 +2,14 @@
 # ALWAYS ON Mastodon streaming API - loopback-only (127.0.0.1:4000)
 [Unit]
 Description=ALWAYS ON Mastodon Streaming
-After=ao-mastodon-redis.service ao-sales-network.service
+After=graphical-session.target ao-mastodon-redis.service ao-sales-network.service
 Wants=ao-mastodon-redis.service
+PartOf=graphical-session.target
 
 [Container]
 Image=ghcr.io/mastodon/mastodon-streaming:v4.3.7
 ContainerName=mastodon-streaming
-Network=ao-sales-network.network
+Network=ao-sales.network
 EnvironmentFile=%h/secrets/mastodon.env
 PublishPort=127.0.0.1:4000:4000
 NoNewPrivileges=true
@@ -21,4 +22,4 @@ RestartSec=15
 MemoryMax=2G
 
 [Install]
-WantedBy=default.target
+WantedBy=graphical-session.target

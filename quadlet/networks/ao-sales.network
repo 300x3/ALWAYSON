@@ -1,5 +1,31 @@
 # /ALWAYSON/quadlet/networks/ao-sales.network
+#
+# Sales domain - the customer-facing domain, and the federation egress path.
+#
+# Internal=false, and that is deliberate (operator decision 2026-09-30,
+# authorised: federation via Sidekiq is a requirement).
+#
+# ActivityPub delivery is outbound HTTPS/443, so a hard Internal=true network
+# cannot federate at all. mastodon-sidekiq performs delivery, so ao-sales is the
+# single, controlled outbound route for it. This replaces ao-egress-community,
+# which is retired and must not be restored: mastodon-web, mastodon-sidekiq,
+# mastodon-streaming, mastodon-db and mastodon-redis all live on ao-sales and
+# stay there (README 18.6).
+#
+# CONTAINMENT - federation is the sanctioned outbound, nothing else is:
+#   - Sidekiq delivers to remote ActivityPub/WebFinger inboxes over HTTPS/443.
+#   - No database, Redis or streaming container leaves the domain, and none is
+#     attached to any egress network.
+#   - ao-sales carries no payment, field, mapping, simulation or ledger-core
+#     traffic; those stay on their own internal domains.
+#   - Inbound remains loopback-only: cloudflared-alwayson.service terminates TLS
+#     and forwards to 127.0.0.1:3000 / :4000. No public listener is opened here
+#     and no port is published on this network.
+#
+# The order-request PDF in, and the receipt / work-order-status PDFs out, remain
+# the only non-federation output of the sales domain, and other systems consume
+# those reports rather than connecting into this domain.
 [Network]
 NetworkName=ao-sales
 Driver=bridge
-Internal=true
+Internal=false

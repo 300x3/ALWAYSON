@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # ALWAYS ON privileged bootstrap - Sections 2.4, 2.6
-# Run via: pkexec bash /home/scottw/ALWAYSON-staging/scripts/bootstrap/ao-bootstrap-privileged.sh
+# Run via: pkexec bash /ALWAYSON/backups/gitcli/ALWAYSON-staging/scripts/bootstrap/ao-bootstrap-privileged.sh
 set -Eeuo pipefail
 IFS=$'\n\t'
 
-LOG=/home/scottw/ALWAYSON-staging/logs/installation/agent-install.log
+LOG=/ALWAYSON/backups/gitcli/ALWAYSON-staging/logs/installation/agent-install.log
 exec >>"$LOG" 2>&1
 echo "===== PRIVILEGED BOOTSTRAP START $(date --iso-8601=seconds) ====="
 
@@ -36,7 +36,7 @@ chmod 0750 /ALWAYSON
 echo "/ALWAYSON layout created (Section 2.6)"
 
 # Merge staged inventory journal into final location
-cat /home/scottw/ALWAYSON-staging/logs/installation/agent-install.log >> /ALWAYSON/logs/installation/agent-install.log 2>/dev/null || true
+cat /ALWAYSON/backups/gitcli/ALWAYSON-staging/logs/installation/agent-install.log >> /ALWAYSON/logs/installation/agent-install.log 2>/dev/null || true
 
 # --- Section 2.4: Host dependencies ---
 export DEBIAN_FRONTEND=noninteractive

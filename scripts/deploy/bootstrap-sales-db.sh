@@ -5,7 +5,7 @@ IFS=$'\n\t'
 LOG=/ALWAYSON/logs/installation/agent-install.log
 exec >>"$LOG" 2>&1
 cd /
-MU=alwayson-sales
+MU=ao-sales
 export HOME=/home/$MU XDG_RUNTIME_DIR=/run/user/$(id -u $MU)
 P() { runuser -u $MU -- env HOME=$HOME XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR podman "$@"; }
 [[ -f /home/$MU/init/01-database.sql ]] || { echo "ERROR: schema sql missing" >&2; exit 10; }

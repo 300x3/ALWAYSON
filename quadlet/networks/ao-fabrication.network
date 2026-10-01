@@ -1,0 +1,14 @@
+# /ALWAYSON/quadlet/networks/ao-fabrication.network
+# Real (non-simulated) fabrication: 10.3, §10.3, §3.3.0.
+# Each individual 3D printer / CNC machine runs its own MainsailOS / Moonraker /
+# Klipper on its own BigTreeTech CB1 / Raspberry Pi. This network carries
+# per-machine production data pulled into a_fab for industrial engineering and
+# fabrication optimisation work. It is NOT a child of ao-sim-fabrication and it
+# never commands live machinery.
+# Subnet is PINNED so the allocation stays 10.89.12.0/24 as §18.6 records; every
+# other network here lets podman auto-assign the next free 10.89.x.0/24.
+[Network]
+NetworkName=ao-fabrication
+Driver=bridge
+Internal=true
+Subnet=10.89.12.0/24

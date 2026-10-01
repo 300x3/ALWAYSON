@@ -3,14 +3,15 @@
 # NO public port opened (listener-allowlist stays empty); operator uses Tokodon/SSH.
 [Unit]
 Description=ALWAYS ON Mastodon Web
-After=ao-mastodon-db.service ao-mastodon-redis.service ao-sales-network.service
+After=graphical-session.target ao-mastodon-db.service ao-mastodon-redis.service ao-sales-network.service
 Wants=ao-mastodon-db.service ao-mastodon-redis.service
+PartOf=graphical-session.target
 
 [Container]
 Image=ghcr.io/mastodon/mastodon@sha256:76436bccad38f134cb9a5a6e9c83445915790fc12caf60e3a8ee9cbef8376a56
 ContainerName=mastodon-web
-Network=ao-sales-network.network
-Network=ao-egress-community.network
+Network=ao-sales.network
+# ao-sales carries the outbound route; ao-egress-community is retired.
 EnvironmentFile=%h/secrets/mastodon.env
 PublishPort=127.0.0.1:3000:3000
 NoNewPrivileges=true
@@ -24,4 +25,4 @@ MemoryMax=4G
 TimeoutStartSec=600
 
 [Install]
-WantedBy=default.target
+WantedBy=graphical-session.target

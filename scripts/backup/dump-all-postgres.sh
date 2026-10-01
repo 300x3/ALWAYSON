@@ -1,21 +1,21 @@
 #!/usr/bin/env bash
-# ALWAYS ON - backup/dump-all-postgres.sh: dump all running domain PostgreSQL
-# containers plus host PostgreSQL reporting databases.
+# ALWAYS ON - backup/dump-all-postgres.sh: dump all consolidated databases
+# directly from Host PostgreSQL 18.6 using dedicated application roles.
 # Tolerant: one failed dump does not abort the others. Intended for the
-# alwayson-db-dump user timer (daily 03:00) and manual runs.
+# ao-db-dump user timer (daily 03:00) and manual runs.
 set -u
-B=/ALWAYSON/scripts/backup/backup-postgres.sh
+H=/ALWAYSON/scripts/backup/backup-host-postgres.sh
 LOG=/ALWAYSON/logs/backup/db-dump.log
 mkdir -p "$(dirname "$LOG")"
 fail=0
 {
   echo "===== $(date --iso-8601=seconds) db dump start ====="
-  PODMAN_URL=unix:///run/ao-podman/sales.sock bash "$B" mastodon-db mastodon mastodon || { echo "FAIL: mastodon-db"; fail=1; }
-  bash "$B" sales-db salesdb sales "" sales_migration_role || { echo "FAIL: sales-db"; fail=1; }
-  bash "$B" db webodm webodm "" postgres || { echo "FAIL: webodm-db"; fail=1; }
-  bash /ALWAYSON/scripts/backup/backup-host-postgres.sh metabase metabase metabase_app || { echo "FAIL: metabase"; fail=1; }
-  bash /ALWAYSON/scripts/backup/backup-host-postgres.sh grafana grafana grafana_app || { echo "FAIL: grafana"; fail=1; }
+  bash "$H" mastodon mastodon mastodon || { echo "FAIL: mastodon"; fail=1; }
+  bash "$H" sales salesdb sales_migration_role || { echo "FAIL: salesdb"; fail=1; }
+  bash "$H" webodm webodm webodm_app || { echo "FAIL: webodm"; fail=1; }
+  bash "$H" metabase metabase metabase_app || { echo "FAIL: metabase"; fail=1; }
+  bash "$H" grafana grafana grafana_app || { echo "FAIL: grafana"; fail=1; }
   echo "===== $(date --iso-8601=seconds) db dump end (fail=$fail) ====="
 } >> "$LOG" 2>&1
-tail -12 "$LOG"
+tail -15 "$LOG"
 exit $fail

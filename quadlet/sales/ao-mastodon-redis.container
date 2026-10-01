@@ -1,12 +1,13 @@
 # QUADLET - ALWAYS ON Mastodon Redis (container-scoped, ao-sales)
 [Unit]
 Description=ALWAYS ON Mastodon Redis (mastodon-redis)
-After=network-session.target ao-sales-network.service
+After=graphical-session.target network-session.target ao-sales-network.service
+PartOf=graphical-session.target
 
 [Container]
 Image=docker.io/library/redis@sha256:91d0f7e8c748ec7a4c2b4fb2c4f84edab794dd91d01e095e38dc906db9d684ab
 ContainerName=mastodon-redis
-Network=ao-sales-network.network
+Network=ao-sales.network
 NoNewPrivileges=true
 HealthCmd=redis-cli ping
 HealthInterval=30s
@@ -17,4 +18,4 @@ RestartSec=15
 MemoryMax=512M
 
 [Install]
-WantedBy=default.target
+WantedBy=graphical-session.target

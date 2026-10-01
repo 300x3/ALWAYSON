@@ -1,0 +1,20 @@
+# ALWAYS ON wallet bridge - runs at graphical login as scottw.
+# Materializes KWallet secrets to 0600 env files for wallet-dependent services.
+# KDE Wallet stays the center: values live in the wallet, files are delivery
+# copies refreshed at login. Never log secret values.
+# 2026-09-29: sole operator (scottw+sudo). Bridge materializes secrets, then
+# starts the headless ao-sales stack via narrow sudo helper (no password
+# at login; wallet itself unlocked by login/PAM).
+[Unit]
+Description=ALWAYS ON KWallet bridge (sales secrets)
+After=graphical-session.target
+Wants=graphical-session.target
+
+[Service]
+Type=oneshot
+ExecStart=/ALWAYSON/scripts/operations/ao-wallet-bridge.sh
+ExecStart=/usr/bin/sudo -n /ALWAYSON/scripts/operations/start-sales-stack.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=graphical-session.target

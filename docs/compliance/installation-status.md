@@ -181,9 +181,9 @@ image set; production Quadlet units `ao-mastodon-*` remain scaffolded/pending).
 
 - **Secrets:** KDE Wallet `ao-mastodon` holds the platform secrets (§3.4). All
   `ao-*` folders created; `kwallet-provision.sh` round-trip verified.
-- **Live containers** (rootless Podman on `ao-sales`): `300x3-db` (postgres
-  digest `a65e6a84…`), `300x3-redis` (`91d0f7e8…`), `300x3-web`,
-  `300x3-sidekiq`, `300x3-streaming`, `300x3-proxy` (`nginx:alpine`).
+- **Live containers** (rootless Podman on `ao-sales`): `ao-mastodon-db` (postgres
+  digest `a65e6a84…`), `ao-mastodon-redis` (`91d0f7e8…`), `ao-mastodon-web`,
+  `ao-mastodon-sidekiq`, `ao-mastodon-streaming`, `ao-mastodon-proxy` (`nginx:alpine`).
 - **Ports:** web `127.0.0.1:3000`, streaming `127.0.0.1:4000` only — no public
   listener (allowlist empty).
 - **Proxy:** `config/mastodon/nginx-300x3.conf` rewrites `Host: localhost`

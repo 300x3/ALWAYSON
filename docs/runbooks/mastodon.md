@@ -123,7 +123,7 @@ Mint a token bound to an existing bot user via Doorkeeper (run inside the web
 container), then persist it with the wallet provisioner:
 
 ```bash
-podman exec 300x3-web bin/rails runner \
+podman exec ao-mastodon-web bin/rails runner \
   "u=User.find_by(email:'300x3@posteo.net'); \
    t=Doorkeeper::AccessToken.create!(application_id:Doorkeeper::Application.find_by(uid:'<client_id>').id, resource_owner_id:u.id, scopes:'read write'); \
    puts t.token"

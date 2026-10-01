@@ -4,7 +4,7 @@
 # internal ao-sales network (no public listener; loopback-only), operated
 # from the desktop with Tokodon (KDE).
 #
-# NOTE: starting the containers requires running under the alwayson-sales
+# NOTE: starting the containers requires running under the ao-sales
 # service account (rootless isolate). This host cannot escalate without a
 # TTY, so the operator must run the start steps from a real terminal.
 #
@@ -76,15 +76,15 @@ Containers: quadlet/sales/ao-mastodon-{db,redis,web,sidekiq,streaming}.container
 Web/streaming publish ONLY to 127.0.0.1 (loopback; no public listener).
 
 OPERATOR (root TTY) - pull + enable:
-  # under the alwayson-sales rootless store/account
-  sudo -u alwayson-sales env HOME=/home/alwayson-sales \\
-    XDG_RUNTIME_DIR=/run/user/\$(id -u alwayson-sales) bash -c \\
+  # under the ao-sales rootless store/account
+  sudo -u ao-sales env HOME=/home/ao-sales \\
+    XDG_RUNTIME_DIR=/run/user/\$(id -u ao-sales) bash -c \\
     'podman pull docker.io/mastodon/mastodon:v4.3.7'
-  sudo -u alwayson-sales env HOME=/home/alwayson-sales \\
-    XDG_RUNTIME_DIR=/run/user/\$(id -u alwayson-sales) \\
+  sudo -u ao-sales env HOME=/home/ao-sales \\
+    XDG_RUNTIME_DIR=/run/user/\$(id -u ao-sales) \\
     systemctl --user daemon-reload
-  sudo -u alwayson-sales env HOME=/home/alwayson-sales \\
-    XDG_RUNTIME_DIR=/run/user/\$(id -u alwayson-sales) \\
+  sudo -u ao-sales env HOME=/home/ao-sales \\
+    XDG_RUNTIME_DIR=/run/user/\$(id -u ao-sales) \\
     systemctl --user enable --now \\
       ao-mastodon-db ao-mastodon-redis ao-mastodon-web \\
       ao-mastodon-sidekiq ao-mastodon-streaming

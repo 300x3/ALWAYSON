@@ -10,7 +10,7 @@
 # Idempotent: exits without writing if the README hash is unchanged and the
 # preset file already exists.
 #
-# Triggered by: systemd user path unit alwayson-lmstudio-preset-sync.path
+# Triggered by: systemd user path unit ao-lmstudio-preset-sync.path
 #              (or run manually).
 # ---------------------------------------------------------------------------
 set -euo pipefail

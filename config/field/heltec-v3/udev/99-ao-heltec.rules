@@ -1,0 +1,6 @@
+# ALWAYS ON - Heltec WiFi LoRa 32 V3 (CP2102 / CP2102N USB-UART bridge)
+# Provides the stable /dev/heltec-v3 symlink required by Section 9.2/12.2,
+# excludes ModemManager from claiming the port, and enforces dialout perms.
+# Install with:  pkexec bash /ALWAYSON/scripts/bootstrap/install-heltec-udev.sh
+SUBSYSTEM=="tty", ATTRS{idVendor}=="10c4", ATTRS{idProduct}=="ea60", ENV{ID_MM_DEVICE_IGNORE}="1", MODE="0660", GROUP="dialout", SYMLINK+="heltec-v3"
+SUBSYSTEM=="tty", ATTRS{idVendor}=="10c4", ATTRS{idProduct}=="ea71", ENV{ID_MM_DEVICE_IGNORE}="1", MODE="0660", GROUP="dialout", SYMLINK+="heltec-v3"

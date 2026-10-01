@@ -1,0 +1,608 @@
+# ALWAYS ON — declarative system topology model (Section 3.1 supporting input)
+# Consumed by /ALWAYSON/scripts/operations/generate-topology.py.
+#
+# Authority for every entry in this file is /ALWAYSON/README.md.  This file adds
+# machine-readable shape for facts that have no Quadlet representation (host
+# services, desktop software, field hardware, controlled egress/ingress paths).
+# It does not redefine, weaken, or replace the README.
+#
+# Status vocabulary (README "Document Status and Reading Guide"):
+#   implemented | partial | in_progress | planned | blocked
+#
+# SECRET RULE: no password, token, key, credential path, or secret value may be
+# added to this file.  It is rendered into diagrams, HTML, and Grafana panels.
+
+version: 2
+revision: "2026-09-29"
+# Authority: the v6 architecture document supplied by the operator.  Where the
+# older /ALWAYSON/README.md and v6 disagree, v6 governs (v6 ES.1: "replaces any
+# contrary older text below").
+authority: "/ALWAYSON/TOPOLOGY/ALWAYS ON — Architecture, Operations, and Status - v6.md"
+authority_short: "v6"
+supersedes: "/ALWAYSON/README.md"
+generated_outputs: "/ALWAYSON/TOPOLOGY/"
+grafana_dashboard_uid: "ao-topology"
+grafana_dashboard_slug: "ao-system-topology"
+
+# ---------------------------------------------------------------------------
+# DATABASES AND DATA STORES (v6 Section 3.3 / 3.3.1 — Program-to-Database Map)
+#
+# Authority legend (v6 3.3):
+#   authoritative_relational - PostgreSQL owns detailed operational data,
+#                               searchable business records, reporting projections
+#   authoritative_ledger     - Corda owns final sale/contract, receipt association,
+#                               entitlement, approved state transitions
+#   current_migration_state   - container-scoped PostgreSQL still exists while data
+#                               is consolidated onto the host cluster; not target
+#   target                    - documented end state, not fully deployed
+#   blocked                   - needs operator key/certificate/credential
+#   active                    - running and verified
+#   not_authoritative         - cache, queue, embedded, or filesystem state
+#   not_an_application_db     - SQLite/H2 embedded or retained migration data only
+#
+# SECRET RULE: no password, token, key, or credential may appear here.
+# ---------------------------------------------------------------------------
+databases:
+  - id: db-host-postgres
+    label: "Host PostgreSQL 18.6 cluster"
+    software: "postgresql-18 18.6 + PostGIS 3.6.2 (host systemd service)"
+    kind: postgresql
+    placement: host
+    listens: ["127.0.0.1:5432", "[::1]:5432", "unix:/var/run/postgresql/.s.PGSQL.5432"]
+    authority: authoritative_relational
+    status: active
+    role: "System-wide relational platform. One cluster, separate logical databases, separate application roles. REVOKE CONNECT FROM PUBLIC enforced."
+    logical_dbs: ["salesdb", "mastodon", "webodm", "grafana", "metabase", "cordadb", "postgres"]
+    note: "Target end state. Some applications still run container-scoped PostgreSQL during migration."
+
+  - id: db-salesdb
+    label: "salesdb"
+    software: "PostgreSQL 18 (host cluster target)"
+    kind: postgresql
+    placement: host
+    parent: db-host-postgres
+    programs: ["Sales API", "ao-payment (planned)", "Metabase (reporting)"]
+    authority: authoritative_relational
+    status: current_migration_state
+    role: "Authoritative sales/payment records: customers, orders, products, payments, receipts, entitlements, audit history."
+    note: "Repository schema defined; live salesdb application schema still requires explicit initialization. Container-scoped sales-db exists today."
+
+  - id: db-mastodon
+    label: "mastodon"
+    software: "PostgreSQL 18 (in container-scoped mastodon-db today)"
+    kind: postgresql
+    placement: container
+    parent: db-host-postgres
+    programs: ["Mastodon web", "Mastodon Sidekiq", "Mastodon streaming"]
+    authority: authoritative_relational
+    status: current_migration_state
+    role: "Mastodon application state: accounts, posts, media metadata, federation state, background-job data."
+    note: "CONSOLIDATION INCOMPLETE: container-scoped mastodon-db is running on ao-sales while the documented target is the host cluster."
+
+  - id: db-webodm
+    label: "webodm (PostGIS)"
+    software: "PostgreSQL/PostGIS (in container-scoped db today)"
+    kind: postgis
+    placement: container
+    parent: db-host-postgres
+    programs: ["WebODM webapp", "WebODM worker", "NodeODM", "Metabase (reporting)"]
+    authority: authoritative_relational
+    status: current_migration_state
+    role: "Mapping projects, processing state, users, geospatial data."
+    note: "Large image/output artifacts remain filesystem data on /media/scottw/500GBPHOTOGRAM/."
+
+  - id: db-grafana
+    label: "grafana"
+    software: "PostgreSQL 18 (host cluster)"
+    kind: postgresql
+    placement: host
+    parent: db-host-postgres
+    programs: ["Grafana ao-grafana"]
+    authority: authoritative_relational
+    status: target
+    role: "Grafana users, dashboards, folders, datasource definitions, preferences, alert state."
+    note: "Not a disposable dashboard: requires backup, restore testing, migrations, health checks."
+
+  - id: db-metabase
+    label: "metabase"
+    software: "PostgreSQL 18 (host cluster)"
+    kind: postgresql
+    placement: host
+    parent: db-host-postgres
+    programs: ["Metabase ao-metabase"]
+    authority: authoritative_relational
+    status: target
+    role: "Metabase users, collections, questions, dashboards, database connections, settings."
+    note: "Persistence confirmation and first protected read-only query are open items."
+
+  - id: db-cordadb
+    label: "cordadb (Corda persistence)"
+    software: "PostgreSQL 18 — separate logical database with its own roles and backup scope"
+    kind: postgresql
+    placement: host
+    parent: db-host-postgres
+    programs: ["Corda node ao-ledger-core (planned)"]
+    authority: authoritative_ledger
+    status: blocked
+    role: "Corda persistence. AUTHORITATIVE LEDGER for sale/contract, receipt association, entitlement, approved state transitions."
+    note: "Corda 5.2.2 persists in cordadb. Corda 4.14.2 (H2) was retired 2026-09-28; it was a separate legacy scaffold, never a Corda 5 staging target, and held no ledger state. Blocked on operator key/certificate ceremony (v6 18.2/18.3)."
+
+  - id: db-postgres-admin
+    label: "postgres (administrative)"
+    software: "PostgreSQL 18 (host cluster)"
+    kind: postgresql
+    placement: host
+    parent: db-host-postgres
+    programs: ["Maintenance", "backup", "restore validation"]
+    authority: authoritative_relational
+    status: active
+    role: "Administrative/maintenance database for the shared cluster."
+
+  - id: db-host-redis
+    label: "Host Redis 8.0.5 (database 0)"
+    software: "redis-server 8.0.5 (host systemd service)"
+    kind: redis
+    placement: host
+    listens: ["127.0.0.1:6379"]
+    programs: ["general coordination"]
+    authority: not_authoritative
+    status: active
+    role: "General low-latency cache/coordination layer. NOT a system of record; no current application data confirmed."
+
+  - id: db-mastodon-redis
+    label: "mastodon-redis (database 0)"
+    software: "Redis 8 (container-scoped)"
+    kind: redis
+    placement: container
+    programs: ["Mastodon web", "Mastodon Sidekiq"]
+    authority: not_authoritative
+    status: active
+    role: "Mastodon cache, queues, background-job coordination. Not authoritative business data."
+
+  - id: db-broker
+    label: "broker (database 0)"
+    software: "Redis 8 (container-scoped)"
+    kind: redis
+    placement: container
+    programs: ["WebODM worker", "WebODM broker"]
+    authority: not_authoritative
+    status: active
+    role: "Celery/task broker and worker coordination. Not authoritative mapping data."
+
+  - id: db-prometheus
+    label: "Prometheus TSDB"
+    software: "prometheus v3.4.1 — /prometheus persistent volume"
+    kind: tsdb
+    placement: container
+    programs: ["Grafana (metrics datasource)", "alerting", "rule evaluation"]
+    authority: not_authoritative
+    status: implemented
+    role: "Specialized time-series store: metrics, service health, resource usage, operational monitoring. Works without Grafana."
+    note: "Grafana visualizes metrics; Prometheus remains the separate metrics store and the alerting layer."
+
+  - id: db-openclaw
+    label: "OpenClaw SQLite state"
+    software: "SQLite (desktop application state)"
+    kind: sqlite
+    placement: host
+    path: "~/.openclaw/state/openclaw.sqlite"
+    programs: ["OpenClaw gateway", "OpenClaw chat relay"]
+    authority: not_authoritative
+    status: active
+    role: "Local operational state. Not part of SQL reporting."
+
+  - id: db-akonadi
+    label: "Akonadi / KDE PIM SQLite"
+    software: "SQLite (desktop application state)"
+    kind: sqlite
+    placement: host
+    programs: ["Akonadi", "KDE PIM"]
+    authority: not_authoritative
+    status: active
+    role: "Contacts, calendars, mail indexes, local personal-information data."
+
+  - id: db-browsers
+    label: "Browser profile SQLite stores"
+    software: "SQLite (Konqueror/KDE WebEngine, Firefox, Brave, Chrome, Edge)"
+    kind: sqlite
+    placement: host
+    programs: ["browsers"]
+    authority: not_authoritative
+    status: active
+    role: "History, site storage, caches, certificates, profile data."
+
+  - id: db-podman
+    label: "Podman rootless metadata store"
+    software: "SQLite (rootless Podman)"
+    kind: sqlite
+    placement: host
+    programs: ["Podman"]
+    authority: not_authoritative
+    status: active
+    role: "Container, image, network, volume metadata. Not application data."
+
+  - id: db-sim-local
+    label: "ROS / simulation local SQLite"
+    software: "SQLite (application-specific local files)"
+    kind: sqlite
+    placement: host
+    programs: ["ROS 2 Lyrical", "Gazebo Sim", "ArduPilot SITL", "QGroundControl"]
+    authority: not_authoritative
+    status: active
+    role: "Local tool state where enabled. Not a shared reporting source."
+
+  - id: db-filesystem-state
+    label: "Filesystem / local application state"
+    software: "Application files, logs, project files, local state"
+    kind: filesystem
+    placement: host
+    programs: ["LM Studio", "OpenClaw", "MeshChatX", "QGroundControl", "ArduPilot", "Gazebo", "simulation tools", "restic"]
+    authority: not_authoritative
+    status: active
+    role: "Operational or engineering data that is not automatically part of SQL reporting."
+
+  - id: db-mapping-media
+    label: "Photogrammetry media (filesystem, ext4)"
+    software: "/media/scottw/500GBPHOTOGRAM/ — ext4 /dev/sdb1, UUID verified"
+    kind: filesystem
+    placement: host
+    programs: ["WebODM", "NodeODM", "imagery intake/exporter"]
+    authority: not_authoritative
+    status: implemented
+    role: "Source imagery, orthophotos, point clouds, 3D model artifacts. Large binaries stay filesystem-resident; only metadata is in webodm."
+    note: "Deploy or operate WebODM only after the drive and mount are validated (v6 8.5)."
+
+  - id: db-h2-legacy
+    label: "H2 legacy migration backups"
+    software: "H2 (retained backup files only)"
+    kind: h2
+    placement: host
+    programs: ["Grafana/Metabase legacy migration"]
+    authority: not_an_application_db
+    status: not_active
+    role: "No longer active; retained temporarily for rollback and migration evidence."
+    note: "H2 and SQLite are NOT approved application databases for Grafana or Metabase. Separately, the Corda H2 scaffold is a known defect (see cordadb)."
+
+
+# ---------------------------------------------------------------------------
+# Host platform (README Section 2.1, 2.2, 20.0)
+# ---------------------------------------------------------------------------
+host:
+  id: host
+  label: "ALWAYS ON HOST — Kubuntu 26.04 LTS workstation"
+  software: "Kubuntu 26.04 LTS (Ubuntu 26.04.1 userland)"
+  kernel: "7.0.0-34-generic"
+  cpu: "AMD CPU"
+  gpu: "EVGA NVIDIA GTX 1080 (driver 580.178.04, CDI nvidia.com/gpu=0)"
+  container_runtime: "Podman 5.7.0 — Quadlet only, no Docker daemon"
+  status: implemented
+  interfaces:
+    - name: eno1
+      addresses: ["10.42.0.1/24", "169.254.248.253/16"]
+      role: "Podman host-side bridge address + 10.42.0.1:5432 socat PostgreSQL relay"
+    - name: wlp3s0
+      addresses: ["192.168.87.135/24"]
+      role: "LAN / default route via 192.168.87.1"
+    - name: lo
+      addresses: ["127.0.0.1/8", "::1/128"]
+      role: "All operator listeners are loopback-only by policy"
+
+# ---------------------------------------------------------------------------
+# Host-level software that is not a Quadlet container (README 3.3, 9.2.1, 20.0)
+# ---------------------------------------------------------------------------
+host_services:
+  - id: host-postgresql
+    label: "PostgreSQL 18.6 (host cluster)"
+    software: "postgresql-18 18.6 / PostGIS 3.6.2"
+    listens: ["127.0.0.1:5432", "[::1]:5432", "unix:/var/run/postgresql/.s.PGSQL.5432"]
+    relays: ["10.42.0.1:5432 (socat, ao-postgres-reporting-bridge)"]
+    databases: [salesdb, mastodon, webodm, grafana, metabase, cordadb, postgres]
+    data: "System-wide relational platform: separate logical databases, separate application roles"
+    status: implemented
+    note: "AUTHORITATIVE RELATIONAL. REVOKE CONNECT FROM PUBLIC enforced (v6 3.3). Target is one host cluster; container-scoped instances are current migration state."
+
+  - id: host-redis
+    label: "Redis 8.0.5 (host service)"
+    software: "redis-server 8.0.5"
+    listens: ["127.0.0.1:6379"]
+    databases: ["database 0"]
+    data: "Low-latency cache/coordination layer (not a system of record)"
+    status: implemented
+
+  - id: host-ardupilot-sitl
+    label: "ArduPilot SITL (host systemd service)"
+    software: "arducopter SITL, ArduPilot e57b8a47d3 (4.6.0-beta1)"
+    listens: ["tcp/127.0.0.1:5760"]
+    data: "/ALWAYSON/data/ardupilot"
+    status: implemented
+    note: "Runs on host for real-time constraints; QGroundControl connects over tcp:5760 (v6 10.1)"
+
+  - id: host-restic
+    label: "restic encrypted backup (host)"
+    software: "restic — encrypted local snapshots + encrypted pCloud replication"
+    schedules: ["nightly restic 03:30", "nightly DB dumps 03:00", "weekly verify"]
+    data: "PostgreSQL/Corda-aware encrypted backup; restore test in an isolated location"
+    status: implemented
+    note: "Local authority + encrypted restic + encrypted pCloud replication. Independent of IPFS and Corda (v6 ES.1)."
+
+  - id: host-kwallet
+    label: "KDE Wallet (kwalletd6) — secret authority"
+    software: "org.kde.kwalletd6 via Plasma login → kwalletd6 unlock → fetch-kwallet-secret.sh (ExecStartPre, ≤60s)"
+    data: "0600 env file per unit; services needing Wallet secrets start AFTER login BY DESIGN"
+    status: implemented
+    note: "Secret authority is settled; the D-Bus bus name and method names on the running host are unconfirmed (v6 14.1.1)."
+
+
+desktop_software:
+  - id: desktop-meshchatx
+    label: "MeshChatX native backend / web UI"
+    software: "ReticulumMeshChatX 4.9.1 (native headless)"
+    listens: ["https://127.0.0.1:18000"]
+    status: implemented
+
+  - id: desktop-reticulum
+    label: "Reticulum transport (embedded in MeshChatX)"
+    software: "RNS embedded; standalone rnsd 1.4.2 present but not running"
+    listens: ["0.0.0.0:4242 (backbone; NOT loopback-restricted)"]
+    status: in_progress
+    note: "29 TCPClientInterface peers + 1 BackboneInterface + 2 RNode interfaces in ~/.reticulum/config (README 9.3)"
+
+  - id: desktop-openclaw
+    label: "OpenClaw AI gateway + CORS relay"
+    software: "OpenClaw gateway (password auth) + chat relay"
+    listens: ["127.0.0.1:18789", "127.0.0.1:18790"]
+    data: "~/.openclaw/state/openclaw.sqlite"
+    status: implemented
+
+  - id: desktop-lmstudio
+    label: "LM Studio headless inference server"
+    software: "LM Studio (OpenAI-compatible endpoint, REST auth enforced)"
+    listens: ["127.0.0.1:1234"]
+    status: implemented
+
+  - id: desktop-qgc
+    label: "QGroundControl GCS (AppImage)"
+    software: "QGroundControl"
+    connects: ["tcp/127.0.0.1:5760 (SITL)", "MAVLink over DRONE-RADIO"]
+    status: partial
+
+  - id: desktop-gazebo
+    label: "Gazebo Sim 10.5.0 + ROS 2 Lyrical"
+    software: "gz sim 10.5.0, ROS 2 Lyrical, ros_gz_bridge, foxglove_bridge"
+    listens: ["127.0.0.1:8765 (foxglove_bridge ws)", "gz transport TCP/UDP"]
+    env: ["ROS_DOMAIN_ID=21", "GZ_PARTITION=alwayson_vehicle_sim"]
+    status: implemented
+
+  - id: desktop-konqueror
+    label: "Konqueror (browser; Tokodon removed per ES.1)"
+    software: "Konqueror / KDE WebEngine"
+    connects: ["http://127.0.0.1:3000 (Mastodon)", "http://127.0.0.1:3001 (Grafana)",
+               "http://127.0.0.1:3002 (Metabase)", "http://127.0.0.1:8000 (WebODM)"]
+    status: implemented
+    note: "Tokodon was removed completely per v6 ES.1. No Podman network attachment; loopback only."
+
+  - id: desktop-dbeaver
+    label: "DBeaver (SQL client)"
+    software: "DBeaver — SQL client for the host PostgreSQL 18 cluster"
+    connects: ["127.0.0.1:5432 (host PostgreSQL, ao-data reporting)"]
+    status: implemented
+    note: "Named in the v6 ES.2 master topology on the ao-data narrow-plumbing path."
+
+  - id: desktop-sketchup
+    label: "SketchUp / SketchUp Web (design, host)"
+    software: "SketchUp desktop + SketchUp Web"
+    status: planned
+    note: "DESIGN path in the v6 ES.2 master topology. GPU policy priority: desktop/Konqueror → LM Studio/OpenClaw → SketchUp → ROS/Gazebo/SITL → WebODM batch (v6 ES.1)."
+
+# ---------------------------------------------------------------------------
+# Field / LoRa hardware (README 2.1, 9.1, 9.2, 9.5, 14.2)
+# ---------------------------------------------------------------------------
+field:
+  status: in_progress
+  drone_side:
+    - id: field-drone-pi5
+      label: "Raspberry Pi 5 flight companion"
+      software: "MAVLink collector, telemetry spool, RNS/Reticulum, MeshChatX, packet signing"
+      hardware: "Waveshare SX1262-class LoRa HAT"
+      status: planned
+      note: "Design target; not present on the development workstation (README 9.1)"
+    - id: field-drone-fc
+      label: "ArduPilot flight controller"
+      software: "3DR N1 autopilot, MAVLink over UART/USB"
+      status: planned
+  radios:
+    - id: radio-people
+      label: "PEOPLE-RADIO (Heltec WiFi LoRa 32 V3)"
+      software: "RNodeInterface (RNode firmware 1.85, SX1262)"
+      hardware: "/dev/serial/by-id/usb-Silicon_Labs_CP2102_USB_to_UART_Bridge_Controller_0001-if00-port0"
+      rf: "915 MHz / BW 125 kHz / SF7 / CR5 / 17 dBm"
+      status: implemented
+    - id: radio-drone
+      label: "DRONE-RADIO (Heltec WiFi LoRa 32 V3)"
+      software: "RNodeInterface (RNode firmware 1.85, SX1262, internal)"
+      hardware: "second CP2102-class serial device"
+      rf: "917 MHz / BW 250 kHz / SF7 / CR5 / 17 dBm"
+      status: implemented
+  note: "RF feedback on both bands observed and requires characterization (README 3.2, 20.1)"
+
+# ---------------------------------------------------------------------------
+# Controlled external paths (README 5.2, 11.6, 18.5, 18.6)
+# ---------------------------------------------------------------------------
+edge:
+  internet:
+    id: internet
+    label: "PUBLIC INTERNET"
+    status: implemented
+  paths:
+    - id: edge-cloudflare-tunnel
+      label: "Cloudflare Tunnel (cloudflared-alwayson.service)"
+      software: "cloudflared"
+      publishes:
+        - "mastodon.300x3.com -> 127.0.0.1:3000"
+        - "chat.300x3.com -> 127.0.0.1:18790 (OpenClaw relay / sitebot)"
+        - "www.300x3.com -> 127.0.0.1:3300 (300X3 storefront proxy)"
+      listens: ["127.0.0.1:20241 (metrics)"]
+      status: implemented
+      note: "No inbound port-forward; origin ports stay loopback (README 20.0, deviation 18.6)"
+
+    - id: edge-pcloud-storefront
+      label: "pCloud Public Folder (static HTML storefront)"
+      software: "pCloud Drive / public folder"
+      status: implemented
+      direction: outbound
+
+    - id: edge-ao-egress-archive
+      label: "ao-egress-archive (adapter, not yet deployed)"
+      software: "encrypted archive replication / IPFS operations"
+      status: planned
+      direction: outbound
+      note: "Destination allowlist + TLS validation + separate credentials required (README 5.2)"
+
+    - id: edge-ao-ingress-payment
+      label: "ao-ingress-payment (adapter, not yet deployed)"
+      software: "payment-provider webhook verifier"
+      status: planned
+      direction: inbound
+      note: "Blocked on provider decision (README 18.4)"
+
+    - id: edge-ao-build-update
+      label: "ao-build-update (adapter, not yet deployed)"
+      software: "image / package acquisition before controlled promotion"
+      status: planned
+      direction: outbound
+
+    - id: edge-reticulum-tcp
+      label: "Reticulum public TCP peers / backbone"
+      software: "29 TCPClientInterface peers (public gateway 0.0.0.0:4242)"
+      status: in_progress
+      direction: bidirectional
+      note: "Listener binding verified; firewall/packet reachability unresolved (README 9.4)"
+
+# ---------------------------------------------------------------------------
+# Planned domains with no runtime yet (README 5.1, 11, 18.x)
+# ---------------------------------------------------------------------------
+planned_components:
+  - id: corda-core
+    label: "Corda 5.2.2 DLT core (ao-ledger-core)"
+    software: "Corda 5.2.2 node + cordadb (PostgreSQL 18) persistence"
+    status: blocked
+    note: "Blocked on operator key/certificate ceremony (README 3.2, 18.3)"
+  - id: corda-ingest
+    label: "Ledger-ingestion gateway (ao-ledger-ingest)"
+    software: "mTLS validation, authorization, idempotency, audit"
+    status: blocked
+    note: "Manifest + correlation + signature requirements pending (README 4.4, 11.2)"
+  - id: sales-api
+    label: "Sales API + payment adapter (ao-payment)"
+    software: "sales API, provider webhook verifier"
+    status: planned
+    note: "Blocked on payment provider selection (README 18.4)"
+  - id: sim-fabrication
+    label: "Fabrication / facility simulation (ao-sim-fabrication)"
+    software: "ROS 2 Lyrical + Gazebo Sim 10.5.0 robot cells, AM, kitchen, logistics"
+    status: implemented
+    note: "Headless smoke test passed; GUI workflow pending (README 3.2, 6.A.1)"
+
+# ---------------------------------------------------------------------------
+# Documented claims checked against live state by the generator (drift report)
+# ---------------------------------------------------------------------------
+drift_claims:
+  - id: net-count
+    claim: "v6 2.2/3.2: 'Ten ao-* networks present'"
+    check: network_count
+  - id: mastodon-db-placement
+    claim: "v6 3.3: mastodon state consolidated onto Host PostgreSQL 18.6"
+    check: mastodon_db_container
+  - id: webodm-db-placement
+    claim: "v6 3.3: WebODM backing data consolidated onto Host PG 18 (webodm/PostGIS 3.6.2)"
+    check: webodm_db_container
+  - id: corda-persistence
+    claim: "v6 ES.1/3.3/18.2: Corda 5.2.2 persists in PostgreSQL 'cordadb'; the Corda 4.14.2 H2 scaffold was retired 2026-09-28"
+    check: corda_containers
+  - id: workload-internal
+    claim: "v6 5.1: all workload-domain networks are Internal=true"
+    check: external_workload_networks
+  - id: non-loopback-listeners
+    claim: "v6 4.1 rule 6 + listener-allowlist.yaml (listeners: []) — no public ports without approval"
+    check: non_loopback_listeners
+
+# ---------------------------------------------------------------------------
+# Podman networks (README 5.1 workload domains, 5.2 controlled adapters)
+#   adapter: true  -> controlled ingress/egress adapter network (Internal=false
+#                     is sanctioned for these; they are not workload domains)
+# ---------------------------------------------------------------------------
+networks:
+  ao-sales:
+    purpose: "Sales API, sales PostgreSQL, Mastodon stack, OpenClaw, LM Studio"
+    includes: [sales-db, mastodon-web, mastodon-sidekiq, mastodon-redis, mastodon-streaming, mastodon-db]
+    status: in_progress
+    note: "Mastodon stack running; sales API and provider settlement still pending (README 3.2)"
+  ao-payment:
+    purpose: "Provider webhook verifier and payment adapter"
+    status: planned
+    note: "Blocked on payment-provider selection (README 18.4)"
+  ao-field:
+    purpose: "Heltec gateway, RNS/MeshChatX, telemetry spool, mission-release service"
+    includes: [meshchatx, reticulum]
+    status: in_progress
+    note: "Reticulum/MeshChatX currently run on the host loopback, not as ao-field containers (README 9.2, 20.0)"
+  ao-mapping:
+    purpose: "WebODM, NodeODM, Redis broker, mapping DB, imagery intake/exporter"
+    includes: [webapp, worker, broker, nodeodm]
+    status: implemented
+    note: "UI on 127.0.0.1:8000; GPU smoke test apt-76 passed (README 3.2, 20.0)"
+  ao-sim-vehicle:
+    purpose: "ROS 2 Lyrical, Gazebo Sim 10.5.0, ArduPilot SITL, MAVLink, QGroundControl"
+    includes: [ardupilot-sitl, ros-gazebo, qgroundcontrol]
+    status: implemented
+    note: "Headless runtime verified; GUI workflow pending (README 6.A.1 #3-#4)"
+  ao-sim-fabrication:
+    purpose: "ROS 2, Gazebo facility/robot cells, additive manufacturing, kitchen, logistics"
+    status: implemented
+    note: "Headless simulation smoke test passed (README 3.2)"
+  ao-ledger-ingest:
+    purpose: "mTLS validation gateway, authorization, audit, idempotency"
+    status: blocked
+    note: "Blocked on Corda key/certificate ceremony (README 3.2, 18.3)"
+  ao-ledger-core:
+    purpose: "Corda node, ledger database, certificate/keystore material"
+    status: blocked
+    note: "Corda 5.2.2 scaffolded only; no runtime (README 3.2, 18.3)"
+  ao-data:
+    purpose: "Narrow controlled data plumbing where unavoidable"
+    status: implemented
+    note: "Intentional GUI-less controlled plumbing; no members currently (README 6.A.1 #17)"
+  ao-admin:
+    purpose: "Monitoring, backup, restore validation, administration"
+    includes: [ao-prometheus, ao-node-exporter, ao-grafana, ao-metabase]
+    status: implemented
+    note: "Grafana 127.0.0.1:3001, Metabase 127.0.0.1:3002, Prometheus 127.0.0.1:9090 (README 20.0)"
+
+  ao-egress-community:
+    purpose: "Approved Mastodon/community federation egress adapter"
+    adapter: true
+    includes: [mastodon-web, mastodon-sidekiq]
+    status: implemented
+    note: "Only Mastodon web/Sidekiq join this adapter network (README 5.2, quadlet/sales/*)"
+  ao-reporting-egress:
+    purpose: "Reporting-tool egress to the host PostgreSQL bridge (10.42.0.1:5432)"
+    adapter: true
+    includes: [ao-grafana, ao-metabase]
+    status: implemented
+    note: "Sanctioned narrow relay for ao-admin reporting; host PG stays loopback (README 6.A.2, ISSUE 000601)"
+  ao-ingress-payment:
+    purpose: "Payment-provider webhook receiver (inbound adapter)"
+    adapter: true
+    status: planned
+    note: "Not deployed; blocked on provider decision (README 5.2, 18.4)"
+  ao-egress-archive:
+    purpose: "Encrypted pCloud replication and approved IPFS operations (outbound adapter)"
+    adapter: true
+    status: planned
+    note: "Not deployed; archive credentials pending (README 5.2, WORK 000040)"
+  ao-build-update:
+    purpose: "Image and package acquisition before controlled promotion (outbound adapter)"
+    adapter: true
+    status: planned
+    note: "Not deployed; no direct workload attachment permitted (README 5.2)"
+

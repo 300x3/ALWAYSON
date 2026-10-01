@@ -1,18 +1,18 @@
 #!/usr/bin/env bash
 # ALWAYS ON - configure controlled Mastodon federation and follow a remote account.
-# Run as: pkexec /home/scottw/ALWAYSON-push/scripts/mastodon/federate-local.sh [acct]
+# Run as: pkexec /ALWAYSON/scripts/mastodon/federate-local.sh [acct]
 set -Eeuo pipefail
 # pkexec starts in /root; rootless service-account tools require an accessible cwd.
 cd /tmp
 
 
 REMOTE_ACCT="${1:-300x3@mastodon.social}"
-SALES_USER=alwayson-sales
+SALES_USER=ao-sales
 SALES_UID=$(id -u "$SALES_USER")
-SALES_HOME=/home/alwayson-sales
+SALES_HOME=/home/ao-sales
 SALES_RUNTIME=/run/user/${SALES_UID}
 DBUS="unix:path=${SALES_RUNTIME}/bus"
-SOURCE_ROOT=/home/scottw/ALWAYSON-push
+SOURCE_ROOT=/ALWAYSON
 DEPLOYED_ROOT=/home/scottw/.config/containers/systemd
 
 as_sales() {
@@ -31,22 +31,21 @@ systemctl_sales() {
 }
 
 # The deployed Quadlet source is the runtime source of truth on this host.
-install -m 0644 "$SOURCE_ROOT/quadlet/sales/ao-egress-community.network" \
-  "$DEPLOYED_ROOT/ao-egress-community.network"
-install -m 0644 "$SOURCE_ROOT/quadlet/sales/ao-mastodon-web.container" \
-  "$DEPLOYED_ROOT/disabled/ao-mastodon-web.container"
-install -m 0644 "$SOURCE_ROOT/quadlet/sales/ao-mastodon-sidekiq.container" \
-  "$DEPLOYED_ROOT/disabled/ao-mastodon-sidekiq.container"
+# ao-egress-community was retired 2026-09-30: ao-sales itself is now
+# Internal=false and carries the outbound route, so there is no second
+# network to install, create, or attach here any more.
+install -m 0644 "$SOURCE_ROOT/quadlet/networks/ao-sales.network" \
+  "$DEPLOYED_ROOT/ao-sales.network"
 
-as_sales podman network create --ignore --driver bridge ao-egress-community >/dev/null
 systemctl_sales daemon-reload
+systemctl_sales restart ao-sales-network.service
 systemctl_sales restart ao-mastodon-web.service ao-mastodon-sidekiq.service
 sleep 8
 
-# The generator is host-account scoped; ensure the service-account containers
-# have the egress attachment after recreation.
-as_sales podman network connect ao-egress-community mastodon-web >/dev/null 2>&1 || true
-as_sales podman network connect ao-egress-community mastodon-sidekiq >/dev/null 2>&1 || true
+# The generator is host-account scoped; re-attach the containers to ao-sales so
+# the service account keeps the outbound route after any network recreation.
+as_sales podman network connect ao-sales mastodon-web    >/dev/null 2>&1 || true
+as_sales podman network connect ao-sales mastodon-sidekiq >/dev/null 2>&1 || true
 
 # The host has IPv4 Internet but no IPv6 route. Force Ruby HTTP to prefer IPv4.
 as_sales podman exec -u 0 mastodon-web sh -lc '

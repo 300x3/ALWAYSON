@@ -4,26 +4,33 @@
 # it with Tokodon (KDE Mastodon client) on the desktop.
 # 2026-09-22 (WORK 000060): published via Cloudflare Tunnel at the apex.
 mastodon:
-  hosting: "self-hosted, containerized on the internal ao-sales network (alwayson-sales rootless store); sole public exposure = Cloudflare Tunnel edge"
+  hosting: "self-hosted, containerized on the internal ao-sales network (scottw operator store); sole public exposure = Cloudflare Tunnel edge"
   operator_client: "Tokodon (KDE, /usr/bin/tokodon) - on the operator desktop, origin https://300x3.com"
-  protocol: "https://300x3.com at the Cloudflare edge (TLS terminated there, Free plan $0); origin ports stay 127.0.0.1:3000 / 127.0.0.1:4000 loopback-only; tunnel alwayson-mastodon (cloudflared-alwayson.service) is the only public path"
+  protocol: "https://300x3.com at the Cloudflare edge (TLS terminated there, Free plan $0); origin ports stay 127.0.0.1:3000 / 127.0.0.1:4000 loopback-only; tunnel ao-mastodon-federation (cloudflared-alwayson.service) is the only public path"
   local_domain: "300x3.com"   # apex identity; handles user@300x3.com; www keeps storefront redirect
-  public_federation: true            # WORK 000060 in progress 2026-09-22; edge live, DNS cutover + ao-egress-community pending before first remote contact
-  approved_pub_host: "300x3.com"     # federation delivery restricted to HTTPS/443 via ao-egress-community (path pending)
+  public_federation: true            # ON 2026-09-30 (operator decision). ao-sales is Internal=false, expressly so
+                                     # Sidekiq can deliver ActivityPub over outbound HTTPS/443. This replaces the
+                                     # retired ao-egress-community network. Containment is by network membership:
+                                     # no database, Redis or streaming container is attached to an egress network,
+                                     # and ao-sales has no attachment or route to any other ao-* domain. See README 15.4 / 18.5.
+  approved_pub_host: "300x3.com"     # delivery restricted to HTTPS/443; ao-sales is the only path
   accounts_of_record:
     admin: "admin@300x3.com (Owner; renamed from 300x3admin 2026-09-22)"
     bot:   "bot@300x3.com (renamed from 300x3bot 2026-09-22)"
   registrations: "open with approval gate (approval_required: true) - operator moderation duties per Section 15.4.1"
 
   containment:
-    network: "ao-sales (Internal=true)"
+    network: "ao-sales (Internal=false, for ActivityPub delivery via Sidekiq) - customer-facing; no route or attachment to any other ao-* domain; PDF reports remain the only non-federation output"
     db: "mastodon-db (postgres) on ao-sales - does NOT reuse host PG18"
     redis: "mastodon-redis on ao-sales"
     ui_api_ports:
       web:       "127.0.0.1:3000"
       streaming: "127.0.0.1:4000"
     edge: "cloudflared ingress: ^/api/v1/streaming -> :4000, / -> :3000 (Host/XFP set by cloudflared)"
-    egress: "federation delivery requires ao-egress-community (HTTPS/443, Sidekiq identity) - PENDING before first remote contact"
+    egress: "ActivityPub delivery over HTTPS/443 by Sidekiq, directly on ao-sales. This is the only
+      sanctioned outbound. The non-federation output remains the PDF report (order request in,
+      receipt / work-order status out), consumed by other systems. Database, Redis and streaming
+      are never attached to an egress network (README 15.4 / 18.5)."
     operator_access: "Tokodon OAuth at https://300x3.com (no opened host port)"
 
   services:

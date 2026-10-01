@@ -88,7 +88,7 @@ in §3, in Appendix A, or anywhere else in the document.
 | Change | Effect on this document |
 |---|---|
 | Login-gated secret delivery is intended | Services consuming KDE Wallet secrets start after Plasma login; the ~60s wait is the bounded startup allowance, not a fallback (§14.1.1) |
-| No separate service account | All services run under the operator account; the `alwayson-sales` (UID 993) Mastodon placement is legacy history (§20.0) |
+| No separate service account | All services run under the operator account; the former `alwayson-sales` (UID 993) Mastodon placement is legacy history, since retired (§20.0) |
 | KDE Wallet remains the secret authority | The `org.kde.kwalletd6` bus and method names are flagged for host verification only (§14.1.1) |
 | Corda uses PostgreSQL | Corda is built on V5 against `cordadb` on host PostgreSQL 18; the V4 test install and its H2 database were removed 2026-09-28 and no data is migrated (§18.2) |
 | Metabase works | It runs on the host and serves its login page; the earlier "not serving" finding was a different, undeployed container |
@@ -110,20 +110,23 @@ diagram in this document is a detail view of one part of it and must not contrad
 it. Domain names, network names, and paths are abbreviated here and defined in full
 in the sections referenced.
 
-![ALWAYS ON — complete topology, landscape](assets/alwayson-single-topology.png)
+![ALWAYS ON — complete topology, landscape](assets/ao-single-topology.png)
 
-![ALWAYS ON — topology, left section](assets/alwayson-single-topology-left.png)
+![ALWAYS ON — topology, columns 1–3: outside world, adapters, workload domains](assets/ao-single-topology-left.png)
 
-![ALWAYS ON — topology, right section](assets/alwayson-single-topology-right.png)
+![ALWAYS ON — topology, columns 4–9: stores, field, sales, secrets, what actually happens](assets/ao-single-topology-right.png)
 
 The panels above are the same graphic folded at its seam, for reading at a larger
-scale. For a fully zoomable, resolution-independent view, or to open the two
-portrait panels side by side, use the vector and self-contained viewer:
+scale. The seam falls on the gutter immediately left of the green section 4
+(Stores and reporting) column, so each numbered column sits wholly within one
+panel and none is split across the fold. For a fully zoomable,
+resolution-independent view, or to open the two portrait panels side by side, use
+the vector and self-contained viewer:
 
 | Artefact | Use it for |
 |---|---|
-| [alwayson-single-topology.svg](assets/alwayson-single-topology.svg) | Vector master. Scales to any zoom with no loss; opens in a browser or Inkscape |
-| [alwayson-single-topology.html](assets/alwayson-single-topology.html) | Self-contained interactive viewer — works offline, no server needed |
+| [ao-single-topology.svg](assets/ao-single-topology.svg) | Vector master. Scales to any zoom with no loss; opens in a browser or Inkscape |
+| [ao-single-topology.html](assets/ao-single-topology.html) | Self-contained interactive viewer — works offline, no server needed |
 
 Every detail view in this document is a zoom of that one master graphic, never a
 separate diagram.
@@ -133,19 +136,19 @@ separate diagram.
 | Entry | Network | What it carries | Direction and status |
 |---|---|---|---|
 | **Storefront** — `300x3.com` / `www.300x3.com`, static HTML in the pCloud Public Folder | pCloud (not a Podman network) | Products, docs, legal, downloads. Also the hosted-checkout origin and the public PDF intake forms. | Outbound publication; static asset delivery |
-| **Federation and chat** — `mastodon.300x3.com`, and `chat.300x3.com` (OpenClaw relay / sitebot) | `ao-sales` via the Cloudflare Tunnel | `ao-sales` coordinates social media, email, and Mastodon; the AI bot and chat; and the order-request and receipt workflows. Mastodon web/streaming and OpenClaw chat. Origin stays loopback (`127.0.0.1:3000`, `:4000`, `:18790`). It is the only domain that touches customers directly. | Inbound via `cloudflared-alwayson.service`; outbound federation via the sales egress bridge |
+| **Federation and chat** — `mastodon.300x3.com`, and `chat.300x3.com` (OpenClaw relay / sitebot) | `ao-sales` via the Cloudflare Tunnel | `ao-sales` coordinates social media, email, and Mastodon; the AI bot and chat; and the order-request and receipt workflows. Mastodon web/streaming and OpenClaw chat. Origin stays loopback (`127.0.0.1:3000`, `:4000`, `:18790`). It is the only domain that touches customers directly. | Inbound via `cloudflared-alwayson.service`; outbound federation via Sidekiq on `ao-sales` |
 | **`ao-ingress-payment`** | adapter | **Zelle, PayPal, and Coinbase payment verification.** Receives provider webhook/relay events, verifies the signature, and emits a normalized payment event. | Inbound. **Planned — not yet deployed**, blocked on the provider decision (§18.4) |
 | **`ao-egress-archive`** | adapter | **Moving large data and the image/map/telemetry files into IPFS for transfer after sale**, plus encrypted pCloud replication. Destination allowlist, separate credentials, transfer audit. | Outbound. **Planned — not yet deployed**, archive credentials pending |
 | **`ao-build-update`** | adapter | **Software updates.** Image and package acquisition before controlled promotion, with digest capture and update audit. Never attaches to a workload. | Outbound. **Planned — not yet deployed** |
 
-**AO- means "ALWAYS ON".** Every `ao-*` network is one isolation domain: the ten internal workloads (`ao-sales`, `ao-payment`, `ao-field`, `ao-mapping`, `ao-sim-vehicle`, `ao-sim-fabrication`, `ao-ledger-ingest`, `ao-ledger-core`, `ao-data`, `ao-admin`) are all `Internal=true` with no public listener, and the three adapters above are the deliberate exceptions that are allowed to reach the internet.
+**AO- means "ALWAYS ON".** Every `ao-*` network is one isolation domain. The internal workloads (`ao-payment`, `ao-field`, `ao-mapping`, `ao-sim-vehicle`, `ao-sim-fabrication`, `ao-ledger-ingest`, `ao-ledger-core`, `ao-data`, `ao-admin`, `ao-fabrication`) are all `Internal=true` with no public listener. `ao-sales` is the deliberate exception: it is `Internal=false` so Sidekiq can deliver ActivityPub to remote instances, and it is held to containment by having no attachment or route to any other `ao-*` domain. The adapters above are the other deliberate exceptions.
 
 | Question | Answer |
 |---|---|
 | Where does money move? | Hosted checkout at the provider → `ao-ingress-payment` → verified event → `ao-payment`/`salesdb` → signed manifest → `ao-ledger-ingest` → Corda. Cards are never handled locally. |
 | Where else does a transaction enter? | From the website: email → PDF → Corda processing. A customer email produces a standardized PDF request which is processed into the ledger workflow. |
 | Where is the ledger (the only copy)? | `ao-ledger-core` on `cordadb` in PostgreSQL 18, a separate database with its own roles and backup scope. PostgreSQL is authoritative (§18.2). |
-| What can the internet never reach? | Every `ao-*` workload network. All are `Internal=true` with no public listener. |
+| What can the internet never reach? | The internal `ao-*` workload networks. All are `Internal=true` with no public listener. `ao-sales` is non-internal for ActivityPub delivery only, and still publishes no listener of its own. |
 | What crosses a domain boundary? | Only a signed, minimized manifest through `ao-ledger-ingest`, under mTLS with authorization, replay defence, idempotency, and audit. |
 | Where do secrets come from? | KDE Wallet, after Plasma login, by design. See §14.1.1. |
 | Does monitoring need Grafana? | No. Prometheus is for security only; it acts alone and independently on the other systems to ensure security and to address any problems. Grafana is for stable dashboards and metrics; Metabase is for ad-hoc reporting by users, and a recurring ad-hoc report is promoted into a stable Grafana dashboard. Both read the databases that already exist. |
@@ -190,7 +193,7 @@ rather than restating a status. One component, one status, one place to change i
 | ID | Component | Status | Current state | Next action |
 |---|---|---|---|---|
 | ST-01 | Host platform — Kubuntu, Podman, Quadlet, protected administration | Implemented | Host inventory and base platform verified | Maintain the version matrix |
-| ST-02 | Domain isolation — ten internal workload networks | Implemented | Isolation test verified; all networks `Internal=true` | Add narrow adapters only as required |
+| ST-02 | Domain isolation — ten internal workload networks | Implemented | Isolation test verified; all workload networks `Internal=true` except `ao-sales`, which is non-internal for ActivityPub delivery only | Add narrow adapters only as required |
 | ST-03 | Mapping — WebODM and the photogrammetry drive | Implemented with deviation | GPU-enabled smoke test completed, orthophoto produced; stack is rootless (scottw/mapping store) | Formalize the steady-state rootless/system model designation |
 | ST-04 | Field, Reticulum, and LoRa — RPi5, Waveshare LoRa, Heltec V3, MeshChatX | In progress | Both Heltec LoRa 32 V3/SX1262 RNodes functional and initialized by MeshChatX; `PEOPLE-RADIO` 915 MHz/125 kHz, `DRONE-RADIO` 917 MHz/250 kHz; 32 interfaces configured, none explicitly disabled; RF feedback observable on both bands | Measure and classify the feedback; record RSSI/SNR, noise floor, packet loss, airtime, retries, cross-band isolation (WORK 000700) |
 | ST-05 | Reticulum runtime and connectivity | Partial | Startup logs show auto-connections, peering, announces, and LXMF/Nomad announcements, but also timeouts, network-unreachable errors, and connection refusals; 29 TCP clients enabled | Characterize the connection failures; confirm the public-gateway exposure posture |
@@ -201,8 +204,8 @@ rather than restating a status. One component, one status, one place to change i
 | ST-10 | Ledger ingestion gateway — `ao-ledger-ingest` | Planned | mTLS validation, authorization, audit, and idempotency specified; not deployed | Deploy behind the adapter boundary once the ceremony is complete |
 | ST-11 | Sales and orders — `ao-sales` database | Implemented | Sales DB deployed; order, receipt, and fulfillment records supported | Confirm the reporting projection |
 | ST-12 | Payment adapters — `ao-ingress-payment` | Planned | Sales DB deployed; payment provider, verifier, and API pending; blocked on the provider decision | Select the provider and implement the verifier and API, including the website email > PDF > Corda intake path |
-| ST-13 | Mastodon local stack | Complete (live, federated) | All 5 containers running; web `127.0.0.1:3000` and streaming `127.0.0.1:4000` verified; `/api/v1/instance` reports `mastodon.300x3.com` v4.3.7 | Fold the `alwayson-sales` (UID 993) placement back to the operator account (§20.0) |
-| ST-14 | Mastodon federation edge — Cloudflare Tunnel | Partial | Dedicated tunnel `alwayson-mastodon-federation` active; HTTP/2 connector up; actor and WebFinger 200; canonical accounts `admin@` and `bot@`; local-to-remote follows confirmed | Complete the signed round-trip and reverse-follow evidence |
+| ST-13 | Mastodon local stack | In progress (redeploy) | Quadlet definitions are consolidated onto `ao-sales` and `Internal=false` with Sidekiq present for federation; the operator-account store was found empty on inspection, so the 5 containers are stopped pending either migration of the retired store's data or approval of a fresh initialisation (§20.0) | Migrate or re-initialise the database, then start DB, Redis, web, streaming and Sidekiq under `scottw` and re-verify web, Sidekiq processing and ActivityPub delivery |
+| ST-14 | Mastodon federation edge — Cloudflare Tunnel | Partial | Dedicated tunnel `ao-mastodon-federation` active; HTTP/2 connector up; actor and WebFinger 200; canonical accounts `admin@` and `bot@`; local-to-remote follows confirmed | Complete the signed round-trip and reverse-follow evidence |
 | ST-15 | OpenClaw and LM Studio support chat | In progress | Local stack in progress; OAuth/client issues recorded | Complete OpenClaw and local LLM validation (Tokodon removed per ES.1) |
 | ST-16 | Konqueror — dedicated automation browser | Implemented | Designated as the automation browser in ES.1; Tokodon removed completely | Retain as the only browser role for automation |
 | ST-30 | **Real fabrication — `ao-fabrication`** | **In progress — network, database and collector built; blocked on one credential** | Architecture in §10.3 and §3.3.0. `Internal=true` network on the pinned `10.89.12.0/24`, registered (§18.6). First machine verified live at `10.42.0.96` (Mainsail/Moonraker, `klippy_state: ready`). **`a_fab` created** (loopback-only `127.0.0.1:15433`) and the **host-side pull-only collector** written and verified reaching the machine. **Credential created 2026-09-30** (KDE Wallet `fabrication-db-password`, 32 chars, generated not invented; `~/secrets/fabrication-db.env` 0600). **Collector verified writing** (`1 ok, 0 failed`) and **`ao-fabrication-collect.timer` enabled and running** (`Result=success`). Note `pg_hba` trusts 127.0.0.1, so the role password must be set explicitly or TCP auth fails while the socket appears to work | Resolve the Moonraker API-key open item; add a second machine to `fabrication-machines.json`; keep it separate from `ao-sim-fabrication` |
@@ -760,7 +763,7 @@ Grafana for stable dashboards and metrics, Metabase for ad-hoc reporting, and na
 administration tools. It must not become a shared universal network. `ao-data` remains
 narrow controlled data plumbing, not a default GUI, shared-database, or reporting network.
 
-All workload-domain networks are `Internal=true`. CIDRs are recorded in:
+All workload-domain networks are `Internal=true` except `ao-sales`, which is non-internal so Sidekiq can deliver ActivityPub. CIDRs are recorded in:
 
 ```text
 /ALWAYSON/config/platform/network-cidrs.yaml
@@ -777,10 +780,11 @@ adapter must use separate credentials, destination allowlists, validated DNS/TLS
 firewall policy, minimal permissions, and connection logging.
 
 **`ao-egress-community` is removed.** The Mastodon/community publication and federation
-work is already located inside `ao-sales`, which keeps the Mastodon web and
-background-worker containers on the internal sales network with their own controlled
-egress bridge. A separate community adapter network is therefore not required and is not
-part of the design. This is recorded as group C row "Community publication".
+work is already located inside `ao-sales`, which keeps the Mastodon web,
+Sidekiq, and streaming containers together on the sales network and gives Sidekiq
+the outbound route it needs for ActivityPub delivery. A separate community
+adapter network is therefore not required and is not part of the design. This is
+recorded as group C row "Community publication".
 
 <table>
 <thead>
@@ -796,7 +800,7 @@ part of the design. This is recorded as group C row "Community publication".
 </thead>
 <tbody>
 
-<tr><td colspan="7" style="background-color:#c9ccd1; border-top:2px solid #8a8f98; border-bottom:1px solid #8a8f98; padding:5px 8px; font-weight:bold; letter-spacing:0.04em;">A · WORKLOAD DOMAINS — every row is an <code>Internal=true</code> Podman network; CIDRs in <code>/ALWAYSON/config/platform/network-cidrs.yaml</code></td></tr>
+<tr><td colspan="7" style="background-color:#c9ccd1; border-top:2px solid #8a8f98; border-bottom:1px solid #8a8f98; padding:5px 8px; font-weight:bold; letter-spacing:0.04em;">A · WORKLOAD DOMAINS — every row is an <code>Internal=true</code> Podman network except <code>ao-sales</code>; CIDRs in <code>/ALWAYSON/config/platform/network-cidrs.yaml</code></td></tr>
 <tr><td><code>ao-sales</code></td><td><code>ao-sales</code></td><td>Coordinates social media, email, and Mastodon; the AI bot and chat (OpenClaw/LM Studio); and the order-request and receipt workflows, including the public PDF intake forms and PDF output. The only domain that touches customers directly.</td><td>Signed order, receipt, and entitlement manifests; standardized PDF intake and PDF output; published federation and chat posts</td><td>Sales PostgreSQL</td><td>The public PDF intake forms are the exposure point; Mastodon/chat arrive via the Cloudflare Tunnel to loopback origins</td><td>ST-11, ST-13, ST-15</td></tr>
 <tr><td><code>ao-payment</code></td><td><code>ao-payment</code></td><td>Provider webhook verifier and payment adapter</td><td>Verified normalized payment state</td><td>Minimal event and audit record</td><td>No direct public exposure</td><td>ST-12</td></tr>
 <tr><td><code>ao-field</code></td><td><code>ao-field</code></td><td>Heltec gateway, RNS/MeshChatX, telemetry spool, mission-release service</td><td>Signed telemetry and mission manifests</td><td>Raw packet store and telemetry spool</td><td>No direct public exposure; USB serial and radio only</td><td>ST-04, ST-22</td></tr>
@@ -826,7 +830,7 @@ part of the design. This is recorded as group C row "Community publication".
 <tr><td>Ledger ingestion</td><td><code>ao-ledger-ingest</code></td><td>Signed mTLS manifests</td><td>Receipt/status response</td><td>Audit and idempotency state</td><td>Only to ledger core</td><td>ST-10</td></tr>
 <tr><td>Ledger core</td><td><code>ao-ledger-core</code></td><td>Ledger-ingestion gateway requests only</td><td>No direct public output</td><td>Corda state and PKI</td><td>None directly</td><td>ST-09</td></tr>
 <tr><td>Archive adapter</td><td><code>ao-egress-archive</code></td><td>Approved encrypted archive bundle</td><td>Replication result/status</td><td>Staging and transfer log</td><td>Outbound only</td><td>ST-17</td></tr>
-<tr><td>Community publication</td><td><code>ao-sales</code></td><td>Approved publication or support request</td><td>Remote delivery/status response</td><td>Publication audit log</td><td>Outbound only, via the sales-domain egress bridge</td><td>ST-13, ST-14</td></tr>
+<tr><td>Community publication</td><td><code>ao-sales</code></td><td>Approved publication or support request</td><td>Remote delivery/status response</td><td>Publication audit log</td><td>Outbound only, via Sidekiq on `ao-sales` (HTTPS/443)</td><td>ST-13, ST-14</td></tr>
 
 <tr><td colspan="7" style="background-color:#c9ccd1; border-top:2px solid #8a8f98; border-bottom:1px solid #8a8f98; padding:5px 8px; font-weight:bold; letter-spacing:0.04em;">D · GUI AND WORKFLOW ATTACHMENT MAP — each row is attached to exactly <em>one</em> owning network and denied all the others</td></tr>
 <tr><td>1 · Mastodon web / Konqueror client</td><td><code>ao-sales</code></td><td>Approved <code>localhost</code> Mastodon web/streaming origin; loopback-only publication when enabled.</td><td>—</td><td>—</td><td>Loopback origin only</td><td>ST-13, ST-14</td></tr>
@@ -2841,10 +2845,11 @@ Runtime and tooling:
   and is not a requirement of this design.
 
 **Single service account.** All services run under the operator's own account.
-  No service requires a separate service-account user; the `alwayson-sales`
-  (UID 993) Mastodon placement described in section 20.0 is legacy and is not a
-  required or intended arrangement. It is recorded in section 20.0 as observed
-  history and should be consolidated back to the operator account.
+  No service requires a separate service-account user; the former
+  `alwayson-sales` (UID 993) Mastodon placement described in section 20.0 is
+  legacy and is not a required or intended arrangement. It is recorded in
+  section 20.0 as observed history and has been consolidated back to the
+  operator account `scottw`.
 
 Wallet layout (folder: purpose):
 
@@ -3105,7 +3110,7 @@ Mastodon/community controls:
 
 - Dedicated OAuth registration.
 - Minimum necessary scopes.
-- External access only through the controlled sales-domain egress bridge when
+- External access only through `ao-sales` itself (HTTPS/443) when
   explicitly enabled.
 - Rate limits.
 - Separate approval workflow.
@@ -3124,7 +3129,7 @@ statements, and any publication outside the local bridge workflow.
 ## 15.3 Local 300X3 Mastodon Deployment
 
 The 300X3 Mastodon instance (Mastodon 4.3.7, containerized in the authoritative
-`alwayson-sales` rootless Podman store) is publicly federated at
+`ao-sales` rootless Podman store) is publicly federated at
 **`https://mastodon.300x3.com`**. The main storefront remains on
 `https://300x3.com` and `https://www.300x3.com`; it is not routed to Mastodon.
 Operators use Konqueror and OpenClaw on the desktop. Tokodon is removed completely
@@ -3132,12 +3137,12 @@ Operators use Konqueror and OpenClaw on the desktop. Tokodon is removed complete
 
 Architecture requirements and verified state:
 
-- `ao-sales` remains `Internal=true` and contains the Mastodon database, Redis,
-  streaming service, and web origin. Database and Redis are not attached to
-  the egress network.
-- Community publication is carried inside `ao-sales`. The Mastodon web and
-  background-worker containers reach federation delivery through a controlled
-  outbound bridge only; no database, Redis, or streaming container is attached.
+- `ao-sales` is `Internal=false` and contains the Mastodon database, Redis,
+  streaming service, web origin, and Sidekiq. Database, Redis, and streaming are
+  not attached to any egress network; they are reached only over `ao-sales`.
+- Federation delivery is carried by Sidekiq on `ao-sales` itself over
+  HTTPS/443. No database, Redis, or streaming container is attached to any
+  egress network.
 - Origin web and streaming remain loopback-only: `127.0.0.1:3000` and
   `127.0.0.1:4000`.
 - The sole public Mastodon entry is the dedicated Cloudflare Tunnel hostname
@@ -3176,8 +3181,10 @@ main storefront remains on the apex/`www` hostnames and is not routed to Mastodo
 
 Identity is verified against the live instance: WebFinger and
 `/api/v1/instance` both report `mastodon.300x3.com`, while `300x3.com` serves
-the static storefront. The `scottw` and `alwayson-sales` service accounts are
-separated so the desktop user cannot start a second Mastodon (Section 20.0).
+the static storefront. The `scottw` operator account now runs the 5 Mastodon
+containers directly. The former `alwayson-sales` (UID 993) service account and
+its separate rootless store have been retired, so there is no longer a second
+Mastodon store on this host (Section 20.0).
 Open configuration drift against these values is tracked in section 19.3.
 
 | Area | Architecture requirement |
@@ -3186,11 +3193,11 @@ Open configuration drift against these values is tracked in section 19.3.
 | Storefront preservation | `300x3.com` and `www.300x3.com` retain the filedn static-site redirect; Mastodon is not deployed under a `/mastodon` subpath. |
 | TLS | Required at the public edge; Cloudflare terminates TLS for `mastodon.300x3.com`. |
 | Inbound reachability | Cloudflare Tunnel connector `cloudflared-alwayson.service` routes only the dedicated hostname to `127.0.0.1:3000`. |
-| Outbound reachability | `mastodon-web` and the background workers use the sales-domain egress bridge for federation delivery; database, Redis, and streaming remain isolated on `ao-sales`. |
-| Isolation | `ao-sales` remains `Internal=true`; no database, Redis, or raw origin listener is publicly exposed. |
+| Outbound reachability | `mastodon-sidekiq` performs federation delivery over HTTPS/443 directly from `ao-sales`, which is `Internal=false`. This replaces the retired `ao-egress-community` network. Database, Redis, and streaming stay on `ao-sales` and are never attached to an egress network. |
+| Isolation | `ao-sales` is `Internal=false` to permit ActivityPub delivery, and carries no attachment or route to any other `ao-*` domain. No database, Redis, or raw origin listener is publicly exposed. |
 | Secrets | Tunnel credentials and API keys remain in protected runtime secret storage; never in Git or this README. |
 | Operator duties | Registration approval, moderation, reports, and blocklists remain operator responsibilities. |
-| Service-account placement | The 5 Mastodon containers run under `alwayson-sales` (UID 993) in a **separate rootless store and systemd user manager**, not under `scottw`. `ao-mastodon-web.service` / `ao-mastodon-streaming.service` are masked in the `scottw` manager to prevent a duplicate instance. |
+| Service-account placement | The 5 Mastodon containers run under the `scottw` operator account in the single `ao-sales` rootless store and systemd user manager. The former `alwayson-sales` (UID 993) account and its separate store are retired, so no duplicate Mastodon instance or store can exist on this host. |
 
 ### 15.4.2 Domain and Mastodon Identity Configuration
 
@@ -3232,7 +3239,7 @@ cloudflared-alwayson.service
 mastodon-web
 
 mastodon-web + mastodon background workers
-        │ ao-sales egress bridge
+        │ ao-sales (Sidekiq, HTTPS/443)
         ▼
 Remote ActivityPub/WebFinger endpoints
 ```
@@ -3262,9 +3269,11 @@ TLS requirements:
 Outbound delivery path:
 
 - Mastodon background workers deliver public activities to remote inboxes over
-  HTTPS/443. Mastodon runs without Sidekiq or any other external background-job service.
-- Egress is restricted to the sales-domain egress bridge (Section 3) with HTTPS
-  as the only approved protocol; no broad network membership.
+  HTTPS/443. **Sidekiq is required** and is the component that performs this
+  delivery; it runs as `ao-mastodon-sidekiq` on `ao-sales`.
+- Egress is `ao-sales` itself (Section 3), which is non-internal solely for this
+  purpose, with HTTPS/443 as the only protocol used. No database, Redis, or
+  streaming container is attached to any egress network.
 - Rate and retry behavior are Mastodon defaults; no relay subscription is
   approved unless explicitly decided.
 
@@ -3274,7 +3283,7 @@ Outbound delivery path:
 recorded once, in **§19.3** (outstanding items) and **ES.3** (component status ST-13 and
 ST-14). No status is stated here, because a section does not carry its own status.
 
-1. Dedicated Cloudflare Tunnel `alwayson-mastodon-federation` and DNS route for
+1. Dedicated Cloudflare Tunnel `ao-mastodon-federation` and DNS route for
    `mastodon.300x3.com`; storefront hostnames excluded.
 2. Cloudflare redirect rule narrowed to exclude `mastodon.300x3.com`; the static
    storefront redirect unchanged.
@@ -3652,16 +3661,16 @@ held. It is `Internal=true` and a container on it has no route off the subnet.
 `ao-egress-community` as removed, with community publication carried inside `ao-sales`.
 The migration is only **half done in practice**:
 
-- `ao-sales` was already widened to `Internal=false` on 2026-09-30, expressly so Sidekiq
-  can deliver activities to remote instances directly. `ao-sales.network` and
-  `ao-sales-network.network` both carry the note that it "replaced ao-egress-community".
-- But `mastodon-web` and `mastodon-sidekiq` are still **dual-homed**, attached to *both*
-  `ao-sales` (10.89.0.x) and `ao-egress-community` (10.89.11.x), and the old network is
-  still live and still in the validation allowlist.
-- `quadlet/sales/ao-egress-community.network` is **required** today:
-  `scripts/mastodon/federate-local.sh:34` installs from it, so deleting it breaks the
-  federation runbook. It was briefly missing from the working tree on 2026-09-30 and was
-  restored from git after confirming the deployed copy was byte-identical. **It is a
+- `ao-sales` is `Internal=false`, expressly so Sidekiq can deliver activities to
+  remote instances directly. `ao-sales.network` carries the note that it replaced
+  `ao-egress-community`.
+- `mastodon-web`, `mastodon-sidekiq`, `mastodon-streaming`, `mastodon-db` and
+  `mastodon-redis` are attached to `ao-sales` **only**. The dual-homing to
+  `ao-egress-community` is gone, and the old network has been removed from the
+  host and from the validation allowlist.
+- `quadlet/sales/ao-egress-community.network` is **retired, not restored**.
+  `scripts/mastodon/federate-local.sh` no longer installs it; it now installs
+  `ao-sales.network` alone. Nothing recreates the network.
   load-bearing file while the dual-homing lasts, not a leftover.**
 
 **Remaining work (not done here — it changes live federation):** disconnect
@@ -3712,7 +3721,7 @@ listed; they are recorded as evidence in section 20.
 | 14 | Fresh signed ActivityPub round trip | §15.4.4 | Run after the notification-worker fix; reply/boost round trip received locally. |
 | 15 | Remote account approval/rejection record | §15.4.5 | Recorded separately from local account follow state. |
 | 16 | OpenClaw OAuth and conversation validation | §15.2 | OAuth completes over HTTPS at the federation origin; OpenClaw posts a threaded reply per mention; bridge posts only to the local instance. |
-| 17 | Mastodon service-account consolidation | §14.1.1, §20.0 | `alwayson-sales` (UID 993) placement folded back to the operator account. No separate service-account user is intended. |
+| 17 | Mastodon service-account consolidation | §14.1.1, §20.0 | Complete. The `alwayson-sales` (UID 993) placement has been folded back to the operator account `scottw` and the duplicate store retired. No separate service-account user is used. |
 | 18 | `300x3.com` email routing / MX | §15.3 | Delivery confirmed or formally deferred. |
 | 19 | Per-modal purchase buttons, HTML-300X3 | §7.1.1 | Implemented in the repo and the static export mirrored to the pCloud Public Folder. |
 | 20 | Bootstrap discovery for remote servers | §15.4.4 step 9 | From Konqueror signed in at `https://mastodon.300x3.com`, follow at least one account on `mastodon.social`. Remote servers do not index this instance until first contact occurs. `https://300x3.com` is a static storefront and is not routed to Mastodon. |
@@ -3789,8 +3798,8 @@ operator surface, the discrepancy is stated.
 | Restore | File hash validated; database 14/14 tables restored | ST-18 (see ES.3) |
 | Monitoring stack (ao-admin) | Prometheus + node_exporter + Grafana run as `scottw` Quadlet units on `ao-admin`. Grafana application state is genuinely PostgreSQL-backed against the host cluster over the `/var/run/postgresql` socket (`/api/health` reports `database: ok`), and Prometheus is its only registered datasource. Both Prometheus targets scrape `up` | ST-19 (see ES.3) |
 | Metabase reporting (ao-admin) | **Working.** Metabase runs on the host and serves its login page in the browser, which is the expected operator surface. **Operator-confirmed 2026-09-28; this supersedes the earlier "not serving" finding.** The earlier record described a containerised `ao-metabase` instance failing during application-database setup and cycling under `Restart=on-failure`; that container and that fault are not the service the operator uses | ST-20 (see ES.3) |
-| Mastodon local stack (ao-sales) | All 5 containers run under the `alwayson-sales` service account in a separate rootless store and systemd user manager (Section 20.0); `ao-mastodon-web` / `ao-mastodon-streaming` are masked in the `scottw` manager as a duplicate guard. Web `127.0.0.1:3000` and streaming `127.0.0.1:4000` verified; `/api/v1/instance` reports `mastodon.300x3.com` v4.3.7 | ST-13 (see ES.3) |
-| Mastodon federation edge | Dedicated Cloudflare Tunnel `alwayson-mastodon-federation` for `mastodon.300x3.com`; HTTP/2 connector active; actor and WebFinger 200; storefront hostnames preserved; `LOCAL_DOMAIN=mastodon.300x3.com`; canonical accounts `admin@mastodon.300x3.com` and `bot@mastodon.300x3.com`; community publication carried inside `ao-sales` on web/background-workers only; local-to-remote follows confirmed; reverse-follow validation pending | ST-14 (see ES.3) |
+| Mastodon local stack (ao-sales) | All 5 containers run under the `scottw` operator account in the single `ao-sales` store (Section 20.0); the former `alwayson-sales` account and its duplicate store are retired. Web `127.0.0.1:3000` and streaming `127.0.0.1:4000` verified; `/api/v1/instance` reports `mastodon.300x3.com` v4.3.7 | ST-13 (see ES.3) |
+| Mastodon federation edge | Dedicated Cloudflare Tunnel `ao-mastodon-federation` for `mastodon.300x3.com`; HTTP/2 connector active; actor and WebFinger 200; storefront hostnames preserved; `LOCAL_DOMAIN=mastodon.300x3.com`; canonical accounts `admin@mastodon.300x3.com` and `bot@mastodon.300x3.com`; community publication carried inside `ao-sales` on web/background-workers only; local-to-remote follows confirmed; reverse-follow validation pending | ST-14 (see ES.3) |
 | WebODM operator workflow restart | Stack is rootless (scottw/mapping store); system-store recovery step correctly found no system-store containers — no action needed | ST-03 (see ES.3) |
 | ArduPilot SITL MAVLink | ao-ardupilot-sitl.service flags fixed; HEARTBEAT (sysid 1, QUADROTOR, ArduPilot) validated over tcp:127.0.0.1:5760 via pymavlink | ST-07 (see ES.3) |
 | Heltec firmware | RNode firmware 1.85 recorded via rnodeconf; EEPROM valid; signature unverified (operator signing option) | ST-04 (see ES.3) |

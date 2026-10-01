@@ -3,7 +3,7 @@
 set -Eeuo pipefail
 IFS=$'\n\t'
 
-LOG_DIR="/home/scottw/ALWAYSON-staging/logs/installation"
+LOG_DIR="/ALWAYSON/backups/gitcli/ALWAYSON-staging/logs/installation"
 mkdir -p "$LOG_DIR"
 LOG="$LOG_DIR/agent-install.log"
 
