@@ -208,8 +208,8 @@ rather than restating a status. One component, one status, one place to change i
 | ST-10 | Ledger ingestion gateway — `ao-ledger-ingest` | Planned | mTLS validation, authorization, audit, and idempotency specified; not deployed | Deploy behind the adapter boundary once the ceremony is complete |
 | ST-11 | Sales and orders — `ao-sales` database | Implemented | Sales DB deployed; order, receipt, and fulfillment records supported | Confirm the reporting projection |
 | ST-12 | Payment adapters — `ao-ingress-payment` | Planned | Sales DB deployed; payment provider, verifier, and API pending; blocked on the provider decision | Select the provider and implement the verifier and API, including the website email > PDF > Corda intake path |
-| ST-13 | Mastodon local stack | In progress (redeploy) | Quadlet definitions are consolidated onto `ao-sales` and `Internal=false` with Sidekiq present for federation; the operator-account store was found empty on inspection, so the 5 containers are stopped pending either migration of the retired store's data or approval of a fresh initialisation (§20.0) | Migrate or re-initialise the database, then start DB, Redis, web, streaming and Sidekiq under `scottw` and re-verify web, Sidekiq processing and ActivityPub delivery |
-| ST-14 | Mastodon federation edge — Cloudflare Tunnel | Partial | Dedicated tunnel `ao-mastodon-federation` active; HTTP/2 connector up; actor and WebFinger 200; canonical accounts `admin@` and `bot@`; local-to-remote follows confirmed | Complete the signed round-trip and reverse-follow evidence |
+| ST-13 | Mastodon local stack | Implemented (live on `scottw`) | All 5 containers (`ao-mastodon-db`, `-redis`, `-web`, `-streaming`, `-sidekiq`) active under the operator account in the single `ao-sales` store; `ao-sales` is `Internal=false` for ActivityPub delivery. Database initialized via `rails db:migrate` (100 tables). `LOCAL_DOMAIN=mastodon.300x3.com` — the dedicated host; `300x3.com`/`www` remain the filedn storefront and are not routed here. Env is wallet-backed via `%h/.local/share/ao-secrets/`, with `RAILS_FORCE_SSL=true`. `/api/v1/instance` reports v4.3.7 at `mastodon.300x3.com`; WebFinger resolves; Sidekiq 6.5.12 processing; outbound 443 open. Accounts `@aoadmin` (Owner) and `@bot` verified authenticating with the KDE Wallet passwords. Note: `admin` is reserved by Mastodon, so the Owner handle is `aoadmin` while the email stays `admin@300x3.com` | Confirm remote-to-remote federation delivery and a reverse follow |
+| ST-14 | Mastodon federation edge — Cloudflare Tunnel | Partial | Dedicated tunnel `ao-mastodon-federation` active; HTTP/2 connector up; WebFinger 200 for `acct:aoadmin@mastodon.300x3.com`; canonical accounts `@aoadmin` and `@bot` authenticated from KDE Wallet; outbound 443 from `ao-sales` verified open; Sidekiq performing delivery; local-to-remote follow confirmed (bot follows admin) | Complete the signed round-trip and reverse-follow evidence |
 | ST-15 | OpenClaw and LM Studio support chat | In progress | Local stack in progress; OAuth/client issues recorded | Complete OpenClaw and local LLM validation  |
 | ST-16 | Konqueror — dedicated automation browser | Implemented | Designated as the automation browser in ES.1 | Retain as the only browser role for automation |
 | ST-30 | **Real fabrication — `ao-fabrication`** | **In progress — network, database and collector built; blocked on one credential** | Architecture in §10.3 and §3.3.0. `Internal=true` network on the pinned `10.89.12.0/24`, registered (§18.6). First machine verified live at `10.42.0.96` (Mainsail/Moonraker, `klippy_state: ready`). **`a_fab` created** (loopback-only `127.0.0.1:15433`) and the **host-side pull-only collector** written and verified reaching the machine. **Credential created 2026-09-30** (KDE Wallet `fabrication-db-password`, 32 chars, generated not invented; `~/secrets/fabrication-db.env` 0600). **Collector verified writing** (`1 ok, 0 failed`) and **`ao-fabrication-collect.timer` enabled and running** (`Result=success`). Note `pg_hba` trusts 127.0.0.1, so the role password must be set explicitly or TCP auth fails while the socket appears to work | Resolve the Moonraker API-key open item; add a second machine to `fabrication-machines.json`; keep it separate from `ao-sim-fabrication` |
@@ -3156,7 +3156,7 @@ Architecture requirements and verified state:
 - Mastodon identity is `LOCAL_DOMAIN=mastodon.300x3.com`. The local user
   records retain login emails `admin@300x3.com` and `bot@300x3.com`, while
   their canonical ActivityPub identities are
-  `admin@mastodon.300x3.com` and `bot@mastodon.300x3.com`.
+  `aoadmin@mastodon.300x3.com` and `bot@mastodon.300x3.com` (`admin` is a reserved username in Mastodon, so the Owner handle is `aoadmin`).
 - Public actor and WebFinger endpoints were verified at
   `https://mastodon.300x3.com/actor` and
   `https://mastodon.300x3.com/.well-known/webfinger`.
@@ -3217,7 +3217,7 @@ ALTERNATE_DOMAINS=localhost,127.0.0.1
 
 - Login emails remain `admin@300x3.com` and `bot@300x3.com`.
 - Canonical ActivityPub identities are
-  `admin@mastodon.300x3.com` and `bot@mastodon.300x3.com`.
+  `aoadmin@mastodon.300x3.com` and `bot@mastodon.300x3.com` (`admin` is a reserved username in Mastodon, so the Owner handle is `aoadmin`).
 - WebFinger and actor JSON were verified through the public federation
   hostname.
 - The main storefront remains on `300x3.com` / `www.300x3.com`.
@@ -3598,7 +3598,7 @@ tracked in section 19.3.
 - Edge transport is **HTTP/2** because QUIC stream timeouts were observed on
   this host. The tunnel service is `cloudflared-alwayson.service`.
 - Mastodon identity is `LOCAL_DOMAIN=mastodon.300x3.com`; canonical accounts
-  are `admin@mastodon.300x3.com` and `bot@mastodon.300x3.com`.
+  are `aoadmin@mastodon.300x3.com` and `bot@mastodon.300x3.com` (`admin` is a reserved username in Mastodon, so the Owner handle is `aoadmin`).
 - Community publication is carried inside `ao-sales`, attached to the Mastodon
   web and background-worker containers only; database, Redis, and streaming
   remain on internal `ao-sales`.
@@ -3803,7 +3803,7 @@ operator surface, the discrepancy is stated.
 | Monitoring stack (ao-admin) | Prometheus + node_exporter + Grafana run as `scottw` Quadlet units on `ao-admin`. Grafana application state is genuinely PostgreSQL-backed against the host cluster over the `/var/run/postgresql` socket (`/api/health` reports `database: ok`), and Prometheus is its only registered datasource. Both Prometheus targets scrape `up` | ST-19 (see ES.3) |
 | Metabase reporting (ao-admin) | **Working.** Metabase runs on the host and serves its login page in the browser, which is the expected operator surface. **Operator-confirmed 2026-09-28; this supersedes the earlier "not serving" finding.** The earlier record described a containerised `ao-metabase` instance failing during application-database setup and cycling under `Restart=on-failure`; that container and that fault are not the service the operator uses | ST-20 (see ES.3) |
 | Mastodon local stack (ao-sales) | All 5 containers run under the `scottw` operator account in the single `ao-sales` store (Section 20.0); the former `alwayson-sales` account and its duplicate store are retired. Web `127.0.0.1:3000` and streaming `127.0.0.1:4000` verified; `/api/v1/instance` reports `mastodon.300x3.com` v4.3.7 | ST-13 (see ES.3) |
-| Mastodon federation edge | Dedicated Cloudflare Tunnel `ao-mastodon-federation` for `mastodon.300x3.com`; HTTP/2 connector active; actor and WebFinger 200; storefront hostnames preserved; `LOCAL_DOMAIN=mastodon.300x3.com`; canonical accounts `admin@mastodon.300x3.com` and `bot@mastodon.300x3.com`; community publication carried inside `ao-sales` on web/background-workers only; local-to-remote follows confirmed; reverse-follow validation pending | ST-14 (see ES.3) |
+| Mastodon federation edge | Dedicated Cloudflare Tunnel `ao-mastodon-federation` for `mastodon.300x3.com`; HTTP/2 connector active; actor and WebFinger 200; storefront hostnames preserved; `LOCAL_DOMAIN=mastodon.300x3.com`; canonical accounts `aoadmin@mastodon.300x3.com` and `bot@mastodon.300x3.com` (`admin` is a reserved username in Mastodon, so the Owner handle is `aoadmin`); community publication carried inside `ao-sales` on web/background-workers only; local-to-remote follows confirmed; reverse-follow validation pending | ST-14 (see ES.3) |
 | WebODM operator workflow restart | Stack is rootless (scottw/mapping store); system-store recovery step correctly found no system-store containers — no action needed | ST-03 (see ES.3) |
 | ArduPilot SITL MAVLink | ao-ardupilot-sitl.service flags fixed; HEARTBEAT (sysid 1, QUADROTOR, ArduPilot) validated over tcp:127.0.0.1:5760 via pymavlink | ST-07 (see ES.3) |
 | Heltec firmware | RNode firmware 1.85 recorded via rnodeconf; EEPROM valid; signature unverified (operator signing option) | ST-04 (see ES.3) |
