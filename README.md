@@ -2870,6 +2870,47 @@ and approved WebODM version.
 Use Podman secrets or systemd credentials. Prefer file-based secret delivery
 rather than environment variables.
 
+### 14.1.1 RESOLVED 2026-10-01 — one env file, one wallet entry
+
+**Resolved by operator direction: no second copy is kept.**
+
+Two `mastodon.env` files existed and had diverged. The repo copy was **stale**
+— its `DB_PASS` and `POSTGRES_PASSWORD` differed from the values the running
+instance actually uses (confirmed by comparing before deletion), and its
+`LOCAL_DOMAIN` was `300x3.com` instead of `mastodon.300x3.com`. Anyone who had
+"restored" it would have broken PostgreSQL auth for `mastodon-db`.
+
+The live file was verified working first: `mastodon-db` answers
+`PostgreSQL 17.11`, and `mastodon-web` serves the DB-backed
+`/api/v2/instance`, so the credentials it holds are the working ones.
+
+**Single source of truth now:**
+
+| Location | Role |
+|---|---|
+| `~/.local/share/ao-secrets/mastodon.env` | **The only env file.** Loaded by `EnvironmentFile=` in `quadlet/sales/ao-mastodon-web.container` |
+| KDE Wallet `kdewallet` / `ao-mastodon` / `mastodon-env` | Wallet copy of the same content, verified byte-identical by SHA-256 (1043 bytes, `2dba7da35030466f…`) |
+| KDE Wallet `ao-mastodon` / `mastodon-secret-key-base`, `mastodon-otp-secret`, `mastodon-db-password` | Per-key wallet entries, restored to the live values and verified to match |
+
+**Deleted:** `/ALWAYSON/secrets/mastodon/mastodon.env`.
+
+**Consumers repointed** so nothing reads the removed path:
+`scripts/mastodon/deploy-mastodon.sh` and
+`scripts/mastodon/provision-mastodon-encryption.sh`.
+
+**`genenv` is now non-destructive.** It refuses to run when the env file
+already exists, because it is the live `EnvironmentFile`: regenerating it would
+mint new `SECRET_KEY_BASE` / `OTP_SECRET` / `POSTGRES_PASSWORD`, invalidate
+every session, break DB auth, and write `LOCAL_DOMAIN=localhost` — breaking the
+instance and its federation.
+
+**Defect found and fixed while doing this:** `genenv` derived its path from
+`$AO_ROOT`, which is `/ALWAYSON`, not `$HOME`. It therefore wrote a *second*
+copy to `/ALWAYSON/.local/share/ao-secrets/mastodon.env` — inside the repo,
+untracked and **not** git-ignored, i.e. a secret sitting in the working tree
+waiting to be committed. That file and its directory have been removed, and the
+path now uses `$HOME`. This is the same class of bug as the original drift.
+
 | Secret | Authorized domain |
 |---|---|
 | Sales database password | Sales only |
@@ -3536,6 +3577,36 @@ sourced by every script in `scripts/validation/`.
 
 `ops/` and `operations/` are distinct and both current: `ops/` is Python
 D-Bus wallet tooling, `operations/` is the bash service layer.
+
+### 16.1.1 Quadlet deploy path, and two open findings
+
+**Deploy target corrected 2026-10-01.** `deploy-quadlet-domain.sh`,
+`rollback-domain.sh`, `validate-quadlet-domain.sh`, and
+`enable-domain-services.sh` all targeted
+`~/.config/containers/systemd/<domain>/`. **Quadlet does not read that
+subdirectory.** Verified: `systemctl --user show ao-grafana.service -p
+SourcePath` resolves to the flat path
+`~/.config/containers/systemd/ao-grafana.container`. Deploying therefore
+succeeded silently while changing nothing. All four now use the flat directory,
+which matches the 18 units actually deployed. `rollback-domain.sh` additionally
+no longer does `rm -r` on the directory — with a flat layout that would have
+deleted every other domain's units; it now removes only the named files of the
+domain being rolled back.
+
+`validate-quadlet-domain.sh` was also non-functional: it passed filenames to
+`systemctl --user cat` (which rejects `foo.container`) and never sourced
+`common.sh`, so it aborted on an unbound `AO_ROOT`. It now checks deployment
+and **drift against the repo**, which is the check that matters.
+
+**Open finding 1 — duplicate network source.** `ao-mapping.network` exists in
+both `quadlet/mapping/` and `quadlet/networks/`; the deployed copy came from
+`quadlet/networks/`. The files differ only in the header comment naming their
+own path, so there is no behavioural risk, but one of the two should go.
+
+**Open finding 2 — unit defined but never deployed.**
+`quadlet/sim-vehicle/ao-ardupilot-sitl.container` exists in the repo but was
+never installed, and `ao-ardupilot-sitl.service` is `disabled`. Confirm whether
+the SITL container is still intended before deploying it.
 
 ## 16.2 Script Standard
 
