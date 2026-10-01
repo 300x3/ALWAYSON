@@ -55,20 +55,15 @@ def log(msg):
     sys.stderr.flush()
 
 
-class MachineOffline(Exception):
-    """The machine could not be reached at all.
-
-    Machines on the equipment LAN are powered on only while they are being used
-    (operator decision 2026-09-30), so being unreachable is a normal, expected
-    state and not a collector fault. It is reported as "offline" and never
-    counted as a failure, so the timer does not log a spurious error every pass.
-    A machine that IS reachable but returns unusable data is still a real
-    failure and is reported as one.
-    """
-
-
 def is_offline_error(e):
     """True for 'nothing is listening / no route' style errors.
+
+    Machines on the equipment LAN are powered on only while they are being
+    used (operator decision 2026-09-30), so being unreachable is a normal,
+    expected state and not a collector fault. It is reported as "offline" and
+    never counted as a failure, so the timer does not log a spurious error
+    every pass. A machine that IS reachable but returns unusable data is
+    still a real failure and is reported as one.
 
     HTTPError is a subclass of URLError, so it is checked first: receiving an
     HTTP response means the machine answered, which is not an offline state.
