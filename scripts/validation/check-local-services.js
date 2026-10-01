@@ -37,7 +37,7 @@ const fs = require("fs");
 const net = require("net");
 const os = require("os");
 const path = require("path");
-const { spawnSync } = require("child_process");
+const { spawn, spawnSync } = require("child_process");
 
 const AO_ROOT = process.env.AO_ROOT || "/ALWAYSON";
 const INVENTORY = path.join(AO_ROOT, "config/platform/loopback-services.yaml");
@@ -143,6 +143,7 @@ async function preflight(services) {
   }
   for (const svc of services) {
     if (svc.verifiable === false) continue;
+    if (svc.start_with_check) continue; // started by checkOne just before use
     const u = new URL(svc.url);
     const port = parseInt(u.port || (u.protocol === "https:" ? "443" : "80"), 10);
     if (!(await tcpOk(u.hostname, port))) {
@@ -167,6 +168,46 @@ function resolvePlaywright() {
   return "playwright";
 }
 
+/**
+ * Start a service that is run on demand rather than deployed as a unit.
+ *
+ * scripts/operations/web-console-server.py has no systemd or Quadlet unit, so
+ * nothing has it listening. The preflight TCP check would otherwise abort the
+ * whole run with "nothing listening". This starts it, waits for the port, and
+ * records the child so it can be stopped again, leaving no stray process.
+ */
+function startOnDemand(svc) {
+  const cfg = svc.start_with_check;
+  if (!cfg) return null;
+  // spawn() takes the program and its arguments separately and does NOT parse
+  // a command string. Passing the whole string as the program gave
+  // ENOENT: spawn python3 scripts/... 8099 ENOENT. Split it properly, and
+  // resolve a relative script path against cwd so the child can find it.
+  const parts = String(cfg.command).trim().split(/\s+/);
+  const prog = parts[0];
+  const args = parts.slice(1);
+  const child = spawn(prog, args, { cwd: cfg.cwd || AO_ROOT, detached: false, stdio: "ignore" });
+  // Without a listener, a failed spawn is an unhandled 'error' event that
+  // kills the whole run rather than failing just this one service.
+  child.on("error", (e) => log(`WARN ${svc.name}: could not start (${e.code || e.message})`));
+  const u = new URL(svc.url);
+  const port = parseInt(u.port || "80", 10);
+  return new Promise((resolve) => {
+    const deadline = Date.now() + 10000;
+    const poll = async () => {
+      if (Date.now() > deadline) { log(`WARN ${svc.name}: did not start listening on ${port}`); return resolve(child); }
+      if (await tcpOk(u.hostname, port)) return resolve(child);
+      await new Promise((r) => setTimeout(r, 400));
+      poll();
+    };
+    poll();
+  });
+}
+
+function stopOnDemand(child) {
+  if (child && !child.killed) { try { child.kill("SIGTERM"); } catch (e) { /* already gone */ } }
+}
+
 async function checkOne(context, svc) {
   const name = svc.name;
   if (svc.browser_skip) {
@@ -180,6 +221,7 @@ async function checkOne(context, svc) {
     log(`UNVERIFIABLE ${name} (${svc.url}) - ${reason}`);
     return { name, url: svc.url, status: UNVERIFIABLE, detail: reason };
   }
+  const started = await startOnDemand(svc);
   const page = await context.newPage();
   let response = null;
   try {
@@ -224,6 +266,7 @@ async function checkOne(context, svc) {
     return { name, url: svc.url, status: FAIL, detail };
   } finally {
     await page.close().catch(() => {});
+    if (svc.start_with_check && svc.start_with_check.stop_after) stopOnDemand(started);
   }
 }
 

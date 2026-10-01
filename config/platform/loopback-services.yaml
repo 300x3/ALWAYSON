@@ -142,9 +142,16 @@ services:
     url: http://127.0.0.1:8000/
     verifiable: false
     reason: >-
-      ao-webodm-web.container publishes no port; the UI is internal to the
-      ao-mapping network only. Reaching it would require adding a published
-      loopback port, which is a configuration change and not a verification.
+      No host listener exists and that is correct. ao-webodm-webapp publishes
+      no port: its ports column is empty and podman reports nothing bound on
+      the host. The service was confirmed HEALTHY on 2026-10-01 by probing it
+      from inside the ao-mapping network instead: ao-webodm-webapp sits at
+      10.89.3.18 and answers HTTP 302 when reached from ao-nodeodm on the same
+      network. So the application is up and serving; it is simply not exposed
+      to the host, and operator access is an SSH tunnel to the container.
+      Opening a loopback listener needs separate operator approval, so this
+      stays unverifiable from the host by design rather than being opened up
+      to make a test pass.
 
   - name: MeshChatX local UI
     url: https://127.0.0.1:18000/
@@ -197,3 +204,71 @@ services:
       scripts/openclaw/chat-relay.py. A bare / is not a relay endpoint, so 404
       is the correct answer and proves the listener is alive. The relay is
       reached through the Cloudflare Tunnel hostname, not this port directly.
+
+  # --- operator console: not a deployed service, run on demand -----------
+  - name: ALWAYS ON operator console
+    url: http://127.0.0.1:8099/
+    expect_status: [200]
+    expect_title: ALWAYS ON console
+    expect_body: "loopback operator console"
+    # NOT currently running. scripts/operations/web-console-server.py has no
+    # systemd unit, no Quadlet unit, and no timer, so nothing starts it at
+    # boot; it is launched by hand when the operator wants it. The archived
+    # topology inventory recorded 127.0.0.1:8099 as a python3 listener, so it
+    # has run before. start_with_check starts it for the duration of this run
+    # and stops it afterwards, leaving no stray process.
+    start_with_check:
+      command: python3 scripts/operations/web-console-server.py 8099
+      cwd: /ALWAYSON
+      stop_after: true
+    note: >-
+      Loopback-only operator web console written by hand, not deployed as a
+      service. Three routes: "/" this index, "/sim" the ROS 2 / Gazebo /
+      Foxglove console page, and "/podman" a live Podman and systemd status
+      view. It is the operator-facing front end for the simulation stack, and
+      it is the only thing on the host that presents Foxglove.
+
+  - name: ALWAYS ON console - Foxglove / Gazebo page
+    url: http://127.0.0.1:8099/sim
+    expect_status: [200]
+    expect_title: "ALWAYS ON sim console"
+    expect_body: "127.0.0.1:8765"
+    start_with_check:
+      command: python3 scripts/operations/web-console-server.py 8099
+      cwd: /ALWAYSON
+      stop_after: true
+    note: >-
+      The Gazebo and Foxglove view. The page itself is served fine, but it
+      connects to ws://127.0.0.1:8765. NOTE that port is NOT the foxglove
+      bridge: it is the Gazebo portal container, checked separately below. The
+      page renders and names its endpoint either way, but the live Foxglove
+      bridge is not reachable at that address, so this check proves the console
+      page itself, not a ROS 2 or Foxglove data link.
+
+  # --- Gazebo world portal (the section 10.2 HTML portal) -----------------
+  - name: Gazebo factory world portal
+    url: http://127.0.0.1:8765/
+    expect_status: [200]
+    expect_title: "ALWAYSON — Gazebo factory.world portal"
+    expect_body: "factory.world"
+    note: >-
+      Served by the running container "gazebo-portal", published as
+      127.0.0.1:8765->80/tcp. This is the browser HTML portal that ES.1 and
+      section 10.2.1 require for the fabrication and facility simulation, and
+      it is that requirement being met: the portal documents the world at
+      /ALWAYSON/GAZEBO/worlds/factory.world, lists the four SketchUp mesh
+      exports with their poses, and serves the world and model SDF for
+      inspection.
+
+      It is an index and launch surface, not a 3D viewer. The portal says so
+      itself: a browser cannot render a .world file, and the world must be
+      opened in Gazebo Sim. The portal's own validation table records
+      "gz sdf --check factory.world" as PASS and the headless server load as
+      NOT RUN because no gz-sim-server binary is installed on this host.
+
+      CORRECTION: config/platform/topology-model.yaml and
+      config/platform/version-matrix.yaml both describe 127.0.0.1:8765 as
+      foxglove_bridge. That is wrong. The port is held by the gazebo-portal
+      container serving HTTP, and foxglove_bridge is not listening. Those two
+      files are noted for correction; they were not edited here because that
+      is a separate change to recorded configuration.
