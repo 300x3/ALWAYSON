@@ -89,7 +89,7 @@ in §3 or anywhere else in the document.
 |---|---|
 | Login-gated secret delivery is intended | Services consuming KDE Wallet secrets start after Plasma login; the ~60s wait is the bounded startup allowance, not a fallback (§14.1.1) |
 | No separate service account | All services run under the operator account; the former `alwayson-sales` (UID 993) Mastodon placement is legacy history, since retired (§19 row 17) |
-| KDE Wallet remains the secret authority | The `org.kde.kwalletd6` bus and method names are flagged for host verification only (§14.1.1) |
+| KDE Wallet remains the secret authority | The `org.kde.kwalletd6` bus, object path, interface and method signatures are **verified and recorded** in §14.1.4. |
 | Corda uses PostgreSQL | Corda 5.2.2 CLI is installed; when the node is created it will run against `cordadb` on host PostgreSQL 18; the V4 test install and its H2 database were removed 2026-09-28 and no data is migrated (§18.2) |
 | Metabase works | It runs on the host and serves its login page; the earlier "not serving" finding was a different, undeployed container |
 | RF interference may simply be interference | WORK 000700 closes on a recorded characterization, not a fix |
@@ -2945,72 +2945,6 @@ and approved WebODM version.
 Use Podman secrets or systemd credentials. Prefer file-based secret delivery
 rather than environment variables.
 
-### 14.1.1 RESOLVED 2026-10-01 — one env file, one wallet entry
-
-**Resolved by operator direction: no second copy is kept.**
-
-Two `mastodon.env` files existed and had diverged. The repo copy was **stale**
-— its `DB_PASS` and `POSTGRES_PASSWORD` differed from the values the running
-instance actually uses (confirmed by comparing before deletion), and its
-`LOCAL_DOMAIN` was `300x3.com` instead of `mastodon.300x3.com`. Anyone who had
-"restored" it would have broken PostgreSQL auth for `mastodon-db`.
-
-The live file was verified working first: `mastodon-db` answers
-`PostgreSQL 17.11`, and `mastodon-web` serves the DB-backed
-`/api/v2/instance`, so the credentials it holds are the working ones.
-
-**Single source of truth now:**
-
-| Location | Role |
-|---|---|
-| `~/.local/share/ao-secrets/mastodon.env` | **The only env file.** Loaded by `EnvironmentFile=` in `quadlet/sales/ao-mastodon-web.container` |
-| KDE Wallet `kdewallet` / `ao-mastodon` / `mastodon-env` | Wallet copy of the same content, verified byte-identical by SHA-256 (1043 bytes, `2dba7da35030466f…`) |
-| KDE Wallet `ao-mastodon` / `mastodon-secret-key-base`, `mastodon-otp-secret`, `mastodon-db-password` | Per-key wallet entries, restored to the live values and verified to match |
-
-**Deleted:** `/ALWAYSON/secrets/mastodon/mastodon.env`.
-
-**Consumers repointed** so nothing reads the removed path:
-`scripts/mastodon/deploy-mastodon.sh` and
-`scripts/mastodon/provision-mastodon-encryption.sh`.
-
-**`genenv` is now non-destructive.** It refuses to run when the env file
-already exists, because it is the live `EnvironmentFile`: regenerating it would
-mint new `SECRET_KEY_BASE` / `OTP_SECRET` / `POSTGRES_PASSWORD`, invalidate
-every session, break DB auth, and write `LOCAL_DOMAIN=localhost` — breaking the
-instance and its federation.
-
-**Defect found and fixed while doing this:** `genenv` derived its path from
-`$AO_ROOT`, which is `/ALWAYSON`, not `$HOME`. It therefore wrote a *second*
-copy to `/ALWAYSON/.local/share/ao-secrets/mastodon.env` — inside the repo,
-untracked and **not** git-ignored, i.e. a secret sitting in the working tree
-waiting to be committed. That file and its directory have been removed, and the
-path now uses `$HOME`. This is the same class of bug as the original drift.
-
-| Secret | Authorized domain |
-|---|---|
-| Sales database password | Sales only |
-| Payment webhook secret | Payment verifier only |
-| Payment-provider API secret | Payment adapter only |
-| Mastodon OAuth credential | Community adapter only |
-| Local AI credential/configuration if required | AI service only |
-| Field radio key | Field only |
-| Drone signing key | Drone device only |
-| Corda certificates and keystores | Ledger core only |
-| Ledger client certificates | One distinct certificate per exporter/domain |
-| pCloud archive credential | Archive adapter only |
-| IPFS private-swarm/pinning credential | Archive adapter only |
-
-Example:
-
-```ini
-[Container]
-Secret=sales_db_password,target=/run/secrets/db_password,uid=10001,gid=10001,mode=0400
-```
-
-KDE Wallet may hold interactive operator credentials, but unattended production
-services must use systemd credentials, Podman secrets, or approved
-service-specific secret files. Secret rotation, revocation, expiration, and
-recovery procedures must be documented before production use.
 
 ### 14.1.1 KDE Wallet Secret Management (Implemented)
 
@@ -3139,6 +3073,126 @@ removed. It is gitignored and is a rollback path only.
 `%h/.local/share/ao-secrets/`. The three leftover files under `%h/secrets/` were
 verified byte-identical to their replacements before removal, so nothing was
 uniquely stored there.
+
+
+### 14.1.3 RESOLVED 2026-10-01 — one env file, one wallet entry
+
+**Resolved by operator direction: no second copy is kept.**
+
+Two `mastodon.env` files existed and had diverged. The repo copy was **stale**
+— its `DB_PASS` and `POSTGRES_PASSWORD` differed from the values the running
+instance actually uses (confirmed by comparing before deletion), and its
+`LOCAL_DOMAIN` was `300x3.com` instead of `mastodon.300x3.com`. Anyone who had
+"restored" it would have broken PostgreSQL auth for `mastodon-db`.
+
+The live file was verified working first: `mastodon-db` answers
+`PostgreSQL 17.11`, and `mastodon-web` serves the DB-backed
+`/api/v2/instance`, so the credentials it holds are the working ones.
+
+**Single source of truth now:**
+
+| Location | Role |
+|---|---|
+| `~/.local/share/ao-secrets/mastodon.env` | **The only env file.** Loaded by `EnvironmentFile=` in `quadlet/sales/ao-mastodon-web.container` |
+| KDE Wallet `kdewallet` / `ao-mastodon` / `mastodon-env` | Wallet copy of the same content, verified byte-identical by SHA-256 (1043 bytes, `2dba7da35030466f…`) |
+| KDE Wallet `ao-mastodon` / `mastodon-secret-key-base`, `mastodon-otp-secret`, `mastodon-db-password` | Per-key wallet entries, restored to the live values and verified to match |
+
+**Deleted:** `/ALWAYSON/secrets/mastodon/mastodon.env`.
+
+**Consumers repointed** so nothing reads the removed path:
+`scripts/mastodon/deploy-mastodon.sh` and
+`scripts/mastodon/provision-mastodon-encryption.sh`.
+
+**`genenv` is now non-destructive.** It refuses to run when the env file
+already exists, because it is the live `EnvironmentFile`: regenerating it would
+mint new `SECRET_KEY_BASE` / `OTP_SECRET` / `POSTGRES_PASSWORD`, invalidate
+every session, break DB auth, and write `LOCAL_DOMAIN=localhost` — breaking the
+instance and its federation.
+
+**Defect found and fixed while doing this:** `genenv` derived its path from
+`$AO_ROOT`, which is `/ALWAYSON`, not `$HOME`. It therefore wrote a *second*
+copy to `/ALWAYSON/.local/share/ao-secrets/mastodon.env` — inside the repo,
+untracked and **not** git-ignored, i.e. a secret sitting in the working tree
+waiting to be committed. That file and its directory have been removed, and the
+path now uses `$HOME`. This is the same class of bug as the original drift.
+
+| Secret | Authorized domain |
+|---|---|
+| Sales database password | Sales only |
+| Payment webhook secret | Payment verifier only |
+| Payment-provider API secret | Payment adapter only |
+| Mastodon OAuth credential | Community adapter only |
+| Local AI credential/configuration if required | AI service only |
+| Field radio key | Field only |
+| Drone signing key | Drone device only |
+| Corda certificates and keystores | Ledger core only |
+| Ledger client certificates | One distinct certificate per exporter/domain |
+| pCloud archive credential | Archive adapter only |
+| IPFS private-swarm/pinning credential | Archive adapter only |
+
+Example:
+
+```ini
+[Container]
+Secret=sales_db_password,target=/run/secrets/db_password,uid=10001,gid=10001,mode=0400
+```
+
+KDE Wallet may hold interactive operator credentials, but unattended production
+services must use systemd credentials, Podman secrets, or approved
+service-specific secret files. Secret rotation, revocation, expiration, and
+recovery procedures must be documented before production use.
+
+### 14.1.4 Verified kwalletd6 D-Bus access (2026-10-01)
+
+Confirmed on the running host, for services that must read secrets unattended.
+
+| Element | Verified value |
+|---|---|
+| Bus name | `org.kde.kwalletd6` (also answers `org.kde.kwalletd`, `org.kde.kwalletd5`) |
+| Object path | `/modules/kwalletd6` |
+| Interface | `org.kde.KWallet` |
+| Wallet in use | `kdewallet` (`wallets()` returns `as 1 "kdewallet"`) |
+
+Signatures for the methods the tooling actually uses:
+
+```
+wallets()                      -> as
+open(s wallet, x appId, s app)  -> i handle      (-1 = unavailable/locked)
+close(i handle, s app, b forget) -> i
+readPassword(i, s folder, s key, s app)  -> s
+writePassword(i, s folder, s key, s value, s app) -> i
+folderList(i handle, s app)     -> as
+hasFolder(i, s folder, s app)   -> b
+createFolder(i, s folder, s app) -> b
+entriesList(i, s folder, s app) -> a{sv}
+```
+
+**Two `busctl` pitfalls, both of which produce misleading errors:**
+
+1. `int64` arguments need an explicit type prefix — `open kdewallet x 0 app`.
+   Without it: `Unknown signature type k`. Omit `x` and the call fails.
+2. Several methods are **overloaded**, and `busctl` picks one signature:
+   `isOpen` exists as both `isOpen(i)` and `isOpen(s)`, so
+   `isOpen kdewallet` fails with `Too few parameters for signature`.
+
+There is **no `listFolders` method** — the folder enumeration method is
+`folderList`. There is also no `introspect` on `org.kde.KWallet`; that lives on
+`org.freedesktop.DBus.Introspectable`. Both mistakes were made and corrected
+while auditing the Mastodon bridge.
+
+**Environment is not a barrier.** The systemd user manager carries
+`DBUS_SESSION_BUS_ADDRESS`, `DISPLAY`, `WAYLAND_DISPLAY` and
+`XDG_RUNTIME_DIR`, so a user unit needs no `Environment=` additions to reach
+the wallet. An earlier assumption that the minimal `Environment=` block on
+`mastodon-openclaw-bridge.service` blocked wallet access was **wrong**.
+
+**Why the bridge still gets HTTP 401.** Not a D-Bus or transport problem — the
+token is read successfully but is not a token. KDE Wallet key
+`ao-mastodon` / `openclaw-bot-access-token` holds a **43-character phrase**
+(contains spaces), while a Mastodon access token is **64 hex characters**.
+`verify_credentials` therefore correctly rejects it. A real token must be
+minted for the bot account and stored under that key; minting a production
+credential requires operator approval, so this stays open under §19.3 item 16.
 
 ## 14.2 Version Matrix
 
@@ -3862,7 +3916,16 @@ No installation or deployment agent may claim completion until it produces:
 **Status:** Approved on 2026-08-24.
 
 **Rationale:** The installed and smoke-tested environment differs from an
-earlier Jazzy/Harmonic draft.
+earlier Jazzy/Harmonic draft, and is pinned to what the vendor actually publishes
+for Ubuntu 26.04 "resolute".
+
+**Compatibility evidence.** Gazebo Sim **10.5.0** (Jetty) is the newest Gazebo
+available for Ubuntu 26.04; `gz-sim11-*` and `gz-sim9-*` have no candidate on the
+`resolute` suite, and the OSRF `resolute` suite is actively maintained. The
+installed `gz-sim10-server` equals the candidate version, so the image is at the
+newest available and is not running a superseded Gazebo on a 26.04 host. Full
+verification, including per-package candidate versions, is recorded in §10.2.2
+under "Gazebo version on Ubuntu 26.04, and why it is the newest".
 
 **Required control:** Record versions, image digests, compatibility test
 results, and any future migration plan in the version matrix.
@@ -4099,25 +4162,190 @@ The world existed. The other three did not.
 **Platform.** Rebuilt on Ubuntu 26.04 "resolute" to match the host, with Gazebo
 Sim 10.5.0 and ROS 2 Lyrical, per operator authorisation to move the versions to
 whatever suits Kubuntu 26 LTS. `gz-sim-gui-client` is present in the new image
-and was not present in the old one. `packages.ros.org` cannot be used from this
-host or a container: it presents a certificate for `CN=*.osuosl.org` whose
-subjectAltName does not cover `packages.ros.org`, so verification fails. That
-verification was not disabled to work around it. The consequence is that
-`ros_gz` and `foxglove_bridge` cannot be installed, so **Foxglove remains
-blocked**; the Gazebo GUI itself does not depend on them.
+and was not present in the old one.
 
-**Gazebo GUI: partial.** The client starts, resolves its Xauthority cookie,
-attaches to `GZ_PARTITION=alwayson_fabrication_sim`, loads the QML interface and
-binds to `/world/factory/control` and `/world/factory/stats`. The transport
-arrangement is settled and verified: gz-transport discovery does not cross
-Podman's per-container bridge, so the client shares the server's network
-namespace; with that, `gz model --list` returns the world's models. The 3D view
-itself does not render. Passing the GPU through CDI yields a device node but no
-usable EGL context, `LIBGL_ALWAYS_SOFTWARE` is refused because the API has
-already selected a hardware device, and `QT_QUICK_BACKEND=software` renders the
-Qt interface but not the scene, which segfaults in `QOpenGLContext::done`.
-`ao-sim-fabrication-gui-gz` is stopped rather than left crash-looping. Closing
-this needs an EGL-capable GPU passthrough decision.
+**`packages.ros.org` is unreachable, but this blocks updates, not the currently
+installed ROS 2 stack.** This needs stating precisely, because "ROS packages
+cannot be installed" would be wrong and has previously been overclaimed.
+
+The repository hostname fails TLS verification from this host and from
+containers. Verified directly:
+
+```text
+$ curl -sSI https://packages.ros.org/ros2/ubuntu/dists/resolute/InRelease
+curl: (60) SSL: no alternative certificate subject name matches target hostname
+       'packages.ros.org'
+$ openssl s_client -connect packages.ros.org:443 -servername packages.ros.org
+subject=... O=Oregon State University, CN=*.osuosl.org
+X509v3 Subject Alternative Name: DNS:osuosl.org, DNS:*.osuosl.org
+```
+
+The certificate is valid and unexpired but is issued for `*.osuosl.org`, whose
+subjectAltName does not cover `packages.ros.org`. This is an upstream
+server-side name mismatch, not a local CA problem, and **certificate
+verification was not disabled to work around it** — doing so would weaken
+transport security for every package on the host.
+
+Consequences, which are *not* the same thing:
+
+- **Already installed and working: ROS 2 Lyrical itself, and the `ros_gz`
+  bridge.** The host has `/opt/ros/lyrical` (`ROS_DISTRO=lyrical`) with 313
+  `ros-lyrical-*` packages, including the bridge binaries:
+  `ros-lyrical-ros-gz-bridge 3.0.10-1resolute.20260915.142616`, providing
+  `/opt/ros/lyrical/lib/ros_gz_bridge/{bridge_node,parameter_bridge,static_bridge}`,
+  plus `ros-lyrical-ros-gz-image` and `ros-lyrical-ros-gz-interfaces`.
+  These were installed before the repository broke, so the ROS 2 and ROS↔Gazebo
+  bridge capability on this host is real and is what the "ROS-Gazebo bridge
+  tests passed" evidence elsewhere in this document refers to.
+- **Not possible: installing *new* or *updating* ROS 2 packages**, because that
+  requires the unreachable repository. This is why the simulation images are
+  built from a pinned `docker.io/library/ros` digest rather than from an apt
+  repository, and why the image must be rebuilt to gain packages.
+- **`foxglove_bridge` remains blocked**, so **Foxglove stays blocked**. It was
+  never installed and cannot be fetched.
+- **The Gazebo GUI does not need the bridge at all.** It attaches to the world
+  over gz-transport using `GZ_PARTITION`, which is why the GUI is unaffected by
+  the repository failure.
+
+### Gazebo and ROS 2 versions on Ubuntu 26.04, and why they are the newest
+
+**Gazebo Sim 10.5.0 (collection "Jetty") is the latest Gazebo available for
+Ubuntu 26.04 "resolute", and it is what is installed.** This is not a pin chosen
+for convenience; it is the ceiling of what the vendor publishes for this
+platform.
+
+**ROS 2 Lyrical is likewise the correct and current distribution for Ubuntu
+26.04**, and it is installed at `/opt/ros/lyrical`. Upstream Gazebo's own
+compatibility table lists **ROS 2 Lyrical (LTS) + Gazebo Jetty (LTS)** as the
+✅ recommended combination, so the OS / ROS 2 / Gazebo triple recorded
+throughout this document is the vendor-supported stack, not a locally invented
+mix. The full supported matrix upstream is:
+
+| ROS 2 distribution | Ubuntu target | Gazebo |
+|---|---|---|
+| Humble Hawksbill (LTS) | 22.04 | Fortress (LTS) |
+| Jazzy Jalisco (LTS) | 24.04 | Harmonic (LTS) |
+| Kilted Kaiju | 24.04 | Ionic |
+| **Lyrical Luth (LTS)** | **26.04** | **Jetty (LTS)** ✅ |
+| Rolling | development | Jetty (moving target) |
+
+Gazebo Classic 11 is end-of-life and is **not** a supported target here; the
+modern integration is `ros_gz`, not `gazebo_ros_pkgs`.
+
+Verified against the live OSRF apt index
+(`packages.osrfoundation.org/gazebo/ubuntu-stable`, suite `resolute`) on
+2026-10-01, by reading candidate versions inside the image rather than by
+inference:
+
+| Package | resolute candidate |
+|---|---|
+| `gz-sim10-server` | `10.5.0-2~resolute` |
+| `gz-sim10-cli` | `10.5.0-2~resolute` |
+| `libgz-sim10-gui` | `10.5.0-2~resolute` |
+| `libgz-rendering10-ogre2` | `10.0.2-3~resolute` |
+| `gz-jetty` (metapackage) | `1.0.0-2~resolute` |
+
+`gz-sim11-server`, `gz-sim11-gui`, `gz-sim9-gui` and every other `gz-sim`
+major return **no candidate** on this suite, and `apt-cache search '^gz-sim[0-9]+-server$'`
+returns exactly one result, `gz-sim10-server`. So 10.5.0 is the newest Gazebo for
+Ubuntu 26.04, not an older Gazebo left behind on a 26.04 host.
+
+Supporting facts that align with this:
+
+- **Jetty is an LTS collection**, supported September 2025 to May 2031, so
+  10.5.0 is the supported branch for the life of this platform, not a stepping
+  stone to a nearer successor.
+- **The `resolute` suite is actively published.** The OSRF suite directory shows
+  `resolute` last updated 2026-09-29, newer than `noble` (2026-09-18) and
+  `jammy` (2026-09-15). Gazebo publishes for resolute natively; nothing is being
+  back-ported or held back for this platform.
+- **The image is at the candidate version.** Installed `gz-sim10-server` is
+  `10.5.0-2~resolute`, equal to the candidate, so the image is current and no
+  `apt upgrade` would move Gazebo.
+- **The rendering engine is versioned separately and is not stale.**
+  `libgz-rendering10-ogre2` is `10.0.2`; its major is 10 to match the Sim major
+  release, and its lower minor is normal, not an older Gazebo.
+
+**If a future Gazebo 11 or 12 appears for resolute**, the upgrade path is to
+change the `gz-sim10-*` package names in
+`GAZEBO/containers/gz-sim/Containerfile.resolute` to the new major, rebuild, and
+re-verify the GUI. This document must then be updated in the same commit. Gazebo
+does not support two Sim majors side by side in one image.
+
+**One genuine image defect, unrelated to versions, is recorded here because it
+affects this same GUI.** Every `apt-get` in the Containerfile uses
+`--no-install-recommends`, and `libqt6gui6` only *Recommends* `qt6-svg-plugins`.
+The Qt SVG image-format plugin was therefore silently absent
+(`imageformats/` held only gif/ico/jpeg). gz-gui's EntityTree QML loads its tree
+icons from the compiled `qrc:/Gazebo/images/chevron-right.svg` resource, which
+failed to decode on every expand with `QQuickImage: Error decoding ...:
+Unsupported image format`; the client then aborted about a second later with
+`basic_string: construction from null is not valid` thrown from a Qt event
+handler, and systemd restarted it repeatedly (`NRestarts=39`), each restart
+seizing keyboard and pointer focus. `qt6-svg-plugins` is now installed
+explicitly; verified in-image that it ships exactly the two missing files,
+`qt6/plugins/imageformats/libqsvg.so` and `qt6/plugins/iconengines/libqsvgicon.so`.
+
+**Image provenance note.** `GAZEBO/containers/gz-sim-gui/Containerfile` is the
+superseded Ubuntu 24.04 "noble" image and must not be built; it is retained only
+as a record of the failed noble attempt. The operative image is built from
+`GAZEBO/containers/gz-sim/Containerfile.resolute`, `FROM` the pinned
+`docker.io/library/ros` resolute digest, tagged `gz-sim10-resolute`. The GUI
+client is selected by overriding `ENTRYPOINT` in the Quadlet unit rather than by
+maintaining a second, separate GUI image — which is also why that stale 24.04
+file never affected the running deployment.
+
+**Gazebo GUI: two faults diagnosed, fix awaiting verification.** The client
+starts, resolves its Xauthority cookie, attaches to
+`GZ_PARTITION=alwayson_fabrication_sim`, loads the QML interface and binds to
+`/world/factory/control` and `/world/factory/stats`. The transport arrangement
+is settled and verified: gz-transport discovery does not cross Podman's
+per-container bridge, so the client shares the server's network namespace; with
+that, `gz model --list` returns the world's models.
+
+Two separate faults were found:
+
+1. **Blank viewport (render engine uninitialised).** `GZ_RENDERING_RESOURCE_PATH`
+   had been pointed at the project models directory, which *replaced* Gazebo's
+   packaged Ogre2 media root instead of adding to it. gz-rendering raises
+   `OGRE EXCEPTION(6:FileNotFoundException): Data folder provided contains no
+   valid template shader files`, the render engine stays uninitialised, and the
+   viewport clears to the background colour with no geometry. Corrected to the
+   stock media root `/usr/share/gz/gz-rendering`; project models are found
+   through `GZ_SIM_RESOURCE_PATH` / `GZ_SIM_SYSTEM_PLUGIN_PATH`, which are the
+   correct variables for them. Note this variable is **not** a search list: a
+   colon-separated value is treated as one directory name.
+2. **Client abort ~1s after start (the focus-stealing crash loop).** The Qt SVG
+   image-format plugin was missing from the image, so gz-gui's EntityTree icons
+   failed to decode and the client died with `basic_string: construction from
+   null is not valid`. Fixed by installing `qt6-svg-plugins` explicitly in
+   `Containerfile.resolute`. See the Qt SVG plugin defect recorded above.
+
+**Verification status — do not read this section as a passing result yet.**
+Fault 1's fix is verified in the live GPU-backed service: `/usr/share/gz/gz-rendering`
+eliminated every OGRE exception and the GUI bound `/world/factory/control` and
+`/world/factory/stats`. Fault 2's fix is verified only at the package level so
+far — the plugin file is confirmed present and is confirmed to be the one that
+supplies the failing resource — and **the rebuilt image had not finished
+building at the time of writing**. Until a rebuilt GUI is started and observed
+rendering factory geometry with no OGRE or null-string errors and a stable
+`NRestarts`, the claim "rendering works" is not established, and earlier notes in
+this repository that described full GUI stability were premature: the scene
+attached but rendering was not healthy.
+
+GPU rendering uses CDI passthrough (`nvidia.com/gpu=0`, plus `/dev/dri`) with the
+EGL vendor pinned via `__EGL_VENDOR_LIBRARY_FILENAMES`. The pin is required:
+without it Mesa's dri2 platform claims the NVIDIA render node, logs
+`pci id for fd 85: 10de:1b80, driver (null)` and `egl: failed to create dri2
+screen`, and never defers to the NVIDIA vendor. Software fallbacks are
+deliberately not used — `LIBGL_ALWAYS_SOFTWARE` is refused once the API has
+selected a hardware device, and `QT_QUICK_BACKEND=software` renders the Qt
+interface but not the 3D scene, which segfaults in `QOpenGLContext::done`.
+
+`ao-sim-fabrication-gui-gz` is currently **stopped and masked** so that it
+cannot restart and seize keyboard and pointer focus while this is being
+verified. The mask is a temporary containment during bring-up, not the intended
+steady state.
 
 ## 18.4 Payment Provider Decision
 
@@ -4327,7 +4555,7 @@ ST-05, ST-22, and ST-07 in ES.3; this table records only what is not yet done.
 
 | # | Item | Standard served | Acceptance criteria |
 |---|---|---|---|
-| 32 | kwalletd6 D-Bus access details | §14.1.1 | Confirm the `org.kde.kwalletd6` bus name and the method names on the running host, then record the verified values in §14.1.1. Wallet authority itself is settled; only the access details are unverified. |
+| 32 | kwalletd6 D-Bus access details | §14.1.1 | **Done 2026-10-01.** Verified and recorded in §14.1.4: bus `org.kde.kwalletd6`, object `/modules/kwalletd6`, interface `org.kde.KWallet`, plus the `wallets` / `open` / `readPassword` / `writePassword` / `folderList` / `hasFolder` / `entriesList` signatures and two `busctl` pitfalls. |
 | 33 | Metabase persistence and first read-only query | §15.1, §17.2 | **Provision the Metabase application database** (dedicated PostgreSQL database for the Metabase schema, saved questions, dashboards, and subscriptions) and the per-source **read-only** reporting roles, one per PostgreSQL and MySQL source with no write, DDL, or owner privilege. Then confirm state survives restart and a protected ad-hoc read-only reporting query succeeds with no source writes. The application database must never be written to by a reporting source. |
 | 34 | Version matrix refresh | §14.2 | **Partly done 2026-10-01.** The `mastodon` rows now record the digests actually in use (they recorded tags, understating the pinning), `local_domain` corrected to `mastodon.300x3.com`, and the `RAILS_FORCE_SSL=true` note replaced — those switches are inert, and the local UI is served over TLS by the loopback proxy at `https://127.0.0.1:3300`. A new `operations` section records the Grafana/Metabase/Prometheus/node-exporter digests. **Remaining:** still hand-edited rather than captured, and the Gazebo `nginx:alpine` row is knowingly unpinned. |
 | 35 | Version-matrix capture automation | §14.2, §16 | `scripts/validation/capture-version-matrix.sh` documented as the producer, with a stated refresh requirement. **Now the more urgent half of item 34:** six services were digest-pinned and five rows corrected by hand, so the next hand edit can equally re-introduce a stale row. Capture digests from the deployed units instead of typing them. |

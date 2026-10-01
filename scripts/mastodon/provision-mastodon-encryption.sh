@@ -8,7 +8,7 @@ KW=scripts/ops/kwallet-provision.sh
 # The single authoritative env file - the same one
 # quadlet/sales/ao-mastodon-web.container loads via EnvironmentFile=. The old
 # repo-local secrets/mastodon/mastodon.env is gone; keeping a second copy is
-# what let the encryption keys and DB credentials diverge. See README 14.1.1.
+# what let the encryption keys and DB credentials diverge. See README 14.1.3.
 ENV="$HOME/.local/share/ao-secrets/mastodon.env"
 
 have() { grep -q "^$1=" "$ENV" 2>/dev/null && [ -n "$(sed -n "s/^$1=//p" "$ENV" | tail -1)" ]; }

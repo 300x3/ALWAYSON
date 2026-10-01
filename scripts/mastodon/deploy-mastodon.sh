@@ -25,7 +25,7 @@ IFS=$'\n\t'
 # went stale on DB_PASS/POSTGRES_PASSWORD and is no longer kept: two files that
 # must stay identical are the drift mechanism, not a safeguard. The working
 # values are also held in KDE Wallet (kdewallet / ao-mastodon / mastodon-env).
-# See README 14.1.1.
+# See README 14.1.3.
 # NOTE: this must be $HOME, not $AO_ROOT. AO_ROOT is /ALWAYSON, so
 # "${AO_ROOT}/.local/..." resolves INSIDE the repo and silently writes a second
 # copy there - which is how the drift started. Verified 2026-10-01.
@@ -44,7 +44,7 @@ genenv() {
   if [[ -f "$SEC" ]]; then
     echo "REFUSING: $SEC already exists and is the live mastodon-web env." >&2
     echo "  Its values are in KDE Wallet: kdewallet / ao-mastodon / mastodon-env" >&2
-    echo "  Edit it in place, or back it up first. See README 14.1.1." >&2
+    echo "  Edit it in place, or back it up first. See README 14.1.3." >&2
     return 1
   fi
   install -d -m 0700 -o scottw -g scottw "$(dirname "$SEC")"
