@@ -49,6 +49,15 @@ print(val, end='')
                 val=$(fetch_secret "webodm-postgres-password")
                 printf 'POSTGRES_PASSWORD=%s\n' "$val"
                 ;;
+            fabrication-db-password)
+                val=$(fetch_secret "fabrication-db-password")
+                printf 'POSTGRES_PASSWORD=%s\n' "$val"
+                # The role is fabrication_role and the database is a_fab; a_fab is
+                # the database name, not the role. Writing POSTGRES_USER=a_fab
+                # makes the image try to bootstrap a role that does not exist.
+                printf 'POSTGRES_USER=fabrication_role\n'
+                printf 'POSTGRES_DB=a_fab\n'
+                ;;
             sales-db-password)
                 val=$(fetch_secret "sales-db-password")
                 printf 'POSTGRES_PASSWORD=%s\n' "$val"
