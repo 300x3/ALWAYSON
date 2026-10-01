@@ -4315,9 +4315,10 @@ ST-05, ST-22, and ST-07 in ES.3; this table records only what is not yet done.
 
 # 20. Current Verification Evidence
 
-**Status as of 2026-09-25.** Each row records the outcome of a check against
-the running system, not design intent. Where a component is misleading in the
-operator surface, the discrepancy is stated.
+**Status as of 2026-10-01** (rows below carry the date of the run they
+record). Each row records the outcome of a check against the running system,
+not design intent. Where a component is misleading in the operator surface,
+the discrepancy is stated.
 
 | Item | Evidence | Status — see ES.3 |
 |---|---|---|

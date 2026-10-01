@@ -1,6 +1,6 @@
 host:
-  os_release: "Ubuntu 26.04 LTS"
-  kernel: "7.0.0-31-generic"
+  os_release: "Ubuntu 26.04.1 LTS"    # refreshed 2026-10-01; was recorded as "26.04 LTS"
+  kernel: "7.0.0-34-generic"          # refreshed 2026-10-01; was recorded as 7.0.0-31-generic
   systemd: "259"
   podman: "5.7.0"
   quadlet_capability: "Quadlet systemd generator functional in podman 5.7.0 (user scope)"
