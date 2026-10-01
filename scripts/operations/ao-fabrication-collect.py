@@ -23,6 +23,7 @@ import argparse
 import hashlib
 import json
 import os
+import socket
 import subprocess
 import sys
 import time
@@ -52,6 +53,36 @@ QUERY = "print_stats&display_status&extruder&heater_bed&webhooks"
 def log(msg):
     sys.stderr.write("ao-fabrication-collect: %s\n" % msg)
     sys.stderr.flush()
+
+
+class MachineOffline(Exception):
+    """The machine could not be reached at all.
+
+    Machines on the equipment LAN are powered on only while they are being used
+    (operator decision 2026-09-30), so being unreachable is a normal, expected
+    state and not a collector fault. It is reported as "offline" and never
+    counted as a failure, so the timer does not log a spurious error every pass.
+    A machine that IS reachable but returns unusable data is still a real
+    failure and is reported as one.
+    """
+
+
+def is_offline_error(e):
+    """True for 'nothing is listening / no route' style errors.
+
+    HTTPError is a subclass of URLError, so it is checked first: receiving an
+    HTTP response means the machine answered, which is not an offline state.
+    """
+    if isinstance(e, urllib.error.HTTPError):
+        return False
+    if isinstance(e, urllib.error.URLError):
+        return True
+    if isinstance(e, (ConnectionError, TimeoutError, socket.timeout)):
+        return True
+    if isinstance(e, OSError):
+        # errno 111 ECONNREFUSED, 113 EHOSTUNREACH, 101 ENETUNREACH, 110 ETIMEDOUT
+        return getattr(e, "errno", None) in (101, 110, 111, 113)
+    return False
 
 
 def load_machines(path=MACHINES_FILE):
@@ -215,7 +246,7 @@ def write_record(rec, dry_run=False):
 
 
 def run_once(machines, dry_run=False, verbose=False):
-    ok = fail = 0
+    ok = fail = offline = 0
     for machine_id, base, apikey in machines:
         try:
             rec = collect_one(machine_id, base, apikey)
@@ -229,9 +260,14 @@ def run_once(machines, dry_run=False, verbose=False):
                 fail += 1
         except (urllib.error.URLError, OSError, ValueError, RuntimeError) as e:
             # One machine being down must never stop the others.
-            log("collect failed for %s: %s" % (machine_id, e))
-            fail += 1
-    log("pass complete: %d ok, %d failed" % (ok, fail))
+            if is_offline_error(e):
+                # Powered off or disconnected: expected, not a fault.
+                offline += 1
+                log("skipped %s: offline (%s)" % (machine_id, e))
+            else:
+                log("collect failed for %s: %s" % (machine_id, e))
+                fail += 1
+    log("pass complete: %d ok, %d failed, %d offline" % (ok, fail, offline))
     return fail
 
 
