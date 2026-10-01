@@ -1,0 +1,21 @@
+# Gazebo Sim 10 (Jetty, matches host Gazebo Sim 10.5.0) headless server.
+# Built rootless via podman (no sudo needed). Uses the OSRF apt repo
+# (per https://gazebosim.org/docs/latest/install_ubuntu/) on Ubuntu Noble.
+FROM docker.io/library/ubuntu:24.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      curl lsb-release gnupg ca-certificates \
+    && curl https://packages.osrfoundation.org/gazebo.gpg \
+      --output /usr/share/keyrings/pkgs-osrf-archive-keyring.gpg \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/pkgs-osrf-archive-keyring.gpg] https://packages.osrfoundation.org/gazebo/ubuntu-stable $(lsb_release -cs) main" \
+      > /etc/apt/sources.list.d/gazebo-stable.list \
+    && apt-get update && apt-get install -y --no-install-recommends \
+      gz-sim10-server \
+    && rm -rf /var/lib/apt/lists/*
+
+# World + meshes baked in read-only at runtime via volume; keep image generic.
+WORKDIR /world
+EXPOSE 11345/tcp
+ENTRYPOINT ["/usr/libexec/gz/sim10/gz-sim-server", "-r", "/world/factory.world"]

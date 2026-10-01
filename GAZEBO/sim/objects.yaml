@@ -1,0 +1,104 @@
+# ALWAYS ON - reinforcement learning object catalogue (README Section 10.2.1).
+#
+# These are the trainable entities for cell and kitchen work: marked parts,
+# stock items and task targets. The README requires them to be individually
+# addressable, observable and resettable, and to be kept SEPARATE from the
+# static world geometry so a training run can vary object count and placement
+# without rebuilding the world.
+#
+# That separation is why this is its own file and its own model in the world
+# (`rl_objects`, non-static) rather than more links inside the static
+# `factory` model. Gazebo world state — spawn, pose, delete — is written to the
+# non-static model, so varying placement never touches factory_assets.
+#
+# Every object carries a stable `id`. The portal addresses objects by id, the
+# reset action returns each to `home_pose`, and `observable_from` lists the
+# topics its state is published on.
+schema_version: "1.0"
+world: /ALWAYSON/GAZEBO/worlds/factory.world
+model: rl_objects
+resettable: true
+defaults:
+  observable_from:
+    - "/world/factory/dynamic_pose/info"
+    - "/world/factory/model/rl_objects/info"
+
+groups:
+  - id: marked-parts
+    name: "Marked parts (inspection tasks)"
+    description: "Parts presented for pick-and-inspect; reward on correct bin."
+    objects:
+      - id: part-a1
+        label: "Marked part A1"
+        class: marked_part
+        home_pose: [6.20, 2.10, 0.80, 0 0 0]
+        size: [0.12, 0.12, 0.06]
+        mass_kg: 1.2
+      - id: part-a2
+        label: "Marked part A2"
+        class: marked_part
+        home_pose: [6.55, 2.10, 0.80, 0 0 0]
+        size: [0.12, 0.12, 0.06]
+        mass_kg: 1.2
+      - id: part-a3
+        label: "Marked part A3"
+        class: marked_part
+        home_pose: [6.20, 2.50, 0.80, 0 0 0]
+        size: [0.12, 0.12, 0.06]
+        mass_kg: 1.2
+
+  - id: stock-items
+    name: "Stock items (kitchen / storage)"
+    description: "Shelving stock for restock tasks; reward on shelf return."
+    objects:
+      - id: stock-s1
+        label: "Stock bin S1"
+        class: stock_item
+        home_pose: [2.40, 0.60, 0.35, 0 0 0]
+        size: [0.40, 0.30, 0.25]
+        mass_kg: 4.0
+      - id: stock-s2
+        label: "Stock bin S2"
+        class: stock_item
+        home_pose: [3.20, 0.60, 0.35, 0 0 0]
+        size: [0.40, 0.30, 0.25]
+        mass_kg: 4.0
+      - id: stock-s3
+        label: "Stock bin S3"
+        class: stock_item
+        home_pose: [4.00, 0.60, 0.35, 0 0 0]
+        size: [0.40, 0.30, 0.25]
+        mass_kg: 4.0
+
+  - id: task-targets
+    name: "Task targets (goal markers)"
+    description: "Goal poses for pick-and-place; reward on arrival within tolerance."
+    objects:
+      - id: target-bin-a
+        label: "Bin A target"
+        class: task_target
+        home_pose: [1.80, 1.20, 0.25, 0 0 0]
+        size: [0.30, 0.30, 0.40]
+        tolerance_m: 0.05
+      - id: target-bin-b
+        label: "Bin B target"
+        class: task_target
+        home_pose: [1.80, 1.90, 0.25, 0 0 0]
+        size: [0.30, 0.30, 0.40]
+        tolerance_m: 0.05
+      - id: target-shelf
+        label: "Shelf return target"
+        class: task_target
+        home_pose: [5.00, 0.60, 0.60, 0 0 0]
+        size: [0.50, 0.40, 0.10]
+        tolerance_m: 0.08
+
+# Controlled actors. These act on the objects above; they are not themselves
+# trainable entities.
+actors:
+  - id: arm-cell-1
+    label: "Arm cell 1"
+    cell: cell-arms
+  - id: shuttle-1
+    label: "Shuttle 1"
+    cell: cell-conveyor

@@ -1,0 +1,24 @@
+# Foxglove bridge: build on the HOST ROS base instead of plain Ubuntu.
+# The ros-lyrical-* packages live in the ROS apt repo under the host's suite
+# name (resolute), not noble — plain ubuntu:24.04 resolves lsb_release to
+# noble, where ros-lyrical-* does not exist.
+#
+# Host-run alternative (preferred, zero new images — ros_gz_bridge is already
+# installed at /opt/ros/lyrical, foxglove_bridge needs one apt install):
+#   sudo apt-get install -y ros-lyrical-foxglove-bridge
+#   source /opt/ros/lyrical/setup.bash
+#   ROS_DOMAIN_ID=22 GZ_PARTITION=alwayson_fabrication_sim \
+#     ros2 run foxglove_bridge foxglove_bridge --port 8766
+FROM docker.io/library/ubuntu:24.04
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      curl lsb-release gnupg ca-certificates \
+    && curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key \
+      -o /usr/share/keyrings/ros-archive-keyring.gpg \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu resolute main" \
+      > /etc/apt/sources.list.d/ros2.list \
+    && apt-get update && apt-get install -y --no-install-recommends \
+      ros-lyrical-foxglove-bridge \
+    && rm -rf /var/lib/apt/lists/*
+EXPOSE 8766/tcp
+ENTRYPOINT ["bash", "-c", "source /opt/ros/lyrical/setup.bash && exec ros2 run foxglove_bridge foxglove_bridge --port 8766"]

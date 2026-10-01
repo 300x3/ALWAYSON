@@ -1,0 +1,82 @@
+# /ALWAYSON/quadlet/sim-fabrication/ao-sim-fabrication-gui-gz.container
+#
+# ALWAYS ON Gazebo Sim 10 GUI client for the fabrication world (README
+# Section 10.1.2 / 10.2.1, open item 27).
+#
+# This is the operator-visible 3D window. It is a CLIENT, not a second server:
+# it attaches to the world already being run by ao-sim-fabrication-gz. Running
+# its own server would silently produce a second, empty world instead.
+#
+# WHY IT SHARES THE SERVER'S NETWORK NAMESPACE. gz-transport discovery does
+# not cross podman's per-container bridge, so a client on ao-sim-fabrication
+# cannot see a server on ao-sim-fabrication. Verified: with the client on the
+# ao-sim-fabrication network, `gz model --list` returned nothing; with
+# --network container:<server>, the same call returned the world's models.
+# Joining the server's netns is therefore required, and it is also the tightest
+# possible scoping - the client is unreachable from anywhere, including the LAN,
+# because the namespace belongs to a container on an Internal=true network.
+#
+# Display: the host runs Plasma on Wayland with XWayland on :0. The client is an
+# X11 application (QT_QPA_PLATFORM=xcb), so it uses DISPLAY=:0 and the X11
+# socket. DISPLAY is deliberately not unset for any other value.
+#
+# RENDERING IS SOFTWARE, DELIBERATELY. Passing the NVIDIA GPU in through CDI
+# (AddDevice=nvidia.com/gpu=0) gives the device node but no usable EGL context
+# inside the container: libEGL reports "pci id for fd 85: 10de:1b80, driver
+# (null)" and "egl: failed to create dri2 screen", after which the Ogre2 plugin
+# aborts the process. Forcing LIBGL_ALWAYS_SOFTWARE=1 alone is not enough
+# either, because the API has already selected the hardware device - libEGL then
+# refuses with "Not allowed to force software rendering when API explicitly
+# selects a hardware device". Setting QT_QUICK_BACKEND=software is what
+# actually works: the GUI then loads its plugins, binds to
+# /world/factory/control and /world/factory/stats, and runs indefinitely.
+# Trade-off: llvmpipe is slower than the NVIDIA path. Revisit only with an
+# EGL-capable GPU passthrough, which is a separate decision.
+[Unit]
+Description=ALWAYS ON Gazebo Sim 10 GUI client (ao-sim-fabrication)
+After=ao-sim-fabrication-gz.service graphical-session.target
+Wants=ao-sim-fabrication-gz.service
+
+[Container]
+Image=localhost/gz-sim10-resolute:gui
+ContainerName=ao-sim-fabrication-gui-gz
+# Shares the server's netns: see the comment above. The image ENTRYPOINT is the
+# Gazebo SERVER, which must be overridden here: this unit is the GUI client, and
+# letting the server entrypoint run would start a second, empty world.
+PodmanArgs=--network container:ao-sim-fabrication-gz --entrypoint /bin/bash
+Volume=/ALWAYSON/GAZEBO:/ALWAYSON/GAZEBO:ro,Z
+# X11 socket for XWayland, plus the user runtime dir so the launcher can find
+# the current session's Xauthority cookie (its name changes every login).
+# The runtime dir is spelled out rather than using %t: this Quadlet build does
+# not expand that specifier in Volume=, and passed it through literally, which
+# podman rejected as an invalid volume name. 1000 is scottw's uid on this host.
+Volume=/tmp/.X11-unix:/tmp/.X11-unix:ro
+Volume=/run/user/1000:/run/user/1000:ro
+Environment=DISPLAY=:0
+Environment=XDG_RUNTIME_DIR=/run/user/1000
+Environment=HOME=/gzhome
+Environment=GZ_VERSION=10
+# Must match the server or the client discovers nothing.
+Environment=GZ_PARTITION=alwayson_fabrication_sim
+Environment=ROS_DOMAIN_ID=22
+Environment=QT_QPA_PLATFORM=xcb
+# GLX software rendering via Mesa llvmpipe. QT_QUICK_BACKEND=software was tried
+# and is NOT sufficient: it renders the Qt UI but the 3D view is a separate
+# QQuickWidget (libMinimalScene.so) that still creates a QOpenGLContext and
+# segfaults without one. xcb_glx forces the X11/GLX path rather than EGL,
+# because EGL fails here with "failed to create dri2 screen".
+Environment=LIBGL_ALWAYS_SOFTWARE=1
+Environment=QT_XCB_GL_INTEGRATION=xcb_glx
+Environment=GALLIUM_DRIVER=llvmpipe
+# The GUI writes to its own gzhome; the server's is mounted read-only above.
+Volume=%h/.local/share/ao-simulation/gui-home:/gzhome:Z
+Volume=/ALWAYSON/scripts/simulation:/opt/ao-simulation:ro,Z
+NoNewPrivileges=true
+# Attach to the running world rather than starting one. The launcher resolves
+# XAUTHORITY and asserts the partition before exec'ing the client.
+Exec=/opt/ao-simulation/ao-sim-gui-client.sh
+
+[Service]
+Restart=on-failure
+RestartSec=10
+TimeoutStartSec=120

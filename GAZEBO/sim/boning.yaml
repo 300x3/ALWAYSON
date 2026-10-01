@@ -1,0 +1,137 @@
+# ALWAYS ON - fabrication boning definition (README Section 10.2.1).
+#
+# Boning is what lets a simulated robot reach be checked against the real
+# machine envelope instead of assumed. This file is the exported boning data
+# that ships alongside worlds/factory.world, so the same check runs against
+# recorded evidence on any host.
+#
+# PROVENANCE OF THE NUMBERS HERE. Every datum below is DERIVED from the AABB of
+# the corresponding collision box in factory.world. Those boxes were computed
+# from the four SketchUp exports, so the frames are exactly as accurate as the
+# exports. They are a modelling datum, NOT a survey of the physical shop floor.
+# Fields marked `source: declared-by-operator` have NOT been supplied yet and
+# carry `value: null`. The portal refuses to report a simulation reach as
+# verified against a machine envelope while any frame in that machine's chain is
+# undeclared, so this file cannot silently pass off modelled geometry as
+# surveyed geometry.
+#
+# Units: metres. Frame: right-handed, Z up, +X along the conveyor run, +Y across
+# the aisle, origin on the shop floor at the massing footprint corner. This is
+# the shared SketchUp export frame with the inch->metre scale of 0.0254 applied.
+schema_version: "1.0"
+world: /ALWAYSON/GAZEBO/worlds/factory.world
+units: m
+frame: shop-floor-datum
+frame_definition:
+  origin: "floor level at the building_massing footprint corner"
+  x_axis: "along the conveyor run, origin -> downstream"
+  y_axis: "across the aisle, origin -> far wall"
+  z_axis: "up, floor = 0"
+  derivation: "SketchUp shared aligned frame, Z_UP, uniform scale 0.0254"
+
+cells:
+  - id: cell-arms
+    name: "Robot arm cell"
+    link: robot_arms
+    datum:
+      source: derived-from-mesh-aabb
+      origin: [6.401314, 2.697865, 0.531531]
+      extent: [0.840000, 1.672391, 1.238532]
+    mounting_surface:
+      source: derived-from-mesh-aabb
+      normal: [0, 0, 1]
+      z: 0.531531
+    aisles:
+      - name: approach-aisle
+        y_min: 1.861669
+        y_max: 3.534061
+  - id: cell-conveyor
+    name: "Conveyor system"
+    link: conveyor_system
+    datum:
+      source: derived-from-mesh-aabb
+      origin: [5.199062, 1.773474, 0.012700]
+      extent: [1.747837, 1.127674, 2.032000]
+    mounting_surface:
+      source: derived-from-mesh-aabb
+      normal: [0, 0, 1]
+      z: 0.012700
+  - id: cell-massing
+    name: "Building massing / fabrication area"
+    link: building_massing
+    datum:
+      source: derived-from-mesh-aabb
+      origin: [0.000000, 0.000000, 0.000000]
+      extent: [7.874000, 4.831072, 2.057400]
+    mounting_surface:
+      source: derived-from-mesh-aabb
+      normal: [0, 0, 1]
+      z: 0.000000
+
+# Machine beds. The 3D printer and CNC are NOT in the SketchUp exports, so there
+# is nothing to derive them from. The operator must declare their position and
+# envelope against the frame above; until then a simulated reach cannot be
+# checked against a real bed.
+machines:
+  - id: printer-01
+    name: "3D printer"
+    present_in_exports: false
+    datum:
+      source: declared-by-operator
+      origin: null
+      normal: [0, 0, 1]
+    work_envelope:
+      source: declared-by-operator
+      min: null
+      max: null
+    tolerance_mm: null
+  - id: cnc-01
+    name: "CNC bed"
+    present_in_exports: false
+    datum:
+      source: declared-by-operator
+      origin: null
+      normal: [0, 0, 1]
+    work_envelope:
+      source: declared-by-operator
+      min: null
+      max: null
+    tolerance_mm: null
+
+storage:
+  - id: shelving-run
+    name: "Shelving reference plane"
+    source: derived-from-mesh-aabb
+    y: 0.052765
+    y_max: 0.971273
+    tolerance_mm: 5.0
+
+# Joints and axes for the controlled actors. The arms are a single imported mesh
+# with no articulated joints in the export, so these describe the cell axes
+# rather than modelled joint frames; a real robot model would override them.
+joints:
+  - id: cell-arms-j1
+    name: "Arm cell base rotation (Z)"
+    cell: cell-arms
+    type: revolute
+    axis: [0, 0, 1]
+    origin: [6.401314, 2.697865, 0.531531]
+    limits_deg: [-180, 180]
+    tolerance_deg: 0.5
+  - id: conveyor-run
+    name: "Conveyor travel (X)"
+    cell: cell-conveyor
+    type: prismatic
+    axis: [1, 0, 0]
+    origin: [5.199062, 1.773474, 0.012700]
+    limits_m: [0.0, 1.747837]
+    tolerance_mm: 5.0
+
+# Verification status. computed_at is filled by the portal at read time.
+status:
+  declared_frames: 0
+  derived_frames: 5
+  machine_envelopes_declared: false
+  note: >
+    Every frame is derived from the SketchUp exports. No machine bed has been
+    surveyed, so no simulated reach is verified against a real envelope yet.

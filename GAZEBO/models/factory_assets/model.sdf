@@ -1,0 +1,106 @@
+<?xml version="1.0" ?>
+<!--
+  factory_assets/model.sdf — static factory set for Gazebo Sim (SDF 1.11).
+
+  SOURCE DATA (all from /ALWAYSON/GAZEBO, symlinked under meshes/):
+    building_massing  <- massing_fab.dae
+                         ("\n09-SIMULATIONMASSING-ADUDOORS_FABRICATIONAREA.dae",
+                          2209716 bytes, <unit inch, 0.0254 m>, Z_UP)
+    conveyor_system   <- conveyor.dae (09-SIMULATIONCONVEYOR.dae, inch, Z_UP)
+    robot_arms        <- arms.dae (09-SIMULATIONARMS.dae, inch, Z_UP)
+    vehicles_overlay  <- vehicles_arms.dae (09-SIMULATIONVEHICLES-ARMS.dae,
+                         inch, Z_UP)
+
+  MESH URIs: model://factory_assets/meshes/*.dae, resolved through
+  GZ_SIM_RESOURCE_PATH (README §10.2 line 2002, §10.1 line 1842). Launch with
+  GZ_SIM_RESOURCE_PATH=/ALWAYSON/GAZEBO/models. Include this model from a world
+  with: <include><uri>model://factory_assets</uri></include>
+
+  PLACEMENT: all four exports carry in-place placement matrices and no root
+  translation, so each link sits at pose 0 0 0 with identity rotation and a
+  uniform 0.0254 (inch -> meter) scale.
+
+  DELIBERATE DEVIATION (operator-visible, exact value in file): the
+  vehicles_overlay duplicates arms/vehicles content present in the static
+  links, so it is lifted to pose 0 0 2.5 (2.5 m up) to keep the combined
+  world inspectable instead of z-fighting/overlapping. Set its pose back to
+  0 0 0 if exact in-place overlay is preferred.
+-->
+<sdf version="1.11">
+  <model name="factory_assets">
+    <static>true</static>
+
+    <link name="building_massing">
+      <pose>0 0 0 0 0 0</pose>
+      <visual name="visual">
+        <geometry>
+          <mesh>
+            <uri>model://factory_assets/meshes/massing_fab.dae</uri>
+            <scale>0.0254 0.0254 0.0254</scale>
+          </mesh>
+        </geometry>
+      </visual>
+        <collision name="collision">
+          <pose>3.937000 2.415536 1.028700 0 0 0</pose>
+          <geometry>
+            <box><size>7.874000 4.831072 2.057400</size></box>
+          </geometry>
+        </collision>
+    </link>
+
+    <link name="conveyor_system">
+      <pose>0 0 0 0 0 0</pose>
+      <visual name="visual">
+        <geometry>
+          <mesh>
+            <uri>model://factory_assets/meshes/conveyor.dae</uri>
+            <scale>0.0254 0.0254 0.0254</scale>
+          </mesh>
+        </geometry>
+      </visual>
+        <collision name="collision">
+          <pose>6.072981 2.337311 1.028700 0 0 0</pose>
+          <geometry>
+            <box><size>1.747837 1.127674 2.032000</size></box>
+          </geometry>
+        </collision>
+    </link>
+
+    <link name="robot_arms">
+      <pose>0 0 0 0 0 0</pose>
+      <visual name="visual">
+        <geometry>
+          <mesh>
+            <uri>model://factory_assets/meshes/arms.dae</uri>
+            <scale>0.0254 0.0254 0.0254</scale>
+          </mesh>
+        </geometry>
+      </visual>
+        <collision name="collision">
+          <pose>6.401314 2.697865 1.150797 0 0 0</pose>
+          <geometry>
+            <box><size>0.840000 1.672391 1.238532</size></box>
+          </geometry>
+        </collision>
+    </link>
+
+    <link name="vehicles_overlay">
+      <pose>0 0 2.5 0 0 0</pose>
+      <visual name="visual">
+        <geometry>
+          <mesh>
+            <uri>model://factory_assets/meshes/vehicles_arms.dae</uri>
+            <scale>0.0254 0.0254 0.0254</scale>
+          </mesh>
+        </geometry>
+      </visual>
+        <collision name="collision">
+          <pose>3.873492 0.512019 0.725369 0 0 0</pose>
+          <geometry>
+            <box><size>4.537352 0.918508 1.450042</size></box>
+          </geometry>
+        </collision>
+    </link>
+
+  </model>
+</sdf>

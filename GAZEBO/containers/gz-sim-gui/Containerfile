@@ -1,0 +1,59 @@
+# Gazebo Sim 10 (Jetty) **GUI-capable** image — the container that can actually
+# open the world in a Gazebo window on a host that has no gz-sim package.
+#
+# Why this exists: the host (Ubuntu 26.04 "resolute") ships only the ROS vendor
+# Gazebo *libraries* — `gz --commands` on the host lists no `sim` verb, there is
+# no `gz-sim10-cli`/`libgz-sim10-gui`, and the OSRF apt repo has no resolute
+# suite. `gz-sim10-cli` DOES resolve on Ubuntu 24.04 "noble", so the GUI is built
+# here instead and the window is forwarded to the operator's real desktop over
+# the existing X/Wayland socket. This is the README §10.2 requirement that a
+# simulation service be reproducible and scripted, and §19.4 item 14 (Podman +
+# Quadlet, never Docker).
+#
+# Renders via the container's own Mesa (llvmpipe/software) if no GPU passthrough
+# is granted, or via the host GPU when /dev/dri is passed through. The Docker
+# default `--privileged` is NEVER used; device nodes are granted explicitly.
+FROM docker.io/library/ubuntu:24.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# gz-sim10-cli  -> provides `gz sim` and the gz-sim-gui client binary
+# libgz-sim10-gui -> the GUI plugin library the client loads
+# libgz-rendering10-ogre2 -> the Ogre 2 render engine (default for gz-sim 10)
+# mesa-utils / libgl1-mesa-dri -> software GL fallback + `glxinfo` for diagnosis
+# qt6 + x11 libs -> the Qt window the GUI plugin needs
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      curl lsb-release gnupg ca-certificates \
+    && curl https://packages.osrfoundation.org/gazebo.gpg \
+      --output /usr/share/keyrings/pkgs-osrf-archive-keyring.gpg \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/pkgs-osrf-archive-keyring.gpg] https://packages.osrfoundation.org/gazebo/ubuntu-stable $(lsb_release -cs) main" \
+      > /etc/apt/sources.list.d/gazebo-stable.list \
+    && apt-get update && apt-get install -y --no-install-recommends \
+      gz-sim10-cli \
+      libgz-sim10-gui \
+      libgz-rendering10-ogre2 \
+      libgz-sensors10-rendering \
+      mesa-utils \
+      libgl1-mesa-dri \
+      libglx-mesa0 \
+      libx11-6 \
+      libxcb1 \
+      libxcb-cursor0 \
+      libxkbcommon-x11-0 \
+      libqt6gui6 \
+      libqt6widgets6 \
+      qt6-qpa-plugins \
+      xauth \
+    && rm -rf /var/lib/apt/lists/*
+
+# The world and its meshes are mounted read-only at runtime; the image stays
+# generic (README §10.2 — "scripted and repeatable", no data baked in).
+WORKDIR /world
+
+# Ogre 2 needs a writable HOME for its cache/log; Quadlet sets HOME.
+ENV GZ_VERSION=10
+ENV QT_QPA_PLATFORM=xcb
+
+# No ENTRYPOINT so the operator can choose server-only or GUI
+# (`gz sim` with no -s launches server + GUI together).
+CMD ["gz", "sim", "-r", "/world/factory.world"]

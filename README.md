@@ -3995,6 +3995,55 @@ last value and no `PAYMENT_DSN`. One call composes the complete file.
 **Still outstanding.** No public route is configured, no credential exists, and
 the website email → PDF → Corda intake path is not built.
 
+### 10.2.2 Fabrication simulation: baseline data and GUI status (2026-10-01)
+
+Session took over the `ao-sim-fabrication` work from `/ALWAYSON/GAZEBO/handoff.md`.
+Section 10.2.1 requires four baseline deliverables for this domain: 3D world
+setup, boning, reinforcement learning objects, and an HTML portal to operation.
+The world existed. The other three did not.
+
+**Now present** (`GAZEBO/sim/`, read by the portal):
+
+- `boning.yaml` — a datum frame per cell, mounting and reference surfaces, the
+  joints and axes with their tolerances, and the machine beds and storage planes.
+  Every frame is derived from the AABB of the corresponding collision box in
+  `factory.world`, and is labelled `source: derived-from-mesh-aabb`. The 3D
+  printer and the CNC bed are **not in the SketchUp exports**, so they carry
+  `declared-by-operator` nulls. The portal therefore reports
+  `reach_verified_against_machine: false`; a simulated reach may not be called
+  verified against a real machine envelope until those are surveyed.
+- `objects.yaml` — 9 reinforcement learning objects in 3 groups plus 2 actors,
+  each with a stable id, a home pose and reset semantics, held in their own
+  non-static model so placement can vary without rebuilding the world.
+- `scripts/simulation/ao-sim-portal.py` — the control surface. The previous
+  portal was a static nginx page whose start/stop/reset buttons called `/api/*`
+  routes that did not exist. It now implements `/api/status`,
+  `/api/{start,stop,reset,inspect}`, `/api/boning`, `/api/objects` and
+  `/api/health`, and is restricted to a single permitted unit.
+
+**Platform.** Rebuilt on Ubuntu 26.04 "resolute" to match the host, with Gazebo
+Sim 10.5.0 and ROS 2 Lyrical, per operator authorisation to move the versions to
+whatever suits Kubuntu 26 LTS. `gz-sim-gui-client` is present in the new image
+and was not present in the old one. `packages.ros.org` cannot be used from this
+host or a container: it presents a certificate for `CN=*.osuosl.org` whose
+subjectAltName does not cover `packages.ros.org`, so verification fails. That
+verification was not disabled to work around it. The consequence is that
+`ros_gz` and `foxglove_bridge` cannot be installed, so **Foxglove remains
+blocked**; the Gazebo GUI itself does not depend on them.
+
+**Gazebo GUI: partial.** The client starts, resolves its Xauthority cookie,
+attaches to `GZ_PARTITION=alwayson_fabrication_sim`, loads the QML interface and
+binds to `/world/factory/control` and `/world/factory/stats`. The transport
+arrangement is settled and verified: gz-transport discovery does not cross
+Podman's per-container bridge, so the client shares the server's network
+namespace; with that, `gz model --list` returns the world's models. The 3D view
+itself does not render. Passing the GPU through CDI yields a device node but no
+usable EGL context, `LIBGL_ALWAYS_SOFTWARE` is refused because the API has
+already selected a hardware device, and `QT_QUICK_BACKEND=software` renders the
+Qt interface but not the scene, which segfaults in `QOpenGLContext::done`.
+`ao-sim-fabrication-gui-gz` is stopped rather than left crash-looping. Closing
+this needs an EGL-capable GPU passthrough decision.
+
 ## 18.4 Payment Provider Decision
 
 **Status:** Decided 2026-08-28.

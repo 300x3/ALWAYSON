@@ -1,0 +1,84 @@
+# ALWAYS ON - Gazebo Sim 10 (Jetty) GUI + ROS 2 Lyrical, on Ubuntu 26.04.
+#
+# Rebuilt 2026-10-01 to match the host, which is Ubuntu 26.04 "Resolute". The
+# previous image was ubuntu:24.04 (noble) and server-only, which made the two
+# operator-visible surfaces impossible: the Gazebo GUI window and the Foxglove
+# view. Both were blocked only because installing them on the HOST needs an
+# interactive sudo password. In a container no password is required.
+#
+# WHY THIS BASE. ROS 2 Lyrical is the ROS distro serving `resolute`, and
+# packages.osrfoundation.org publishes `resolute` Gazebo 10 packages including
+# the GUI ones the previous image lacked (libgz-sim10-gui,
+# libgz-sim10-plugins-gui, libgz-rendering10-ogre2).
+#
+# WHY NOT packages.ros.org. It cannot be used from this host or from a
+# container: it presents a certificate for CN=*.osuosl.org, whose
+# subjectAltName does not cover packages.ros.org, so verification fails
+# ("subjectAltName does not match hostname"). The certificate is valid and
+# unexpired, so this is an upstream server-side name mismatch, not a local CA
+# problem. Certificate verification is NOT disabled here to work around it.
+# The OSRF `ros:lyrical-ros-base-resolute` image below sidesteps the apt repo
+# entirely and is the official distribution for this pair. The OSU mirror of
+# packages.ros.org does carry a matching certificate but has no `resolute`
+# suite, so it cannot substitute.
+#
+# QT QUICK. libgz-sim10-gui does not pull the QML runtime its own Main.qml
+# needs: without these the client starts, connects to the server, and then dies
+# with "QQmlApplicationEngine failed to load ... module \"QtQuick...\" is not
+# installed". Verified by running it, not inferred.
+#
+# CONSEQUENCE: ros_gz and foxglove_bridge are NOT installed in this image, since
+# every ROS apt package lives behind the broken repository. Gazebo's own GUI
+# does not need them -- it joins the server over gz-transport using
+# GZ_PARTITION -- so the GUI deliverable is unaffected. Foxglove remains
+# blocked; see README and the journal entry of 2026-10-01.
+FROM docker.io/library/ros@sha256:0c19f326a339ed770ef1d4c0646a8b53bdb49dd5ff74b6de41ebdb8ac21e1806
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Gazebo Sim 10 from OSRF for resolute. This repository serves a certificate
+# that matches its hostname, so it verifies normally.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      ca-certificates curl gnupg lsb-release \
+ && curl -fsSL https://packages.osrfoundation.org/gazebo.gpg \
+      -o /usr/share/keyrings/pkgs-osrf-archive-keyring.gpg \
+ && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/pkgs-osrf-archive-keyring.gpg] https://packages.osrfoundation.org/gazebo/ubuntu-stable $(lsb_release -cs) main" \
+      > /etc/apt/sources.list.d/gazebo-stable.list \
+ && apt-get update \
+ && apt-get install -y --no-install-recommends \
+      gz-sim10-server gz-sim10-cli \
+      libgz-sim10-gui libgz-sim10-plugins-gui \
+      libgz-rendering10-ogre2 \
+ && apt-get install -y --no-install-recommends \
+      qml6-module-qtquick \
+      qml6-module-qtquick-controls \
+      qml6-module-qtquick-layouts \
+      qml6-module-qtquick-templates \
+      qml6-module-qtquick-window \
+      qml6-module-qtquick-dialogs \
+      qml6-module-qtqml-workerscript \
+      qml6-module-qtqml \
+      qml6-module-qtcore \
+      qml6-module-qtquick-shapes \
+      qml6-module-qt-labs-platform \
+      qml6-module-qt5compat-graphicaleffects \
+      libqt6svg6 \
+      libgl1-mesa-dri libglx-mesa0 libgl1 libglvnd0 libegl1 \
+      libopengl0 libosmesa6 xvfb \
+      qml6-module-qt-labs-folderlistmodel \
+      qml6-module-qt-labs-sharedimage \
+ && rm -rf /var/lib/apt/lists/*
+
+# ROS 2 Lyrical and Gazebo 10 must share one DDS domain and one gz-transport
+# partition, or the GUI will silently start its own empty world instead of
+# attaching to the running server. These match the values the server unit sets.
+ENV GZ_VERSION=10 \
+    GZ_PARTITION=alwayson_fabrication_sim \
+    ROS_DOMAIN_ID=22 \
+    QT_QPA_PLATFORM=xcb
+
+WORKDIR /ALWAYSON/GAZEBO
+EXPOSE 11345/tcp
+
+# Default is still the headless server; the GUI container overrides this.
+ENTRYPOINT ["/usr/libexec/gz/sim10/gz-sim-server", "-r", "/ALWAYSON/GAZEBO/worlds/factory.world", "-s"]

@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>ALWAYSON — ao-sim-fabrication portal (Gazebo factory world)</title>
+<style>
+  body { font-family: sans-serif; max-width: 70em; margin: 2em auto; padding: 0 1em;
+         background: #1a1a1a; color: #e8e8e8; }
+  h1 { color: #ffb340; } h2 { color: #7fd4ff; border-bottom: 1px solid #444; }
+  code, pre { background: #2a2a2a; padding: 0.15em 0.4em; border-radius: 4px; }
+  pre { padding: 1em; overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { border: 1px solid #555; padding: 0.4em 0.8em; text-align: left; }
+  th { background: #333; } a { color: #7fd4ff; }
+  .warn { background: #3a2a00; border-left: 4px solid #ffb340; padding: 1em; }
+  .ok { color: #7fff9f; } .no { color: #ff7f7f; } .run { color: #7fd4ff; }
+  button { font-size: 1.1em; margin: 0.3em; padding: 0.5em 1.2em; cursor: pointer; }
+  #log { white-space: pre-wrap; max-height: 20em; overflow-y: auto; }
+</style>
+</head>
+<body>
+<h1>ao-sim-fabrication — Gazebo factory world (README §10.2)</h1>
+<p>Domain unit: <code>ao-sim-fabrication-gz.service</code> (Quadlet,
+<code>ao-sim-fabrication</code> network, Internal=true).
+World: <code>/ALWAYSON/data/sim-fabrication/worlds/factory.world</code>,
+<code>model://factory_assets/…</code> via <code>GZ_SIM_RESOURCE_PATH=/world</code>.
+Operates the <b>simulation only</b> — never a path to live machinery (§4.3).</p>
+
+<h2>Operate</h2>
+<p>
+<button onclick="act('start')">Start</button>
+<button onclick="act('stop')">Stop</button>
+<button onclick="act('reset')">Reset</button>
+<button onclick="act('inspect')">Inspect</button>
+</p>
+<pre id="log">status: loading…</pre>
+<script>
+async function act(a){
+  const el = document.getElementById('log');
+  el.textContent = a + ': running…';
+  try {
+    const r = await fetch('/api/' + a, {method:'POST'});
+    el.textContent = a + ': ' + (await r.text());
+  } catch(e){ el.textContent = a + ': ERROR ' + e; }
+}
+fetch('/api/status', {method:'POST'}).then(r=>r.text()).then(t=>{
+  document.getElementById('log').textContent = 'status: ' + t;
+}).catch(e=>{ document.getElementById('log').textContent = 'status: ERROR ' + e; });
+</script>
+
+<h2>World contents</h2>
+<table>
+<tr><th>Link</th><th>Source mesh</th><th>Pose</th></tr>
+<tr><td>building_massing</td><td><code>massing_fab.dae</code><br>(newline-leading massing export)</td><td>0 0 0</td></tr>
+<tr><td>conveyor_system</td><td><code>conveyor.dae</code></td><td>0 0 0</td></tr>
+<tr><td>robot_arms</td><td><code>arms.dae</code></td><td>0 0 0</td></tr>
+<tr><td>vehicles_overlay</td><td><code>vehicles_arms.dae</code></td><td>0 0 <b>2.5</b> (lifted, deliberate)</td></tr>
+</table>
+<p>All exports: inch units (scale 0.0254), Z-up, shared aligned frame.</p>
+
+<h2>Validation status</h2>
+<ul>
+<li class="ok">PASS — <code>gz sdf --check factory.world</code> → Valid (model:// via resource path)</li>
+<li class="ok">PASS — <code>--print</code> shows ground_plane + factory / 4 links</li>
+<li class="ok">SIGNED — <a href="/manifest.json">fabrication_simulation manifest</a> (Ed25519, ao-sim-fabrication key)</li>
+</ul>
+
+<h2>Files</h2>
+<ul>
+<li><a href="/world.sdf">data/sim-fabrication/worlds/factory.world</a></li>
+<li><a href="/model.sdf">GAZEBO/models/factory_assets/model.sdf</a> (design artifact)</li>
+<li><a href="/readme.txt">GAZEBO/README-GAZEBO-WORLD_MOVING.txt</a></li>
+<li><a href="/manifest.json">artifacts/fabrication-simulation-manifests/factory-world-v1.json</a></li>
+</ul>
+
+<h2>Env (fabrication sim domain)</h2>
+<pre>ROS_DOMAIN_ID=22
+GZ_PARTITION=alwayson_fabrication_sim
+GZ_SIM_RESOURCE_PATH=/world (in unit)</pre>
+</body>
+</html>
+

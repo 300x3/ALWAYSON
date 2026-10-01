@@ -1,0 +1,59 @@
+# /ALWAYSON/quadlet/sim-fabrication/ao-sim-fabrication-gz.container
+# ALWAYS ON fabrication/facility simulation server — README §10.2 (ST-08) and
+# the §10.2.1 baseline "3D world setup", tracked as WORK 000801.
+#
+# Per-domain separation required by README §10.2 (lines 1990-2003):
+#   network           ao-sim-fabrication  Internal=true  10.89.5.0/24 (§18.6)
+#   ROS domain ID     22                            (§20 line 892)
+#   Gazebo partition  alwayson_fabrication_sim      (§20 line 892)
+#   mounts            /ALWAYSON/GAZEBO (canonical, read-only)
+#                     + /ALWAYSON/data/sim-fabrication/{gzhome,fuel,plugins,results}
+#   result directory  /ALWAYSON/data/sim-fabrication/results  (§11.1 line 2066)
+#   manifests         /ALWAYSON/data/sim-fabrication/manifests — Ed25519 signed
+#                     with the ao-sim-fabrication key only; never a Corda
+#                     client identity and no Corda connection (§10.2 line 1999)
+#   log               /ALWAYSON/logs/sim-gz-server.log         (§16.3 line 3524)
+#
+# The world and its meshes resolve through GZ_SIM_RESOURCE_PATH (README §10.1
+# line 1842, §10.2 line 2002) — never fetched or rewritten at runtime. The
+# Gazebo subfolder is mounted at its own path so the models/factory_assets/
+# meshes/ symlinks resolve in-container as they do on the host (§19.4 item 28
+# records that subfolder as operator-confirmed; /ALWAYSON/GAZEBO).
+# Holds no production data and never commands live machinery (§4.3).
+[Unit]
+Description=ALWAYS ON Fabrication Simulation Server (ao-sim-fabrication)
+After=network-online.target
+Wants=network-online.target
+
+[Container]
+Image=localhost/gz-sim10-server:latest
+ContainerName=ao-sim-fabrication-gz
+Network=ao-sim-fabrication.network
+Volume=/ALWAYSON/GAZEBO:/ALWAYSON/GAZEBO:ro,Z
+Volume=/ALWAYSON/data/sim-fabrication/gzhome:/gzhome:Z
+Volume=/ALWAYSON/data/sim-fabrication/fuel:/gzfuel:Z
+Volume=/ALWAYSON/data/sim-fabrication/plugins:/gzplugins:ro,Z
+Volume=/ALWAYSON/data/sim-fabrication/results:/results:Z
+Environment=GZ_IP=127.0.0.1
+Environment=GZ_PARTITION=alwayson_fabrication_sim
+Environment=GZ_VERSION=10
+Environment=GZ_SIM_RESOURCE_PATH=/ALWAYSON/GAZEBO/models
+Environment=GZ_SIM_SYSTEM_PLUGIN_PATH=/gzplugins
+Environment=HOME=/gzhome
+Environment=ROS_DOMAIN_ID=22
+NoNewPrivileges=true
+Exec=/ALWAYSON/GAZEBO/worlds/factory.world -r -s -v 4
+# §16.3 line 3524 requires sim-gz-server.log while the server runs. Podman's
+# journald driver (the systemd default) ignores --log-opt path, so the k8s-file
+# driver is selected explicitly to write that file.
+LogDriver=k8s-file
+PodmanArgs=--entrypoint /usr/libexec/gz/sim10/gz-sim-server --log-opt path=/ALWAYSON/logs/sim-gz-server.log
+
+[Service]
+Restart=on-failure
+RestartSec=15
+MemoryMax=8G
+TimeoutStartSec=300
+
+[Install]
+WantedBy=default.target

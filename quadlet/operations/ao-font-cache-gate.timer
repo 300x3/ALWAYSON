@@ -1,0 +1,17 @@
+# SYSTEM LOCKOUT Phase 2 — re-run the integrity gate every 5 minutes IN-SESSION.
+# Rationale: both corruption events (14:23, 18:35 on 2026-09-30) happened
+# AFTER the login gate had already run, and Qt apps crashed within minutes
+# (Discover 18:41, Dolphin 20:11-20:28). A login-only check leaves a window
+# of hours. 5 minutes bounds the exposure; the gate is idempotent and cheap
+# (~2s) when the cache is already clean.
+[Unit]
+Description=ALWAYS ON font-cache integrity gate timer (in-session re-check)
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+AccuracySec=30s
+Unit=ao-font-cache-gate.service
+
+[Install]
+WantedBy=timers.target

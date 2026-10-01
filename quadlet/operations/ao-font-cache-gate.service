@@ -1,0 +1,23 @@
+# /home/scottw/.config/systemd/user/ao-font-cache-gate.service
+# SYSTEM LOCKOUT / Tier 2 — font-cache integrity gate at login.
+# The 2026-09-30 lock-screen blackout: corrupt ~/.cache/fontconfig entries
+# (foreign cache format v12 + 2 orphaned v9 files) were dereferenced by Qt
+# -> SIGSEGV at libfontconfig+0xc4fc (Dolphin, Konsole, Discover,
+# kscreenlocker_greet -> KWin emergency screen). This gate rebuilds, then
+# validates format version + header magic + an fc-match probe, quarantines
+# offenders to /tmp, and rebuilds clean — BEFORE the greeter loads QML.
+# It never uses fc-query to "validate" caches (that was a past mistake;
+# fc-query queries font faces, not cache files, and rejects all of them).
+[Unit]
+Description=ALWAYS ON font-cache integrity gate (rebuild + validate at login)
+After=graphical-session.target
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/ao-font-cache-gate.sh
+# A bad cache must never block the session from starting.
+SuccessExitStatus=0
+TimeoutStartSec=120
+
+[Install]
+WantedBy=graphical-session.target

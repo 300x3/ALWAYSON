@@ -15,7 +15,7 @@
 #   3. no deployed unit references a retired 300x3-/alwayson- path
 #   4. every unit named in the README as active is active
 #   5. every ao-* network in the registry exists
-#   6. no unprefixed containers remain
+#   6. every container is owned by an ao-* unit (ownership, not name)
 #
 # Exit 42 on any failure, matching check-network-isolation.sh.
 set -Eeuo pipefail
@@ -29,7 +29,10 @@ note() { printf '  %s\n' "$*" >&2; }
 
 # Units deliberately not tracked: incident diagnostics from 2026-09-30, not
 # ALWAYS ON infrastructure. They write to ~/Desktop/SYSTEM LOCKOUT/.
-untracked_ok=(ao-font-cache-gate.service ao-fontconfig-watch.service ao-font-cache-gate.timer)
+# No units are exempt. The ao-font-* incident-diagnostic units are tracked in
+# the repository too: the fontconfig cache corruption they guard against was
+# repaired, but the related Plasma lockout-after-suspend problem is recorded
+# as UNRESOLVED, so the units are live mitigation rather than history.
 
 # --- 1 and 2: deployed units must exist in the repo and match --------------
 # Generated units (podman-user-generator output) are excluded: they carry a
@@ -111,17 +114,22 @@ while IFS= read -r net; do
     fails=$((fails + 1)); }
 done < <(awk '/internal=/{print $1}' /ALWAYSON/config/platform/network-cidrs.yaml 2>/dev/null | sort -u)
 
-# --- 6: no unprefixed containers ------------------------------------------
+# --- 6: every container is owned by an ao-* unit ---------------------------
+# Ownership, not the container's own name, is the test. The five Mastodon
+# containers are named mastodon-* but are created and supervised by the
+# ao-mastodon-* Quadlet units, so they are already subordinated to ao-* and
+# need no recorded exception. A container with no owning unit at all is the
+# real defect: nothing restarts it and it does not survive a reboot.
 while IFS= read -r c; do
   [[ -z "$c" ]] && continue
-  case "$c" in
-    ao-*|mastodon-*) continue ;;   # mastodon-* is a recorded exception, see README
-    # gazebo-* belongs to the simulation/Gazebo work that another session is
-    # still in progress on. Flagged, not failed, until it is adopted.
-    gazebo-*) note "NOTE: simulation container outside the ao- prefix: $c"; continue ;;
-  esac
-  note "ERROR: container without an accepted prefix: $c"
-  fails=$((fails + 1))
+  owner=$(podman inspect "$c" --format '{{index .Config.Labels "PODMAN_SYSTEMD_UNIT"}}' 2>/dev/null || echo "")
+  if [[ -z "$owner" ]]; then
+    note "ERROR: container has no owning systemd unit (will not restart or survive reboot): $c"
+    fails=$((fails + 1))
+  elif [[ "$owner" != ao-* ]]; then
+    note "ERROR: container $c is owned by a non-ao unit: $owner"
+    fails=$((fails + 1))
+  fi
 done < <(podman ps -a --format '{{.Names}}' 2>/dev/null)
 
 if (( fails == 0 )); then

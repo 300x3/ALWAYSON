@@ -1,0 +1,17 @@
+# SYSTEM LOCKOUT Phase 3 — font-cache change watcher.
+# Polls ~/.cache/fontconfig and logs every change (with process clues) to
+# "Desktop/SYSTEM LOCKOUT/WATCH-LOG.txt" so the foreign v12 writer can be
+# identified by correlation. Read-only with respect to the cache: it never
+# modifies, only observes. Safe to restart/stop at any time.
+[Unit]
+Description=ALWAYS ON font-cache change watcher (catch foreign cache writer)
+After=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/ao-fontconfig-watch.sh
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=default.target
