@@ -3401,8 +3401,25 @@ remains on the federation edge.
 ├── ledger/
 ├── backup/
 ├── restore/
-└── maintenance/
+├── maintenance/
+├── mastodon/        # deploy, federation runnerbook helpers, instance actor repair
+├── operations/      # wallet bridge, service start helpers, local proxy, collectors
+├── ops/             # wallet read/write helpers, kwallet provisioning
+├── openclaw/        # chat relay for the ao-sales chat path
+├── sales/           # sales-domain helpers
+├── lib/             # shared shell library (common.sh)
+└── sync-lmstudio-readme-preset.sh
 ```
+
+Five of these were missing from the earlier revision despite carrying live
+behaviour, so the tree is worth trusting more now than then: `mastodon/`
+holds `repair-instance-actor.rb` and the deploy scripts, `operations/` holds the
+KWallet bridge and the `start-sales-stack.sh` helper, `ops/` holds
+`wallet-read-secret.py` and `wallet-write-secret.py`, and `lib/common.sh` is
+sourced by every script in `scripts/validation/`.
+
+`ops/` and `operations/` are distinct and both current: `ops/` is Python
+D-Bus wallet tooling, `operations/` is the bash service layer.
 
 ## 16.2 Script Standard
 
