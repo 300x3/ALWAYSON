@@ -146,21 +146,43 @@ def evaluate(reg, offline):
         entry = registered.get(name)
         if not entry:
             results.append({"item": name, "kind": "AppImage", "status": "UNREGISTERED",
-                            "installed": "?", "upstream": "-",
+                            "installed": "?", "upstream": "-", "download": "-",
                             "note": "On disk but absent from the registry: no recorded "
                                     "provenance, so nothing knows where it came from."})
             continue
+        # An AppImage can carry no version in its filename and still be fully
+        # checkable, because the upstream release knows the version. Check it the
+        # same way everything else is checked rather than giving up on the name.
+        installed = entry.get("version_in_name")
+        kind = entry.get("check_kind")
+        if not entry.get("checkable"):
+            status, upstream = "UNCHECKABLE", "-"
+        elif offline:
+            status, upstream = "NOT CHECKED", "-"
+        elif kind == "github":
+            upstream = check_github(entry.get("github_repo", ""))
+            if upstream is None:
+                status = "NOT CHECKED"
+            elif installed and normalise(upstream) == normalise(installed):
+                status = "CURRENT"
+            elif installed:
+                status = "BEHIND"
+            else:
+                # No local version to compare: report upstream, do not guess.
+                status = "UNVERSIONED-LOCAL"
+        else:
+            status, upstream = "UNCHECKABLE", "-"
         results.append({
-            "item": name, "kind": "AppImage",
-            "status": "UNCHECKABLE" if not entry.get("checkable") else "CURRENT",
-            "installed": entry.get("version_in_name") or "not in filename",
-            "upstream": "-",
+            "item": name, "kind": "AppImage", "status": status,
+            "installed": installed or "not in filename",
+            "upstream": upstream or "-",
+            "download": entry.get("linux_amd64_direct") or entry.get("download_url") or "-",
             "note": entry.get("note", "").strip(),
         })
     for name, entry in registered.items():
         if name not in seen:
             results.append({"item": name, "kind": "AppImage", "status": "MISSING",
-                            "installed": "-", "upstream": "-",
+                            "installed": "-", "upstream": "-", "download": "-",
                             "note": "In the registry but not on disk. It was deleted; "
                                     "remove it from the registry or restore it."})
 
@@ -191,12 +213,14 @@ def evaluate(reg, offline):
             status = "UNCHECKABLE"
         results.append({"item": e["name"], "kind": "executable", "status": status,
                         "installed": installed, "upstream": upstream or "-",
+                        "download": e.get("download_url") or "-",
                         "note": e.get("note", "").strip()})
 
     return results
 
 
-ORDER = ["BEHIND", "UNREGISTERED", "MISSING", "NOT CHECKED", "UNCHECKABLE", "CURRENT"]
+ORDER = ["BEHIND", "UNVERSIONED-LOCAL", "UNREGISTERED", "MISSING", "NOT CHECKED",
+         "UNCHECKABLE", "CURRENT"]
 
 MEANING = {
     "CURRENT": "Installed version matches upstream.",
@@ -205,6 +229,7 @@ MEANING = {
     "NOT CHECKED": "Check skipped, or upstream could not be reached this run.",
     "UNREGISTERED": "On disk with no recorded provenance.",
     "MISSING": "Registered but no longer on disk.",
+    "UNVERSIONED-LOCAL": "Upstream version known; the local file carries no version to compare.",
 }
 
 
@@ -250,12 +275,14 @@ def render(results, offline):
 
     w("## Detail")
     w("")
-    w("| Item | Kind | Installed | Upstream | Status | Note |")
-    w("|---|---|---|---|---|---|")
+    w("| Item | Kind | Installed | Upstream | Status | Download | Note |")
+    w("|---|---|---|---|---|---|---|")
     for r in sorted(results, key=lambda x: (ORDER.index(x["status"]), x["item"])):
-        note = (r["note"] or "").replace("\n", " ")[:150]
+        note = (r["note"] or "").replace("\n", " ")[:170]
+        dl = r.get("download") or "-"
+        dl_cell = (f"[link]({dl})" if dl.startswith("http") else dl)
         w(f"| `{r['item']}` | {r['kind']} | `{r['installed']}` | `{r['upstream']}` | "
-          f"{r['status']} | {note} |")
+          f"{r['status']} | {dl_cell} | {note} |")
     w("")
 
     w("## What this deliberately does not do")

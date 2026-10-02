@@ -28,47 +28,79 @@ appimages:
   - name: "QGroundControl-x86_64.AppImage"
     path: "/home/scottw/Documents/APP IMAGES/QGroundControl-x86_64.AppImage"
     version_in_name: null
-    source: "https://droidplanner.github.io/QGroundControl/"
-    check_kind: none
-    checkable: false
+    download_url: "https://github.com/mavlink/qgroundcontrol/releases/latest"
+    linux_amd64_asset: "QGroundControl-x86_64.AppImage"
+    linux_amd64_direct: "https://github.com/mavlink/qgroundcontrol/releases/download/v5.1.5/QGroundControl-x86_64.AppImage"
+    version_source: "github releases API, tag_name"
+    version_api: "https://api.github.com/repos/mavlink/qgroundcontrol/releases/latest"
+    check_kind: github
+    github_repo: "mavlink/qgroundcontrol"
+    checkable: true
     note: >-
-      Filename carries no version, so freshness cannot be inferred from it. Would
-      need the download page parsed. Tracked, but reported as UNCHECKABLE.
+      CHECKED via the releases API. Upstream v5.1.5, 186 MB AppImage, linux amd64
+      asset present. Earlier this was recorded as UNCHECKABLE, which was WRONG: the
+      filename carries no version but the upstream release does. The local file
+      cannot be dated from its name, so the comparison is one-sided - upstream is
+      known, local is not. To make it two-sided, rename or record the version the
+      file was downloaded at. The amd64 download link is in the table.
 
   - name: "LM-Studio-0.4.20-1-x64.AppImage"
     path: "/home/scottw/Documents/APP IMAGES/LM-Studio-0.4.20-1-x64.AppImage"
     version_in_name: "0.4.20-1"
-    source: "https://lmstudio.ai/download"
+    download_url: "https://lmstudio.ai/download"
+    version_source: "download page, rendered client-side"
     check_kind: none
     checkable: false
-    note: "Version is readable from the filename, but there is no feed to compare it to."
+    note: >-
+      Version IS readable from the filename. The download page resolves (HTTP 200)
+      but is rendered client-side and exposes no version to a plain fetch; their
+      release-notes page returns internal build numbers (6.498.974, 9.097.325)
+      rather than a release version. Link recorded so a human can check it.
 
   - name: "pCloud.AppImage"
     path: "/home/scottw/Documents/APP IMAGES/pCloud.AppImage"
     version_in_name: null
-    source: "https://www.pcloud.com/download"
+    download_url: "https://www.pcloud.com/download-free-online-cloud-file-storage"
+    version_source: "download page, rendered client-side"
     check_kind: none
     checkable: false
+    note: >-
+      Download page resolves but carries no machine-readable Linux version. Link
+      recorded so a human can check it. Note pCloud also runs from
+      ~/pCloudDrive, which is a different install.
 
   - name: "nPerf.AppImage"
     path: "/home/scottw/.local/bin/nPerf.AppImage"
     version_in_name: null
-    source: "unknown - no provenance recorded"
+    download_url: null
+    version_source: "none"
     check_kind: none
     checkable: false
-    note: "Provenance UNKNOWN. This is a finding: nothing records where it came from."
+    note: >-
+      PROVENANCE STILL UNKNOWN, and this one is genuinely not checkable because no
+      vendor can be identified. It is a "Network performance testing tool" per its
+      own .desktop Comment. Extracted every URL in the 258 MB binary: the only
+      ones present are licence texts (AppImageKit, libfuse, zlib, musl, zstd,
+      dot-asm). No homepage, no repository, no version string. Until someone
+      records where it came from, there is nothing to check it against.
 
   - name: "ReticulumMeshChatX-v4.9.1-linux-x86_64.AppImage"
     path: "/home/scottw/Applications/ReticulumMeshChatX-v4.9.1-linux-x86_64.AppImage"
     version_in_name: "4.9.1"
-    source: "https://github.com/liamcottle/reticulum-meshchat or a packaged build"
-    check_kind: none
-    checkable: false
+    download_url: "https://github.com/Quad4-Software/MeshChatX/releases/latest"
+    linux_amd64_direct: "https://github.com/Quad4-Software/MeshChatX/releases/download/v4.9.3/ReticulumMeshChatX-v4.9.3-linux-amd64.deb"
+    version_source: "github releases API, tag_name"
+    version_api: "https://api.github.com/repos/Quad4-Software/MeshChatX/releases/latest"
+    check_kind: github
+    github_repo: "Quad4-Software/MeshChatX"
+    checkable: true
     note: >-
-      This AppImage is the SOURCE the running native backend was extracted from,
-      not the thing that runs. The service execs
-      ~/Applications/meshchatx-native/ReticulumMeshChatX. Keep the AppImage as
-      the re-extraction source; do not treat it as the live version.
+      CHECKED. Upstream v4.9.3, published 2026-09-30. This AppImage is the SOURCE
+      the running native backend was extracted from, NOT the thing that runs: the
+      service execs ~/Applications/meshchatx-native/ReticulumMeshChatX, extracted
+      2026-09-24 from v4.9.1. So the RUNNING version is 4.9.1 and it is two patch
+      releases behind. NOTE the amd64 asset upstream is a .deb, not an AppImage;
+      the arm64 asset is the AppImage.
 
 # ---------------------------------------------------------------------------
 # ~/.local/bin executables with an identifiable origin
