@@ -1,0 +1,19 @@
+# Canonical identity for this repository.
+#
+# ALWAYS ON work is committed under the owner's single account, no matter which
+# local tool, session, or agent made the change. Without this file GitHub builds
+# its contributor list from raw commit identities, so any secondary identity (a
+# tool's agent address, or a differently spelled name) shows up as a separate
+# contributor. This file collapses every identity onto one account.
+#
+# Syntax:  <canonical-name> <canonical-email>  <source-name> <source-email>
+# The canonical identity always comes FIRST; the commit identity to be folded
+# in comes last.
+
+# Unattended/autonomous commits made by tooling, not by a person.
+300x3 <300x3@posteo.net> <ALWAYS ON Agent> <agent@300x3.com>
+300x3 <300x3@posteo.net> <ALWAYSON Agent> <agent@300x3.com>
+
+# Own commits recorded under a display name instead of the account name.
+300x3 <300x3@posteo.net> <SCOTT WIDMANN> <300x3@posteo.net>
+300x3 <300x3@posteo.net> 300x3@posteo.net <300x3@posteo.net>
