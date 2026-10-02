@@ -188,9 +188,47 @@ decisions:
       RNS manages that split. That is a field-domain responsibility, so it belongs
       on ao-field, not as a bare host process on loopback.
     open: >-
-      The design is not yet settled. ao-field is Internal=true, and a network with
-      public Reticulum connections is not purely internal, so this needs a
-      documented topology decision before anything is moved. No change made yet.
+      NOT MOVED. Investigation on 2026-10-02 settles the shape of the problem:
+      one RNS stack, not two installations, is the correct answer, and the
+      public/private split already exists inside it.
+    findings: >-
+      ONE stack. ~/.reticulum/config is a single Reticulum stack. MeshChatX reads
+      it via --reticulum-config-dir. There are no two installations today, and
+      introducing a second would be wrong: Reticulum addresses peers by Routing
+      ID within ONE namespace, so a second stack would not see the first's peers
+      and MeshChatX could only ever reach one half.
+      THE SPLIT ALREADY EXISTS as two RNode interfaces in that one config:
+        [[PEOPLE-RADIO]] RNodeInterface, /dev/serial/by-path/...usb-0:13, 915 MHz
+                         125 kHz, enabled
+        [[DRONE-RADIO]]  RNodeInterface, /dev/serial/by-path/...usb-0:1,  917 MHz
+                         250 kHz, enabled
+      Both are backed by named udev symlinks (ao-people-radio, ao-drone-radio)
+      from config/field/heltec-v3/udev/99-ao-heltec.rules, mode 0660 group dialout,
+      with ID_MM_DEVICE_IGNORE=1 so ModemManager cannot steal them.
+      Alongside them are roughly thirty TCPClientInterface peers on port 4242 to
+      public Reticulum backbones - that is the public half.
+    the_real_gap: >-
+      No interface_routing_id ranges are configured anywhere in the stack. The
+      people/drone separation is therefore enforced only by RADIO FREQUENCY, not
+      by ROUTING. RNS can route over any enabled interface, so drone traffic
+      could egress over a public TCP backbone and public traffic could egress
+      over the drone radio. For a channel the README describes as authenticated
+      private drone traffic, that is the actual exposure, and it is a different
+      problem from the container placement the operator raised.
+    blocking_conflict: >-
+      A container on ao-field has neither thing MeshChatX needs: ao-field is
+      Internal=true, so there is no public egress, and USB serial devices are not
+      passed in by default. Moving it as-is would break the public half AND the
+      radios.
+    proposed_shape: >-
+      Keep ONE RNS stack and ONE MeshChatX installation. Place it in a container
+      on ao-field, dual-homed to a dedicated RNS egress network (the existing
+      ao-reporting-egress precedent, for Grafana and Metabase), with
+      /dev/ao-people-radio and /dev/ao-drone-radio passed in explicitly. Then
+      set interface_routing_id ranges so RNS itself enforces the split rather
+      than relying on frequency. Requires operator approval: it changes network
+      topology, isolation policy, and adds serial device passthrough to a
+      container. No change made.
 
 # Image references that are not tracked because no upstream is meaningful.
 untracked:
