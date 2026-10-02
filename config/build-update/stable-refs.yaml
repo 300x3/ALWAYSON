@@ -207,6 +207,26 @@ decisions:
       with ID_MM_DEVICE_IGNORE=1 so ModemManager cannot steal them.
       Alongside them are roughly thirty TCPClientInterface peers on port 4242 to
       public Reticulum backbones - that is the public half.
+    representation: >-
+      THE SEPARATION IS ALREADY IMPLEMENTED, AND IT IS DONE WITHIN ONE STACK.
+      It is NOT two installations, and it is NOT routing-id ranges. The bundled
+      RNS has no interface_routing_id at all; it separates by INTERFACE MODE.
+      Live config, verified 2026-10-02:
+        [[PEOPLE-RADIO]]  915 MHz / 125 kHz   selected_interface_mode = 1
+        [[DRONE-RADIO]]   917 MHz / 250 kHz   selected_interface_mode = 7
+                                         plus mode = internal, discoverable = no
+      The bytecode exposes MODE_FULL and MODE_INTERNAL, so mode 1 is FULL (peers
+      on the public network) and mode 7 is INTERNAL (a private leaf: no transit,
+      not announced). rnstatus confirms it at runtime: PEOPLE-RADIO is "Full",
+      DRONE-RADIO is "Internal", both Up, with real signal figures.
+      So the drone path is already private BY RNS's own mechanism, and the public
+      LoRaWAN path is separate. This is the representation the operator asked for,
+      and it is already in place.
+      QGroundControl is intended to reach the drone THROUGH this same stack,
+      encrypted. That is what makes one stack correct rather than a compromise:
+      RNS carries both halves and its per-interface mode is what keeps them apart.
+      A second RNS installation would destroy that, because Routing IDs are
+      meaningful only inside one stack.
     the_real_gap: >-
       No interface_routing_id ranges are configured anywhere in the stack. The
       people/drone separation is therefore enforced only by RADIO FREQUENCY, not
