@@ -1,6 +1,6 @@
 # Software status - Ubuntu 26.04.1 LTS - 2026-10-02
 
-Upstream data re-checked between 72s and 3m ago (cache TTL 0h).
+Upstream data re-checked between 2m and 2m ago (cache TTL 0h).
 
 **1 container(s) have no Released hash:** ao-ardupilot-sitl. Each is a distinct condition — a local build, a floating tag, or an upstream fetch that failed; expand the row to see which.
 
@@ -8,7 +8,7 @@ Upstream data re-checked between 72s and 3m ago (cache TTL 0h).
 
 | Item | Via | Publisher | Repository / archive | Pinned | Version here | Up to date? | Released | Pinned hash | Released hash | Installed | Download |
 |---|---|---|---|:---:|---|:---:|---|---|---|---|---|
-| `KDE Plasma Desktop (191 components)` | apt/KDE packages | KDE, packaged by Kubuntu for Ubuntu | http://us.archive.ubuntu.com/ubuntu resolute-updates/universe | ✅ | `Plasma 6.6.6` | - | `KDE Plasma 6.6.6 via the Ubuntu archive; no separate Kubuntu repository exists on this host` | `-` | `-` | - | [get](https://packages.kubuntu.org/) |
+| `KDE Plasma Desktop (191 components)` | apt/KDE packages | KDE, packaged by Kubuntu for Ubuntu | http://us.archive.ubuntu.com/ubuntu resolute-updates/universe | ✅ | `Plasma 6.6.6` | - | `KDE Plasma 6.6.6 via the Ubuntu archive; no separate Kubuntu repository exists on this host` | `-` | `-` | - | [get](https://packages.ubuntu.com/resolute/plasma-desktop) |
 | *`UBUNTU Ubuntu 26.04.1 LTS`* | operating system | Canonical | 7.0.0-38-generic | ✅ | `Ubuntu 26.04.1 LTS` | - | `LTS, security pocket unattended` | `-` | `-` | - | [get](https://ubuntu.com/) |
 | `Ubuntu archive packages` | apt/ubuntu archive | Canonical | archive.ubuntu.com + security.ubuntu.com | ✅ | `3863 packages, Ubuntu 26.04.1 LTS` | - | `managed by apt; security pocket unattended` | `-` | `-` | - | [get](https://packages.ubuntu.com/resolute/) |
 | `ROS 2 lyrical (whole train)` | apt/ROS repository | packages.ros.org | 351 packages, suite resolute | ✅ | `lyrical, built for Ubuntu 26.04` | **NO** | `FROZEN - repository unreachable, TLS verification fails; no ROS package can be fetched or updated by anyone` | `-` | `-` | - | [get](http://packages.ros.org/ros2/ubuntu) |
@@ -24,10 +24,10 @@ Upstream data re-checked between 72s and 3m ago (cache TTL 0h).
 | `ao-webodm-web` | container/mapping | docker.io | docker.io/webodm/webodm_webapp | ✅ | `3.2.8` | **NO** | `latest` (latest) | `sha256:188267c654c2` | `sha256:8dbc0dcc1fb2` | - | `podman pull webodm/webodm_webapp@sha256:188267c654c27a0f5352b0ff27ebe777788637df06d948d80ccb8513c72abd38` |
 | `ao-webodm-worker` | container/mapping | docker.io | docker.io/webodm/webodm_webapp | ✅ | `3.2.8` | **NO** | `latest` (latest) | `sha256:188267c654c2` | `sha256:8dbc0dcc1fb2` | - | `podman pull webodm/webodm_webapp@sha256:188267c654c27a0f5352b0ff27ebe777788637df06d948d80ccb8513c72abd38` |
 | `brave` | snap/latest/stable | Brave Software | snap store | ✅ | `1.96.60` | **NO** | `1.96.61` | `-` | `-` | 2026-09-30 | [get](https://snapcraft.io/brave) |
-| `cline` | vendor/executable | see repository | https://github.com/cline/cline | ❌ | `3.0.60` | **NO** | `desktop-v0.0.42` | `-` | `-` | - | [get](https://github.com/cline/cline) |
+| `cline` | vendor/executable | see repository | https://github.com/cline/cline | ❌ | `3.0.60` | **NO** | `desktop-v0.0.43` | `-` | `-` | - | [get](https://github.com/cline/cline) |
 | `gh (GitHub CLI)` | vendor/executable | see repository | https://github.com/cli/cli | ❌ | `2.97.0` | **NO** | `v2.102.0` | `-` | `-` | - | [get](https://github.com/cli/cli) |
-| `google-chrome` | vendor/executable | see repository | - | ❌ | `154.0.8037.92` | **NO** | `154.0.8037.97-1` | `-` | `-` | 2026-10-01 | - |
-| `pymavlink (mav* tools)` | vendor/executable | see repository | - | ❌ | `2.4.49` | **NO** | `2.4.50` | `-` | `-` | - | - |
+| `google-chrome` | vendor/executable | Google LLC | https://www.google.com/chrome | ❌ | `154.0.8037.92` | **NO** | `154.0.8037.97-1` | `-` | `-` | 2026-10-01 | [get](https://www.google.com/chrome/) |
+| `pymavlink (mav* tools)` | vendor/executable | ArduPilot Development Team | https://pypi.org/project/pymavlink | ❌ | `2.4.49` | **NO** | `2.4.50` | `-` | `-` | - | [get](https://pypi.org/project/pymavlink/) |
 | `ReticulumMeshChatX-v4.9.1-linux-x86_64.AppImage` | vendor/AppImage | not recorded | github.com/Quad4-Software/MeshChatX | ❌ | `4.9.1` | **NO** | `v4.9.3` | `-` | `-` | 2026-09-24 | [get](https://github.com/Quad4-Software/MeshChatX/releases/download/v4.9.3/ReticulumMeshChatX-v4.9.3-linux-amd64.deb) |
 | `Account authentication` | desktop app (apt) | Ubuntu Developers | apt: signon-ui-qt | ✅ | `0.17+git20231016.eef943f-3build1` | ? | `no upstream feed` | `-` | `-` | 2026-04-23 | apt show signon-ui-qt |
 | `Account Wizard` | desktop app (apt) | Kubuntu Developers | apt: accountwizard | ✅ | `4:25.12.3-0ubuntu1` | ? | `no upstream feed` | `-` | `-` | 2026-08-04 | apt show accountwizard |
@@ -66,7 +66,7 @@ Upstream data re-checked between 72s and 3m ago (cache TTL 0h).
 | `Firewall` | desktop app (apt) | Kubuntu Developers | apt: plasma-firewall | ✅ | `6.6.4-0ubuntu1` | ? | `no upstream feed` | `-` | `-` | 2026-04-23 | apt show plasma-firewall |
 | `Foxglove` | desktop app (apt) | Foxglove Technologies | apt: foxglove-studio | ✅ | `3.3.0` | ? | `no upstream feed` | `-` | `-` | 2026-10-02 | apt show foxglove-studio |
 | `foxglove-studio (direct .deb)` | vendor/.deb | vendor (not recorded) | no configured repository | ✅ | `3.3.0` | ? | `no feed` | `-` | `-` | 2026-10-02 | vendor site (not recorded) |
-| `Gamma` | desktop app (apt) | Kubuntu Developers | apt: kgamma:amd64 | ✅ | `6.6.4-0ubuntu1` | ? | `no upstream feed` | `-` | `-` | - | apt show kgamma:amd64 |
+| `Gamma` | desktop app (apt) | Kubuntu Developers | apt: kgamma:amd64 | ✅ | `6.6.4-0ubuntu1` | ? | `no upstream feed` | `-` | `-` | 2026-04-23 | apt show kgamma:amd64 |
 | `Geoclue Demo agent` | desktop app (apt) | Ubuntu Developers | apt: geoclue-2.0 | ✅ | `2.7.2-2ubuntu3` | ? | `no upstream feed` | `-` | `-` | 2026-04-23 | apt show geoclue-2.0 |
 | `ghostwriter` | desktop app (apt) | Kubuntu Developers | apt: ghostwriter | ✅ | `25.12.3-0ubuntu1` | ? | `no upstream feed` | `-` | `-` | 2026-08-29 | apt show ghostwriter |
 | `GNU Image Manipulation Program` | desktop app (apt) | Ubuntu Developers | apt: gimp | ✅ | `3.2.2-1ubuntu0.26.04.1` | ? | `no upstream feed` | `-` | `-` | 2026-08-13 | apt show gimp |
@@ -128,7 +128,7 @@ Upstream data re-checked between 72s and 3m ago (cache TTL 0h).
 | `Login Screen (SDDM)` | desktop app (apt) | Kubuntu Developers | apt: kde-config-sddm | ✅ | `4:6.6.4-0ubuntu1` | ? | `no upstream feed` | `-` | `-` | 2026-04-23 | apt show kde-config-sddm |
 | `Marble` | desktop app (apt) | Kubuntu Developers | apt: marble-qt | ✅ | `4:25.12.3-0ubuntu1` | ? | `no upstream feed` | `-` | `-` | 2026-08-04 | apt show marble-qt |
 | `MBoxImporter` | desktop app (apt) | Kubuntu Developers | apt: mbox-importer | ✅ | `4:25.12.3-0ubuntu1` | ? | `no upstream feed` | `-` | `-` | 2026-08-04 | apt show mbox-importer |
-| `mcp` | vendor/executable | see repository | - | ❌ | `unknown` | ? | `-` | `-` | `-` | - | - |
+| `mcp` | vendor/executable | Model Context Protocol, a Series of LF Projects LLC | https://pypi.org/project/mcp | ❌ | `unknown` | ? | `-` | `-` | `-` | - | [get](https://pypi.org/project/mcp/) |
 | `Menu Editor` | desktop app (apt) | Kubuntu Developers | apt: kmenuedit | ✅ | `4:6.6.4-0ubuntu1` | ? | `no upstream feed` | `-` | `-` | 2026-04-23 | apt show kmenuedit |
 | `Microsoft Edge` | desktop app (apt) | Microsoft Edge for Linux Team | apt: microsoft-edge-stable | ✅ | `154.0.4258.48-1` | ? | `no upstream feed` | `-` | `-` | 2026-10-01 | apt show microsoft-edge-stable |
 | `mintstick (2 launchers)` | desktop app (apt) | Ubuntu Developers | apt: mintstick | ✅ | `1.6.6-1` | ? | `no upstream feed` | `-` | `-` | 2026-08-21 | apt show mintstick |
@@ -142,11 +142,11 @@ Upstream data re-checked between 72s and 3m ago (cache TTL 0h).
 | `Okular (okular)` | desktop app (apt) | Kubuntu Developers | apt: okular | ✅ | `4:25.12.3-0ubuntu1` | ? | `no upstream feed` | `-` | `-` | 2026-04-23 | apt show okular |
 | `okular-extra-backends (2 launchers)` | desktop app (apt) | Kubuntu Developers | apt: okular-extra-backends | ✅ | `4:25.12.3-0ubuntu1` | ? | `no upstream feed` | `-` | `-` | 2026-04-23 | apt show okular-extra-backends |
 | `Online Quotes Editor` | desktop app (apt) | Ubuntu Developers | apt: alkimia-bin | ✅ | `8.2.1-1 (via alkimia-bin)` | ? | `no upstream feed` | `-` | `-` | 2026-08-04 | apt show alkimia-bin |
-| `OpenJDK Java 25 Runtime` | desktop app (apt) | Ubuntu Developers | apt: openjdk-25-jre:amd64 | ✅ | `25.0.4.1+1-1~26.04.4` | ? | `no upstream feed` | `-` | `-` | - | apt show openjdk-25-jre:amd64 |
+| `OpenJDK Java 25 Runtime` | desktop app (apt) | Ubuntu Developers | apt: openjdk-25-jre:amd64 | ✅ | `25.0.4.1+1-1~26.04.4` | ? | `no upstream feed` | `-` | `-` | 2026-09-21 | apt show openjdk-25-jre:amd64 |
 | `OpenRGB` | desktop app (apt) | Ubuntu Developers | apt: openrgb | ✅ | `0.9+git20251009+ds-1` | ? | `no upstream feed` | `-` | `-` | 2026-08-04 | apt show openrgb |
 | `Orca` | desktop app (apt) | Ubuntu Developers | apt: orca | ✅ | `50.2-0ubuntu0.1` | ? | `no upstream feed` | `-` | `-` | 2026-08-04 | apt show orca |
 | `Other Notifications` | desktop app (apt) | Kubuntu Developers | apt: kubuntu-notification-helper | ✅ | `26.04ubuntu6` | ? | `no upstream feed` | `-` | `-` | 2026-04-23 | apt show kubuntu-notification-helper |
-| `Oxygen Window Decoration` | desktop app (apt) | Kubuntu Developers | apt: kwin-decoration-oxygen:amd64 | ✅ | `4:6.6.5-0ubuntu0.1` | ? | `no upstream feed` | `-` | `-` | - | apt show kwin-decoration-oxygen:amd64 |
+| `Oxygen Window Decoration` | desktop app (apt) | Kubuntu Developers | apt: kwin-decoration-oxygen:amd64 | ✅ | `4:6.6.5-0ubuntu0.1` | ? | `no upstream feed` | `-` | `-` | 2026-08-04 | apt show kwin-decoration-oxygen:amd64 |
 | `pCloud` | desktop app (not dpkg-owned) | not dpkg-owned | user-installed (~/.local) | ❌ | `not installed by a package` | ? | `no upstream feed` | `-` | `-` | 2026-08-04 | vendor site (not recorded) |
 | `pCloud.AppImage` | vendor/AppImage | not recorded | no repository | ❌ | `no version in filename` | ? | `-` | `-` | `-` | 2026-09-21 | [get](https://www.pcloud.com/download-free-online-cloud-file-storage) |
 | `PDF Arranger` | desktop app (apt) | Ubuntu Developers | apt: pdfarranger | ✅ | `1.13.0-1` | ? | `no upstream feed` | `-` | `-` | 2026-08-04 | apt show pdfarranger |
@@ -199,7 +199,7 @@ Upstream data re-checked between 72s and 3m ago (cache TTL 0h).
 | `xterm (2 launchers)` | desktop app (apt) | Ubuntu Developers | apt: xterm | ✅ | `407-1ubuntu1` | ? | `no upstream feed` | `-` | `-` | 2026-08-04 | apt show xterm |
 | `Xwayland` | desktop app (apt) | Ubuntu Developers | apt: xwayland | ✅ | `2:24.1.10-1` | ? | `no upstream feed` | `-` | `-` | 2026-04-23 | apt show xwayland |
 | `Zenity` | desktop app (apt) | Ubuntu Developers | apt: zenity | ✅ | `4.2.1-1` | ? | `no upstream feed` | `-` | `-` | 2026-08-04 | apt show zenity |
-| `ao-sim-fabrication-foxglove` | container/sim-fabrication | built on this host (ao-sim-fabrication) | localhost/foxglove-bridge@sha256:b58ea8704f171d29cc26a3965dd89487902d07c909d6d89c1c71188b7c94b342 | ❌ | `-` | local | `no upstream` | `-` | `-` | 2026-10-02 | (local build; no upstream) |
+| `ao-sim-fabrication-foxglove` | container/sim-fabrication | built on this host (ao-sim-fabrication) | localhost/foxglove-bridge@sha256:6d3461ddf0277ff7a94ea4da088aceba72be842b4f7b5c41aaf42e401402c738 | ❌ | `-` | local | `no upstream` | `-` | `-` | 2026-10-02 | (local build; no upstream) |
 | `ao-sim-fabrication-gui-gz` | container/sim-fabrication | built on this host (ao-sim-fabrication) | localhost/gz-sim10-resolute:gui-svgfix | ❌ | `-` | local | `no upstream` | `-` | `-` | 2026-10-01 | (local build; no upstream) |
 | `ao-sim-fabrication-gz` | container/sim-fabrication | built on this host (ao-sim-fabrication) | localhost/gz-sim10-server@sha256:55f8dbcf8decb0b97c6be7cf2fde8859b0fd05735c7a759df09a12e091933581 | ❌ | `-` | local | `no upstream` | `-` | `-` | 2026-10-01 | (local build; no upstream) |
 | `ao-fabrication-db` | container/fabrication | docker.io | docker.io/library/postgres | ✅ | `17.11` | yes | `17.11` (17) | `sha256:d74eeac9a635` | `sha256:d74eeac9a635` | 2026-09-19 | `podman pull docker.io/library/postgres@sha256:d74eeac9a635390a49bc21bd49fccd973de707e2a53a76ac49b552b8712ec46f` |
@@ -212,32 +212,32 @@ Upstream data re-checked between 72s and 3m ago (cache TTL 0h).
 | `ao-webodm-db` | container/mapping | docker.io | docker.io/webodm/webodm_db | ✅ | `latest` | yes | `latest` (latest) | `sha256:03f18ec00893` | `sha256:03f18ec00893` | - | `podman pull webodm/webodm_db@sha256:03f18ec0089325ec2b8975ba1781277bcdc212b6d86c9de33f6409d313e90430` |
 | `bare` | snap/latest/stable | Canonical** | snap store | ✅ | `1.0` | yes | `1.0` | `-` | `-` | 2026-04-23 | [get](https://snapcraft.io/bare) |
 | `bun` | vendor/executable | see repository | https://github.com/oven-sh/bun | ❌ | `1.4.2` | yes | `bun-v1.4.2` | `-` | `-` | - | [get](https://github.com/oven-sh/bun) |
-| `codium` | apt/third-party | download.vscodium.com | main | ✅ | `1.135.06055` | yes | `1.135.06055` | `-` | `-` | 2026-09-16 | - |
+| `codium` | apt/third-party | download.vscodium.com | download.vscodium.com/debs main | ✅ | `1.135.06055` | yes | `1.135.06055` | `-` | `-` | 2026-09-16 | [get](https://download.vscodium.com/debs/pool/main/c/codium/codium_1.135.06055_amd64.deb) |
 | `core20` | snap/latest/stable | Canonical** | snap store | ✅ | `20260901` | yes | `20260901` | `-` | `-` | 2026-09-11 | [get](https://snapcraft.io/core20) |
 | `core22` | snap/latest/stable | Canonical** | snap store | ✅ | `20260824` | yes | `20260824` | `-` | `-` | 2026-09-15 | [get](https://snapcraft.io/core22) |
 | `core24` | snap/latest/stable | Canonical** | snap store | ✅ | `20260824` | yes | `20260824` | `-` | `-` | 2026-09-16 | [get](https://snapcraft.io/core24) |
 | `core26` | snap/latest/stable | Canonical** | snap store | ✅ | `20260629` | yes | `20260629` | `-` | `-` | 2026-09-28 | [get](https://snapcraft.io/core26) |
 | `cups` | snap/latest/stable | OpenPrinting** | snap store | ✅ | `2.4.19-6` | yes | `2.4.19-6` | `-` | `-` | 2026-09-28 | [get](https://snapcraft.io/cups) |
 | `firefox` | snap/latest/stable/… | Mozilla** | snap store | ✅ | `157.0-1` | yes | `157.0-1` | `-` | `-` | 2026-09-30 | [get](https://snapcraft.io/firefox) |
-| `gh` | apt/third-party | cli.github.com | main | ✅ | `2.102.0` | yes | `2.102.0` | `-` | `-` | 2026-10-01 | - |
+| `gh` | apt/third-party | cli.github.com | cli.github.com/packages main | ✅ | `2.102.0` | yes | `2.102.0` | `-` | `-` | 2026-10-01 | [get](https://cli.github.com/packages/pool/main/g/gh/gh_2.102.0_amd64.deb) |
 | `gnome-42-2204` | snap/latest/stable | Canonical** | snap store | ✅ | `0+git.4982e7b-sdk0+git.69b626a` | yes | `0+git.4982e7b-sdk0+git.69b626a` | `-` | `-` | 2026-09-03 | [get](https://snapcraft.io/gnome-42-2204) |
 | `gnome-46-2404` | snap/latest/stable/… | Canonical** | snap store | ✅ | `0+git.b31ceab-sdk0+git.f80dd8b` | yes | `0+git.b31ceab-sdk0+git.f80dd8b` | `-` | `-` | 2026-10-01 | [get](https://snapcraft.io/gnome-46-2404) |
-| `google-chrome-stable` | apt/third-party | dl.google.com | main | ✅ | `154.0.8037.92-1` | yes | `154.0.8037.92-1` | `-` | `-` | 2026-10-01 | - |
+| `google-chrome-stable` | apt/third-party | dl.google.com | dl.google.com/linux/chrome-stable/deb main | ✅ | `154.0.8037.92-1` | yes | `154.0.8037.92-1` | `-` | `-` | 2026-10-01 | [get](https://dl.google.com/linux/chrome-stable/deb/pool/main/g/google-chrome-stable/google-chrome-stable_154.0.8037.97-1_amd64.deb) |
 | `gtk-common-themes` | snap/latest/stable/… | Canonical** | snap store | ✅ | `0.1-81-g442e511` | yes | `0.1-81-g442e511` | `-` | `-` | 2026-04-23 | [get](https://snapcraft.io/gtk-common-themes) |
 | `gtk-theme-breeze` | snap/latest/stable/… | KDE** | snap store | ✅ | `1.5` | yes | `1.5` | `-` | `-` | 2026-04-23 | [get](https://snapcraft.io/gtk-theme-breeze) |
 | `icon-theme-breeze` | snap/latest/stable/… | KDE** | snap store | ✅ | `1.3` | yes | `1.3` | `-` | `-` | 2026-04-23 | [get](https://snapcraft.io/icon-theme-breeze) |
-| `libnvidia-container-tools` | apt/third-party | nvidia.github.io | - | ✅ | `1.20.1-1` | yes | `1.20.1-1` | `-` | `-` | 2026-09-20 | - |
-| `libnvidia-container1` | apt/third-party | nvidia.github.io | - | ✅ | `1.20.1-1` | yes | `1.20.1-1` | `-` | `-` | - | - |
+| `libnvidia-container-tools` | apt/third-party | nvidia.github.io | nvidia.github.io/libnvidia-container/stable/deb/amd64 | ✅ | `1.20.1-1` | yes | `1.20.1-1` | `-` | `-` | 2026-09-20 | [get](https://nvidia.github.io/libnvidia-container/stable/deb/amd64/./libnvidia-container-tools_1.20.1-1_amd64.deb) |
+| `libnvidia-container1` | apt/third-party | nvidia.github.io | nvidia.github.io/libnvidia-container/stable/deb/amd64 | ✅ | `1.20.1-1` | yes | `1.20.1-1` | `-` | `-` | 2026-09-20 | [get](https://nvidia.github.io/libnvidia-container/stable/deb/amd64/./libnvidia-container1_1.20.1-1_amd64.deb) |
 | `mesa-2404` | snap/latest/stable/… | Canonical** | snap store | ✅ | `25.2.8-snap288` | yes | `25.2.8-snap288` | `-` | `-` | 2026-08-04 | [get](https://snapcraft.io/mesa-2404) |
-| `microsoft-edge-stable` | apt/third-party | packages.microsoft.com | main | ✅ | `154.0.4258.48-1` | yes | `154.0.4258.48-1` | `-` | `-` | 2026-10-01 | - |
-| `nodejs` | apt/third-party | deb.nodesource.com | main | ✅ | `24.21.0-1nodesource1` | yes | `24.21.0-1nodesource1` | `-` | `-` | 2026-09-16 | - |
-| `nvidia-container-toolkit` | apt/third-party | nvidia.github.io | - | ✅ | `1.20.1-1` | yes | `1.20.1-1` | `-` | `-` | 2026-09-20 | - |
-| `nvidia-container-toolkit-base` | apt/third-party | nvidia.github.io | - | ✅ | `1.20.1-1` | yes | `1.20.1-1` | `-` | `-` | 2026-09-20 | - |
+| `microsoft-edge-stable` | apt/third-party | packages.microsoft.com | packages.microsoft.com/repos/edge-stable main | ✅ | `154.0.4258.48-1` | yes | `154.0.4258.48-1` | `-` | `-` | 2026-10-01 | [get](https://packages.microsoft.com/repos/edge-stable/pool/main/m/microsoft-edge-stable/microsoft-edge-stable_154.0.4258.53-1_amd64.deb) |
+| `nodejs` | apt/third-party | deb.nodesource.com | deb.nodesource.com/node/24.x main | ✅ | `24.21.0-1nodesource1` | yes | `24.21.0-1nodesource1` | `-` | `-` | 2026-09-16 | [get](https://deb.nodesource.com/node_24.x/pool/main/n/nodejs/nodejs_24.21.0-1nodesource1_amd64.deb) |
+| `nvidia-container-toolkit` | apt/third-party | nvidia.github.io | nvidia.github.io/libnvidia-container/stable/deb/amd64 | ✅ | `1.20.1-1` | yes | `1.20.1-1` | `-` | `-` | 2026-09-20 | [get](https://nvidia.github.io/libnvidia-container/stable/deb/amd64/./nvidia-container-toolkit_1.20.1-1_amd64.deb) |
+| `nvidia-container-toolkit-base` | apt/third-party | nvidia.github.io | nvidia.github.io/libnvidia-container/stable/deb/amd64 | ✅ | `1.20.1-1` | yes | `1.20.1-1` | `-` | `-` | 2026-09-20 | [get](https://nvidia.github.io/libnvidia-container/stable/deb/amd64/./nvidia-container-toolkit-base_1.20.1-1_amd64.deb) |
 | `orcaslicer` | snap/latest/stable | Valentin Haudiquet | snap store | ✅ | `2.4.2` | yes | `2.4.2` | `-` | `-` | 2026-08-04 | [get](https://snapcraft.io/orcaslicer) |
 | `snapd` | snap/latest/stable | Canonical** | snap store | ✅ | `2.77.1` | yes | `2.77.1` | `-` | `-` | 2026-10-02 | [get](https://snapcraft.io/snapd) |
-| `steam-launcher` | apt/third-party | repo.steampowered.com | steam | ✅ | `1:1.0.0.87` | yes | `1:1.0.0.87` | `-` | `-` | 2026-08-04 | - |
-| `steam-libs-amd64` | apt/third-party | repo.steampowered.com | steam | ✅ | `1:1.0.0.87` | yes | `1:1.0.0.87` | `-` | `-` | 2026-08-04 | - |
-| `steam-libs-i386` | apt/third-party | repo.steampowered.com | steam | ✅ | `1:1.0.0.87` | yes | `1:1.0.0.87` | `-` | `-` | 2026-08-04 | - |
+| `steam-launcher` | apt/third-party | repo.steampowered.com | repo.steampowered.com/steam steam | ✅ | `1:1.0.0.87` | yes | `1:1.0.0.87` | `-` | `-` | 2026-08-04 | [get](https://repo.steampowered.com/steam/pool/steam/s/steam/steam-launcher_1.0.0.87_amd64.deb) |
+| `steam-libs-amd64` | apt/third-party | repo.steampowered.com | repo.steampowered.com/steam steam | ✅ | `1:1.0.0.87` | yes | `1:1.0.0.87` | `-` | `-` | 2026-08-04 | [get](https://repo.steampowered.com/steam/pool/steam/s/steam/steam-libs-amd64_1.0.0.87_amd64.deb) |
+| `steam-libs-i386` | apt/third-party | repo.steampowered.com | repo.steampowered.com/steam steam | ✅ | `1:1.0.0.87` | yes | `1:1.0.0.87` | `-` | `-` | 2026-08-04 | [get](https://repo.steampowered.com/steam/pool/steam/s/steam/steam-libs-i386_1.0.0.87_i386.deb) |
 
 <details><summary>Rolled-up launchers — expand to list every application entry (153 entries across 34 groups)</summary>
 

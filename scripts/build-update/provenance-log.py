@@ -529,6 +529,28 @@ def ubuntu_summary(inv):
     }]
 
 
+def apt_pool_url(pkg):
+    """The publisher's real .deb URI for a package, straight from apt.
+
+    `apt-get download --print-uris` reports exactly where the archive would
+    fetch the artefact from, so the link is the publisher's own file rather
+    than a guessed directory URL (which 404s on every apt repository).
+    """
+    if not pkg:
+        return ""
+    rc, out, _ = run(["apt-get", "download", "--print-uris", pkg])
+    if rc != 0:
+        return ""
+    for line in out.splitlines():
+        line = line.strip()
+        if line.startswith("'") and "http" in line:
+            # Format is: 'URL' filename size hash. Strip the quote from the
+            # token itself, not the whole line, or the URL keeps a trailing "'"
+            # and the resulting link is malformed.
+            return line.split()[0].strip("'")
+    return ""
+
+
 def third_party_apt(inv):
     """Packages from repositories Canonical does not ship.
 
@@ -540,13 +562,24 @@ def third_party_apt(inv):
     for t in inv.get("apt_packages", []):
         if not t["release"].startswith("Third-party"):
             continue
+        origin = (t.get("origin") or "").strip()
+        # The repository origin is where apt fetches from, but it is NOT a web
+        # page: https://cli.github.com/packages/ returns 404. The publisher's
+        # actual artefact comes from the apt pool, so ask apt for the real .deb
+        # URI rather than guessing a directory URL. Falls back to the origin,
+        # clearly labelled, when apt cannot resolve one.
+        dl = apt_pool_url(t["package"]) or f"apt repository: {origin}"
+        repo = (f"{origin} {t['component']}".strip() if t.get("component")
+                else (origin or "-"))
+        repo = (f"{origin} {t['component']}".strip() if t.get("component")
+                else (origin or "-"))
         rows.append({
             "item": t["package"], "via": "apt/third-party",
-            "publisher": (t["origin"] or "vendor").split("/")[0],
-            "repo": f"{t.get('component') or '-'}",
+            "publisher": (origin or "vendor").split("/")[0],
+            "repo": repo,
             "pinned": t["version"], "released": t["version"],
             "pin_hash": "-", "rel_hash": "-", "is_pinned": True,
-            "download": "-", "local": False,
+            "download": dl, "local": False,
             "date": apt_date(t["package"]),
         })
     return rows
@@ -734,7 +767,12 @@ def kde_block(inv):
         "released": (f"KDE Plasma {plasma_n} via the Ubuntu archive; "
                      f"no separate Kubuntu repository exists on this host"),
         "pin_hash": "-", "rel_hash": "-", "is_pinned": True,
-        "download": "https://packages.kubuntu.org/", "local": False,
+        # packages.kubuntu.org no longer resolves (verified against a public
+        # resolver as well as locally); KDE retired that package browser. Plasma
+        # is installed from the Ubuntu archive, so Canonical's package page is
+        # the correct publisher link and is what actually resolves.
+        "download": "https://packages.ubuntu.com/resolute/plasma-desktop",
+        "local": False,
         "nocompare": True,
     }
     return row, sorted(members)
@@ -972,6 +1010,9 @@ def direct_and_unmanaged(offline, inv=None):
                         break
         repo = f"https://github.com/{e['github_repo']}" if e.get("github_repo") else "-"
         dl = repo if repo != "-" else (e.get("download_url") or "-")
+        if repo == "-" and dl != "-":
+            # Name where it actually came from rather than leaving the cell blank.
+            repo = dl.rstrip("/")
         rows.append({"item": e["name"], "via": "vendor/executable",
                      "publisher": e.get("publisher") or "see repository",
                      "repo": repo, "pinned": e.get("version", "unknown"),
@@ -1029,8 +1070,11 @@ def apt_date(pkg):
     """
     if not pkg:
         return "-"
-    for suf in (".list",):
-        p = Path("/var/lib/dpkg/info") / f"{pkg}{suf}"
+    # dpkg names a multi-arch package's manifest "pkg:amd64.list", so a bare
+    # name misses it. Try the declared name first, then the host architecture.
+    names = [pkg] if ":" in pkg else [pkg, f"{pkg}:{dpkg_arch()}"]
+    for n in names:
+        p = Path("/var/lib/dpkg/info") / f"{n}.list"
         try:
             if p.exists():
                 return time.strftime("%Y-%m-%d",
@@ -1038,6 +1082,11 @@ def apt_date(pkg):
         except OSError:
             return "-"
     return "-"
+
+
+def dpkg_arch():
+    rc, out, _ = run(["dpkg", "--print-architecture"])
+    return out.strip() if rc == 0 else "amd64"
 
 
 def snap_date(name, rev):

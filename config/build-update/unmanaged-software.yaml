@@ -108,6 +108,8 @@ appimages:
 executables:
   - name: "pymavlink (mav* tools)"
     version: "2.4.49"
+    publisher: "ArduPilot Development Team"
+    download_url: "https://pypi.org/project/pymavlink/"
     provides: ["mavlink_bitmask_decoder.py", "mavfft.py", "mavfft_isb.py", "mavflightmodes.py",
                "mavflighttime.py", "mavgen.py", "mavgpslock.py", "mavgraph.py", "mavkml.py",
                "mavlogdump.py", "mavextract.py", "mavmission.py", "mavparmdiff.py",
@@ -137,11 +139,15 @@ executables:
 
   - name: "google-chrome"
     version: "154.0.8037.92"
+    publisher: "Google LLC"
+    download_url: "https://www.google.com/chrome/"
     check_kind: apt
     apt_package: "google-chrome-stable"
     checkable: true
 
   - name: "mcp"
+    publisher: "Model Context Protocol, a Series of LF Projects LLC"
+    download_url: "https://pypi.org/project/mcp/"
     check_kind: none
     checkable: false
     note: >-
