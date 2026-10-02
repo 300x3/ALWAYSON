@@ -17,7 +17,6 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
-ENV_FILE = Path('/ALWAYSON/secrets/mastodon/openclaw-mastodon.env')
 STATE_FILE = Path('/home/scottw/.openclaw/mastodon-bridge-state.json')
 LOG_FILE = Path('/home/scottw/.openclaw/mastodon-bridge.log')
 WALLET_HELPER = Path('/ALWAYSON/scripts/ops/wallet-read-secret.py')
@@ -77,16 +76,33 @@ def scrub_internals(text):
     return re.sub(r'[ \t]{2,}', ' ', cleaned).strip()
 
 
+class CredentialUnavailable(RuntimeError):
+    """The Mastodon access token could not be read from KDE Wallet."""
+
+
 def credentials():
+    """Return the bot access token.
+
+    KDE Wallet is the single source of truth (README 14.1.1, rule 7). There is
+    deliberately NO plaintext-file fallback: the previous ENV_FILE fallback
+    pointed at secrets/mastodon/openclaw-mastodon.env, which document B
+    shredded during the secret consolidation. That made the path unreachable, so
+    a wallet failure would have died with a bare FileNotFoundError on a file
+    that must not come back.
+
+    On wallet failure we retry rather than exit, because the common cause is
+    simply that the wallet has not finished unlocking at login - a readiness
+    race, not a credential fault.
+    """
     token = read_wallet_token()
     if token:
         return token
-    values = {}
-    for line in ENV_FILE.read_text().splitlines():
-        if line.strip() and not line.lstrip().startswith('#') and '=' in line:
-            key, value = line.split('=', 1)
-            values[key] = value
-    return values['MASTODON_ACCESS_TOKEN']
+    raise CredentialUnavailable(
+        f'no {WALLET_KEY!r} in KDE Wallet folder {WALLET_FOLDER!r} '
+        f'(wallet {WALLET_NAME!r}). The wallet is likely still locked; '
+        f'if it stays empty, check that the entry exists. '
+        f'There is intentionally no plaintext-file fallback.'
+    )
 
 
 def read_wallet_token():
@@ -190,7 +206,21 @@ def ask_openclaw(status_id, author, body):
 
 
 def main():
-    token = credentials()
+    # Wait for the wallet rather than crash-looping. A locked wallet at login is
+    # a readiness race, not a fault; the service stays up and picks up the token
+    # as soon as the wallet is readable.
+    token = None
+    waited = 0
+    while token is None:
+        try:
+            token = credentials()
+            if waited:
+                log(f'wallet readable after {waited}s; continuing')
+        except CredentialUnavailable as exc:
+            if waited == 0:
+                log(f'waiting for KDE Wallet: {exc}')
+            waited += 15
+            time.sleep(15)
     account = request(token, '/api/v1/accounts/verify_credentials')
     bot_id = str(account['id'])
     state = read_state()
