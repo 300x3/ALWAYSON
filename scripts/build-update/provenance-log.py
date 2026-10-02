@@ -298,7 +298,7 @@ def ubuntu_summary(inv):
         "released": "managed by apt; security pocket unattended",
         "pin_hash": "-", "rel_hash": "-", "is_pinned": True,
         "download": "https://packages.ubuntu.com/resolute/",
-        "local": False, "behind": behind,
+        "local": False, "nocompare": True, "platform": True,
     }]
 
 
@@ -322,6 +322,165 @@ def third_party_apt(inv):
             "download": "-", "local": False,
         })
     return rows
+
+
+
+def gazebo_summary(inv):
+    """Gazebo as one platform row.
+
+    Gazebo is NOT installed on the host - it exists only as an image built for
+    ao-sim-fabrication - so it never appeared as an apt row at all. Recorded here
+    beside Ubuntu and ROS, which are the other two things the simulation depends
+    on.
+    """
+    vm = AO_ROOT / "config/platform/version-matrix.yaml"
+    rel = "10.5.0"
+    if vm.exists():
+        m = re.search(r'gz sim ([0-9.]+)', vm.read_text(errors="replace"))
+        if m:
+            rel = m.group(1)
+    host_pkgs = [t for t in inv.get("apt_packages", [])
+                 if t["package"].startswith("gz-")]
+    return [{
+        "item": f"Gazebo Sim {rel} (simulation only)", "via": "container/ao-sim-fabrication",
+        "publisher": "Open Source Robotics Foundation",
+        "repo": "localhost/gz-sim10-server (built on this host)",
+        "pinned": rel,
+        "released": "newest Gazebo published for Ubuntu 26.04; host package: none",
+        "pin_hash": "55f8dbcf8decb0b9", "rel_hash": "-", "is_pinned": True,
+        "download": "https://packages.osrfoundation.org/gazebo/ubuntu-stable/",
+        "local": True, "platform": True,
+    }]
+
+
+
+def ubuntu_headline(inv):
+    """The OS itself, as one italic line above the package row.
+
+    "3,863 packages, Ubuntu 26.04.1 LTS" is how the packages are counted; this
+    is the operating system underneath them.
+    """
+    return {
+        "item": f"UBUNTU {inv['os']['pretty']}", "via": "operating system",
+        "publisher": "Canonical", "repo": inv["kernel"],
+        "pinned": inv["os"]["pretty"], "released": "LTS, security pocket unattended",
+        "pin_hash": "-", "rel_hash": "-", "is_pinned": True,
+        "download": "https://ubuntu.com/", "local": False,
+        "nocompare": True, "italic": True,
+    }
+
+
+def ros_summary(inv):
+    """ROS 2 as ONE row, carrying its release and whether it can be updated.
+
+    ROS 2 is a single release train bound to one Ubuntu release - here ROS 2
+    Lyrical against Ubuntu 26.04 "resolute" - not 351 independently versioned
+    things. Itemising it buried the one fact that matters, which is that all 351
+    resolve to the expected suite and that NONE of them can currently be
+    updated because the repository fails TLS verification from this host.
+    """
+    ros = [t for t in inv.get("apt_packages", []) if "ros.org" in (t.get("origin") or "")]
+    if not ros:
+        return []
+    policy = (load_yaml(AO_ROOT / "config/build-update/stable-refs.yaml")
+              .get("ros_policy") or {})
+    suites = sorted({t.get("suite", "") for t in ros})
+    counts_ = {}
+    for t in ros:
+        m = re.match(r"ros-([a-z]+)-", t["package"])
+        if m:
+            counts_[m.group(1)] = counts_.get(m.group(1), 0) + 1
+    distros = sorted(counts_, key=lambda d: -counts_[d])
+    wrong = [t["package"] for t in ros
+             if policy.get("validate_against_suite")
+             and t.get("suite") != policy["validate_against_suite"]]
+    reach = policy.get("reachable", False)
+    distro = distros[0] if distros else "unknown"
+    if reach:
+        state = "reachable; updateable from packages.ros.org"
+        verdict = "yes"
+    else:
+        state = ("FROZEN - repository unreachable, TLS verification fails; "
+                 "no ROS package can be fetched or updated by anyone")
+        verdict = "**NO**"
+    if wrong:
+        state += f"; {len(wrong)} package(s) on the WRONG suite"
+        verdict = "**NO**"
+    return [{
+        "item": f"ROS 2 {distro} (whole train)", "via": "apt/ROS repository",
+        "publisher": "packages.ros.org",
+        "repo": f"{len(ros)} packages, suite {'/'.join(suites)}",
+        "pinned": f"{distro}, built for Ubuntu {policy.get('validate_against_release','26.04')}",
+        "released": state,
+        "pin_hash": "-", "rel_hash": "-", "is_pinned": True,
+        "download": "http://packages.ros.org/ros2/ubuntu",
+        "local": False, "force_match": verdict, "platform": True,
+    }]
+
+
+
+KDE_ID_PATTERNS = ("org.kde.", "plasma-", "kcm", "systemsettings.desktop")
+
+
+def is_kde_id(stem):
+    s = stem.lower()
+    return any(s.startswith(p) or ("." + p) in s for p in KDE_ID_PATTERNS)
+
+
+def kde_block(inv):
+    """KDE Plasma as ONE collapsible row, with its members listed underneath.
+
+    KDE ships around 150 of these as separate .desktop files - System Settings,
+    Discover, Ark, Dolphin, Kate and every configuration panel. As individual
+    rows they dominate the table while telling an operator nothing they cannot
+    get from one line saying how many there are.
+    """
+    installed = {t["package"]: t for t in inv.get("apt_packages", [])}
+    members, pkgs = [], set()
+    for d in (Path("/usr/share/applications"), Path.home() / ".local/share/applications",
+              Path("/usr/local/share/applications")):
+        if not d.exists():
+            continue
+        for f in sorted(d.glob("*.desktop")):
+            if not is_kde_id(f.stem):
+                continue
+            name = pkg = None
+            try:
+                for line in f.read_text(errors="replace").splitlines():
+                    if line.startswith("Name=") and name is None:
+                        name = line[5:].strip()
+                    elif line.startswith("X-Ubuntu-Gettext-Domain="):
+                        pkg = line.split("=", 1)[1].strip()
+            except OSError:
+                continue
+            if not name:
+                continue
+            members.append((name, pkg or ("plasma-desktop" if is_kde_id(f.stem) else "")))
+            if pkg:
+                pkgs.add(pkg)
+    if not members:
+        return [], []
+    # The desktop files carry no owning-package key, so the package set and the
+    # version are derived from what is actually installed.
+    kde_pkgs = {p: t["version"] for p, t in installed.items()
+                if re.match(r"^(kde|plasma|libdde|sddm|konsole|dolphin|kate|"
+                            r"okular|ark|discover|gwenview|spectacle|kcalc|systemsettings)", p)}
+    plasma = kde_pkgs.get("plasma-desktop") or kde_pkgs.get("plasma-workspace") or "-"
+    plasma_n = plasma.split("-")[0] if plasma != "-" else "?"
+    for name, pkg in members:
+        if not pkg:
+            for cand in ("plasma-desktop", "systemsettings"):
+                pass
+    ver = f"Plasma {plasma_n}" if plasma != "-" else "-"
+    row = {
+        "item": f"KDE Plasma Desktop ({len(members)} components)",
+        "via": "apt/KDE packages", "publisher": "KDE",
+        "repo": f"{len(kde_pkgs)} kde/plasma packages",
+        "pinned": ver, "released": f"KDE Gear; updated with the Ubuntu archive (Plasma {plasma_n})",
+        "pin_hash": "-", "rel_hash": "-", "is_pinned": True,
+        "download": "https://apps.kde.org/", "local": False, "nocompare": True,
+    }
+    return row, sorted(members)
 
 
 def containers(offline=False):
@@ -540,9 +699,13 @@ def render(inv, codename, offline):
     # an operator nothing. Third-party repositories are listed individually,
     # because an update to those is a decision rather than a background event.
     ubuntu = ubuntu_summary(inv)
-    third = third_party_apt(inv)
+    ros = ros_summary(inv)
+    gz = gazebo_summary(inv)
+    third = [t for t in third_party_apt(inv) if "ros.org" not in (t["publisher"] or "")]
     apps = desktop_apps(inv)
-    rows = cont + sn + fl + apps + third + ubuntu + direct
+    kde_row, kde_members = kde_block(inv)
+    platform = ([kde_row] if kde_row else []) + [ubuntu_headline(inv)] + ubuntu + ros + gz
+    rows = platform + cont + sn + fl + apps + third + direct
 
     n_ubuntu = sum(1 for t in inv.get("apt_packages", [])
                    if t["release"].startswith("Ubuntu"))
@@ -550,13 +713,14 @@ def render(inv, codename, offline):
     current = len([r for r in rows if match_of(r) == "yes"])
     unknown = len([r for r in rows if match_of(r) == "?"])
     local = len([r for r in rows if match_of(r) == "local"])
+    summary = len([r for r in rows if match_of(r) == "summary"])
 
     L = []
     w = L.append
     w(f"# Software status - {inv['os']['pretty']} - {now_utc()[:10]}")
     w("")
     w(f"**{len(rows)} items.** {behind} behind - {current} up to date - "
-      f"{unknown} no version published - {local} local build. "
+      f"{unknown} no version published - {local} local build - {summary} summary. "
       f"Plus {n_ubuntu} Ubuntu archive packages collapsed into one row: Canonical "
       f"ships and manages those, so itemising them told an operator nothing. "
       f"Generated by `scripts/build-update/provenance-log.py`; read-only.")
@@ -564,18 +728,45 @@ def render(inv, codename, offline):
     w("| Item | Via | Publisher | Repository / archive | Pinned | Version here | "
       "Up to date? | Released | Pinned hash | Released hash | Download |")
     w("|---|---|---|---|:---:|---|:---:|---|---|---|---|")
-    rank = {"**NO**": 0, "?": 1, "local": 2, "yes": 3}
-    for r in sorted(rows, key=lambda x: (rank.get(match_of(x), 5), str(x["item"]).lower())):
+    rank = {"**NO**": 0, "?": 1, "summary": 2, "local": 3, "yes": 4}
+    # ALL platform rows, in reading order: the desktop, the OS, the packages the
+    # OS carries, the robot stack bound to it, and the simulator. A partial list
+    # here silently pushed KDE and UBUNTU down into the ordinary ranking.
+    platform_order = {"KDE Plasma Desktop": 0, "UBUNTU": 1,
+                      "Ubuntu archive packages": 2, "ROS 2": 3, "Gazebo Sim": 4}
+    def sortkey(x):
+        # The three platform rows lead the table, in order, so the base system,
+        # the robot stack bound to it, and the simulator read together.
+        for k, n in platform_order.items():
+            if str(x.get("item", "")).startswith(k):
+                return (-1, n, "")
+        return (rank.get(match_of(x), 5), 9, str(x.get("item", "")).lower())
+    for r in sorted(rows, key=sortkey):
         dl = r.get("download", "-")
         cell = (f"[get]({dl})" if str(dl).startswith("http")
                 else (f"`{dl}`" if str(dl).startswith("podman") else str(dl)))
         mark = "\u2705" if r.get("is_pinned") else "\u274c"
-        up = {"yes": "yes", "**NO**": "**NO**", "?": "?", "local": "local"}[match_of(r)]
+        up = {"yes": "yes", "**NO**": "**NO**", "?": "?",
+              "local": "local", "summary": "-"}[match_of(r)]
         tag = r.get("tag")
         rel = f"`{r['released']}`" + (f" ({tag})" if tag else "")
-        w(f"| `{r['item']}` | {r['via']} | {r['publisher']} | {r['repo']} | {mark} | "
+        item = f"`{r['item']}`"
+        if r.get("italic"):
+            item = f"*{item}*"
+        w(f"| {item} | {r['via']} | {r['publisher']} | {r['repo']} | {mark} | "
           f"`{r['pinned']}` | {up} | {rel} | `{r.get('pin_hash', '-')}` | "
           f"`{r.get('rel_hash', '-')}` | {cell} |")
+    if kde_members:
+        w("")
+        w(f"<details><summary>KDE Plasma Desktop — expand to list all "
+          f"{len(kde_members)} components</summary>")
+        w("")
+        w("| Component | Owning package |")
+        w("|---|---|")
+        for nm, pk in kde_members:
+            w(f"| {nm} | {('`' + pk + '`') if pk else '-'} |")
+        w("")
+        w("</details>")
     w("")
     return "\n".join(L) + "\n"
 
@@ -612,6 +803,13 @@ def same_version(a, b, exact=False):
 
 
 def match_of(r):
+    # A row with nothing to compare against is not "behind" - it is simply a
+    # summary. The collapsed Ubuntu row compares two prose strings and would
+    # otherwise always read as a finding.
+    if r.get("nocompare"):
+        return "summary"
+    if r.get("force_match"):
+        return r["force_match"]
     # Compare hashes when both are present. Display strings are for reading; a
     # comparison against "no version tag" or a rolling alias proves nothing.
     ph, rh = str(r.get("pin_hash", "")), str(r.get("rel_hash", ""))
@@ -643,7 +841,7 @@ CSS = ("body{font:15px/1.55 -apple-system,Segoe UI,Roboto,sans-serif;max-width:1
        "blockquote{border-left:4px solid #adb5bd;margin:1rem 0;padding:.4rem 1rem;color:#495057}""h1{font-size:15pt} .counts{font-size:9pt;color:#444;margin:.2rem 0 .6rem}""tr.behind td{background:#fdecea}""@page{size:A4 landscape;margin:9mm}""thead{display:table-header-group} tr{page-break-inside:avoid}""body{font-size:6.6pt} table{font-size:6.2pt} th,td{padding:1px 2px}""code{font-size:5.8pt;background:none;padding:0}")
 
 
-def rows_to_html(rows, counts, title):
+def rows_to_html(rows, counts, title, kde_members=None):
     """Emit the table straight to HTML, bypassing python-markdown.
 
     python-markdown's table extension does not finish on a table this size, so
@@ -656,14 +854,28 @@ def rows_to_html(rows, counts, title):
            f"<h1>{H.escape(title)}</h1>", f"<p class='counts'>{H.escape(counts)}</p>",
            "<table><thead><tr>" + "".join(f"<th>{H.escape(h)}</th>" for h in HEADERS)
            + "</tr></thead><tbody>"]
-    rank = {"**NO**": 0, "?": 1, "local": 2, "yes": 3}
-    for r in sorted(rows, key=lambda x: (rank.get(match_of(x), 5), str(x["item"]).lower())):
+    rank = {"**NO**": 0, "?": 1, "summary": 2, "local": 3, "yes": 4}
+    # ALL platform rows, in reading order: the desktop, the OS, the packages the
+    # OS carries, the robot stack bound to it, and the simulator. A partial list
+    # here silently pushed KDE and UBUNTU down into the ordinary ranking.
+    platform_order = {"KDE Plasma Desktop": 0, "UBUNTU": 1,
+                      "Ubuntu archive packages": 2, "ROS 2": 3, "Gazebo Sim": 4}
+    def sortkey(x):
+        # The three platform rows lead the table, in order, so the base system,
+        # the robot stack bound to it, and the simulator read together.
+        for k, n in platform_order.items():
+            if str(x.get("item", "")).startswith(k):
+                return (-1, n, "")
+        return (rank.get(match_of(x), 5), 9, str(x.get("item", "")).lower())
+    for r in sorted(rows, key=sortkey):
         dl = r.get("download", "-")
         dl_cell = (f'<a href="{H.escape(str(dl))}">get</a>' if str(dl).startswith("http")
                    else H.escape(str(dl)))
         tag = r.get("tag")
         rel = H.escape(str(r["released"])) + (f" ({H.escape(str(tag))})" if tag else "")
-        cells = [f"<code>{H.escape(str(r['item']))}</code>",
+        _it = H.escape(str(r["item"]))
+        _item = f"<em><code>{_it}</code></em>" if r.get("italic") else f"<code>{_it}</code>"
+        cells = [_item,
                  H.escape(str(r["via"])), H.escape(str(r["publisher"])),
                  H.escape(str(r["repo"])),
                  "&#10003;" if r.get("is_pinned") else "&#10007;",
@@ -674,7 +886,14 @@ def rows_to_html(rows, counts, title):
                  f"<code>{H.escape(str(r.get('rel_hash', '-')))}</code>", dl_cell]
         cls = "behind" if match_of(r) == "**NO**" else ""
         out.append(f"<tr class='{cls}'>" + "".join(f"<td>{c}</td>" for c in cells) + "</tr>")
-    out.append("</tbody></table></body></html>")
+    out.append("</tbody></table>")
+    if kde_members:
+        items = "".join(f"<li>{H.escape(str(n))}"
+                         + (f" &mdash; <code>{H.escape(str(p))}</code>" if p else "")
+                         + "</li>" for n, p in kde_members)
+        out.append(f"<details><summary>KDE Plasma Desktop &mdash; expand to list all "
+                   f"{len(kde_members)} components</summary><ul>{items}</ul></details>")
+    out.append("</body></html>")
     return "\n".join(out)
 
 
@@ -700,8 +919,11 @@ def main():
     inv = json.loads(INVENTORY.read_text())
     text = render(inv, inv["os"]["codename"], args.offline)
     _rows = (containers(args.offline) + snaps(args.offline) + flatpaks(args.offline)
-             + desktop_apps(inv) + third_party_apt(inv) + ubuntu_summary(inv)
+             + desktop_apps(inv)
+             + [t for t in third_party_apt(inv) if "ros.org" not in (t["publisher"] or "")]
+             + ubuntu_summary(inv) + ros_summary(inv) + gazebo_summary(inv)
              + direct_and_unmanaged(args.offline))
+    _kde, _km = kde_block(inv)
     behind = len([r for r in _rows if match_of(r) == "**NO**"])
     current = len([r for r in _rows if match_of(r) == "yes"])
     unknown = len([r for r in _rows if match_of(r) == "?"])
@@ -718,13 +940,13 @@ def main():
         print(text)
 
     if args.html:
-        rows = _rows
+        rows = ubuntu_summary(inv) + ros_summary(inv) + gazebo_summary(inv) + _rows
         title = f"ALWAYS ON - Software Status - {inv['os']['pretty']}"
         counts = (f"{len(rows)} items. {behind} behind - {current} up to date - "
                   f"{unknown} no version published - {local} local build.")
         h = Path(args.html)
         h.parent.mkdir(parents=True, exist_ok=True)
-        h.write_text(rows_to_html(rows, counts, title), encoding="utf-8")
+        h.write_text(rows_to_html(rows, counts, title, _km), encoding="utf-8")
         print(f"wrote {h}")
     return 0
 

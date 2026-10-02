@@ -10,7 +10,7 @@
 | Website | https://www.300x3.com |
 | Supporting plan | https://archive.org/details/@scott_widmann |
 | Created with | Bluebeam and LibreDraw (PDF project plan), Perplexity.ai, Cline.bot (Markdown) |
-| Revision | 2026-09-29 |
+| Revision | 2026-10-02 |
 | Current main host | ATX desktop - running Linux Kubuntu |
 | Peripheral host | Drone — Raspberry Pi 5 and Autopilot Module, running KaliOS |
 | Format rule | Tables and topology diagrams are primary; original detailed commands/evidence are retained in-place below for operational completeness |
@@ -54,30 +54,28 @@
 
 | Subject | Current plan; replaces any contrary older text below |
 |---|---|
-| OpenClaw | Public marketing/contact across website chat, email, Mastodon, approved social channels; direct Mastodon publisher; local output is standardized PDFs for order/follow-up/support/payment workflows, which are then processed into the sales, payment, and ledger records |
+| Social media | Most closely tied to the **remote fediverse**: public marketing/contact across website chat, email, Mastodon, and approved social channels, with the fediverse chatbot eventually routing into other social media systems. **OpenClaw** is the direct Mastodon publisher; its local output is standardized PDFs for order/follow-up/support/payment workflows, processed into the sales, payment, and ledger records. `ao-sales` connects to the remote fediverse only (§4.3) |
 | LM Studio | Fundamental local LLM host for OpenClaw |
 | Browser | Konqueror — dedicated browser for automation |
 | Automated testing | Testing is being done with Playwright and Chrome (see section 20) |
-| RNode client | MeshChatX exclusively, and provides the Reticulum network stack controls. **End-to-end encryption** is built into the stack: all communication is secured with strong modern encryption by default, all encryption keys are ephemeral, forward secrecy applies by default, and it is not possible to establish unencrypted links or send unencrypted packets |
-| Radios | `PEOPLE-RADIO` = public human chat; `DRONE-RADIO` = authenticated private drone mission/status traffic; a local switch connects the fabrication equipment, a local router connects the IoT devices, and Wi-Fi/Ethernet from the main desktop reaches the main internet; the main desktop manages all DHCP |
+| RNode client A — PEOPLE-RADIO | MeshChatX exclusively, providing the Reticulum network stack controls; **LoRaWAN for communication only** — the public human side (§9.2.2). **End-to-end encryption** is built into the stack: strong modern encryption by default, ephemeral keys, forward secrecy by default, and no unencrypted links or packets possible |
+| RNode client B — DRONE-RADIO | **LoRa mesh RNode for drones only** — the private drone side. Local QGC missions reach the QGC session on the Pi5 drone, so missions can be **updated midflight** (§9.2.2) |
+| Radios | **Wi-Fi** — Wi-Fi/Ethernet from the main desktop reaches the main internet; that desktop manages all DHCP. **2 LoRa radios** — `PEOPLE-RADIO` (915 MHz) = public human chat, `DRONE-RADIO` (917 MHz) = authenticated private drone mission/status traffic (§9.2.2) |
 | QGroundControl | Desktop primary mission planning; KaliOS RPi5 fallback/out-of-range mission-update operation; and drone — KaliOS on the Raspberry Pi 5 with the Autopilot Module, running ArduPilot. Also receives **midflight mission updates** relayed by **DRONE-RADIO** to the QGC session on the Pi5 drone (§9.2.2) |
-| **Radios** | **PEOPLE-RADIO** → **MeshChatX**: LoRaWAN-related human communication (§9.2.2). **DRONE-RADIO** → **QGroundControl**: local QGC missions to the QGC session on the Pi5 drone, so missions can be **updated midflight** (§9.2.2) |
-| **Email endpoint** | The customer-facing endpoint is an **EMAIL TEMPLATE**, not an inbox. The storefront routes the buyer to the template; **only the AI chat routes back to the storefront** (§4.3) |
-| **Social media** | Most closely tied to the **remote fediverse**. The chatbot from the remote fediverse eventually routes into other social media systems. `ao-sales` connects to the remote fediverse only (§4.3) |
-| Prometheus | Prometheus is for security only. It acts alone and independently, operating on the other systems to ensure security and to address any problems: time-series store, rule evaluation, alerting, and security evidence |
+| **Email endpoint** | The storefront routes the buyer through the **EMAIL TEMPLATE** (not an inbox); the host reviews every purchase request against that template. Complete → published as a PDF, a **WORK ORDER REQUEST**; incomplete → sent back by email requesting the remaining information (§4.3) |
+| Prometheus | Prometheus is for security only. It acts alone and independently, operating on the other systems to ensure security and to address any problems: time-series store, rule evaluation, alerting, and security evidence — **continuously hardened over the life of the system via ad-hoc security AI review** |
 | Grafana | Dashboards and metrics only; it reads the databases that already exist and does not write to them |
 | Metabase | Reporting only, and it does ad-hoc read-only reporting, so it requires **its own dedicated PostgreSQL application database** to hold its Metabase schema, saved questions, dashboards, and subscriptions. That application database holds Metabase's own state only — it is not a system of record for business data, and it never receives data from the reporting sources. Metabase connects to the other PostgreSQL and MySQL databases, and to local desktop-application SQLite files, as a **read-only** user in order to report on them, and it never writes to them. Ad-hoc reports that become recurring are promoted into stable Grafana dashboards |
-| Corda | Blockchain-enabled accounting, ledger, receipt, entitlement, fulfillment, provenance, and approved state-transition system. Built on Corda 5 with PostgreSQL. The previous V4 test installation and its database are removed, and no data needs to be migrated |
-| Corda persistence | PostgreSQL. Corda 5.2.2 **CLI is installed**; when the node is created it will use `cordadb`; the previous V4 test installation and its H2 database were removed 2026-09-28 and no data needs to be migrated. `cordadb` is a separate logical database on the host PostgreSQL 18 cluster with its own roles and backup scope, which is correct |
+| Corda | Blockchain-enabled accounting, ledger, receipt, entitlement, fulfillment, provenance, and approved state-transition system. Built on **Corda 5.2.2** against `cordadb` — one database within the regular host PostgreSQL 18 cluster, with its own roles and backup scope. The **CLI is installed**; the previous V4 test installation and its H2 database were removed 2026-09-28, with no data to migrate (§18.2) |
 | IPFS | **File-transfer verification and, potentially, sales listing on a blockchain** for approved map/imagery and telemetry/product-operational packages. **It is not a backup.** No Corda/ledger/accounting dependency |
 | Backup/restore | Local authority + **encrypted restic** (§17.1). Independent of IPFS and Corda. This is the *only* backup |
 | Sale transfer | `ao-egress-archive` holds packages **"archived for data transfer and sale"** — a transfer copy, **not** a backup. IPFS first (transfer verification + possible blockchain listing), then encrypted pCloud. **Requires `ao-sales` authorisation** first (§11.6) |
 | Secret authority | KDE Wallet; services needing Wallet secrets start after KDE login |
 | GPU policy | Priority: desktop/Konqueror → SketchUp/SketchUp Web → active LM Studio/OpenClaw → ROS/Gazebo/SITL → WebODM batch |
-| Additive fabrication | Real machines, not simulated cells: **MainsailOS/Moonraker/Klipper operate on each individual 3D printing machine**, each on its own BigTreeTech CB1 / Raspberry Pi; individual CNC machines likewise. No OrcaSlicer reference. These are **real peers**, not children of the simulated domain. `ao-sim-fabrication` **rehearses** the flow and runs the kitchen; it holds no production data (§10.2) |
-| **Real fabrication** | **`ao-fabrication`** is the separate, real (non-simulated) fabrication domain. **A local `ao-fabrication` pulls data into its own database** for industrial engineering and fabrication optimisation work: per-machine production data lands in **`a_fab`** (`10.89.12.0/24`, `Internal=true`). Distinct from `ao-sim-fabrication` in every respect (§3.3.0) |
-| CNC | No bCNC or current CNC software claim |
-| Simulation (both domains) | `ao-sim-vehicle` and `ao-sim-fabrication` both require, as a baseline capability and not as optional extras: **3D world setup**, **boning**, **reinforcement learning objects**, and an **HTML portal to operation**. Each domain stands up its own 3D world, builds its own boning/alignment and datum structure into that world, supplies reinforcement-learning objects as the trainable entities for its scenario and policy work, and exposes the whole environment through a browser-served HTML portal so the world can be set up and operated without a desktop GUI client. Details are in §10.1 (vehicle) and §10.2 (fabrication and facility) |
+| Additive fabrication | Real machines, not simulated cells: **MainsailOS/Moonraker/Klipper operate on each individual 3D printing machine**, each on its own BigTreeTech CB1 / Raspberry Pi; individual CNC machines likewise. These are **real peers**, not children of the simulated domain. `ao-sim-fabrication` **rehearses** the flow for the **kitchen, cooler/freezer/pantry carousel, storage carousel, and their robot-arm boxes** (2 arms in 2 boxes at storage, which organize and manage the additive-manufacturing machines; 2 arms on independent rails at the kitchen, which cook); it runs the kitchen and holds no production data. **The simulation does not manage those robot arms or carousels** — they need the separate future `ao-auto(kitchen,cool,store,fab)-` domain (§10.2) |
+| **Real fabrication** | **`ao-fabrication`** is the real (non-simulated) fabrication domain, distinct from `ao-sim-fabrication` in every respect (§3.3.0): it **pulls data into its own database** for industrial engineering and fabrication optimisation — per-machine production data lands in **`a_fab`** (`10.89.12.0/24`, `Internal=true`). **bCNC** may be used on individual CNC machines and their own RPis where necessary — ideally tied to Klipper/MainsailOS |
+| Simulation (fabrication) | `ao-sim-fabrication` requires, as baseline capability and not optional extras: **3D world setup** (its own world), **boning** (alignment and datum structure built into that world), **reinforcement learning objects** (the trainable entities for scenario and policy work), and an **HTML portal to operation** — set up and operated from a browser, with no desktop GUI client (§10.2) |
+| Simulation (vehicles) | `ao-sim-vehicle` requires the same baseline: **3D world setup** (its own world), **boning** (alignment and datum structure), **reinforcement learning objects**, and an **HTML portal to operation** — set up and operated from a browser (§10.1) |
 | Home automation | Domoticz/RPi for the usual Domoticz home automation features: HVAC, doors/locks/access, security/alarms, lighting/scenes, cameras, weather, environmental sensing, media, and other typical Domoticz device classes; separate from printers and future building robotics |
 
 ### ES.1.1 Change Summary
@@ -94,6 +92,7 @@ in §3 or anywhere else in the document.
 | Metabase works | It runs on the host and serves its login page; the earlier "not serving" finding was a different, undeployed container |
 | RF interference may simply be interference | WORK 000700 closes on a recorded characterization, not a fix |
 | Consolidated topology | ES.2 is the single authoritative master diagram. §3.1, §4.3, and §3.3.2 are detail views of it, drawn as zooms of that same graphic. The former ASCII topology fallback has been removed now that the graphic is verified and published |
+| Topology working file | The working file is a **.SVG** image that outputs hosted **.HTML** as well as static **.PNG** and **.PDF** for consumption (as in this README) |
 | Implementation status consolidated | All implementation statuses are tracked once, as the single list in **ES.3**. The former §3.2 status table is deleted, and the status columns in §19 and §20 now reference ES.3 IDs instead of restating a status |
 | Work and issue items consolidated | Section 19 is one table of remaining items, each naming the standard it serves |
 | Simulation renders relocated | The three Gazebo model views sit in §10.2 with captions |
@@ -123,15 +122,15 @@ panel and none is split across the fold. For a fully zoomable,
 resolution-independent view, or to open the two portrait panels side by side, use
 the vector and self-contained viewer:
 
-**[Open the live topology viewer](https://filedn.com/l5JNexbL2ipFNaQcAkmV7lQ/%2A%2A%2ACURRENT%2A%2A%2A/site/alwayson-single-topology.html)** — the interactive
-diagram, hosted and always current.
+**[Open the live topology viewer](https://filedn.com/l5JNexbL2ipFNaQcAkmV7lQ/%2A%2A%2ACURRENT%2A%2A%2A/site/alwayson-single-topology-v2.html)** — the interactive
+diagram, hosted and always current (v2, rebuilt 2026-10-02).
 
 | Artefact | Use it for |
 |---|---|
-| **[Live topology viewer](https://filedn.com/l5JNexbL2ipFNaQcAkmV7lQ/%2A%2A%2ACURRENT%2A%2A%2A/site/alwayson-single-topology.html)** | **Interactive, zoomable, self-contained HTML. Hover a card to trace its links, click to pin, use find to jump to a node. Hosted copy, so it is the one that stays current** |
-| **[Software status — markdown](docs/software-status.md)** | **Every installed package, image, application and tool, in one table: what is installed, whether it is up to date, what is released, and whether it is pinned.** [PDF (16 pages)](docs/software-status.pdf) for printing and offline reading. Generated, not hand-maintained |
+| **[Live topology viewer](https://filedn.com/l5JNexbL2ipFNaQcAkmV7lQ/%2A%2A%2ACURRENT%2A%2A%2A/site/alwayson-single-topology-v2.html)** | **Interactive, zoomable, self-contained HTML (v2, rebuilt 2026-10-02). Hover a card to trace its links, click to pin, use find to jump to a node. Hosted copy, so it is the one that stays current** |
 | [ao-single-topology.svg](assets/ao-single-topology.svg) | Vector master. Scales to any zoom with no loss; opens in a browser or Inkscape |
 | [ao-single-topology.html](assets/ao-single-topology.html) | The same viewer, committed here — works offline, no server needed |
+| **[Software status — markdown](docs/software-status.md)** | **Every installed package, image, application and tool, in one table: what is installed, whether it is up to date, what is released, and whether it is pinned.** [PDF (16 pages)](docs/software-status.pdf) for printing and offline reading. Generated, not hand-maintained |
 
 Every detail view in this document is a zoom of that one master graphic, never a
 separate diagram.
@@ -4740,6 +4739,16 @@ in the table below, the rule itself belongs in its own section.
 This is the single list of remaining implementation work. Each row names the standard
 it serves, so the requirement is never lost. Completed and verified items are not
 listed; they are recorded as evidence in section 20.
+
+## 19.0 Operator setup priorities
+
+The operator's server setup priorities, in order:
+
+1. Sales pipeline
+2. Gazebo simulation boning
+3. RPi5 LoRa connection
+4. 3D printer fan repair
+5. Instructables outlining
 
 ## 19.1 Blocking — the system is not production-ready without these
 

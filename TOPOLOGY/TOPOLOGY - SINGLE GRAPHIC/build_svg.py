@@ -113,6 +113,9 @@ NODES = [
    ["mastodon.300x3.com","Tunnel ingress only"],"IMPLEMENTED","15.4.3"),
  N("a_tun","adp","adp","cloudflared-alwayson","Carries federation traffic inward",
    ["Cloudflared connector","Origin stays loopback"],"IMPLEMENTED","15.4.3"),
+ N("a_html","adp","adp","ao-html-window","Public-facing HTML viewing for 300x3.com",
+   ["View-only surface — displays HTML, takes no input","Publishes HTML content to 300x3.com only",
+    "Similar to the local hosted iframes","Network 10.89.14.0/24 created 2026-10-01"],"PLANNED","ES.2, 5.2"),
  # ---- band 3 : workload domains ----
  N("w_sales","work","work","ao-sales","The only domain that touches customers directly",
    ["10.89.0.0/24","Coordinates social media, email and Mastodon,","the AI bot and chat, and the order-request",
@@ -152,8 +155,11 @@ NODES = [
  N("w_admin","work","work","ao-admin","Watches and reports; never a way in",
    ["10.89.9.0/24","Prometheus · Grafana · Metabase"],"IMPLEMENTED","5.1, 6.A"),
  # ---- band 4 : stores ----
- N("d_pg","data","data","PostgreSQL 18","The operational record for every domain",
-   ["salesdb · mastodon · webodm ·","grafana · metabase · cordadb · postgres","And a_fab for ao-fabrication"],"IMPLEMENTED","3.3"),
+ N("d_pg","data","data","PostgreSQL 18 (host cluster)","The operational record for every domain",
+   ["127.0.0.1:5432 — one cluster, many databases",
+    "salesdb · mastodon · webodm · grafana · metabase",
+    "cordadb — Corda's database within it (own roles, backup)",
+    "a_fab for ao-fabrication"],"IMPLEMENTED","3.3"),
  N("d_redis","data","data","Redis 8","Fast coordination — never the record",
    ["Cache · queues · locks"],"IMPLEMENTED","3.3"),
  N("d_prom","data","data","Prometheus TSDB","Security only — acts alone and independently",
@@ -210,13 +216,12 @@ NODES += [
    ["127.0.0.1:18789 / 18790","Uses LM Studio and KDE Wallet"],"IN PROGRESS","ES.1, 6.A.3"),
  N("h_kpdf","sales","host","KIT REQUEST PDF intake","Written requests in, not sales out",
    ["intake-kit-request-pdf.sh","inbox · extracted · manifests · quarantine",
-    "sale_logged=false · corda_state=NOT_SUBMITTED"],
+    "sale_logged=false · corda_state=NOT_SUBMITTED",
+    "CONFIRMED SALE PDF OUTPUT"],
    "PARTIAL","15.1.2",
    "Script and 7 folders present, but no timer or unit, and manifests/ and extracted/ are empty — never run"),
  N("h_konq","sales","host","Konqueror","Dedicated browser for automation",
    ["Sales UI \u00b7 community \u00b7 dashboards","Tokodon removed"],"IMPLEMENTED","ES.1"),
- N("h_pg","data","host","PostgreSQL 18.6 (host)","The database engine itself",
-   ["127.0.0.1:5432","One cluster, many databases"],"IMPLEMENTED","3.3"),
  N("h_collect","data","host","ao-fabrication-collect","Host-side pull-only collector",
    ["Runs on the HOST, not in the domain:","ao-fabrication is Internal=true and",
     "cannot reach 10.42.0.0/24",
@@ -287,15 +292,14 @@ SECTIONS = [
  ("ext",  "After sale",    ["x_buyer"], "nodes"),
  ("ext",  "Software supply", ["x_pkg"], "nodes"),
 
- ("adp",  "Controller adapters", ["a_pay", "a_tun", "a_cf", "a_build", "a_arch"], "nodes"),
- ("work", None, ["w_pay", "w_sales", "w_veh", "w_admin", "w_field", "w_map", "w_data",
+ ("adp",  "Controller adapters", ["a_pay", "a_tun", "a_cf", "a_build", "a_arch", "a_html"], "nodes"),
+ ("work", None, ["w_pay", "w_sales", "w_admin", "w_veh", "w_field", "w_map", "w_data",
                  "w_fab", "w_fabd", "w_core", "w_ing"], "nodes"),
 
- ("data", "Stores and reporting", ["d_redis", "d_sql", "d_prom", "d_graf", "d_pg", "d_meta"], "nodes"),
- ("data", "Database engine on this host", ["h_pg"], "nodes"),
+ ("data", "Stores and reporting", ["d_redis", "d_sql", "d_pg", "d_graf", "d_prom", "d_meta"], "nodes"),
 
  ("field", "Real fabrication machines", ["h_mach"], "nodes"),
- ("field", None, ["h_qgc", "h_rpi", "h_fc", "h_gw", "h_drone", "h_people", "h_webodm", "h_mesh", "h_retic"], "nodes"),
+ ("field", None, ["h_drone", "h_gw", "h_qgc", "h_rpi", "h_fc", "h_people", "h_mesh", "h_retic", "h_webodm"], "nodes"),
 
  ("data", "Fabrication collector (host-side)", ["h_collect"], "nodes"),
  ("data", "Host-wide encrypted backup", ["h_restic"], "nodes"),
@@ -331,6 +335,7 @@ EDGES = [
  ("w_sales","a_arch","authorises the transfer","ok"),
  ("a_arch","x_pcloud","encrypted transfer copy","ok"),
  ("a_arch","x_buyer","post-sale IPFS transfer","ok"),
+ ("a_html","x_store","publishes HTML content to 300x3.com","ok"),
  ("x_pkg","a_build","signed images and packages","ok"),
  ("h_restic","x_pcloud","replicated","normal"),
  # domains -> stores / ledger  (the six approved manifest paths of 4.4)
@@ -351,7 +356,6 @@ EDGES = [
  ("d_pg","d_graf","PostgreSQL datasource","ok"),
  ("d_prom","d_graf","metrics","ok"),
  ("w_admin","d_pg","read-only bridge","normal"),
- ("h_pg","d_pg","local socket only","normal"),
  ("h_webodm","w_map","loopback UI","normal"),
  ("h_gaz","w_veh","flight rehearsal","normal"),
  ("h_gaz","w_fab","factory and kitchen rehearsal","normal"),
@@ -416,9 +420,9 @@ PAD_X, PAD_Y, GAP_Y, BAND_GAP = 52, 12, 12, 250
 STEP_X = 15                     # spacing between two lines in one gap (see GAPW)
 MARGIN_L, LEG_MIN = 44, 1080
 MARGIN_R = 44               # matches MARGIN_L; the row used to end at the trim
-FS_TITLE, FS_PURP, FS_DET, FS_ST = 23, 17, 17, 16
-FS_SEC = 19                      # a stacked section title
-LH = 19
+FS_TITLE, FS_PURP, FS_DET, FS_ST = 23, 20, 20, 19
+FS_SEC = 22                      # a stacked section title
+LH = 23
 TXT_L, TXT_R = 22, 16        # text inset inside a node card
 
 def tw(s, size, bold=False):
@@ -511,7 +515,7 @@ HDR = [
   "the isolated domains, the single ledger gate, the stores", 23, "#37474f", "normal"),
  ("Nodes are the EXPECTED-TO-BE-INSTALLED system. A PLANNED or BLOCKED node is "
   "design, not live state. Authority: README v7 \u00a73.2 / \u00a73.3 / \u00a75.1 / \u00a75.2.",
-  19, "#6b7280", "normal"),
+  22, "#6b7280", "normal"),
 ]
 
 HDR_Y, _hy = [], 74
@@ -525,7 +529,7 @@ HDR_RULE = _hy + 2
 # de-collision pass could not rescue them, because every spot along the run was
 # taken by the lane above. The pitch now clears a pill, which is what lets the
 # labels sit on their own lines where they belong.
-LN_TOP, LN_STEP = HDR_RULE + 56, 27
+LN_TOP, LN_STEP = HDR_RULE + 56, 31
 # Two skip-links can share a lane when the gaps they cross do not overlap, so
 # their horizontal runs can never meet.  Giving each link a private lane instead
 # stacked 15 rows across the page to carry work that needs far fewer.
@@ -692,11 +696,11 @@ def head_h(bk, bw):
     takes 9 lines in box 2)."""
     b = next(x for x in BANDS if x["key"] == bk)
     tl = len(wrap(f'{b["n"]} · {b["title"]}', 30))
-    pl = len(wrap(b["purpose"], max(16, int((bw-46)/8.8))))
-    sl = len(wrap(b["sec"], max(16, int((bw-46)/(15*0.565)))))
+    pl = len(wrap(b["purpose"], max(16, int((bw-46)/10.4))))
+    sl = len(wrap(b["sec"], max(16, int((bw-46)/(18*0.565)))))
     return max(BAND_HEAD,
                44 + (tl-1)*26 + 16,
-               76 + (pl-1)*19 + 12 + 10 + (sl-1)*18)
+               76 + (pl-1)*23 + 12 + 10 + (sl-1)*21)
 
 HEAD = {b["key"]: head_h(b["key"], colw[b["key"]]) for b in BANDS}
 # One top edge for the whole row, set by the deepest caption. A box whose own
@@ -1019,11 +1023,11 @@ for b in BANDS:
       f'stroke-dasharray="none"/>')
     for _k, _l in enumerate(wrap(f'{b["n"]} · {b["title"]}', 30)):
         A(tspan(bx+22, by+44+_k*26, _l, 24, BAND_BORD[b["key"]], "bold"))
-    for _k, _l in enumerate(wrap(b["purpose"], max(16, int((bw-46)/8.8)))):
-        A(tspan(bx+22, by+76+_k*19, _l, 16, "#4b5563"))
-    _sl = wrap(b["sec"], max(16, int((bw-46)/(15*0.565))))
+    for _k, _l in enumerate(wrap(b["purpose"], max(16, int((bw-46)/10.4)))):
+        A(tspan(bx+22, by+76+_k*23, _l, 19, "#4b5563"))
+    _sl = wrap(b["sec"], max(16, int((bw-46)/(18*0.565))))
     for _k, _l in enumerate(_sl):
-        A(tspan(bx+22, by+HEAD[b["key"]]-10-(len(_sl)-1-_k)*18, _l, 15, "#9ca3af"))
+        A(tspan(bx+22, by+HEAD[b["key"]]-10-(len(_sl)-1-_k)*21, _l, 18, "#9ca3af"))
     A('</g>')
 
 # ---- stacked section titles, and the empty sections that still show a box ----
@@ -1060,28 +1064,34 @@ for ab in LONG_ALL:
     for g in (min(ca, cb), max(ca, cb)-1):
         _users.setdefault(g, []).append(ab)
 # ---- one dedicated x per edge, inside the gap it crosses ----------------
-# Previously every edge that crossed a gap shared a SINGLE x: adjacent-band
-# links all sat on CHAN, and all same-band links sat on CHAN+SB_OFF.  Two lines
-# on the same x are indistinguishable on paper -- you cannot tell which card a
-# line came from, and a bidirectional pair (f_map1->f_map2 and f_map2->f_map1)
-# drew exactly on top of each other and looked like one.  So every edge that
-# needs a vertical run in gap `g` is now given its OWN x, spread across the
-# gap.  Overlap is then only ever intentional: edges that share a source card
-# leave it side by side, and nothing else ever lies on the same line.
-SPAN = [max(30.0, GAPW[i]/2 - 26) for i in range(len(GRP_ORDER))]
-          # keep every vertical off the band borders
+# Every vertical keeps a hard clearance (CLR) from BOTH column borders of the
+# gap it runs in, and each gap's verticals are spread evenly across the WHOLE
+# usable width instead of clustering on the centre line. Two things follow:
+# no line ever clips the right edge of a column (the 6/7/8 stack was the
+# worst), and the vertical-to-horizontal corners are separated left to right
+# across every gap, so a line can be followed from card to card.
+# Overlap is then only ever intentional: edges that share a source card leave
+# it side by side, and nothing else ever lies on the same line.
+CLR = 30                          # clear space between a vertical and a border
 
-# collect per gap: (edge, which_side) where side says whether the vertical is on
-# the left (-1) or right (+1) half of the gap, so a line that has to cross the
-# whole page keeps a sensible place to live.
+# per gap: (left column's right edge, right column's left edge)
+_GEO = []
+for _i in range(len(GRP_ORDER) - 1):
+    _L = xs[GRP_MEMBERS[GRP_ORDER[_i]][0]] + colw[GRP_ORDER[_i]]
+    _R = xs[GRP_MEMBERS[GRP_ORDER[_i + 1]][0]]
+    _GEO.append((_L, _R))
+
+# collect per gap: (edge, which_side). side only breaks the insertion order
+# for the degenerate g<0 case (column 0's internal links); a real gap now
+# carries every edge it sees as one evenly spread file.
 _gusers = {}
 for (s_, d_, _l, _k) in EDGES:
     ca, cb = _BC[s_], _BC[d_]
     if ca == cb:
         g = ca - 1
-        if g >= 0:
-            _gusers.setdefault(g, []).append(((s_, d_), -1))
-        else:
+        # same-column verticals live in the gap LEFT of their own column and
+        # anchor beside their own stack, so a card's stub stays short.
+        _gusers.setdefault(g, []).append(((s_, d_), +1)) if g >= 0 else \
             _gusers.setdefault(-1, []).append(((s_, d_), -1))
     else:
         lo, hi = min(ca, cb), max(ca, cb)
@@ -1090,32 +1100,29 @@ for (s_, d_, _l, _k) in EDGES:
         for g in range(lo+1, hi-1):
             _gusers.setdefault(g, []).append(((s_, d_), +1))
 
-# Lines are STEP_X apart (set with the gap widths above): wider than any
-# stroke, so no two lines touch.
 EDGEX = {}
 for g, lst in _gusers.items():
-    cx = CHAN[g] if g >= 0 else CHAN[0]
-    # group by (edge,side) so one edge keeps the SAME x in every gap it crosses;
-    # split the gap into a left and a right file, matching the old long-link
-    # habit, so a left-to-right link runs down the right side of each gap.
-    seen, buckets = {}, {}
+    seen, abs_ = {}, []
     for ab, side in lst:
         if ab in seen:
             continue
         seen[ab] = side
-        buckets.setdefault(side, []).append(ab)
-    for side, abs_ in buckets.items():
-        n = len(abs_)
-        for k, ab in enumerate(abs_):
-            # centre the file, then fan it out one step at a time
-            off = (k - (n-1)/2) * STEP_X
-            if side > 0:
-                off = max(off, 4)              # keep clear of the centre line
-            else:
-                off = min(off, -4)
-            lim = SPAN[g] - 10
-            off = max(-lim, min(lim, off))
-            EDGEX[(ab[0], ab[1], g)] = cx + off
+        abs_.append(ab)
+    n = len(abs_)
+    if g >= 0:
+        _L, _R = _GEO[g]
+        lo_x, hi_x = _L + CLR, _R - CLR
+        if n == 1:
+            _xs = [(lo_x + hi_x) / 2]
+        else:
+            _step = (hi_x - lo_x) / (n - 1)   # one x per edge, full-gap spread
+            _xs = [lo_x + k * _step for k in range(n)]
+    else:
+        # column 0's internal links draw in the card gutter (see route());
+        # keep a harmless fan around the centre so the key still resolves.
+        _xs = [CHAN[0] + (k - (n-1)/2) * STEP_X for k in range(n)]
+    for ab, x in zip(abs_, _xs):
+        EDGEX[(ab[0], ab[1], g)] = x
 
 
 # ---- attachment points: every link meets its card at its OWN spot ---------
@@ -1175,9 +1182,10 @@ def port_b(a, b, lab, kind):
 
 def clamp_cor(lx, g, w):
     """Keep a cross-band label pill wholly inside the gap it belongs to."""
-    lo, hi = CHAN[g] - GAPW[g]/2 + 5, CHAN[g] + GAPW[g]/2 - 5
+    _L, _R = _GEO[g]
+    lo, hi = _L + 6, _R - 6
     if hi - lo < w:
-        return CHAN[g]
+        return (_L + _R) / 2
     return min(max(lx, lo + w/2), hi - w/2)
 
 def route(a, b, lw=0, lab="", kind="ok"):
@@ -1241,7 +1249,7 @@ STYLE = {"ok":  dict(c="#2e7d32", w=2.6, dash=None,  m="ar_ok",  op=1.0),
          "no":  dict(c="#c62828", w=2.0, dash="3 6", m="ar_no",  op=0.5)}
 for (s_, d_, lab, kind) in EDGES:
     st = STYLE[kind]
-    dd, (lx, ly), vert = route(s_, d_, len(lab)*8.0 + 20 if lab else 0, lab, kind)
+    dd, (lx, ly), vert = route(s_, d_, len(lab)*11.2 + 24 if lab else 0, lab, kind)
     da = f' stroke-dasharray="{st["dash"]}"' if st["dash"] else ""
     lj = "round"
     # class/data-a/data-b are inert for print and for inkscape, and they are what
@@ -1252,7 +1260,7 @@ for (s_, d_, lab, kind) in EDGES:
       f'opacity="{st["op"]}" marker-end="url(#{st["m"]})" stroke-linejoin="{lj}"/>')
 
 # ---- edge labels, de-collided so no two pills overlap ----
-PILL_FS, PILL_H, PILL_PAD = 15, 20, 11
+PILL_FS, PILL_H, PILL_PAD = 18, 24, 12
 
 def pillw(lab):
     """True pill width. The old len*8.0 guess was ~15% narrow for bold 15px
