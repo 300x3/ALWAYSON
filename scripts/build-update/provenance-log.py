@@ -90,29 +90,19 @@ def load_yaml(path):
 # ---------------------------------------------------------------------------
 # sources
 # ---------------------------------------------------------------------------
-def released_digest(host, repo, tag):
-    """What the publisher currently offers for this tag.
-
-    This is the "released" half of pinned-versus-released. Without it a log can
-    only say what is installed, which is half the answer.
-    """
-    # A first segment that is not a registry is a Docker Hub namespace, not a
-    # hostname: "opendronemap/nodeodm" and "webodm/webodm_db" are Hub repos. The
-    # same short-name normalisation drift-report.py uses.
-    if host not in ("docker.io", "ghcr.io", "quay.io"):
-        host, repo = "docker.io", f"{host}/{repo}"
+def registry_digest_raw(host, repo, tag):
+    """Full manifest digest for a tag, or None. Used for tag<->digest mapping."""
     api = {"docker.io": "registry-1.docker.io", "ghcr.io": "ghcr.io",
            "quay.io": "quay.io"}.get(host)
     if api is None:
-        return "-"
+        return None
     token = None
     tok = {"docker.io": f"https://auth.docker.io/token?service=registry.docker.io&scope=repository:{repo}:pull",
            "ghcr.io": f"https://ghcr.io/token?scope=repository:{repo}:pull"}.get(host)
     if tok:
         d = get_json(tok)
         token = d.get("token") if d else None
-    url = f"https://{api}/v2/{repo}/manifests/{tag}"
-    req = urllib.request.Request(url, method="GET")
+    req = urllib.request.Request(f"https://{api}/v2/{repo}/manifests/{tag}", method="GET")
     req.add_header("Accept", ", ".join([
         "application/vnd.oci.image.index.v1+json",
         "application/vnd.docker.distribution.manifest.list.v2+json",
@@ -122,12 +112,107 @@ def released_digest(host, repo, tag):
         req.add_header("Authorization", f"Bearer {token}")
     try:
         with urllib.request.urlopen(req, timeout=TIMEOUT) as r:
-            return (r.headers.get("Docker-Content-Digest") or "-")[:19]
+            return r.headers.get("Docker-Content-Digest")
     except Exception:
-        return "unreachable"
+        return None
+
+
+_TAG_CACHE = {}
+
+
+def _hub_tags(repo):
+    """digest -> tag for a Docker Hub repo, in ONE call.
+
+    This is what turns a pinned digest into a version a human can read: the Hub
+    API returns a digest for every tag, so the pinned digest reverse-looks-up to a
+    version. Grafana resolves immediately - `latest` and `13.0.2` share a digest -
+    which is precisely the comparison two raw hashes hide.
+    """
+    if repo not in _TAG_CACHE:
+        d = get_json(f"https://hub.docker.com/v2/repositories/{repo}/tags"
+                     f"?page_size=100&ordering=last_updated")
+        m = {}
+        for r in (d or {}).get("results", []):
+            if r.get("name") and r.get("digest"):
+                m.setdefault(r["digest"], []).append(r["name"])
+        _TAG_CACHE[repo] = m
+    return _TAG_CACHE[repo]
+
+
+def _ghcr_tags(repo):
+    """digest -> tag for a ghcr.io repo, by resolving recent release tags."""
+    if repo not in _TAG_CACHE:
+        m = {}
+        stable = load_yaml(AO_ROOT / "config/build-update/stable-refs.yaml").get("images") or {}
+        cands = [(stable.get(repo) or {}).get("tracked_tag")]
+        gh = {"ghcr.io/mastodon/mastodon": "mastodon/mastodon",
+              "ghcr.io/mastodon/mastodon-streaming": "mastodon/mastodon",
+              "ghcr.io/ardupilot/ardupilot-sitl": "ArduPilot/ardupilot"}
+        if repo in gh:
+            for r in (get_json(f"https://api.github.com/repos/{gh[repo]}/releases?per_page=6") or [])[:6]:
+                if r.get("tag_name"):
+                    cands.append(r["tag_name"])
+        for tag in [c for c in cands if c][:6]:
+            dg = registry_digest_raw("ghcr.io", repo, tag)
+            if dg:
+                m.setdefault(dg, []).append(tag)
+        _TAG_CACHE[repo] = m
+    return _TAG_CACHE[repo]
+
+
+_ROLLING = {"latest", "stable", "main", "master", "edge", "nightly", "default"}
+
+
+def _best_tag(tags):
+    """Pick the most version-like tag from those sharing one digest.
+
+    Several tags usually point at the same digest - `latest` and `13.0.2` are the
+    same image - and picking the first one alphabetically produced nonsense such
+    as "v1" for node-exporter, which is a different major entirely. Prefer a real
+    dotted version, then a v-prefixed one, and fall back to a rolling alias only
+    when nothing better exists.
+    """
+    vs = [t for t in tags if t not in _ROLLING]
+    exact = [t for t in vs if re.fullmatch(r"v?\d+(\.\d+)*", t)]
+    if exact:
+        return max(exact, key=lambda t: [int(x) for x in t.lstrip("v").split(".")])
+    prefixed = [t for t in vs if re.match(r"^v?\d+\.\d+", t)]
+    if prefixed:
+        return max(prefixed, key=lambda t: [int(x) for x in
+                                           re.findall(r"\d+", t)[:3]] or [0])
+    if vs:
+        return vs[0]
+    return next(iter(tags), None)
+
+
+def version_for(host, repo, digest):
+    """Human-readable version for a digest.
+
+    Returns None when the publisher offers no version tag covering it. That is
+    deliberate: showing a wrong version is worse than showing none, so the caller
+    keeps the digest instead.
+    """
+    if not digest or "sha256:" not in str(digest):
+        return None
+    short = str(digest).split("sha256:")[-1]
+    m = _ghcr_tags(repo) if host == "ghcr.io" else _hub_tags(repo)
+    tags = [t for d, lst in m.items()
+            if d.split("sha256:")[-1].startswith(short[:16]) for t in lst]
+    return _best_tag(tags) if tags else None
+
+
+def released_digest(host, repo, tag):
+    """Short digest the publisher currently offers for a tag."""
+    d = registry_digest_raw(host, repo, tag)
+    return d[:19] if d else "-"
 
 
 def containers(offline=False):
+    stable = {}
+    p = AO_ROOT / "config/build-update/stable-refs.yaml"
+    if p.exists():
+        stable = (load_yaml(p).get("images") or {})
+    rows = []
     stable = {}
     p = AO_ROOT / "config/build-update/stable-refs.yaml"
     if p.exists():
@@ -150,14 +235,19 @@ def containers(offline=False):
         host, _, repo = base.partition("/")
         tag = (stable.get(f"{host}/{repo}") or {}).get("tracked_tag") or "latest"
         released = "-" if offline else released_digest(host, repo, tag)
+        # Reverse-map the pinned digest to a version TAG. Without this the table
+        # only ever showed two hashes, which tells a human nothing about versions.
+        pin_ver = version_for(host, repo, digest) if (digest and not offline) else None
+        rel_ver = version_for(host, repo, released) if (released and not offline) else None
         rows.append({
             "item": f.stem, "via": f"container/{f.parent.name}",
             "publisher": host,
             "repo": f"{host}/{repo}" if "/" in base else f"docker.io/library/{host}",
-            "pinned": digest[:19] if digest else "not pinned",
-            "released": f"{released} ({tag})",
+            "pinned": pin_ver or (digest[:19] if digest else "NOT PINNED"),
+            "released": f"{rel_ver or released} ({tag})",
+            "is_pinned": bool(digest),
             "download": f"podman pull {base}@{digest}" if digest else ref,
-            "local": False,
+            "local": False, "exact": True,
         })
     return rows
 
@@ -183,7 +273,7 @@ def snaps(offline=False):
         rows.append({"item": f[0], "via": f"snap/{f[3]}",
                      "publisher": f[5] if len(f) > 5 else "canonical",
                      "repo": "snap store",
-                     "pinned": f[1], "released": released or "-",
+                     "pinned": f[1], "released": released or "-", "is_pinned": True,
                      "download": f"https://snapcraft.io/{f[0]}", "local": False})
     return rows
 
@@ -208,7 +298,7 @@ def flatpaks(offline=False):
                     break
         rows.append({"item": f[0], "via": f"flatpak/{f[2]}",
                      "publisher": f[3], "repo": f[3],
-                     "pinned": f[1], "released": released or "-",
+                     "pinned": f[1], "released": released or "-", "is_pinned": True,
                      "download": f"https://flathub.org/apps/{f[0]}", "local": False})
     return rows
 
@@ -257,7 +347,7 @@ def apt_rows(inv, codename):
             "pinned": t["version"],
             "released": cand.get(t["package"], t["version"]),
             "group": t["release"],
-            "download": page, "local": False, "exact": True,
+            "download": page, "local": False, "exact": True, "is_pinned": True,
         })
     return rows
 
@@ -370,14 +460,21 @@ def render(inv, codename, offline):
 
     w("## The complete table")
     w("")
-    w("| Item | Via | Publisher | Repository / archive | **Pinned** | **Released** | Match | Download |")
-    w("|---|---|---|---|---|---|---|---|")
+    w("| Item | Via | Publisher | Repository / archive | Pinned | **Version here** | **Released** | Match | Download |")
+    w("|---|---|---|---|:---:|---|---|---|---|")
+    w("")
+    w("✅ = pinned to an immutable digest. ❌ = floating tag, no immutability")
+    w("guarantee. The **Version here** column reverse-maps the pinned digest to a")
+    w("publisher tag, so two hashes can be read as two versions. Where it still shows")
+    w("a hash, the pinned build is older than the publisher's recent tag list and no")
+    w("tag covers it — that is reported rather than guessed.")
     order = {"**NO**": 0, "?": 1, "local": 2, "yes": 3}
     for r in sorted(rows, key=lambda x: (order.get(match_of(x), 5), x["item"].lower())):
         dl = r.get("download", "-")
         cell = f"[get]({dl})" if str(dl).startswith("http") else (
             f"`{dl}`" if str(dl).startswith("podman") else str(dl))
-        w(f"| `{r['item']}` | {r['via']} | {r['publisher']} | {r['repo']} | "
+        mark = "✅" if r.get("is_pinned") else "❌"
+        w(f"| `{r['item']}` | {r['via']} | {r['publisher']} | {r['repo']} | {mark} | "
           f"`{r['pinned']}` | `{r['released']}` | {match_of(r)} | {cell} |")
     w("")
 
