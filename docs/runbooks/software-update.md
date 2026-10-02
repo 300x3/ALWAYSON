@@ -16,6 +16,23 @@ decision, made after reading what acquisition recorded.
 
 ---
 
+## -2. What is actually installed
+
+```bash
+/ALWAYSON/scripts/build-update/inventory-full.py --markdown \
+  --out /ALWAYSON/docs/applications.md
+```
+
+Writes `docs/applications.md`: every apt package, desktop application, AppImage,
+`/opt` tree, `~/.local/bin` executable, pip/pipx/npm package, snap, flatpak, and
+container. The complete machine-readable form goes to the gitignored
+`data/build-update/inventory-full.json`.
+
+Each item is tagged **first** to the Ubuntu 26.04 LTS release it belongs to and
+only then to the repository delivering it, because that is the question that
+matters when deciding what to update: part of the supported platform, or a third
+party's release cadence?
+
 ## -1. Before anything: is the host behind?
 
 ```bash
