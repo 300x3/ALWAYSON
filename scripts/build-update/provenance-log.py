@@ -1050,7 +1050,11 @@ def containers(offline=False):
             "rel_hash": (rel_full[:19] if rel_full
                            else "upstream digest unreachable (registry refused)"),
             "is_pinned": bool(digest),
-            "download": f"podman pull {base}@{digest}" if digest else ref,
+            # The pull must name the TARGET digest, not the one already
+            # installed. Pointing it at the pinned digest made "update this"
+            # a silent no-op that re-pulled today's image and reported success.
+            "download": (f"podman pull {base}@{rel_full}" if (rel_full and rel_full != digest)
+                         else f"podman pull {base}@{digest}" if digest else ref),
             "local": False, "exact": False,
             "date": dates.get(base.split("@")[0], "image not present locally"),
         })
@@ -1404,6 +1408,215 @@ def desktop_owner_packages():
     return pkgs
 
 
+# Items an automated updater must never touch without an explicit human
+# decision. Sourced from the project rules and the recorded constraints, not
+# guessed: the panel review was right that this information is NOT in the
+# document today, so it is stated here explicitly rather than left implicit.
+EXCLUSIONS = {
+    "ao-ingress-payment": "rule 7/14: payment path, operator approval required",
+    "ao-ardupilot-sitl": "deliberate :latest float (recorded constraint)",
+    "ao-mastodon": "deliberately held at a fixed digest (recorded constraint)",
+}
+
+
+# WHY a pin exists. The panel's verdict was that the Pinned column carried no
+# signal because it records mechanism, not decision: apt pins everything, so ✅
+# appeared everywhere and a deliberate hold looked identical to an accident.
+# These are the decisions actually recorded for this host, from the project's
+# own constraints - not inferred from the data.
+PIN_POLICY = {
+    "ao-ardupilot-sitl": ("deliberate-float",
+                          "ArduPilot deliberately floats on :latest"),
+    "ao-mastodon": ("deliberate-hold",
+                    "Mastodon deliberately held at a fixed digest"),
+    "ao-mastodon-db": ("deliberate-hold",
+                       "Mastodon database deliberately held"),
+    "ao-mastodon-web": ("deliberate-hold",
+                        "Mastodon web deliberately held"),
+    "ao-mastodon-sidekiq": ("deliberate-hold",
+                            "Mastodon Sidekiq deliberately held"),
+    "ao-mastodon-redis": ("deliberate-hold",
+                          "Mastodon Redis deliberately held"),
+    "ao-mastodon-streaming": ("deliberate-hold",
+                              "Mastodon streaming deliberately held"),
+}
+
+# Items an automated updater must never touch without explicit human approval,
+# with the rule that forbids it. The panel found five of ten such exclusions
+# were NOT inferable from the document; recording them here is what makes the
+# document safe to drive automation from.
+NEEDS_APPROVAL = {
+    "ao-ingress-payment": "rule 7/14: production payment path",
+    "ao-webodm-db": "rule 10: photogrammetry drive verification",
+    "ao-webodm-web": "rule 10: photogrammetry drive verification",
+    "ao-webodm-worker": "rule 10: photogrammetry drive verification",
+    "ao-webodm-broker": "rule 10: photogrammetry drive verification",
+    "ao-nodeodm": "rule 10: photogrammetry drive verification",
+    "ao-fabrication-db": "rule 14: production database, data volume at risk",
+    "ao-sales-db": "rule 14: production database, data volume at risk",
+    "ao-mastodon-db": "rule 14: production database, data volume at risk",
+    "ao-mastodon-redis": "rule 14: production datastore",
+}
+
+
+def update_steps(r, unit_path=None):
+    """Exact ordered steps to apply this update, or [] when it must not be run.
+
+    Deliberately returns STRINGS, not a runnable script. The Quadlet deploy step
+    is the part that is easy to forget and silently leaves the old image
+    running: editing the repo unit does nothing, because
+    ~/.config/containers/systemd/ holds copies, not symlinks.
+    """
+    via = str(r.get("via", ""))
+    item = str(r.get("item", ""))
+    tgt = str(r.get("rel_hash", ""))
+    if via.startswith("container"):
+        # Never build a pull command from something that is not a real digest. A
+        # prose error string used as a digest produces a plausible-looking but
+        # meaningless command, which is worse than emitting no command at all.
+        if (not tgt) or not tgt.startswith(("sha256:", "sha512:")):
+            return []
+        return [
+            f"podman pull {str(r.get('repo','')).split(' ')[0]}@{tgt}",
+            f"edit Image= in {unit_path}",
+            f"./scripts/deploy/deploy-quadlet-domain.sh {unit_path.split('/')[1]}",
+            "systemctl --user daemon-reload",
+            f"systemctl --user restart {item}",
+        ]
+    if via.startswith("snap"):
+        steps = [f"snap refresh {item}"]
+    elif via.startswith("flatpak"):
+        steps = [f"flatpak update {item}"]
+    elif via.startswith("apt/third-party"):
+        steps = [f"apt install --only-upgrade {item}"]
+    elif via.startswith("desktop app (apt)"):
+        # The Item column is the application NAME an operator recognises
+        # ("Account Wizard"), not a package name. Feeding that to apt produced
+        # `apt install --only-upgrade Account` - a real command that would fail,
+        # or worse, match some unrelated package. Use the owning package.
+        pkg = str(r.get("repo", "")).replace("apt:", "").strip()
+        steps = [f"apt install --only-upgrade {pkg}"] if pkg else []
+    else:
+        # not dpkg-owned, vendor, local build, ROS: no mechanical step exists.
+        steps = []
+    return steps
+
+
+def write_update_plan(rows, out_path):
+    """Emit a machine-readable plan an automated updater can gate on.
+
+    Every item is either `eligible` with exact ordered steps, or `excluded`
+    with the rule that excludes it. There is no third state and no implicit
+    default, so an updater cannot act on an item whose status was never decided.
+    """
+    plan = {
+        "generated": now_utc(),
+        "host": os.uname().nodename,
+        "policy": ("This plan is ADVISORY. `eligible` means the item is safe to "
+                   "apply mechanically; `excluded` means a recorded project rule "
+                   "forbids it without explicit operator approval. Nothing here "
+                   "is executed by this tool."),
+        "items": [],
+    }
+    for r in sorted(rows, key=lambda x: str(x.get("item", ""))):
+        verdict = match_of(r)
+        # Only items needing a decision. An up-to-date item is not "excluded",
+        # it simply has nothing to do, and listing 200 of them buries the list.
+        if verdict in ("yes", "summary", "local"):
+            continue
+        item = str(r.get("item", ""))
+        pol, why = pin_policy(item)
+        unit = None
+        if str(r.get("via", "")).startswith("container"):
+            for f in sorted((AO_ROOT / "quadlet").glob("*/*.container")):
+                if f.stem == item:
+                    unit = str(f.relative_to(AO_ROOT))
+                    break
+        approval = NEEDS_APPROVAL.get(item)
+        pol_key = pol
+        deliberate = pol != "mechanism-default"
+        steps = update_steps(r, unit)
+        if approval:
+            decision, reason = "excluded", approval
+        elif pol_key == "deliberate-float":
+            # Floating is itself the recorded decision. Never auto-update it,
+            # whatever the upstream digest happens to say today.
+            decision, reason = ("excluded",
+                                f"deliberate decision on record: {why}")
+        elif pol_key == "deliberate-hold" and verdict == "**NO**":
+            decision, reason = ("excluded",
+                                f"deliberate decision on record: {why}")
+        elif not steps:
+            decision, reason = ("excluded",
+                                "no safe mechanical step exists for this "
+                                "source; needs a manual decision")
+        elif verdict != "**NO**":
+            # "?" means no upstream comparison was performed. That is not
+            # evidence of being behind, so it must never authorise an update.
+            decision, reason = ("excluded",
+                                "no evidence of being behind; verdict is "
+                                "'unknown', not 'behind'")
+        else:
+            decision, reason = "eligible", (why if deliberate
+                                            else "no exclusion recorded")
+        plan["items"].append({
+            "item": item,
+            "via": r.get("via", "-"),
+            "verdict": verdict,
+            "current": r.get("pinned", "-"),
+            "target": r.get("released", "-"),
+            "installed_identity": r.get("pin_hash", "-"),
+            "target_identity": r.get("rel_hash", "-"),
+            "pin_policy": pol,
+            "pin_reason": why,
+            "decision": decision,
+            "reason": reason,
+            "unit": unit,
+            "steps": steps if decision == "eligible" else [],
+        })
+    n_el = sum(1 for i in plan["items"] if i["decision"] == "eligible")
+    n_ex = len(plan["items"]) - n_el
+    plan["summary"] = {
+        "behind": sum(1 for i in plan["items"] if i["verdict"] == "**NO**"),
+        "eligible": n_el, "excluded": n_ex,
+    }
+    p = Path(out_path)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    t = p.with_suffix(p.suffix + ".tmp")
+    t.write_text(json.dumps(plan, indent=2, sort_keys=False), encoding="utf-8")
+    t.replace(p)
+    return plan
+
+
+def pin_policy(item):
+    """deliberate-float / deliberate-hold / mechanism-default, with the reason."""
+    return PIN_POLICY.get(item, ("mechanism-default",
+                                  "not a recorded decision; this is how the "
+                                  "package manager already holds it"))
+
+
+def update_risk(r):
+    """Why this behind item is not a one-command fix, from what we know."""
+    item = str(r.get("item", ""))
+    via = str(r.get("via", ""))
+    for k, why in EXCLUSIONS.items():
+        if item.startswith(k):
+            return why
+    if "webodm" in item or "nodeodm" in item:
+        return "rule 10: verify the photogrammetry drive before touching"
+    if via.startswith("container") and "db" in item or "postgres" in str(
+            r.get("repo", "")).lower() or "redis" in str(r.get("repo", "")).lower():
+        return "database: migration and data-volume risk, operator decision"
+    if via.startswith("apt/ROS"):
+        return "repository unreachable (TLS); cannot be fetched at all"
+    if via.startswith("container"):
+        return ("edit quadlet/<domain>/<unit>.container, redeploy (Quadlet "
+                "copies, not symlinks), then systemctl --user restart")
+    if via.startswith("vendor") or via.startswith("apt/third-party"):
+        return "third-party; not covered by unattended-upgrades"
+    return "operator decision"
+
+
 def render(inv, codename, offline):
     """One table. Every row, the same twelve columns, top to bottom."""
     # Prime the apt lookup maps with ONE call each. Doing this per row spawned
@@ -1494,6 +1707,34 @@ def render(inv, codename, offline):
       "who built it. `Installed identity` is a digest only for containers; for "
       "packages it is a dpkg-manifest hash, for snaps a revision, and for "
       "roll-ups an aggregate label.")
+    w("")
+    # TRIAGE FIRST. The full inventory is 229 rows and the items needing a
+    # decision are scattered through it. Both reviewers of this document said
+    # the same thing: it proves provenance rigorously and fails at triage, so
+    # the actionable set is lifted to the top where the eye lands.
+    action = [r for r in rows if match_of(r) in ("**NO**",)]
+    if action:
+        w("## Needs action")
+        w("")
+        w(f"**{len(action)} item(s) are behind.** Everything else in this "
+          f"document is inventory and needs no decision.")
+        w("")
+        w("| Item | Via | Here | Target | Pin policy | Why it cannot simply be updated | Command to apply |")
+        w("|---|---|---|---|---|---|---|")
+        for r in sorted(action, key=lambda x: (x.get("via", ""), x["item"])):
+            risk = update_risk(r)
+            pol = pin_policy(str(r["item"]))[0]
+            cmd = (r.get("download") or "no automated command")
+            w(f"| `{r['item']}` | {r.get('via','-')} | `{r.get('pinned','-')}` | "
+              f"`{str(r.get('released','-')).split(' ')[0]}` | {pol} | {risk} | "
+              f"{('[cmd](' + cmd + ')' if cmd.startswith('http') else '`' + cmd + '`')} |")
+        w("")
+        w("**Nothing here has been updated.** Applying any of these is an "
+          "operator decision; several carry exclusions recorded in "
+          "`docs/runbooks/software-update.md` (WebODM and the payment path "
+          "require prior verification).")
+        w("")
+    w("## Full inventory")
     w("")
     w("| Item | Via | Publisher | Repository / archive | Pinned | Version here | "
       "Up to date? | Released | Installed identity | Released identity | Installed | Download |")
@@ -1714,6 +1955,7 @@ def main():
     ap.add_argument("--html", help="also render to HTML at this path")
     ap.add_argument("--offline", action="store_true",
                     help="use cached upstream data only; never touch the network")
+    ap.add_argument("--plan", help="write a machine-readable update plan JSON")
     ap.add_argument("--refresh", action="store_true",
                     help="ignore the cache TTL and re-check every upstream "
                          "value now (this is how the Released hash column is "
@@ -1743,6 +1985,10 @@ def main():
         print(f"wrote {p}")
     else:
         print(text)
+
+    if args.plan:
+        plan = write_update_plan(_rows, args.plan)
+        print(f"wrote {args.plan}: {plan['summary']}")
 
     if args.html:
         rows = ubuntu_summary(inv) + ros_summary(inv) + gazebo_summary(inv) + _rows

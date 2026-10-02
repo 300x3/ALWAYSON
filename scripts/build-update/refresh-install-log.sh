@@ -50,7 +50,22 @@ python3 -m py_compile scripts/build-update/provenance-log.py
 python3 scripts/build-update/provenance-log.py --markdown \
         --out "$AO_ROOT/docs/software-status.md" \
         --html "$AO_ROOT/tmp/software-status.html" \
+        --plan "$AO_ROOT/data/build-update/update-plan.json" \
         ${REFRESH:+--refresh} ${OFFLINE:+$OFFLINE}
+
+# Report what an automated updater would be allowed to touch, and why not.
+if [ -f "$AO_ROOT/data/build-update/update-plan.json" ]; then
+  python3 - <<'PYEOF'
+import json
+p = json.load(open("/ALWAYSON/data/build-update/update-plan.json"))
+s = p["summary"]
+print(f"plan        : {s['behind']} behind -> {s['eligible']} eligible, "
+      f"{s['excluded']} excluded by recorded rule")
+for i in p["items"]:
+    if i["decision"] == "excluded" and i["verdict"] == "**NO**":
+        print(f"  excluded  : {i['item']} - {i['reason']}")
+PYEOF
+fi
 
 # Report the Released hash column explicitly: how many containers carry an
 # upstream digest, and how many do not. A blank hash must never be mistaken for
