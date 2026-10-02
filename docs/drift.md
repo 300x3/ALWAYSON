@@ -1,6 +1,6 @@
 # ALWAYS ON — Pinned vs Stable
 
-> Generated `2026-10-02T03:09:30+00:00` by `scripts/build-update/drift-report.py`.
+> Generated `2026-10-02T03:45:47+00:00` by `scripts/build-update/drift-report.py`.
 
 > Read-only. This resolves and compares; it never pulls, installs, or restarts.
 > Promotion is a separate, explicit step (`promote-image-digest.sh`).
@@ -36,17 +36,17 @@ a schema change, or a rebuild with no upstream equivalent.
 | `ao-mastodon-db` | sales | `a65e6a841f6c4dbc` | `d74eeac9a635390a` | BEHIND TRACKED TAG (17, rolling: newer patch of same major) |
 | `ao-mastodon-redis` | sales | `91d0f7e8c748ec7a` | `c6eabf748fc7a61d` | BEHIND TRACKED TAG (7, rolling: newer patch of same major) |
 | `ao-mastodon-sidekiq` | sales | `76436bccad38f134` | `76436bccad38f134` | IN SYNC |
-| `ao-mastodon-streaming` | sales | `24834e873cc79ae0` | `d2d33ed38313a5a3` | DRIFT (release v4.3.7) |
+| `ao-mastodon-streaming` | sales | `24834e873cc79ae0` | `d2d33ed38313a5a3` | HELD (operator-accepted, tracking v4.3.7) |
 | `ao-mastodon-web` | sales | `76436bccad38f134` | `76436bccad38f134` | IN SYNC |
 | `ao-sales-db` | sales | `a65e6a841f6c4dbc` | `d74eeac9a635390a` | BEHIND TRACKED TAG (17, rolling: newer patch of same major) |
 | `ao-sim-fabrication-foxglove` | sim-fabrication | `latest` | `-` | LOCAL BUILD (no upstream) |
 | `ao-sim-fabrication-gui-gz` | sim-fabrication | `gui-svgfix` | `-` | LOCAL BUILD (no upstream) |
 | `ao-sim-fabrication-gz` | sim-fabrication | `55f8dbcf8decb0b9` | `-` | LOCAL BUILD (no upstream) |
-| `ao-ardupilot-sitl` | sim-vehicle | `latest` | `-` | NOT PINNED (floating tag) |
+| `ao-ardupilot-sitl` | sim-vehicle | `latest` | `-` | UNPINNED BY CHOICE (operator wants latest) |
 
 ## 2. APT packages
 
-`4230` packages installed, `4` differ from the current
+`4229` packages installed, `4` differ from the current
 `Candidate`. Policy: `-security` installs unattended; `-updates` and
 third-party repositories wait for an operator decision.
 
@@ -59,7 +59,7 @@ third-party repositories wait for an operator decision.
 
 ## 3. Snap
 
-`17` snaps installed. snapd refreshes these **unattended** — the one
+`16` snaps installed. snapd refreshes these **unattended** — the one
 category on this host that updates itself.
 
 No pending refreshes: every snap is at its channel revision.
@@ -80,12 +80,14 @@ do not update themselves.
 | Outcome | Count | Meaning |
 |---|---|---|
 | IN SYNC | 3 | Pinned digest equals upstream stable. Leave alone. |
-| **DRIFT** | **1** | Behind a tracked release tag. Needs a decision. |
+| **DRIFT** | **0** | Behind a tracked release tag. Needs a decision. |
+| HELD | 1 | Deliberately held at this digest by operator decision. Not a finding. |
 | BEHIND TRACKED TAG | 5 | Newer **patch of the same major** is out (rolling tag). Safe to take; not a version decision. |
 | BEHIND LATEST | 9 | No tracked release tag exists for this image, so `latest` is all there is. **Not a defect.** |
 | UNRESOLVED | 0 | Registry did not answer. Retry or investigate. |
 | LOCAL BUILD | 3 | Built on this host; no upstream to compare. |
-| **NOT PINNED** | **1** | Floating tag or missing `Image=`. A finding in itself. |
+| UNPINNED BY CHOICE | 1 | Floating tag the operator WANTS (most recent). Not a defect. |
+| **NOT PINNED** | **0** | Floating tag or missing `Image=`, not chosen. A finding. |
 
 ## Keeping this current
 

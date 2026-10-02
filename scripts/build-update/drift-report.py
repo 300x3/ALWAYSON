@@ -81,6 +81,26 @@ TOKEN_URL = {
 }
 
 
+def load_untracked():
+    """The untracked: list of the policy file, for deliberate-pattern matching."""
+    path = AO_ROOT / "config/build-update/stable-refs.yaml"
+    if not path.exists():
+        return []
+    out, in_list = [], False
+    for raw in path.read_text().splitlines():
+        line = raw.split("#", 1)[0].rstrip()
+        if not line.strip():
+            continue
+        indent = len(line) - len(line.lstrip())
+        st = line.strip()
+        if indent == 0:
+            in_list = (st == "untracked:")
+            continue
+        if in_list and st.startswith("- pattern:"):
+            out.append({"pattern": st.split(":", 1)[1].strip().strip("\"'")})
+    return out
+
+
 def load_stable_refs():
     """Read config/build-update/stable-refs.yaml into {repo: {attr: value}}.
 
@@ -376,8 +396,10 @@ def build(as_md: bool, offline: bool):
         w("")
 
     STABLE = load_stable_refs()
+    UNTRACKED = load_untracked()
     summary = {"in_sync": 0, "drift": 0, "unresolved": 0, "local": 0,
-               "unpinned": 0, "behind_latest": 0, "behind_tracked": 0}
+               "unpinned": 0, "behind_latest": 0, "behind_tracked": 0,
+               "held": 0}
     containers = collect_containers()
     verdicts = []
 
@@ -399,8 +421,17 @@ def build(as_md: bool, offline: bool):
             verdict, pinned = "LOCAL BUILD (no upstream)", ref
             summary["local"] += 1
         elif "@" not in ref:
-            verdict, pinned = "NOT PINNED (floating tag)", ref
-            summary["unpinned"] += 1
+            # A floating tag. Whether that is a defect depends on intent: an
+            # operator may want the most recent build, in which case pinning it
+            # would be WRONG. Intent lives in the untracked: list of the policy
+            # file, so the report reflects the decision rather than a rule.
+            pinned = ref
+            if any(ref.startswith(u.get("pattern", "\0")) for u in UNTRACKED):
+                verdict = "UNPINNED BY CHOICE (operator wants latest)"
+                summary["unpinned_choice"] = summary.get("unpinned_choice", 0) + 1
+            else:
+                verdict = "NOT PINNED (floating tag)"
+                summary["unpinned"] += 1
         else:
             host, repo, pinned = parse_ref(ref)
             key = f"{host}/{repo}"
@@ -418,6 +449,14 @@ def build(as_md: bool, offline: bool):
                 elif up == pinned:
                     verdict = "IN SYNC"
                     summary["in_sync"] += 1
+
+                elif policy.get("held_digest") == pinned:
+                    # The operator has explicitly accepted THIS pinned digest.
+                    # Compare against the PINNED value, not the upstream one:
+                    # the whole point of a hold is that upstream differs. Being
+                    # behind is expected and accepted, so it is not a finding.
+                    verdict = f"HELD (operator-accepted, tracking {tracked})"
+                    summary["held"] = summary.get("held", 0) + 1
                 elif tracked and policy.get("tag_kind") == "release":
                     # A precise release the host intends to be on, and it is not
                     # on it. Unambiguously a finding.
@@ -521,11 +560,13 @@ def build(as_md: bool, offline: bool):
         w("|---|---|---|")
         w(f"| IN SYNC | {summary['in_sync']} | Pinned digest equals upstream stable. Leave alone. |")
         w(f"| **DRIFT** | **{summary['drift']}** | Behind a tracked release tag. Needs a decision. |")
+        w(f"| HELD | {summary.get('held', 0)} | Deliberately held at this digest by operator decision. Not a finding. |")
         w(f"| BEHIND TRACKED TAG | {summary['behind_tracked']} | Newer **patch of the same major** is out (rolling tag). Safe to take; not a version decision. |")
         w(f"| BEHIND LATEST | {summary['behind_latest']} | No tracked release tag exists for this image, so `latest` is all there is. **Not a defect.** |")
         w(f"| UNRESOLVED | {summary['unresolved']} | Registry did not answer. Retry or investigate. |")
         w(f"| LOCAL BUILD | {summary['local']} | Built on this host; no upstream to compare. |")
-        w(f"| **NOT PINNED** | **{summary['unpinned']}** | Floating tag or missing `Image=`. A finding in itself. |")
+        w(f"| UNPINNED BY CHOICE | {summary.get('unpinned_choice', 0)} | Floating tag the operator WANTS (most recent). Not a defect. |")
+        w(f"| **NOT PINNED** | **{summary['unpinned']}** | Floating tag or missing `Image=`, not chosen. A finding. |")
         w("")
         w("## Keeping this current")
         w("")

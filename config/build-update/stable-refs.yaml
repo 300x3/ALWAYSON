@@ -59,10 +59,13 @@ images:
     tag_kind: "release"
     major_series: "4"
     running: "unknown, pinned by digest only"
+    held_digest: "sha256:24834e873cc79ae0677c7e5938e575b4367f2c1c6df46376eb7aa937ee467f4b"
     note: >-
-      Same release as the web image, but pinned to a DIFFERENT digest, which is
-      why it reports DRIFT while its two siblings report IN SYNC. This is the
-      one real finding the report currently produces.
+      DELIBERATE HOLD, 2026-10-02. The operator asked to leave the Mastodon stack
+      alone and to hold streaming where it is rather than verify it now. This
+      digest is therefore the accepted state, not a known gap, and the report
+      calls it HELD rather than DRIFT. No image and no unit file was changed to
+      achieve this - only this record. Revisit when the stack is next verified.
 
   docker.io/webodm/webodm_webapp:
     tracked_tag: null
@@ -123,4 +126,63 @@ untracked:
   - pattern: "localhost/*"
     reason: "local build; the owning domain re-pins after a rebuild"
   - pattern: "ghcr.io/ardupilot/ardupilot-sitl"
-    reason: "floating :latest tag, not deployed; pinning it is an open item"
+    reason: >-
+      DELIBERATE, 2026-10-02. The operator wants the most recent ArduPilot SITL,
+      so this stays on a floating :latest tag ON PURPOSE. It is not a pinning
+      defect and must not be reported as one. The unit is also not deployed, so
+      nothing runs from it today.
+
+# ---------------------------------------------------------------------------
+# ROS is always validated against Ubuntu 26.04 LTS.
+# ---------------------------------------------------------------------------
+# The operator's rule: ROS packages are checked against the Ubuntu 26.04 LTS
+# ("resolute") suite, always. Not against any other suite, and not against
+# whatever the ROS repository happens to default to.
+#
+# The 351 installed ROS packages come from packages.ros.org/ros2/ubuntu, which
+# currently serves resolute - that is correct and must stay. The repository is
+# nonetheless unreachable from this host because TLS verification fails, so no
+# ROS package can be fetched or updated at all. That is a TRANSPORT fault, not a
+# suite mismatch, and it is NOT to be worked around by disabling verification.
+ros_policy:
+  validate_against_suite: "resolute"
+  validate_against_release: "26.04"
+  expected_origin: "packages.ros.org"
+  current_origin: "packages.ros.org/ros2/ubuntu"
+  suite_matches: true
+  reachable: false
+  unreachable_reason: >-
+    TLS verification fails: the certificate presented is CN=*.osuosl.org and its
+    subjectAltName does not cover packages.ros.org. Verification is deliberately
+    NOT disabled, so no ROS package can be fetched or updated.
+  rule: >-
+    Any ROS package whose resolved suite is not "resolute" is a finding in its
+    own right, separate from the reachability fault. The inventory checks the
+    suite on every ROS package and reports a mismatch separately, so a silent
+    move to a different Ubuntu suite cannot hide behind the TLS problem.
+
+# ---------------------------------------------------------------------------
+# Provenance for software that no configured repository provides.
+# ---------------------------------------------------------------------------
+# These are installed but appear in no apt index, so apt will never offer them an
+# update. That is expected for direct downloads, and recording why stops them
+# being reported as unexplained orphans. It also records the real consequence:
+# an update means re-downloading from the vendor by hand.
+direct_downloads:
+  - package: "obsidian"
+    version: "1.13.4"
+    source: "vendor .deb from obsidian.md, installed with dpkg"
+    update_meaning: "re-download the .deb from the vendor and reinstall"
+  - package: "crossover"
+    version: "25.1.0-1"
+    source: "vendor .deb from codeweavers.com, installed with dpkg"
+    update_meaning: "re-download the .deb from the vendor and reinstall"
+  - package: "foxglove-studio"
+    version: "3.3.0"
+    source: "vendor .deb from foxglove.io; /usr/bin/foxglove-studio -> /opt/Foxglove"
+    update_meaning: "re-download the .deb from the vendor and reinstall"
+    note: >-
+      Found while attributing provenance on 2026-10-02. Same category as obsidian
+      and crossover: installed from a direct vendor download, in no apt index, so
+      apt will never offer it an update. Recorded because the operator asked why
+      these packages appear as orphans, and this is the same answer.

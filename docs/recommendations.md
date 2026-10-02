@@ -1,6 +1,6 @@
 # ALWAYS ON — Update Recommendations
 
-> Generated `2026-10-02T03:30:49+00:00` by `scripts/build-update/recommend.py`.
+> Generated `2026-10-02T03:46:23+00:00` by `scripts/build-update/recommend.py`.
 > Inputs: `docs/drift.md` and `docs/applications.md`.
 >
 > ```bash
@@ -25,14 +25,13 @@ tool to act, it needs a person and a decision instead.
 | Class | Count | What it means |
 |---|---|---|
 | `SECURITY` | 1 | A security-pocket update is pending. |
-| `REVIEW` | 1 | Not on a release the host says it tracks. Read before applying. |
 | `TAKE_NOW` | 8 | Low risk, human decision. Nothing here applies it for you. |
 | `BLOCKED` | 1 | Installed software no repository can deliver an update to. |
 | `ORPHANED` | 1 | Installed, but present in no repository index. |
 | `UNMANAGED` | 1 | No package manager tracks this at all. |
-| `LEAVE` | 13 | Behind upstream with no tracked release. Acting would be a major change, not an update. Explicitly not a to-do. |
+| `LEAVE` | 14 | Behind upstream with no tracked release. Acting would be a major change, not an update. Explicitly not a to-do. |
 
-**10 items need a decision. 0 have been acted on.**
+**9 items need a decision. 0 have been acted on.**
 
 ## SECURITY — A security-pocket update is pending.
 
@@ -42,15 +41,6 @@ tool to act, it needs a person and a decision instead.
 - **Why:** A security-pocket update is pending. unattended-upgrades is enabled and permitted to install these, so this most likely arrived after its last daily run rather than being missed. Check the log before assuming a failure.
 - **Risk:** low, and already automatic by policy
 - **If you choose to act:** Confirm it ran: journalctl -u unattended-upgrades. If it did, do nothing - the next apt-daily-upgrade.timer run takes it.
-
-## REVIEW — Not on a release the host says it tracks. Read before applying.
-
-### `sales/ao-mastodon-streaming`
-
-- **Subject:** sha256:24834e873cc79ae0677c7e5938e575b4367f2c1c6df46376eb7aa937ee467f4b
-- **Why:** Measured: the host is not on a release it declares it tracks. Its sibling units in the same stack are, so this one is the outlier rather than a deliberate hold.
-- **Risk:** medium - Mastodon applies migrations on boot, so a version change is a real change, not a drop-in
-- **If you choose to act:** Read the release notes, then re-pin: scripts/build-update/promote-image-digest.sh sales ao-mastodon-streaming.container <image>@sha256:<digest of the tracked tag> then redeploy the domain and restart the unit
 
 ## TAKE_NOW — Low risk, human decision. Nothing here applies it for you.
 
@@ -121,7 +111,7 @@ tool to act, it needs a person and a decision instead.
 
 ## ORPHANED — Installed, but present in no repository index.
 
-### `crossover, dbeaver-ce, obsidian`
+### `crossover, foxglove-studio, obsidian`
 
 - **Subject:** installed, absent from every apt index
 - **Why:** These are installed but appear in no downloaded repository index, so no apt operation will ever offer them an update. They came from a local file or a source that has since been removed.
@@ -130,7 +120,7 @@ tool to act, it needs a person and a decision instead.
 
 ## UNMANAGED — No package manager tracks this at all.
 
-### `15 applications, 88 local executables`
+### `16 applications, 88 local executables`
 
 - **Subject:** no package manager tracks these
 - **Why:** AppImages, /opt trees and ~/.local/bin executables are tracked by nothing. Several are load-bearing for this project. A stale copy is invisible until it fails, and the inventory cannot tell you one is old because there is nothing to compare it against.
@@ -202,6 +192,13 @@ tool to act, it needs a person and a decision instead.
 - **Risk:** n/a
 - **If you choose to act:** Nothing.
 
+### `sales/ao-mastodon-streaming`
+
+- **Subject:** sha256:24834e873cc79ae0677c7e5938e575b4367f2c1c6df46376eb7aa937ee467f4b
+- **Why:** DELIBERATE HOLD: the operator accepted this digest and asked that it be left alone rather than verified now. Being behind the tracked release is expected, not a gap.
+- **Risk:** n/a
+- **If you choose to act:** Nothing. Revisit when the Mastodon stack is next verified.
+
 ### `sim-fabrication/ao-sim-fabrication-foxglove`
 
 - **Subject:** localhost/foxglove-bridge:latest
@@ -226,8 +223,8 @@ tool to act, it needs a person and a decision instead.
 ### `sim-vehicle/ao-ardupilot-sitl`
 
 - **Subject:** ghcr.io/ardupilot/ardupilot-sitl:latest
-- **Why:** No declared stable channel for this image, so there is no release to be behind. For a base image a digest change is often a rebuild with no functional change.
-- **Risk:** n/a
+- **Why:** DELIBERATE: the operator wants the most recent build, so the floating tag is intentional. Pinning it would be wrong, not a fix. The unit is not deployed, so nothing runs from it today.
+- **Risk:** accepted deliberately
 - **If you choose to act:** Nothing.
 
 ## What was deliberately not recommended

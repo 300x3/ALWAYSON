@@ -140,7 +140,23 @@ def build_recommendations(drift, inv):
         item = f"{domain}/{unit}"
         if verdict == "IN SYNC":
             continue
-        if verdict.startswith("DRIFT"):
+        if verdict.startswith("HELD"):
+            recs.append({
+                "class": "LEAVE", "item": item, "subject": v["ref"].split("@")[-1],
+                "why": "DELIBERATE HOLD: the operator accepted this digest and asked "
+                       "that it be left alone rather than verified now. Being behind "
+                       "the tracked release is expected, not a gap.",
+                "risk": "n/a",
+                "action": "Nothing. Revisit when the Mastodon stack is next verified."})
+        elif verdict.startswith("UNPINNED BY CHOICE"):
+            recs.append({
+                "class": "LEAVE", "item": item, "subject": v["ref"],
+                "why": "DELIBERATE: the operator wants the most recent build, so the "
+                       "floating tag is intentional. Pinning it would be wrong, not a "
+                       "fix. The unit is not deployed, so nothing runs from it today.",
+                "risk": "accepted deliberately",
+                "action": "Nothing."})
+        elif verdict.startswith("DRIFT"):
             recs.append({
                 "class": "REVIEW", "item": item, "subject": v["ref"].split("@")[-1],
                 "why": "Measured: the host is not on a release it declares it tracks. "

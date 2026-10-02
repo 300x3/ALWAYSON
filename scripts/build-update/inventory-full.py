@@ -73,6 +73,44 @@ def os_release():
             "codename": info.get("VERSION_CODENAME", "unknown")}
 
 
+def load_policy():
+    """Read ros_policy and direct_downloads from the stable-refs policy file.
+
+    Deliberately a small hand parser: the inventory already reads apt indexes by
+    hand, and the file shape is fixed. Returns {} rather than raising when the
+    file is absent, so the inventory still runs standalone.
+    """
+    path = AO_ROOT / "config/build-update/stable-refs.yaml"
+    out = {"ros": {}, "direct_downloads": {}}
+    if not path.exists():
+        return out
+    section = None
+    for raw in path.read_text().splitlines():
+        line = raw.split("#", 1)[0].rstrip()
+        if not line.strip():
+            continue
+        indent = len(line) - len(line.lstrip())
+        st = line.strip()
+        if indent == 0:
+            section = st.rstrip(":")
+            continue
+        if section == "ros_policy" and indent >= 2 and ":" in st:
+            k, _, v = st.partition(":")
+            v = v.strip().strip("\"'")
+            if k.strip() in ("validate_against_suite", "validate_against_release",
+                             "expected_origin", "current_origin"):
+                out["ros"][k.strip()] = v
+        elif section == "direct_downloads":
+            m = re.match(r"^-\s*package:\s*\"([^\"]+)\"", st)
+            if m:
+                out["direct_downloads"][m.group(1)] = {}
+            elif out["direct_downloads"]:
+                k, _, v = st.partition(":")
+                last = list(out["direct_downloads"])[-1]
+                out["direct_downloads"][last][k.strip()] = v.strip().strip("\"'")
+    return out
+
+
 def release_tag(host, suite, codename):
     if "ubuntu.com" in host:
         if suite == codename:
@@ -293,6 +331,7 @@ def containers():
 
 def collect():
     osr = os_release()
+    policy = load_policy()
     installed = installed_packages()
     idx = index_files()
     tagged = []
@@ -304,9 +343,18 @@ def collect():
         else:
             host = suite = component = ""
             tag = "Not in any apt index (locally built, or source removed)"
+        # ROS is validated against a fixed Ubuntu LTS suite, always. Record the
+        # suite each ROS package actually resolved to, and flag any that is not
+        # the expected one. This is a SEPARATE finding from the repository being
+        # unreachable: a suite mismatch must not hide behind the TLS fault.
+        ros_suite_ok = None
+        if "ros.org" in host:
+            want = policy["ros"].get("validate_against_suite")
+            ros_suite_ok = (suite == want) if want else None
         tagged.append({"package": name, "version": ver, "release": tag,
                        "origin": host, "suite": suite, "component": component,
-                       "ubuntu_lts": tag.startswith("Ubuntu")})
+                       "ubuntu_lts": tag.startswith("Ubuntu"),
+                       "ros_suite_ok": ros_suite_ok})
 
     rc, upg, _ = run(["apt", "list", "--upgradable"], timeout=120)
     upgradable = {}
@@ -327,6 +375,9 @@ def collect():
             "ubuntu_lts": sum(1 for t in tagged if t["ubuntu_lts"]),
             "third_party": sum(1 for t in tagged if t["release"].startswith("Third-party")),
             "not_indexed": sum(1 for t in tagged if t["release"].startswith("Not in any")),
+            "ros_packages": sum(1 for t in tagged if "ros.org" in (t.get("origin") or "")),
+            "ros_suite_mismatch": sum(1 for t in tagged if t.get("ros_suite_ok") is False),
+            "appimages": sum(1 for a in npkg if a.get("kind") == "AppImage"),
             "upgradable": len(upgradable),
             "desktop_apps": len(dapps), "non_package_apps": len(npkg),
             "user_binaries": len(ubin), "python_npm": len(pynpm),
@@ -336,6 +387,11 @@ def collect():
         "desktop_apps": dapps, "non_package_apps": npkg,
         "user_binaries": ubin, "python_npm": pynpm,
         "snaps": sn, "flatpaks": fl, "containers": ct,
+        "direct_downloads": {
+            pkg: {**info, "installed": next(
+                (t["version"] for t in tagged if t["package"] == pkg), "")}
+            for pkg, info in policy["direct_downloads"].items()},
+        "ros_policy": policy["ros"],
     }
 
 
@@ -413,6 +469,58 @@ def render(d):
               f"{t['suite'] or '—'} | {t['component'] or '—'} |")
         w("")
         w("</details>")
+        w("")
+
+    dd = {k: v for k, v in d.get("direct_downloads", {}).items() if v.get("installed")}
+    if dd:
+        w("### Installed from a direct vendor download")
+        w("")
+        w("These are in no apt index **by design**: the `.deb` came from the vendor's")
+        w("own website rather than a configured repository. apt will never offer them an")
+        w("update, so an update means re-downloading and reinstalling by hand.")
+        w("")
+        w("| Package | Installed | Source | Updating it means |")
+        w("|---|---|---|---|")
+        for pkg, info in sorted(dd.items()):
+            w(f"| `{pkg}` | `{info.get('installed', '?')}` | {info.get('source', 'vendor direct download')} "
+              f"| {info.get('update_meaning', 're-download from the vendor')} |")
+        w("")
+
+    w("### AppImages")
+    w("")
+    imgs = [a for a in d["non_package_apps"] if a.get("kind") == "AppImage"]
+    w(f"`{len(imgs)}` AppImages. **None update themselves.** A version in the file name")
+    w("is the only freshness signal available, and a duplicate filename means a")
+    w("superseded copy is still on disk.")
+    w("")
+    w("| AppImage | Path |")
+    w("|---|---|")
+    for a in imgs:
+        w(f"| `{a['name']}` | `{a['path']}` |")
+    w("")
+
+    ros = [t for t in d["apt_packages"] if "ros.org" in (t.get("origin") or "")]
+    if ros:
+        want = d.get("ros_policy", {}).get("validate_against_suite", "resolute")
+        bad = [t for t in ros if t.get("ros_suite_ok") is False]
+        w("### ROS validated against Ubuntu 26.04 LTS")
+        w("")
+        w(f"`{len(ros)}` ROS packages, from `packages.ros.org`. Every one is validated")
+        w(f"against the **`{want}`** (Ubuntu 26.04 LTS) suite, always - not against")
+        w("whatever the repository defaults to.")
+        w("")
+        if bad:
+            w(f"**{len(bad)} package(s) resolved to a suite other than `{want}`** - listed")
+            w("below. This is a separate finding from the repository being unreachable.")
+            w("")
+            for t in bad[:20]:
+                w(f"- `{t['package']}` (suite `{t['suite']}`)")
+        else:
+            w(f"All {len(ros)} resolve to the `{want}` suite. No mismatch.")
+        w("")
+        w("The repository is **unreachable** from this host: TLS verification fails, so")
+        w("no ROS package can be fetched or updated by anyone. That is a transport")
+        w("fault and is deliberately NOT worked around by disabling verification.")
         w("")
 
     if d["apt_upgradable"]:

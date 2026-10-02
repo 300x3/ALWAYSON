@@ -1,6 +1,6 @@
 # ALWAYS ON — Exhaustive Software Inventory
 
-> Generated `2026-10-02T02:37:16+00:00` by `scripts/build-update/inventory-full.py`.
+> Generated `2026-10-02T03:42:51+00:00` by `scripts/build-update/inventory-full.py`.
 > Do not hand-edit; regenerate with:
 >
 > ```bash
@@ -25,12 +25,12 @@ supported platform, or is it something a third party ships?
 | — of which in no apt index | **3** |
 | apt packages behind `Candidate` | **4** |
 | Desktop applications (`.desktop`) | **319** |
-| Applications with no package manager | **15** |
+| Applications with no package manager | **16** |
 | Executables in `~/.local/bin` | **88** |
 | pip / pipx / npm-global | **39** |
-| Snap packages | **17** |
+| Snap packages | **16** |
 | Flatpak applications | **1** |
-| Quadlet containers | **21** |
+| Quadlet containers | **22** |
 
 ## APT packages, grouped by release
 
@@ -3944,7 +3944,7 @@ supported platform, or is it something a third party ships?
 | Package | Version | Suite | Component |
 |---|---|---|---|
 | `crossover` | `25.1.0-1` | — | — |
-| `dbeaver-ce` | `26.1.5` | — | — |
+| `foxglove-studio` | `3.3.0` | — | — |
 | `obsidian` | `1.13.4` | — | — |
 
 </details>
@@ -4400,6 +4400,47 @@ supported platform, or is it something a third party ships?
 
 </details>
 
+### Installed from a direct vendor download
+
+These are in no apt index **by design**: the `.deb` came from the vendor's
+own website rather than a configured repository. apt will never offer them an
+update, so an update means re-downloading and reinstalling by hand.
+
+| Package | Installed | Source | Updating it means |
+|---|---|---|---|
+| `crossover` | `25.1.0-1` | vendor .deb from codeweavers.com, installed with dpkg | re-download the .deb from the vendor and reinstall |
+| `foxglove-studio` | `3.3.0` | vendor .deb from foxglove.io; /usr/bin/foxglove-studio -> /opt/Foxglove | re-download the .deb from the vendor and reinstall |
+| `obsidian` | `1.13.4` | vendor .deb from obsidian.md, installed with dpkg | re-download the .deb from the vendor and reinstall |
+
+### AppImages
+
+`8` AppImages. **None update themselves.** A version in the file name
+is the only freshness signal available, and a duplicate filename means a
+superseded copy is still on disk.
+
+| AppImage | Path |
+|---|---|
+| `QGroundControl-x86_64.AppImage` | `/home/scottw/Applications/QGroundControl-x86_64.AppImage` |
+| `ReticulumMeshChatX-v4.8.5-linux-x86_64.AppImage` | `/home/scottw/Applications/ReticulumMeshChatX-v4.8.5-linux-x86_64.AppImage` |
+| `ReticulumMeshChatX-v4.9.1-linux-x86_64.AppImage` | `/home/scottw/Applications/ReticulumMeshChatX-v4.9.1-linux-x86_64.AppImage` |
+| `nPerf-latest-x86_64.AppImage` | `/home/scottw/Applications/nPerf-latest-x86_64.AppImage` |
+| `LM-Studio-0.4.20-1-x64.AppImage` | `/home/scottw/Documents/APP IMAGES/LM-Studio-0.4.20-1-x64.AppImage` |
+| `QGroundControl-x86_64.AppImage` | `/home/scottw/Documents/APP IMAGES/QGroundControl-x86_64.AppImage` |
+| `pCloud.AppImage` | `/home/scottw/Documents/APP IMAGES/pCloud.AppImage` |
+| `nPerf.AppImage` | `/home/scottw/.local/bin/nPerf.AppImage` |
+
+### ROS validated against Ubuntu 26.04 LTS
+
+`351` ROS packages, from `packages.ros.org`. Every one is validated
+against the **`resolute`** (Ubuntu 26.04 LTS) suite, always - not against
+whatever the repository defaults to.
+
+All 351 resolve to the `resolute` suite. No mismatch.
+
+The repository is **unreachable** from this host: TLS verification fails, so
+no ROS package can be fetched or updated by anyone. That is a transport
+fault and is deliberately NOT worked around by disabling verification.
+
 ### Behind `Candidate`
 
 | Package | Installed |
@@ -4444,10 +4485,10 @@ most of what is installed; this is the exhaustive set.
 | CrossOver (Install) | `cxassoc-cxoffice-1:application_x-crossover-c4p::install` | — |
 | CrossOver (Install) | `cxassoc-cxoffice-1:application_x-crossover-tie::install` | — |
 | CrossOver | `cxmenu-cxoffice-0-29ra4ke-CrossOver` | — |
-| dbeaver-ce | `dbeaver-ce` | — |
 | UXTerm | `debian-uxterm` | — |
 | XTerm | `debian-xterm` | — |
 | ImageMagick (color depth=q16) | `display-im7.q16` | — |
+| Foxglove | `foxglove-studio` | — |
 | Geoclue Demo agent | `geoclue-demo-agent` | — |
 | GNU Image Manipulation Program | `gimp` | — |
 | Google Chrome | `google-chrome` | — |
@@ -4757,6 +4798,7 @@ re-download, and a stale one is invisible until it fails.
 | AppImage | `QGroundControl-x86_64.AppImage` | `/home/scottw/Documents/APP IMAGES/QGroundControl-x86_64.AppImage` | MANUAL re-download; no package manager |
 | AppImage | `pCloud.AppImage` | `/home/scottw/Documents/APP IMAGES/pCloud.AppImage` | MANUAL re-download; no package manager |
 | AppImage | `nPerf.AppImage` | `/home/scottw/.local/bin/nPerf.AppImage` | MANUAL re-download; no package manager |
+| /opt tree | `Foxglove` | `/opt/Foxglove` | MANUAL; installed under /opt, not apt |
 | /opt tree | `Obsidian` | `/opt/Obsidian` | MANUAL; installed under /opt, not apt |
 | /opt tree | `cxoffice` | `/opt/cxoffice` | MANUAL; installed under /opt, not apt |
 | /opt tree | `google` | `/opt/google` | MANUAL; installed under /opt, not apt |
@@ -4913,7 +4955,6 @@ re-download, and a stale one is invisible until it fails.
 | snap:`core24` | `20260824` (rev 2124) | latest/stable | snap store; UNATTENDED |
 | snap:`core26` | `20260629` (rev 462) | latest/stable | snap store; UNATTENDED |
 | snap:`cups` | `2.4.19-6` (rev 1262) | latest/stable | snap store; UNATTENDED |
-| snap:`dbeaver-ce` | `26.2.1.202609210342` (rev 557) | latest/stable | snap store; UNATTENDED |
 | snap:`firefox` | `157.0-1` (rev 8995) | latest/stable/… | snap store; UNATTENDED |
 | snap:`gnome-42-2204` | `0+git.4982e7b-sdk0+git.69b626a` (rev 263) | latest/stable | snap store; UNATTENDED |
 | snap:`gnome-46-2404` | `0+git.b31ceab-sdk0+git.f80dd8b` (rev 168) | latest/stable/… | snap store; UNATTENDED |
@@ -4942,6 +4983,7 @@ re-download, and a stale one is invisible until it fails.
 | container:`ao-mastodon-streaming` | — | sales | container registry; manual promote |
 | container:`ao-mastodon-web` | — | sales | container registry; manual promote |
 | container:`ao-sales-db` | — | sales | container registry; manual promote |
+| container:`ao-sim-fabrication-foxglove` | — | sim-fabrication | container registry; manual promote |
 | container:`ao-sim-fabrication-gui-gz` | — | sim-fabrication | container registry; manual promote |
 | container:`ao-sim-fabrication-gz` | — | sim-fabrication | container registry; manual promote |
 | container:`ao-ardupilot-sitl` | — | sim-vehicle | container registry; manual promote |
