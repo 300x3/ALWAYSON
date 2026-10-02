@@ -1049,6 +1049,10 @@ def containers(offline=False):
             "pin_hash": digest[:19] if digest else "floating tag, no digest pinned",
             "rel_hash": (rel_full[:19] if rel_full
                            else "upstream digest unreachable (registry refused)"),
+            # The displayed digest is truncated for width, but a truncated digest
+            # is NOT a valid manifest reference: `podman pull repo@sha256:<12>`
+            # fails. Keep the full digest for anything that executes a command.
+            "rel_digest": rel_full or "",
             "is_pinned": bool(digest),
             # The pull must name the TARGET digest, not the one already
             # installed. Pointing it at the pinned digest made "update this"
@@ -1376,7 +1380,7 @@ def flatpak_date(app_id):
 
 HEADERS = ["Item", "Via", "Publisher", "Repository / archive", "Pinned",
            "Version here", "Up to date?", "Released", "Installed identity",
-           "Released identity", "Installed", "Download"]
+           "Released identity", "Installed", "Download / source page"]
 
 
 def _fmt_age(seconds):
@@ -1469,7 +1473,7 @@ def update_steps(r, unit_path=None):
     """
     via = str(r.get("via", ""))
     item = str(r.get("item", ""))
-    tgt = str(r.get("rel_hash", ""))
+    tgt = str(r.get("rel_digest") or r.get("rel_hash", ""))
     if via.startswith("container"):
         # Never build a pull command from something that is not a real digest. A
         # prose error string used as a digest produces a plausible-looking but
@@ -1567,6 +1571,7 @@ def write_update_plan(rows, out_path):
             "target": r.get("released", "-"),
             "installed_identity": r.get("pin_hash", "-"),
             "target_identity": r.get("rel_hash", "-"),
+            "target_digest_full": r.get("rel_digest") or r.get("rel_hash", "-"),
             "pin_policy": pol,
             "pin_reason": why,
             "decision": decision,
@@ -1737,7 +1742,7 @@ def render(inv, codename, offline):
     w("## Full inventory")
     w("")
     w("| Item | Via | Publisher | Repository / archive | Pinned | Version here | "
-      "Up to date? | Released | Installed identity | Released identity | Installed | Download |")
+      "Up to date? | Released | Installed identity | Released identity | Installed | Download / source page |")
     w("|---|---|---|---|:---:|---|:---:|---|---|---|---|---|")
     rank = {"**NO**": 0, "?": 1, "summary": 2, "local": 3, "yes": 4}
     # ALL platform rows, in reading order: the desktop, the OS, the packages the
