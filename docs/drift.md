@@ -1,6 +1,6 @@
 # ALWAYS ON — Pinned vs Stable
 
-> Generated `2026-10-02T03:45:47+00:00` by `scripts/build-update/drift-report.py`.
+> Generated `2026-10-02T04:04:14+00:00` by `scripts/build-update/drift-report.py`.
 
 > Read-only. This resolves and compares; it never pulls, installs, or restarts.
 > Promotion is a separate, explicit step (`promote-image-digest.sh`).

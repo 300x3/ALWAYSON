@@ -1,6 +1,6 @@
 # ALWAYS ON — Update Recommendations
 
-> Generated `2026-10-02T03:46:23+00:00` by `scripts/build-update/recommend.py`.
+> Generated `2026-10-02T04:04:38+00:00` by `scripts/build-update/recommend.py`.
 > Inputs: `docs/drift.md` and `docs/applications.md`.
 >
 > ```bash
@@ -120,7 +120,7 @@ tool to act, it needs a person and a decision instead.
 
 ## UNMANAGED — No package manager tracks this at all.
 
-### `16 applications, 88 local executables`
+### `13 applications, 88 local executables`
 
 - **Subject:** no package manager tracks these
 - **Why:** AppImages, /opt trees and ~/.local/bin executables are tracked by nothing. Several are load-bearing for this project. A stale copy is invisible until it fails, and the inventory cannot tell you one is old because there is nothing to compare it against.
