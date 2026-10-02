@@ -416,13 +416,16 @@ A = S.append
 
 # ============================== LAYOUT =====================================
 NW = 470
-PAD_X, PAD_Y, GAP_Y, BAND_GAP = 52, 12, 12, 250
+PAD_X, PAD_Y, GAP_Y, BAND_GAP = 52, 10, 10, 250
 STEP_X = 15                     # spacing between two lines in one gap (see GAPW)
 MARGIN_L, LEG_MIN = 44, 1080
 MARGIN_R = 44               # matches MARGIN_L; the row used to end at the trim
-FS_TITLE, FS_PURP, FS_DET, FS_ST = 23, 20, 20, 19
-FS_SEC = 22                      # a stacked section title
-LH = 23
+FS_TITLE, FS_PURP, FS_DET, FS_ST = 29, 26, 26, 25
+FS_SEC = 28                      # a stacked section title
+LH = 28
+LH_TITLE = 31                    # a title line is set larger than LH
+FS_BT, FS_BP, FS_BS = 30, 25, 24  # band caption: title, purpose, muted sub-line
+BT_STEP, BP_STEP, BS_STEP = 32, 29, 27
 TXT_L, TXT_R = 22, 16        # text inset inside a node card
 
 def tw(s, size, bold=False):
@@ -453,7 +456,7 @@ def card_h(nd):
     (initial guess, per-band settle, group re-fill) from disagreeing.
     """
     return (PAD_Y + 18                          # top padding to first baseline
-            + len(nd["_title"]) * 25
+            + len(nd["_title"]) * LH_TITLE
             + len(nd["_purp"]) * LH
             + 3                                 # gap before the details
             + len(nd["_det"]) * LH
@@ -561,7 +564,15 @@ for _i, b in enumerate(BANDS):
     else:
         GUT[b["key"]] = 0
 
-MARGIN_T = LN_BOT + 70      # top of the band row, clear of the lane strip
+# Top of the band row. LN_BOT is only the last LANE line, but the de-collision
+# pass can push a label pill BELOW its lane when the strip above the bands is
+# crowded, and a pill is PILL_H (24) tall and centred on the lane. So LN_BOT
+# understates how far the drawing really reaches. At LN_BOT+18 the band tops
+# landed at y=706 and cut through the "factory and kitchen world" pill at
+# y=710..734, which sits over band 4. Two lines of clearance (2*LN_STEP) puts
+# the row at y=768, clear of the lowest pill by 34px. This is a constant for
+# the whole row: all nine band rects keep ONE top edge, so they stay in line.
+MARGIN_T = LN_BOT + 18 + 2*LN_STEP
 
 # Cards in a band are set to ONE width, the widest any of them needs, so the
 # column reads as a single stack instead of a ragged right edge.  Uniform width
@@ -615,6 +626,21 @@ for g in GRP_ORDER:
                   for sbk, st, _l, _k in SECTIONS if sbk == bk and st]
         gut = max(gut, GUT[bk])
     colw[g] = max(cards + heads) + PAD_X*2 + gut
+# The operator asked for the fonts to grow WITHOUT the layout changing: the
+# same columns, at the same x, at the same width, with the extra room taken
+# from whitespace. Without this pin a larger font widens every text run,
+# hence every card, hence every column, and the whole page simply scales up
+# (measured: +95 to +145px per column, every band sliding right).
+# With the widths pinned here the text instead re-wraps INSIDE the card it
+# already had, and the growth is absorbed vertically - taller cards, softer
+# gaps - instead of horizontally. Values are the 2026-10-02 pre-bump build,
+# verified against the longest single word (no word can overflow a card) and
+# the widest section title at the new 26pt.
+FROZEN_COLW = {"ext": 921, "adp": 696, "work": 718, "data": 775,
+               "field": 583, "prog": 650, "flow": 865}
+for _g in GRP_ORDER:
+    if _g in FROZEN_COLW:
+        colw[_g] = FROZEN_COLW[_g]
 # Now the group's inner width is known: re-fill every card in the group to
 # exactly that width and re-wrap its text. A narrower band therefore gains the
 # extra width instead of ending flush against the border.
@@ -695,22 +721,31 @@ def head_h(bk, bw):
     BAND_HEAD overran the cards in the narrow columns (the purpose alone
     takes 9 lines in box 2)."""
     b = next(x for x in BANDS if x["key"] == bk)
-    tl = len(wrap(f'{b["n"]} · {b["title"]}', 30))
-    pl = len(wrap(b["purpose"], max(16, int((bw-46)/10.4))))
-    sl = len(wrap(b["sec"], max(16, int((bw-46)/(18*0.565)))))
+    tl = len(wrap(f'{b["n"]} · {b["title"]}', max(12, int((bw-46)/(FS_BT*0.62)))))
+    pl = len(wrap(b["purpose"], max(12, int((bw-46)/(FS_BP*0.565)))))
+    sl = len(wrap(b["sec"], max(12, int((bw-46)/(FS_BS*0.565)))))
+    # The gap under the purpose has to be a FULL LINE at the purpose's own
+    # size. It was a fixed 12px, which cleared 19pt text and then let the muted
+    # sub-line sit on top of the last purpose line once the font grew.
     return max(BAND_HEAD,
-               44 + (tl-1)*26 + 16,
-               76 + (pl-1)*23 + 12 + 10 + (sl-1)*21)
+               44 + (tl-1)*BT_STEP + 16,
+               76 + pl*BP_STEP + 10 + (sl-1)*BS_STEP)
 
 HEAD = {b["key"]: head_h(b["key"], colw[b["key"]]) for b in BANDS}
-# One top edge for the whole row, set by the deepest caption. A box whose own
-# caption is short then carries the difference as slack below its sub-line,
-# which reads far better than boxes standing at seven different heights.
-ROW_TOP = MARGIN_T + max(HEAD.values())
+# One top edge for the whole row, so the nine boxes still read as one line.
+# It must be MARGIN_T alone. This used to be MARGIN_T + max(HEAD.values()),
+# which added the DEEPEST caption (band 2, ~347px, because its purpose wraps to
+# nine lines in a 696px column) above ALL nine band rects and drew nothing in it
+# -- a ~347px void between the lane linework and the top of the bands. Every
+# caption and card is placed relative to _by, and _by already carried the
+# offset, so the slack did NOT go below a short caption's sub-line as the old
+# comment claimed; it went above the box. Each band reserves only what its own
+# caption needs via b["_sy"] = b["_by"] + HEAD[bk].
+ROW_TOP = MARGIN_T
 SEC_HEAD = 40          # a section title above its cards
-SEC_GAP = 26           # space between two stacked sections
+SEC_GAP = 18           # space between two stacked sections
 EMPTY_H = 96           # a section that holds nothing still shows its box
-BOX_GAP = 26           # space between two boxes stacked in one column
+BOX_GAP = 18           # space between two boxes stacked in one column
 
 def sec_h(ids, kind):
     if kind == "empty":
@@ -1021,13 +1056,14 @@ for b in BANDS:
     A(f'<rect x="{bx}" y="{by}" width="{bw}" height="{bh}" rx="20" ry="20" '
       f'fill="{BAND_FILL[b["key"]]}" stroke="{BAND_BORD[b["key"]]}" stroke-width="3" '
       f'stroke-dasharray="none"/>')
-    for _k, _l in enumerate(wrap(f'{b["n"]} · {b["title"]}', 30)):
-        A(tspan(bx+22, by+44+_k*26, _l, 24, BAND_BORD[b["key"]], "bold"))
-    for _k, _l in enumerate(wrap(b["purpose"], max(16, int((bw-46)/10.4)))):
-        A(tspan(bx+22, by+76+_k*23, _l, 19, "#4b5563"))
-    _sl = wrap(b["sec"], max(16, int((bw-46)/(18*0.565))))
+    for _k, _l in enumerate(wrap(f'{b["n"]} · {b["title"]}',
+                                 max(12, int((bw-46)/(FS_BT*0.62))))):
+        A(tspan(bx+22, by+44+_k*BT_STEP, _l, FS_BT, BAND_BORD[b["key"]], "bold"))
+    for _k, _l in enumerate(wrap(b["purpose"], max(12, int((bw-46)/(FS_BP*0.565))))):
+        A(tspan(bx+22, by+76+_k*BP_STEP, _l, FS_BP, "#4b5563"))
+    _sl = wrap(b["sec"], max(12, int((bw-46)/(FS_BS*0.565))))
     for _k, _l in enumerate(_sl):
-        A(tspan(bx+22, by+HEAD[b["key"]]-10-(len(_sl)-1-_k)*21, _l, 18, "#9ca3af"))
+        A(tspan(bx+22, by+HEAD[b["key"]]-10-(len(_sl)-1-_k)*BS_STEP, _l, FS_BS, "#9ca3af"))
     A('</g>')
 
 # ---- stacked section titles, and the empty sections that still show a box ----
@@ -1382,7 +1418,7 @@ for n in NODES:
     A(f'<rect x="{x}" y="{y}" width="7" height="{h}" rx="3" fill="{bord}"/>')
     ty = y + PAD_Y + 18
     for l in n["_title"]:
-        A(tspan(x+20, ty, l, FS_TITLE, "#111827", "bold")); ty += 25
+        A(tspan(x+20, ty, l, FS_TITLE, "#111827", "bold")); ty += LH_TITLE
     for l in n["_purp"]:
         A(tspan(x+20, ty, l, FS_PURP, "#4b5563", "italic")); ty += LH
     ty += 3
@@ -2095,7 +2131,7 @@ def band_page(b, idx):
         A(f'<rect x="{x:.1f}" y="{yy:.1f}" width="7" height="{h:.1f}" rx="3" fill="{bo}"/>')
         ty = yy + PAD_Y + 18
         for l in t:
-            A(tspan(x+20, ty, l, FS_TITLE, "#111827", "bold")); ty += 25
+            A(tspan(x+20, ty, l, FS_TITLE, "#111827", "bold")); ty += LH_TITLE
         for l in pp:
             A(tspan(x+20, ty, l, FS_PURP, "#4b5563", "italic")); ty += LH
         ty += 3
@@ -2193,6 +2229,10 @@ def render():
     # The two portrait panels. The cut is at the seam the HTML viewer already
     # points at, so "page 2 of 2" in the viewer is the same fold as the paper.
     from PIL import Image
+    # This PNG is rendered here from our own SVG at 200 dpi, not fetched from
+    # anywhere, so PIL's decompression-bomb guard (meant for untrusted input)
+    # only aborts a legitimate 16000px-wide print render.
+    Image.MAX_IMAGE_PIXELS = None
     im = Image.open(png)
     W, H = im.size
     cut = int(round(_seam / canvas_w * W))
