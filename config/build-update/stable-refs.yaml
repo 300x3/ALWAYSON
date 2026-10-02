@@ -121,6 +121,77 @@ images:
     running: "unknown"
     note: "No declared stable channel."
 
+# ---------------------------------------------------------------------------
+# OPERATOR DECISIONS - 2026-10-02
+# ---------------------------------------------------------------------------
+# Recorded verbatim and applied to the tools where the tools can act on them.
+# Anything a human must still do is listed as `open` rather than quietly done.
+decisions:
+  security_updates:
+    policy: "ALWAYS INCORPORATE SECURITY UPDATES"
+    standing: true
+    scope: >-
+      Security-pocket apt updates and newer patches of an already-tracked major
+      version are incorporated without waiting for a case-by-case decision. This
+      is a STANDING instruction, not a one-off. Non-security updates are not
+      covered by it and still wait.
+    affects: "docs/drift.md SECURITY and TAKE_NOW classes for rolling tags"
+
+  stabilisation_hold:
+    policy: "PIN AS-IS AND WAIT"
+    standing: true
+    scope: >-
+      NON-security updates are frozen until the system stabilises and has proven
+      operational capability. Applies to the WebODM image rebuild, the two Ubuntu
+      -updates pocket packages, and Microsoft Edge.
+    standing_review: "Revisit once the platform is judged stable."
+
+  ros:
+    policy: "WAIT FOR ROS CLEANUP AND CHECK MORE DOCUMENTATION"
+    standing: true
+    scope: >-
+      Do not attempt to unblock packages.ros.org by weakening TLS. Research the
+      certificate fault further before proposing any remedy.
+
+  direct_downloads:
+    policy: "OBSIDIAN AND CROSSOVER ARE MINE TO KEEP TRACK OF; FOXGLOVE YOU NEED TO FIGURE OUT AN UPDATE METHOD FOR"
+    standing: true
+    obsidian: "operator-managed; not our concern"
+    crossover: "operator-managed; not our concern"
+    foxglove_studio: "OUR RESPONSIBILITY - an update method must be found and built"
+    # FINDING 2026-10-02: Foxglove 3.3.0 has no usable update channel.
+    #   apt      not in any repository; dpkg-installed from a vendor .deb
+    #   snap     not available
+    #   flatpak  not packaged
+    #   self     /opt/Foxglove has no updater component
+    #   feed     no usable public release API was reachable
+    # So the ONLY workable method is a periodic version check against the
+    # vendor's published version, reporting a difference for a human to act on
+    # by re-downloading the .deb. That check is part of the unmanaged-software
+    # tracking below, not a separate mechanism.
+
+  unmanaged_software:
+    policy: "YOUR JOB IS TO TRACK THESE AS WELL"
+    standing: true
+    scope: >-
+      AppImages, /opt trees and ~/.local/bin executables are now in scope for
+      freshness tracking, not merely listed. They were previously reported and
+      left alone.
+
+  meshchatx_placement:
+    policy: "MESHCHATX SHOULD MOVE TO AO-FIELD"
+    standing: true
+    rationale: >-
+      MeshChatX is a coordination layer for the Reticulum Network Stack (RNS),
+      which sits BETWEEN two networks: one for people, which has public
+      connections, and a separate one for drones, which is built on private ones.
+      RNS manages that split. That is a field-domain responsibility, so it belongs
+      on ao-field, not as a bare host process on loopback.
+    open: >-
+      The design is not yet settled. ao-field is Internal=true, and a network with
+      public Reticulum connections is not purely internal, so this needs a
+      documented topology decision before anything is moved. No change made yet.
+
 # Image references that are not tracked because no upstream is meaningful.
 untracked:
   - pattern: "localhost/*"
@@ -152,9 +223,29 @@ ros_policy:
   suite_matches: true
   reachable: false
   unreachable_reason: >-
-    TLS verification fails: the certificate presented is CN=*.osuosl.org and its
-    subjectAltName does not cover packages.ros.org. Verification is deliberately
-    NOT disabled, so no ROS package can be fetched or updated.
+    TLS name mismatch. The certificate presented is CN=*.osuosl.org with
+    subjectAltName "DNS:osuosl.org, DNS:*.osuosl.org", which does not include
+    packages.ros.org, so verification fails and no HTTP response is returned.
+  # DIAGNOSIS 2026-10-02, from openssl s_client and curl -4:
+  #   subject   CN=*.osuosl.org, O=Oregon State University
+  #   issuer    InCommon Intermediate CA - OVG2C
+  #   chain     "Verify return code: 0 (ok)"  <- the CA chain is TRUSTED
+  #   validity  notBefore Jul 23 2026, notAfter Feb 7 2027  <- currently VALID
+  #   SAN       osuosl.org, *.osuosl.org only
+  #   curl      (60) no alternative certificate subject name matches target
+  #             hostname 'packages.ros.org'
+  #   IPv6      no route on this host; IPv4 is the only usable path
+  #
+  # CONCLUSION: this is NOT an interception, NOT an expired certificate and NOT
+  # an untrusted issuer. The CA chain validates and the certificate is in date.
+  # The ONLY fault is that the server does not list packages.ros.org in the
+  # certificate it presents for that vhost. That is a server-side
+  # misconfiguration at Open Source Logic and cannot be fixed from this host.
+  #
+  # NOT DONE, DELIBERATELY: pinning that certificate by hand, or disabling
+  # verification. Either would trade a name-verification failure for a silent
+  # trust failure, which is strictly worse. Waiting for the operator's ROS
+  # cleanup and further documentation review, as instructed.
   rule: >-
     Any ROS package whose resolved suite is not "resolute" is a finding in its
     own right, separate from the reachability fault. The inventory checks the
@@ -181,6 +272,10 @@ direct_downloads:
     version: "3.3.0"
     source: "vendor .deb from foxglove.io; /usr/bin/foxglove-studio -> /opt/Foxglove"
     update_meaning: "re-download the .deb from the vendor and reinstall"
+    tracked_by_us: true
+    update_channel: >-
+      NONE. No apt repo, no snap, no flatpak, no self-updater, no usable release
+      feed. Tracked by periodic version comparison only.
     note: >-
       Found while attributing provenance on 2026-10-02. Same category as obsidian
       and crossover: installed from a direct vendor download, in no apt index, so

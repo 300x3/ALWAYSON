@@ -115,7 +115,28 @@ fi
 
 # Refuse a cross-registry swap silently. Changing the registry host is a bigger
 # decision than changing a version, and should be a deliberate one.
-cur_host="${current%%/*}"; new_host="${ref%%/*}"
+#
+# Docker SHORT NAMES must be normalised first, or this comparison is wrong:
+# "postgres@sha256:..." has no "/" at all, so ${ref%%/*} yields the whole string
+# and every short-name promotion looks like a registry change. Short names expand
+# to docker.io/<repo>, and "postgres"/"redis" expand into the "library" namespace.
+host_of() {
+  local r="$1" h
+  h="${r%%/*}"
+  if [[ "$r" != */* ]]; then
+    case "$h" in
+      postgres|redis|python|alpine|ubuntu|nginx|node|openjdk)
+        printf 'docker.io/library' ;;
+      *) printf 'docker.io' ;;
+    esac
+  elif [[ "$h" == "docker.io" || "$h" == "ghcr.io" || "$h" == "quay.io" ]]; then
+    printf '%s' "$h"
+  else
+    # a Docker Hub namespace such as opendronemap/nodeodm
+    printf 'docker.io'
+  fi
+}
+cur_host="$(host_of "$current")"; new_host="$(host_of "$ref")"
 if [[ "$cur_host" != "$new_host" ]] && [[ "$current" == *@sha256:* ]]; then
   echo "ERROR: registry change $cur_host -> $new_host" >&2
   echo "       Changing registry is not a version bump. Confirm and edit by hand." >&2

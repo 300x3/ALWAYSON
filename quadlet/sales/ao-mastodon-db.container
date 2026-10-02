@@ -7,7 +7,7 @@ Wants=network-online.target ao-sales-network.service
 PartOf=graphical-session.target
 
 [Container]
-Image=docker.io/library/postgres@sha256:a65e6a841f6c4dbc4abda3d67fa3bc21824e9611064fcd82e87ea67aad60a0c3
+Image=docker.io/library/postgres@sha256:d74eeac9a635390a49bc21bd49fccd973de707e2a53a76ac49b552b8712ec46f
 ContainerName=mastodon-db
 Network=ao-sales.network
 EnvironmentFile=%h/.local/share/ao-secrets/mastodon-db.env
