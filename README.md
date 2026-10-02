@@ -97,6 +97,7 @@ in §3 or anywhere else in the document.
 | Implementation status consolidated | All implementation statuses are tracked once, as the single list in **ES.3**. The former §3.2 status table is deleted, and the status columns in §19 and §20 now reference ES.3 IDs instead of restating a status |
 | Work and issue items consolidated | Section 19 is one table of remaining items, each naming the standard it serves |
 | Simulation renders relocated | The three Gazebo model views sit in §10.2 with captions |
+| Storefront live views recorded, not built | The nine operator-requested live HTML views for the 300x3.com product modals are listed with their constraints and open decisions in **§7.1.2**, and carried as an open item in §19.2. **Nothing is built and no port is opened**; the MeshChatX, Mastodon, and Gazebo/Foxglove views each need an operator decision before any live publication (§4.1 rule 6) |
 
 The open work items are carried as a running list. They are recorded once, in
 ES.3 Current Work and §19 Open Implementation Items, and are deliberately not
@@ -373,7 +374,7 @@ Compose, or any other orchestration mechanism or a Docker daemon.
 | Podman networks | **Twelve** `ao-*` networks present: **10** `Internal=true` workload domains (`ao-admin`, `ao-data`, `ao-fabrication`, `ao-field`, `ao-ledger-core`, `ao-ledger-ingest`, `ao-mapping`, `ao-payment`, `ao-sim-fabrication`, `ao-sim-vehicle`) plus **2** deliberately non-internal (`ao-sales` for ActivityPub delivery, `ao-reporting-egress` for Grafana/Metabase). The earlier "ten" figure counted only the internal domains; verified 2026-09-30 |
 | GPU | EVGA NVIDIA GTX 1080 |
 | NVIDIA driver | `580.178.04` |
-| NVIDIA integration | CDI devices registered, including `nvidia.com/gpu=0`; spec at `/etc/cdi/nvidia.yaml`, confirmed 2026-09-30 by running a container with `--device nvidia.com/gpu=0` and observing `/dev/nvidia0` injected |
+| NVIDIA integration | CDI devices registered, including `nvidia.com/gpu=0`. **Two spec files exist and the authoritative one is `/var/run/cdi/nvidia.yaml`** (regenerated 2026-09-30, pins `580.178.04`). The older `/etc/cdi/nvidia.yaml` (2026-08-24) still pins `580.173.02` and is **stale**: all 29 of its driver `hostPath` entries are absent from the host, so it contributes nothing and is silently skipped. Verified 2026-10-01 by running a container with `--device nvidia.com/gpu=0`: `/dev/nvidia0` injected and 59 NVIDIA libraries present, including `libGLX_nvidia.so.580.178.04`. EGL was confirmed to resolve to **NVIDIA** (`eglQueryString(EGL_VENDOR)` = `NVIDIA`, EGL 1.5). Regenerate or remove the stale `/etc/cdi` copy after the next driver change — do not treat it as the source of truth |
 | Simulation stack | ROS 2 Lyrical at `/opt/ros/lyrical`; Gazebo Sim `10.5.0` |
 | Host PostgreSQL | PostgreSQL `18.6`, loopback-only |
 | Host Redis | Redis `8.0.5`, loopback-only |
@@ -1340,6 +1341,37 @@ The public site must never include:
 - Database connection strings.
 - Drone radio configuration, control endpoints, or flight-control access.
 - Internal service certificates, identifiers, or diagnostic output.
+
+### 7.1.2 Live HTML Views for Product Modals (Planned)
+
+Recorded 2026-10-01 from the operator's review. These are the **future live HTML
+views to be added to the product modals** on the storefront. **None of them is
+built.** The table is the requirement list, not a status report.
+
+Every view below must satisfy the same boundary as the rest of §7.1: the public
+site carries only public content and interactive iframe content from other
+servers, and never a local hostname, LAN address, Podman port, or private API
+route (§7.1 prohibitions; ES.1 "Static HTML & interactive iframe content from
+other servers"). The Instructables view is the straightforward case — it is an
+outbound link and a static image. The remaining eight are not, and that is the
+substance of the "decision needed" column.
+
+| # | View | Placement | What it shows | State | Decision needed |
+|---|---|---|---|---|---|
+| 1 | **Instructables — fabrication directions** | Bottom-right of **each** product modal | The robot picture, linked to the operator's Instructables member page. **Not** the "Autodesk Instructables" wordmark | Planned — not built | The robot image asset does not exist yet. The operator supplied an Instructables logo SVG and then specified *not* to use it, so no image is to be fetched or substituted |
+| 2 | **MeshChatX — network visualizer** | Modal window area; currently only a screenshot | The Reticulum network stack visualizer, live, plus a direct-messaging entry point | Planned — not built | Operator asked for a live view, "especially if one is already published online somewhere". MeshChatX is `https://127.0.0.1:18000/`, loopback-only and **not a public ingress** (§9.2.1), so it cannot be iframed as it stands. Choose: static export, an approved published view, or an existing external public visualizer |
+| 3 | **IPFS/pCloud — route orthotiff** | Maps / digital | WebODM-processed orthotiff along the 300X3 route, the full way around the county, as a **free download including route times and telemetry data** | Planned — not built | Deliverable does not exist yet. A public download must carry no internal host, port, or path; check against §4.2 before publication |
+| 4 | **Trimble — San Vicente Reservoir point clouds** | Maps / digital | Point-cloud viewing of the reservoir, from a processed WebODM topography | Planned — not built | Depends on a completed WebODM task for the reservoir (§8); none is recorded as delivered |
+| 5 | **LocusMap** | Maps / digital | Downloadable route around San Diego County in the LocusMap format | Planned — not built | Format and licensing of the published tile set to be confirmed before any public link |
+| 6 | **Mapbox** | Maps / digital | Mapping tiles, San Vicente Reservoir | Planned — not built | Requires a Mapbox account and an access token held **outside** the repository. A public browser token is publishable by design; a secret-classified token is not (§4.2, §7.1) |
+| 7 | **Mastodon — live forum** | Discussion | A live forum view inside the modal | Planned — not built | Operator's question, unresolved: `mastodon.social` refuses to be framed. The local instance UI is `https://127.0.0.1:3300/`, loopback-only, so it is not a substitute without a new approved public entry. Frame refusal is enforced by the remote and cannot be fixed in this repo |
+| 8 | **Gazebo/Foxglove — simulation** | Modal, three views | Kitchen; storage/CNC; vehicle | Planned — not built | All three worlds are loopback-only today (sim console `127.0.0.1:8099/sim`, Gazebo portal `127.0.0.1:8765/`, §5.1.1). A live three-view embed is a new public entry requiring explicit operator approval under §4.1 rule 6, and is also gated on WORK 000800/000801 (§19 items 30-31) |
+| 9 | **Trimble SketchUp — grid of 3D views** | Modal grid | The SketchUp model views | Planned — not built | SketchUp is a desktop/paid service; confirm what may be linked or embedded publicly before use |
+
+**No public port is opened by this section.** Rows 2, 7 and 8 each require an
+explicit operator decision before any live view is published, and none of them
+may be satisfied by publishing a loopback address. Recording the intent here
+changes no exposure.
 
 ## 7.2 Payment and Settlement Policy
 
@@ -4713,6 +4745,7 @@ listed; they are recorded as evidence in section 20.
 | 9 | `salesdb` schema initialization | §3.3.1, §15.1 | Live application schema initialized; read-only reporting views defined. |
 | 10 | Corda ingest accepts only approved signed data | §4.4, §11.2 | Ledger-ingest receives signed, minimized manifests only, with authorization, idempotency, replay defence, and audit. |
 | 11 | pCloud archive credentials | §11.6, §17.1 | Credentials provisioned into `ao-archive`; non-destructive encrypted replication test approved and run. **Presence-only checks — never print, copy, or export values.** |
+| 43 | **Live HTML views for product modals** | §7.1.2 | The nine operator-requested views (Instructables robot link; MeshChatX visualizer/messaging; IPFS-pCloud route orthotiff with times and telemetry; Trimble San Vicente point clouds; LocusMap; Mapbox; Mastodon live forum; Gazebo/Foxglove kitchen, storage/CNC, and vehicle; Trimble SketchUp grid) are built and reachable from the modals, **each published as a static export, an approved published view, or an external service** — never by exposing a loopback address. **Recorded 2026-10-01; nothing is built.** Three preconditions are open and need operator decisions: the Instructables robot image asset does not exist, the Mastodon and MeshChatX iframes have no publishable origin, and the three simulation views are gated on WORK 000800/000801. Publishing any live view is a new public entry requiring explicit operator approval under §4.1 rule 6. |
 ## 19.3 Community, federation, and local AI
 
 | # | Item | Standard served | Acceptance criteria |
