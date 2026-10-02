@@ -10,7 +10,7 @@
 | **Why** | **A fully autonomous live/work/fabricate area supporting fully autonomous air, land, and sea vehicles, and the daily-carry equipment that goes with them. The goal: it literally does everything itself — for any business, and any owner, even when the internet turns off — at the size of a small storage unit, a garage, or a parking space.** |
 | Website | https://www.300x3.com |
 | Supporting plan | https://archive.org/details/@scott_widmann |
-| Created with | Bluebeam and LibreDraw (PDF project plan), Perplexity.ai, Cline.bot (Markdown) |
+| Created with | Bluebeam and LibreDraw (PDF project plan), Perplexity.ai, Cline.bot |
 | Revision | 2026-10-02 — GitHub review pass; see `docs/readme-change-log.md` |
 | Current main host | ATX desktop - running Linux Kubuntu |
 | Peripheral host | Drone — Raspberry Pi 5 and Autopilot Module, running KaliOS |
