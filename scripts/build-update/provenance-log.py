@@ -38,7 +38,7 @@ from pathlib import Path
 AO_ROOT = Path(os.environ.get("AO_ROOT", "/ALWAYSON"))
 INVENTORY = AO_ROOT / "data/build-update/inventory-full.json"
 UNMANAGED = AO_ROOT / "config/build-update/unmanaged-software.yaml"
-TIMEOUT = 20
+TIMEOUT = 12
 
 # Apt suites to name in the package URL.
 # Apt archives, mapped to the human-facing package page for each host.
@@ -90,8 +90,20 @@ def load_yaml(path):
 # ---------------------------------------------------------------------------
 # sources
 # ---------------------------------------------------------------------------
+_RAW_CACHE = {}
+
+
 def registry_digest_raw(host, repo, tag):
-    """Full manifest digest for a tag, or None. Used for tag<->digest mapping."""
+    """Full manifest digest for a tag, or None.
+
+    CACHED. Without it the same image was re-fetched once per row that uses it -
+    postgres appears in three units, redis in two - turning a 13-repository job
+    into ~88 sequential HTTP round trips, and the run did not finish in five
+    minutes.
+    """
+    key = (host, repo, tag)
+    if key in _RAW_CACHE:
+        return _RAW_CACHE[key]
     api = {"docker.io": "registry-1.docker.io", "ghcr.io": "ghcr.io",
            "quay.io": "quay.io"}.get(host)
     if api is None:
@@ -112,29 +124,46 @@ def registry_digest_raw(host, repo, tag):
         req.add_header("Authorization", f"Bearer {token}")
     try:
         with urllib.request.urlopen(req, timeout=TIMEOUT) as r:
-            return r.headers.get("Docker-Content-Digest")
+            _RAW_CACHE[key] = r.headers.get("Docker-Content-Digest")
+            return _RAW_CACHE[key]
     except Exception:
+        _RAW_CACHE[key] = None
         return None
 
 
 _TAG_CACHE = {}
 
 
-def _hub_tags(repo):
-    """digest -> tag for a Docker Hub repo, in ONE call.
+HUB_PAGES = int(os.environ.get("AO_HUB_PAGES", "4"))
+
+
+def _hub_tags(repo, want=None):
+    """digest -> [tags] for a Docker Hub repo.
 
     This is what turns a pinned digest into a version a human can read: the Hub
     API returns a digest for every tag, so the pinned digest reverse-looks-up to a
-    version. Grafana resolves immediately - `latest` and `13.0.2` share a digest -
+    version. Grafana resolves on page one - `latest` and `13.0.2` share a digest -
     which is precisely the comparison two raw hashes hide.
+
+    It PAGES. A one-shot call only covers the publisher's 100 most recent tags,
+    and an older pin falls outside that window and stayed a bare hash. Given the
+    digest we are trying to place, paging stops as soon as it is found.
     """
     if repo not in _TAG_CACHE:
-        d = get_json(f"https://hub.docker.com/v2/repositories/{repo}/tags"
-                     f"?page_size=100&ordering=last_updated")
         m = {}
-        for r in (d or {}).get("results", []):
-            if r.get("name") and r.get("digest"):
-                m.setdefault(r["digest"], []).append(r["name"])
+        for page in range(1, HUB_PAGES + 1):
+            d = get_json(f"https://hub.docker.com/v2/repositories/{repo}/tags"
+                         f"?page_size=100&page={page}&ordering=last_updated")
+            res = (d or {}).get("results") or []
+            for r in res:
+                if r.get("name") and r.get("digest"):
+                    m.setdefault(r["digest"], []).append(r["name"])
+            if want:
+                short = str(want).split("sha256:")[-1]
+                if any(dg.split("sha256:")[-1].startswith(short[:16]) for dg in m):
+                    break
+            if not res or not (d or {}).get("next"):
+                break
         _TAG_CACHE[repo] = m
     return _TAG_CACHE[repo]
 
@@ -149,10 +178,12 @@ def _ghcr_tags(repo):
               "ghcr.io/mastodon/mastodon-streaming": "mastodon/mastodon",
               "ghcr.io/ardupilot/ardupilot-sitl": "ArduPilot/ardupilot"}
         if repo in gh:
-            for r in (get_json(f"https://api.github.com/repos/{gh[repo]}/releases?per_page=6") or [])[:6]:
-                if r.get("tag_name"):
-                    cands.append(r["tag_name"])
-        for tag in [c for c in cands if c][:6]:
+            for page in (1, 2):
+                for r in (get_json(f"https://api.github.com/repos/{gh[repo]}"
+                                   f"/releases?per_page=50&page={page}") or []):
+                    if r.get("tag_name"):
+                        cands.append(r["tag_name"])
+        for tag in [c for c in cands if c][:8]:
             dg = registry_digest_raw("ghcr.io", repo, tag)
             if dg:
                 m.setdefault(dg, []).append(tag)
@@ -195,7 +226,8 @@ def version_for(host, repo, digest):
     if not digest or "sha256:" not in str(digest):
         return None
     short = str(digest).split("sha256:")[-1]
-    m = _ghcr_tags(repo) if host == "ghcr.io" else _hub_tags(repo)
+    m = (_ghcr_tags(repo) if host == "ghcr.io"
+         else _hub_tags(repo, want=digest))
     tags = [t for d, lst in m.items()
             if d.split("sha256:")[-1].startswith(short[:16]) for t in lst]
     return _best_tag(tags) if tags else None
@@ -238,16 +270,20 @@ def containers(offline=False):
         # Reverse-map the pinned digest to a version TAG. Without this the table
         # only ever showed two hashes, which tells a human nothing about versions.
         pin_ver = version_for(host, repo, digest) if (digest and not offline) else None
-        rel_ver = version_for(host, repo, released) if (released and not offline) else None
+        rel_full = registry_digest_raw(host, repo, tag) if not offline else None
+        rel_ver = version_for(host, repo, rel_full) if rel_full else None
         rows.append({
             "item": f.stem, "via": f"container/{f.parent.name}",
             "publisher": host,
             "repo": f"{host}/{repo}" if "/" in base else f"docker.io/library/{host}",
-            "pinned": pin_ver or (digest[:19] if digest else "NOT PINNED"),
-            "released": f"{rel_ver or released} ({tag})",
+            "pinned": pin_ver or "no version tag",
+            "released": rel_ver or "no version tag",
+            "tag": tag,
+            "pin_hash": digest[:19] if digest else "-",
+            "rel_hash": (rel_full[:19] if rel_full else "-"),
             "is_pinned": bool(digest),
             "download": f"podman pull {base}@{digest}" if digest else ref,
-            "local": False, "exact": True,
+            "local": False, "exact": False,
         })
     return rows
 
@@ -406,102 +442,40 @@ def direct_and_unmanaged(offline):
 
 
 def render(inv, codename, offline):
-    L = []
-    w = L.append
-
+    """One table. Every row, the same eleven columns, top to bottom."""
     cont, sn, fl = containers(offline), snaps(offline), flatpaks(offline)
     apts = apt_rows(inv, codename)
     direct = direct_and_unmanaged(offline)
-
-    # ONE schema for every row, whatever delivered it. The operator asked for the
-    # table to line up top to bottom with the same columns, so every mechanism is
-    # normalised to the same keys and rendered in a single master table rather
-    # than five tables with five different shapes.
     rows = cont + sn + fl + apts + direct
-    # match_of returns the MARKDOWN string "**NO**"; comparing against a bare
-    # "NO" silently produced an empty backlog while the table showed the markers.
-    behind = [r for r in rows if match_of(r) == "**NO**"]
-    uncheck = [r for r in rows if match_of(r) == "?"]
 
-    w("# ALWAYS ON — Complete Software Provenance Log")
-    w("")
-    w(f"**Generated `{now_utc()}`** by `scripts/build-update/provenance-log.py`.")
-    w("")
-    w("> **Read-only.** Queries version endpoints and reads local state. Installs")
-    w("> nothing, downloads nothing, changes nothing. Regenerate rather than edit.")
-    w("")
-    w("Every row uses the **same columns**, whatever delivered it, so the table lines")
-    w("up top to bottom: what it is, how it arrived, who publishes it, where it")
-    w("lives, what is **pinned** here, what is **released** upstream, whether they")
-    w("match, and where to get it.")
-    w("")
-    w(f"Host: **{inv['os']['pretty']}** (codename `{codename}`), kernel `{inv['kernel']}`.")
-    w("")
+    behind = len([r for r in rows if match_of(r) == "**NO**"])
+    current = len([r for r in rows if match_of(r) == "yes"])
+    unknown = len([r for r in rows if match_of(r) == "?"])
+    local = len([r for r in rows if match_of(r) == "local"])
 
-    w("## Summary")
+    L = []
+    w = L.append
+    w(f"# Software status - {inv['os']['pretty']} - {now_utc()[:10]}")
     w("")
-    w("| Delivery | Rows | Behind | Uncheckable |")
-    w("|---|---|---|---|")
-    for label, group in [("Container images", cont), ("apt packages", apts),
-                         ("Snap", sn), ("Flatpak", fl),
-                         ("Vendor-published", direct)]:
-        b = len([r for r in group if match_of(r) == "**NO**"])
-        u = len([r for r in group if match_of(r) == "?"])
-        w(f"| {label} | {len(group)} | {b if b else '-'} | {u if u else '-'} |")
-    w(f"| **Total** | **{len(rows)}** | **{len(behind)}** | **{len(uncheck)}** |")
+    w(f"**{len(rows)} items.** {behind} behind - {current} up to date - "
+      f"{unknown} no version published - {local} local build. "
+      f"Generated by `scripts/build-update/provenance-log.py`; read-only.")
     w("")
-    if behind:
-        w(f"**{len(behind)} item(s) pinned behind what is released.** Listed first so")
-        w("the backlog is at the top rather than buried:")
-        w("")
-        for r in sorted(behind, key=lambda x: x["item"]):
-            w(f"- `{r['item']}` — `{r['pinned']}` → `{r['released']}` ({r['via']})")
-        w("")
-
-    w("## The complete table")
-    w("")
-    w("| Item | Via | Publisher | Repository / archive | Pinned | **Version here** | **Released** | Match | Download |")
-    w("|---|---|---|---|:---:|---|---|---|---|")
-    w("")
-    w("✅ = pinned to an immutable digest. ❌ = floating tag, no immutability")
-    w("guarantee. The **Version here** column reverse-maps the pinned digest to a")
-    w("publisher tag, so two hashes can be read as two versions. Where it still shows")
-    w("a hash, the pinned build is older than the publisher's recent tag list and no")
-    w("tag covers it — that is reported rather than guessed.")
-    order = {"**NO**": 0, "?": 1, "local": 2, "yes": 3}
-    for r in sorted(rows, key=lambda x: (order.get(match_of(x), 5), x["item"].lower())):
+    w("| Item | Via | Publisher | Repository / archive | Pinned | Version here | "
+      "Up to date? | Released | Pinned hash | Released hash | Download |")
+    w("|---|---|---|---|:---:|---|:---:|---|---|---|---|")
+    rank = {"**NO**": 0, "?": 1, "local": 2, "yes": 3}
+    for r in sorted(rows, key=lambda x: (rank.get(match_of(x), 5), str(x["item"]).lower())):
         dl = r.get("download", "-")
-        cell = f"[get]({dl})" if str(dl).startswith("http") else (
-            f"`{dl}`" if str(dl).startswith("podman") else str(dl))
-        mark = "✅" if r.get("is_pinned") else "❌"
+        cell = (f"[get]({dl})" if str(dl).startswith("http")
+                else (f"`{dl}`" if str(dl).startswith("podman") else str(dl)))
+        mark = "\u2705" if r.get("is_pinned") else "\u274c"
+        up = {"yes": "yes", "**NO**": "**NO**", "?": "?", "local": "local"}[match_of(r)]
+        tag = r.get("tag")
+        rel = f"`{r['released']}`" + (f" ({tag})" if tag else "")
         w(f"| `{r['item']}` | {r['via']} | {r['publisher']} | {r['repo']} | {mark} | "
-          f"`{r['pinned']}` | `{r['released']}` | {match_of(r)} | {cell} |")
-    w("")
-
-    w("---")
-    w("")
-    w("## Archives and stores referenced")
-    w("")
-    w("| Source | Address | Serves |")
-    w("|---|---|---|")
-    for h, p, sv in [
-        ("Docker Hub", "https://hub.docker.com", "official and community images"),
-        ("GitHub Container Registry", "https://ghcr.io", "Mastodon, ArduPilot SITL"),
-        ("Snap Store", "https://snapcraft.io", "all snap packages"),
-        ("Flathub", "https://flathub.org", "Bottles"),
-        ("Ubuntu archive", "https://archive.ubuntu.com/ubuntu", "26.04 LTS base and updates"),
-        ("Ubuntu security", "https://security.ubuntu.com/ubuntu", "security, unattended"),
-        ("packages.ros.org", "http://packages.ros.org/ros2/ubuntu", "ROS 2 - TLS FAULT"),
-        ("nvidia.github.io", "https://nvidia.github.io/libnvidia-container", "NVIDIA toolkit"),
-        ("Microsoft", "https://packages.microsoft.com/repos/edge-stable", "Edge"),
-        ("Google", "https://dl.google.com/linux/chrome-stable/deb", "Chrome"),
-        ("OSRF", "https://packages.osrfoundation.org/gazebo/ubuntu-stable", "Gazebo"),
-        ("Valve", "https://repo.steampowered.com/steam", "Steam"),
-        ("NodeSource", "https://deb.nodesource.com/node_24.x", "Node.js"),
-        ("GitHub CLI", "https://cli.github.com/packages", "gh"),
-        ("VSCodium", "https://download.vscodium.com/debs", "VSCodium"),
-    ]:
-        w(f"| {h} | [{p}]({p}) | {sv} |")
+          f"`{r['pinned']}` | {up} | {rel} | `{r.get('pin_hash', '-')}` | "
+          f"`{r.get('rel_hash', '-')}` | {cell} |")
     w("")
     return "\n".join(L) + "\n"
 
@@ -514,7 +488,7 @@ def _is_digest(v):
 
 
 def _digest_of(v):
-    """The hex after sha256:, ignoring any trailing " (tag)" annotation."""
+    """Hex after sha256:, ignoring any trailing " (tag)" annotation."""
     m = re.search(r"sha256:([0-9a-f]{8,})", str(v))
     return m.group(1) if m else ""
 
@@ -522,16 +496,11 @@ def _digest_of(v):
 def same_version(a, b, exact=False):
     """Compare two version-ish values.
 
-    Three traps, all of which produced a confident "yes" on data that differed:
-
-    1. Digests must NOT go through norm(): norm() takes the first digit run, which
-       for "sha256:d74e..." is the "256" inside "sha256" - so every digest compared
-       equal to every other digest.
-    2. Debian revisions must not be stripped. norm() cuts at the first "-", so
-       1.2.15.3-1ubuntu1.5 and 1.2.15.3-1ubuntu1.7 both reduced to "1.2.15.3" and
-       an outdated security-adjacent package reported as current. apt rows pass
-       exact=True and are compared whole.
-    3. Everything else (tags, tool versions) is fine on the numeric core.
+    Three traps, each of which once produced a confident "yes" on data that
+    differed: digests must not go through norm() (which takes the "256" out of
+    "sha256"); Debian revisions must not be stripped (1.2.15.3-1ubuntu1.5 and
+    ...-1ubuntu1.7 both reduce to 1.2.15.3); everything else compares on the
+    numeric core.
     """
     a, b = str(a), str(b)
     if _is_digest(a) or _is_digest(b):
@@ -543,6 +512,14 @@ def same_version(a, b, exact=False):
 
 
 def match_of(r):
+    # Compare hashes when both are present. Display strings are for reading; a
+    # comparison against "no version tag" or a rolling alias proves nothing.
+    ph, rh = str(r.get("pin_hash", "")), str(r.get("rel_hash", ""))
+    if _is_digest(ph) or _is_digest(rh):
+        da, db = _digest_of(ph), _digest_of(rh)
+        if da and db:
+            return "yes" if da == db else "**NO**"
+        return "?"
     pin = str(r.get("pinned", "-"))
     rel = str(r.get("released", "-")).split(" (")[0].strip()
     if r.get("local"):

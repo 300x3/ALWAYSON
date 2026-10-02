@@ -33,6 +33,27 @@ only then to the repository delivering it, because that is the question that
 matters when deciding what to update: part of the supported platform, or a third
 party's release cadence?
 
+## -0. The one table
+
+```bash
+/ALWAYSON/scripts/build-update/provenance-log.py --markdown \
+  --out /ALWAYSON/docs/software-status.md
+```
+
+Every installed package, image, app and tool on the host in **one table, the same
+eleven columns for every row** — including whether it is up to date. This is the
+log to read first; the reports below are the detail behind it.
+
+| Column | Meaning |
+|---|---|
+| `Pinned` | ✅ digest-pinned, ❌ floating tag |
+| `Version here` | what is installed |
+| `Up to date?` | `yes`, `**NO**`, `?` (no version published), `local` |
+| `Released` | what the publisher currently offers |
+| `Pinned hash` / `Released hash` | the raw digests the verdict compares |
+
+Read-only: it installs nothing and changes nothing.
+
 ## -1b. What should I do about it?
 
 ```bash
