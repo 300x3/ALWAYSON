@@ -6,7 +6,7 @@
 |---|---|
 | Document | Complete single-file architecture, integration, security, operations, evidence, and active-work report |
 | License | CC BY-NC-SA — creativecommons.org |
-| Project origin | Building ~2010 · Drone ~2012 · Linux systems ~2023 |
+| Project origin | Building ~2010 · Drone ~2012 · Equipment 2022 · Linux systems ~2023 |
 | Website | https://www.300x3.com |
 | Supporting plan | https://archive.org/details/@scott_widmann |
 | Created with | Bluebeam and LibreDraw (PDF project plan), Perplexity.ai, Cline.bot (Markdown) |
