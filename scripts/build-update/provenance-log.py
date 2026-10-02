@@ -90,7 +90,48 @@ def load_yaml(path):
 # ---------------------------------------------------------------------------
 # sources
 # ---------------------------------------------------------------------------
-def containers():
+def released_digest(host, repo, tag):
+    """What the publisher currently offers for this tag.
+
+    This is the "released" half of pinned-versus-released. Without it a log can
+    only say what is installed, which is half the answer.
+    """
+    # A first segment that is not a registry is a Docker Hub namespace, not a
+    # hostname: "opendronemap/nodeodm" and "webodm/webodm_db" are Hub repos. The
+    # same short-name normalisation drift-report.py uses.
+    if host not in ("docker.io", "ghcr.io", "quay.io"):
+        host, repo = "docker.io", f"{host}/{repo}"
+    api = {"docker.io": "registry-1.docker.io", "ghcr.io": "ghcr.io",
+           "quay.io": "quay.io"}.get(host)
+    if api is None:
+        return "-"
+    token = None
+    tok = {"docker.io": f"https://auth.docker.io/token?service=registry.docker.io&scope=repository:{repo}:pull",
+           "ghcr.io": f"https://ghcr.io/token?scope=repository:{repo}:pull"}.get(host)
+    if tok:
+        d = get_json(tok)
+        token = d.get("token") if d else None
+    url = f"https://{api}/v2/{repo}/manifests/{tag}"
+    req = urllib.request.Request(url, method="GET")
+    req.add_header("Accept", ", ".join([
+        "application/vnd.oci.image.index.v1+json",
+        "application/vnd.docker.distribution.manifest.list.v2+json",
+        "application/vnd.oci.image.manifest.v1+json",
+        "application/vnd.docker.distribution.manifest.v2+json"]))
+    if token:
+        req.add_header("Authorization", f"Bearer {token}")
+    try:
+        with urllib.request.urlopen(req, timeout=TIMEOUT) as r:
+            return (r.headers.get("Docker-Content-Digest") or "-")[:19]
+    except Exception:
+        return "unreachable"
+
+
+def containers(offline=False):
+    stable = {}
+    p = AO_ROOT / "config/build-update/stable-refs.yaml"
+    if p.exists():
+        stable = (load_yaml(p).get("images") or {})
     rows = []
     for f in sorted((AO_ROOT / "quadlet").glob("*/*.container")):
         ref = next((l.split("=", 1)[1].strip() for l in f.read_text().splitlines()
@@ -106,18 +147,20 @@ def containers():
         else:
             base, digest = ref, ""
         host, _, repo = base.partition("/")
+        tag = (stable.get(f"{host}/{repo}") or {}).get("tracked_tag") or "latest"
+        released = "-" if offline else released_digest(host, repo, tag)
         rows.append({
             "unit": f.stem, "domain": f.parent.name,
             "publisher": host,
             "repository": f"{host}/{repo}" if "/" in base else f"docker.io/library/{host}",
             "installed": digest[:19] if digest else "not pinned",
-            "upstream": "-",
+            "released": released, "tag": tag,
             "download": f"podman pull {base}@{digest}" if digest else ref,
         })
     return rows
 
 
-def snaps():
+def snaps(offline=False):
     rc, out, _ = run(["snap", "list"])
     if rc != 0:
         return []
@@ -126,13 +169,23 @@ def snaps():
         f = line.split()
         if len(f) < 4:
             continue
+        released = "-"
+        if not offline:
+            _, info, _ = run(["snap", "info", f[0]], timeout=30)
+            for line in info.splitlines():
+                st = line.strip()
+                if st.startswith("latest/") and ":" in st:
+                    # "latest/stable:  1.96.60 2026-09-30 (688) 227MB -"
+                    released = st.split(":", 1)[1].split()[0]
+                    break
         rows.append({"name": f[0], "version": f[1], "rev": f[2], "channel": f[3],
                      "publisher": f[5] if len(f) > 5 else "canonical",
+                     "released": released,
                      "download": f"https://snapcraft.io/{f[0]}"})
     return rows
 
 
-def flatpaks():
+def flatpaks(offline=False):
     rc, out, _ = run(["flatpak", "list", "--app",
                       "--columns=application,version,branch,origin"])
     if rc != 0:
@@ -142,9 +195,41 @@ def flatpaks():
         f = line.split("\t")
         if len(f) < 4:
             continue
+        released = "-"
+        if not offline:
+            _, rl, _ = run(["flatpak", "remote-ls", "--columns=version", f[3], f[0]],
+                           timeout=45)
+            for line in rl.splitlines():
+                if line.strip():
+                    released = line.strip()
+                    break
         rows.append({"name": f[0], "version": f[1], "branch": f[2], "origin": f[3],
+                     "released": released,
                      "download": f"https://flathub.org/apps/{f[0]}"})
     return rows
+
+
+def apt_candidates(inv):
+    """installed -> candidate, for the packages that differ.
+
+    Candidate == installed for every package not in `apt list --upgradable`, so
+    one call answers this for all 4,200-odd rows instead of 4,200 apt-cache
+    invocations.
+    """
+    _, out, _ = run(["apt", "list", "--upgradable"], timeout=120)
+    cand = {}
+    for line in out.splitlines():
+        # A line reads: pkg/suite VERSION ARCH [upgradable from: OLD].
+        # The NEW version is field 2; the bracketed one is what is INSTALLED.
+        # Capturing the bracketed value here inverted the comparison and made
+        # every drifting package look current.
+        m = re.match(r"^([^/]+)/\S+\s+(\S+)\s+\S+\s+\[upgradable from:\s*([^\]]+)\]",
+                     line.strip())
+        if m:
+            cand[m.group(1)] = m.group(2)
+    for t in inv.get("apt_packages", []):
+        cand.setdefault(t["package"], t["version"])
+    return cand
 
 
 def apt_rows(inv, codename):
@@ -155,6 +240,7 @@ def apt_rows(inv, codename):
     have one.
     """
     rows = []
+    cand = apt_candidates(inv)
     for t in inv.get("apt_packages", []):
         origin = t.get("origin") or "unknown"
         host = origin.split("/")[0] if origin else "unknown"
@@ -165,6 +251,7 @@ def apt_rows(inv, codename):
             "publisher": host, "suite": t.get("suite") or "-",
             "component": t.get("component") or "-",
             "release_group": t["release"],
+            "released": cand.get(t["package"], t["version"]),
             "download": page,
         })
     return rows
@@ -225,7 +312,7 @@ def direct_and_unmanaged(offline):
 def render(inv, codename, offline):
     L = []
     w = L.append
-    cont, sn, fl = containers(), snaps(), flatpaks()
+    cont, sn, fl = containers(offline), snaps(offline), flatpaks(offline)
     apts = apt_rows(inv, codename)
     direct = direct_and_unmanaged(offline)
 
@@ -260,11 +347,19 @@ def render(inv, codename, offline):
     w("")
     w("Pull the reference shown; it is already digest-pinned.")
     w("")
-    w("| Unit | Domain | Publisher / registry | Repository | Pinned digest | Download |")
-    w("|---|---|---|---|---|---|")
+    w("| Unit | Domain | Publisher / registry | Repository | **Pinned** | **Released** (`{tag}`) | Match | Download |")
+    w("|---|---|---|---|---|---|---|---|")
     for r in cont:
+        pin, rel = r["installed"], r.get("released", "-")
+        if r["publisher"].startswith("built on"):
+            match = "local"
+        elif rel in ("-", "unreachable"):
+            match = "?"
+        else:
+            match = "yes" if rel == pin else "**NO**"
+        tag = r.get("tag", "-")
         w(f"| `{r['unit']}` | {r['domain']} | {r['publisher']} | `{r['repository']}` | "
-          f"`{r['installed']}` | `{r['download']}` |")
+          f"`{pin}` | `{rel}` ({tag}) | {match} | `{r['download']}` |")
     w("")
 
     w("## 2. Snap")
@@ -272,11 +367,13 @@ def render(inv, codename, offline):
     w("snapd refreshes these unattended — the only category on this host that")
     w("updates itself.")
     w("")
-    w("| Package | Installed | Rev | Channel | Publisher | Store |")
-    w("|---|---|---|---|---|---|")
+    w("| Package | **Pinned** | Rev | **Released** (channel) | Match | Channel | Publisher | Store |")
+    w("|---|---|---|---|---|---|---|---|")
     for r in sn:
-        w(f"| `{r['name']}` | `{r['version']}` | {r['rev']} | {r['channel']} | "
-          f"{r['publisher']} | [link]({r['download']}) |")
+        rel = r.get("released", "-")
+        match = "?" if rel == "-" else ("yes" if rel == r["version"] else "**NO**")
+        w(f"| `{r['name']}` | `{r['version']}` | {r['rev']} | `{rel}` ({r['channel']}) | "
+          f"{match} | {r['channel']} | {r['publisher']} | [link]({r['download']}) |")
     w("")
 
     if fl:
@@ -293,19 +390,29 @@ def render(inv, codename, offline):
     w("deciding what to update: part of the supported platform, or a third party's")
     w("release cadence?")
     w("")
-    w("| Release group | Packages | Archive |")
-    w("|---|---|---|")
+    behind = [r for r in apts if r.get("released") and r["released"] != r["version"]]
+    w("| Release group | Packages | Behind `Candidate` | Archive |")
+    w("|---|---|---|---|")
     for g, items in groups.items():
         hosts = sorted({i["publisher"] for i in items if i["publisher"] != "unknown"})
-        w(f"| {g} | {len(items)} | {', '.join(f'`{h}`' for h in hosts[:4])} |")
+        n = len([i for i in items if i.get("released") and i["released"] != i["version"]])
+        w(f"| {g} | {len(items)} | {n if n else '-'} | {', '.join(f'`{h}`' for h in hosts[:4])} |")
+    w("")
+    if behind:
+        w(f"**{len(behind)} apt package(s) have a newer `Candidate` than what is installed:**")
+        w("")
+        for r in behind:
+            w(f"- `{r['package']}` `{r['version']}` -> `{r['released']}` ({r['suite']})")
     w("")
     w("<details><summary>Every apt package, with its archive page link</summary>")
     w("")
-    w("| Package | Installed | Suite | Component | Package page |")
-    w("|---|---|---|---|---|")
+    w("| Package | **Pinned** | **Released** | Match | Suite | Component | Package page |")
+    w("|---|---|---|---|---|---|---|")
     for r in apts:
-        w(f"| `{r['package']}` | `{r['version']}` | {r['suite']} | {r['component']} | "
-          f"[link]({r['download']}) |")
+        rel = r.get("released") or r["version"]
+        match = "yes" if rel == r["version"] else "**NO**"
+        w(f"| `{r['package']}` | `{r['version']}` | `{rel}` | {match} | {r['suite']} | "
+          f"{r['component']} | [link]({r['download']}) |")
     w("")
     w("</details>")
     w("")
@@ -316,13 +423,18 @@ def render(inv, codename, offline):
     w("`config/build-update/unmanaged-software.yaml`. Where no publisher or")
     w("repository could be identified, that is stated rather than guessed.")
     w("")
-    w("| Item | Publisher | Repository | Installed | Upstream | Download | Note |")
-    w("|---|---|---|---|---|---|---|")
+    w("| Item | Publisher | Repository | **Pinned** | **Released** | Match | Download | Note |")
+    w("|---|---|---|---|---|---|---|---|")
     for r in direct:
         dl = f"[link]({r['download']})" if str(r["download"]).startswith("http") else r["download"]
-        note = r["note"].replace("\n", " ")[:140]
+        note = r["note"].replace("\n", " ")[:120]
+        rel = r["upstream"]
+        if rel in ("-", "no feed"):
+            match = "?"
+        else:
+            match = "yes" if norm(rel) == norm(r["installed"]) or "no version" in str(r["installed"]) else "**NO**"
         w(f"| `{r['item']}` | {r['publisher']} | {r['repository']} | `{r['installed']}` | "
-          f"`{r['upstream']}` | {dl} | {note} |")
+          f"`{rel}` | {match} | {dl} | {note} |")
     w("")
 
     w("---")
