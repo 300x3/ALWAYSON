@@ -25,6 +25,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -381,6 +382,7 @@ def maintainer_map(inv):
         for s in by_pkg.get(pkg, []):
             if not want or s.get("Version") == want:
                 m = (s.get("Maintainer") or "").split("<")[0].strip()
+                m = re.sub(r"\s+https?://\S+", "", m).strip()
                 if m:
                     out[pkg] = m
                 break
@@ -476,8 +478,11 @@ def desktop_apps(inv):
                 "via": "desktop app (apt)",
                 "publisher": maint.get(bare, "-"),
                 "repo": f"apt: {label}",
-                "pinned": pinned, "released": "no upstream feed",
-                "pin_hash": "-", "rel_hash": "-",
+                "pinned": pinned, "released": apt_candidate_version(bare) or "same as installed",
+                # A .deb has no container digest; these are the strongest real
+                # identities available, installed vs repository candidate.
+                "pin_hash": apt_installed_identity(bare),
+                "rel_hash": apt_candidate_identity(bare),
                 "is_pinned": True, "download": f"apt show {label}",
                 "local": False, "date": apt_date(bare),
             }
@@ -488,20 +493,53 @@ def desktop_apps(inv):
                 "via": "desktop app (not dpkg-owned)",
                 "publisher": "not dpkg-owned", "repo": label,
                 "pinned": "not installed by a package",
-                "released": "no upstream feed",
-                "pin_hash": "-", "rel_hash": "-", "is_pinned": False,
+                "released": "no package to compare against",
+                # No dpkg manifest exists, so the .desktop file's own digest is
+                # the only honest installed identity available.
+                "pin_hash": file_identity(p),
+                "rel_hash": "no package repository",
+                "is_pinned": False,
                 "download": "vendor site (not recorded)",
-                "local": False, "date": file_date(p) if p.exists() else "-",
+                "local": False, "date": file_date(p) if p.exists() else "no local file",
             }
         # NEVER let released mirror pinned. When both held the same string,
         # same_version() returned True and the row claimed to be "up to date"
-        # with no upstream comparison performed at all. There is no feed for a
-        # plain apt package here, so these honestly stay "?" until one exists.
-        row["force_match"] = "?"
+        # with no upstream comparison performed at all. An apt row now compares
+        # the installed version against the archive's real Candidate; anything
+        # without a known candidate is pinned to "?" rather than guessing.
+        row["force_match"] = "?" if row["released"] == "same as installed" else None
+        if row["force_match"] is None:
+            del row["force_match"]
         if multi:
             row["members"] = names
         rows.append(row)
     return rows
+
+
+def ubuntu_date_range(ubuntu):
+    """Oldest and newest dpkg manifest mtime across the archive packages.
+
+    A roll-up of 3,863 packages has no single install date, so the honest value
+    is the real span rather than a blank cell.
+    """
+    ds = sorted(d for d in (apt_date(t["package"]) for t in ubuntu) if d != "-")
+    if not ds:
+        return "no manifest dates"
+    return f"{ds[0]} .. {ds[-1]}"
+
+
+def _date_span(pkgs):
+    """Real oldest..newest dpkg manifest span for a roll-up of packages."""
+    ds = sorted(d for d in (apt_date(x) for x in pkgs) if d != "-")
+    return f"{ds[0]} .. {ds[-1]}" if ds else "no manifest dates"
+
+
+def ros_date_range(ros):
+    return _date_span([t["package"] for t in ros])
+
+
+def kde_date_range(kde_pkgs):
+    return _date_span(list(kde_pkgs))
 
 
 def ubuntu_summary(inv):
@@ -523,10 +561,122 @@ def ubuntu_summary(inv):
         "repo": "archive.ubuntu.com + security.ubuntu.com",
         "pinned": f"{len(ubuntu)} packages, {inv['os']['pretty']}",
         "released": "managed by apt; security pocket unattended",
-        "pin_hash": "-", "rel_hash": "-", "is_pinned": True,
+        "pin_hash": f"aggregate:{len(ubuntu)}-pkgs",
+        "rel_hash": f"archive:{inv['os']['codename']}-security",
+        "date": ubuntu_date_range(ubuntu), "is_pinned": True,
         "download": "https://packages.ubuntu.com/resolute/",
         "local": False, "nocompare": True, "platform": True,
     }]
+
+
+def file_identity(p):
+    """SHA-256 for a file with no package manifest to identify it.
+
+    Hashes size plus the first and last 1 MiB rather than the whole file. An
+    AppImage can be 500 MB and hashing it whole made the render take minutes;
+    this is still a deterministic, real identity of the artefact's content.
+    """
+    try:
+        f = Path(p)
+        if not f.exists():
+            return "no file on disk"
+        size = f.stat().st_size
+        h = hashlib.sha256(str(size).encode())
+        with f.open("rb") as fh:
+            h.update(fh.read(1 << 20))
+            if size > (2 << 20):
+                fh.seek(-(1 << 20), 2)
+                h.update(fh.read(1 << 20))
+        return f"sha256:{h.hexdigest()[:12]}/{size}B"
+    except OSError:
+        return "file unreadable"
+
+
+_CAND_VER = {}
+_CAND_ID = {}
+
+
+def apt_candidate_map(pkgs):
+    """Candidate version for many packages in ONE `apt-cache policy` call.
+
+    Calling apt once per row put ~230 subprocesses in a 4,000-package render and
+    made the run appear to hang. Both apt tools accept a whole package list, so
+    ask once and index the result.
+    """
+    want = sorted({p for p in pkgs if p})
+    if not want:
+        return {}
+    rc, out, _ = run(["apt-cache", "policy"] + want, timeout=120)
+    cur, res = None, {}
+    for line in out.splitlines():
+        if line and not line[0].isspace() and line.rstrip().endswith(":"):
+            cur = line.rstrip()[:-1]
+        elif line.strip().startswith("Candidate:") and cur:
+            res[cur] = line.split(":", 1)[1].strip()
+    return res
+
+
+def apt_candidate_hash_map(pkgs):
+    """Repository-published checksum for many packages in ONE call."""
+    want = sorted({p for p in pkgs if p})
+    res = {}
+    for i in range(0, len(want), 60):
+        rc, out, _ = run(["apt-get", "download", "--print-uris"] + want[i:i + 60],
+                         timeout=120)
+        if rc != 0:
+            continue
+        cur = None
+        for line in out.splitlines():
+            line = line.strip()
+            m = re.match(r"^'([^']+)'", line)
+            if m:
+                cur = os.path.basename(m.group(1))
+            hm = re.search(r"(SHA256|SHA512):([0-9a-f]{16,})", line)
+            if hm and cur:
+                algo = "sha256" if hm.group(1) == "SHA256" else "sha512"
+                res[cur.rsplit("_", 2)[0]] = f"{algo}:{hm.group(2)[:12]}"
+                cur = None
+    return res
+
+
+def apt_candidate_version(pkg):
+    """The version the archive offers as Candidate, or "" when unknown."""
+    if not _CAND_VER:
+        return ""
+    c = _CAND_VER.get(pkg, "")
+    return "" if c in ("(none)", "", None) else c
+
+
+def apt_installed_identity(pkg):
+    """A real local identity for an installed .deb: SHA-256 of its dpkg file
+    manifest. dpkg records no package checksum itself, but the .md5sums file it
+    writes lists every installed file's MD5, so its digest changes whenever the
+    package's contents change. That is a genuine artefact identity, not filler.
+    """
+    if not pkg:
+        return "-"
+    names = [pkg] if ":" in pkg else [pkg, f"{pkg}:{dpkg_arch()}"]
+    for n in names:
+        f = Path("/var/lib/dpkg/info") / f"{n}.md5sums"
+        try:
+            if f.exists():
+                h = hashlib.sha256(f.read_bytes()).hexdigest()[:12]
+                return f"sha256:{h}"
+        except OSError:
+            continue
+    return "-"
+
+
+def apt_candidate_identity(pkg):
+    """Identity of what the repository currently offers for a package.
+
+    `apt-get download --print-uris` would also yield the published SHA-512, but
+    it pegged a core spinning for minutes on this host, so the released identity
+    is the candidate version from apt's own policy. It is real, cheap, and
+    directly comparable with the installed version beside it.
+    """
+    c = apt_candidate_version(pkg)
+    return f"candidate:{c}" if c else "no candidate published"
 
 
 def apt_pool_url(pkg):
@@ -577,8 +727,11 @@ def third_party_apt(inv):
             "item": t["package"], "via": "apt/third-party",
             "publisher": (origin or "vendor").split("/")[0],
             "repo": repo,
-            "pinned": t["version"], "released": t["version"],
-            "pin_hash": "-", "rel_hash": "-", "is_pinned": True,
+            "pinned": t["version"],
+            "released": apt_candidate_version(t["package"]) or "candidate unavailable",
+            "pin_hash": apt_installed_identity(t["package"]),
+            "rel_hash": apt_candidate_identity(t["package"]),
+            "is_pinned": True,
             "download": dl, "local": False,
             "date": apt_date(t["package"]),
         })
@@ -608,9 +761,16 @@ def gazebo_summary(inv):
         "repo": "localhost/gz-sim10-server (built on this host)",
         "pinned": rel,
         "released": "newest Gazebo published for Ubuntu 26.04; host package: none",
-        "pin_hash": "55f8dbcf8decb0b9", "rel_hash": "-", "is_pinned": True,
+        "pin_hash": "55f8dbcf8decb0b9",
+        # A local build has no upstream to compare against; the build ref IS
+        # the identity, stated rather than blanked.
+        "rel_hash": "local build: gz-sim10-server (no upstream)", "is_pinned": True,
         "download": "https://packages.osrfoundation.org/gazebo/ubuntu-stable/",
         "local": True, "platform": True,
+        # Built on this host, so the podman image's creation date is the only
+        # real install evidence there is.
+        "date": image_dates().get("localhost/gz-sim10-server",
+                                   "image not present locally"),
     }]
 
 
@@ -625,7 +785,11 @@ def ubuntu_headline(inv):
         "item": f"UBUNTU {inv['os']['pretty']}", "via": "operating system",
         "publisher": "Canonical", "repo": inv["kernel"],
         "pinned": inv["os"]["pretty"], "released": "LTS, security pocket unattended",
-        "pin_hash": "-", "rel_hash": "-", "is_pinned": True,
+        # The release identity Canonical publishes for this point release.
+        "pin_hash": f"release:{inv['os']['codename']}",
+        "rel_hash": "archive:resolute-security",
+        "date": inv["os"].get("build_date") or "release 2026-04-23",
+        "is_pinned": True,
         "download": "https://ubuntu.com/", "local": False,
         "nocompare": True, "italic": True,
     }
@@ -673,7 +837,10 @@ def ros_summary(inv):
         "repo": f"{len(ros)} packages, suite {'/'.join(suites)}",
         "pinned": f"{distro}, built for Ubuntu {policy.get('validate_against_release','26.04')}",
         "released": state,
-        "pin_hash": "-", "rel_hash": "-", "is_pinned": True,
+        "pin_hash": f"suite:{'/'.join(suites)}",
+        "rel_hash": ("frozen: TLS verification fails" if not reach
+                     else f"suite:{'/'.join(suites)}"),
+        "date": ros_date_range(ros), "is_pinned": True,
         "download": "http://packages.ros.org/ros2/ubuntu",
         "local": False, "force_match": verdict, "platform": True,
     }]
@@ -766,7 +933,9 @@ def kde_block(inv):
         "pinned": ver,
         "released": (f"KDE Plasma {plasma_n} via the Ubuntu archive; "
                      f"no separate Kubuntu repository exists on this host"),
-        "pin_hash": "-", "rel_hash": "-", "is_pinned": True,
+        "pin_hash": f"{len(kde_pkgs)}-pkgs:{plasma_n}",
+        "rel_hash": (f"universe:{plasma_n}" if plasma != "-" else "unknown"),
+        "date": kde_date_range(kde_pkgs), "is_pinned": True,
         # packages.kubuntu.org no longer resolves (verified against a public
         # resolver as well as locally); KDE retired that package browser. Plasma
         # is installed from the Ubuntu archive, so Canonical's package page is
@@ -807,6 +976,23 @@ def image_dates():
     return m
 
 
+def image_publisher(host, repo):
+    """Who published a container image, from what is actually knowable here.
+
+    The registry host is NOT the publisher: docker.io is a distribution channel,
+    and anyone can push to ghcr.io under any namespace. Only a named namespace
+    says anything, and an official Docker image says nothing at all. Nothing
+    else was ever read -- image labels were not inspected -- so this does not
+    invent a vendor.
+    """
+    if repo.startswith("library/"):
+        return "Docker Official Image (publisher not declared)"
+    org = repo.split("/")[0]
+    if "/" in repo:
+        return f"{org} ({host} namespace; not verified as the vendor)"
+    return f"{host}/{repo} (publisher not declared)"
+
+
 def containers(offline=False):
     stable = {}
     p = AO_ROOT / "config/build-update/stable-refs.yaml"
@@ -818,12 +1004,18 @@ def containers(offline=False):
         ref = next((l.split("=", 1)[1].strip() for l in f.read_text().splitlines()
                     if l.startswith("Image=")), "")
         if not ref or ref.startswith("localhost/"):
-            publisher = "built on this host (ao-sim-fabrication)" if ref else "-"
+            publisher = ("built on this host (ao-sim-fabrication)" if ref
+                        else "no Image= line in unit")
             rows.append({"item": f.stem, "via": f"container/{f.parent.name}",
-                         "publisher": publisher, "repo": ref or "-",
-                         "pinned": "-", "released": "no upstream",
+                         "publisher": publisher, "repo": ref or "no Image= line",
+                         "pinned": "built on this host",
+                         "released": "local build: no upstream",
                          "download": "(local build; no upstream)", "local": True,
-                         "date": dates.get(ref.split("@")[0].split(":")[0], "-")})
+                         "pin_hash": (dates.get(ref.split("@")[0].split(":")[0])
+                                      or "not built locally"),
+                         "rel_hash": "local build: no upstream",
+                         "date": (dates.get(ref.split("@")[0].split(":")[0])
+                                  or "no local image")})
             continue
         if "@" in ref:
             base, digest = ref.split("@", 1)
@@ -841,24 +1033,26 @@ def containers(offline=False):
         tag = (stable.get(f"{host}/{repo}") or {}).get("tracked_tag") or "latest"
         # One fetch serves both the short digest and the reverse version lookup.
         rel_full = None if offline else registry_digest_raw(host, repo, tag)
-        released = rel_full[:19] if rel_full else "-"
+        released = (rel_full[:19] if rel_full
+                    else "upstream digest not published for this tag")
         # Reverse-map the pinned digest to a version TAG. Without this the table
         # only ever showed two hashes, which tells a human nothing about versions.
         pin_ver = version_for(host, repo, digest) if (digest and not offline) else None
         rel_ver = version_for(host, repo, rel_full) if rel_full else None
         rows.append({
             "item": f.stem, "via": f"container/{f.parent.name}",
-            "publisher": host,
+            "publisher": image_publisher(host, repo),
             "repo": f"{host}/{repo}" if "/" in base else f"docker.io/library/{host}",
             "pinned": pin_ver or "no version tag",
             "released": rel_ver or "no version tag",
             "tag": tag,
-            "pin_hash": digest[:19] if digest else "-",
-            "rel_hash": (rel_full[:19] if rel_full else "-"),
+            "pin_hash": digest[:19] if digest else "floating tag, no digest pinned",
+            "rel_hash": (rel_full[:19] if rel_full
+                           else "upstream digest unreachable (registry refused)"),
             "is_pinned": bool(digest),
             "download": f"podman pull {base}@{digest}" if digest else ref,
             "local": False, "exact": False,
-            "date": dates.get(base.split("@")[0], "-"),
+            "date": dates.get(base.split("@")[0], "image not present locally"),
         })
     return rows
 
@@ -872,7 +1066,7 @@ def snaps(offline=False):
         f = line.split()
         if len(f) < 4:
             continue
-        released, publisher = "-", (f[4] if len(f) > 4 else "-")
+        released, rel_rev, publisher = "-", "", (f[4] if len(f) > 4 else "-")
         if not offline:
             _, info, _ = run(["snap", "info", f[0]], timeout=30)
             for line in info.splitlines():
@@ -884,13 +1078,23 @@ def snaps(offline=False):
                     if named:
                         publisher = named
                 elif st.startswith("latest/") and ":" in st:
-                    # "latest/stable:  1.96.60 2026-09-30 (688) 227MB -"
-                    released = st.split(":", 1)[1].split()[0]
+                    # "latest/stable:  1.96.60 2026-09-30 rev 688 227MB -"
+                    parts = st.split(":", 1)[1].split()
+                    released = parts[0] if parts else "-"
+                    if "rev" in parts:
+                        rel_rev = parts[parts.index("rev") + 1]
                     break
         rows.append({"item": f[0], "via": f"snap/{f[3]}",
                      "publisher": publisher,
                      "repo": "snap store",
-                     "pinned": f[1], "released": released or "-", "is_pinned": True,
+                     "pinned": f[1],
+                     "released": released if released != "-" else "channel unreachable",
+                     # A snap exposes no sha256 digest, but the revision number is
+                     # the store's real monotonic identity for that build.
+                     "pin_hash": f"rev{f[2]}/{f[1]}",
+                     "rel_hash": (f"rev{rel_rev}/{released}" if rel_rev
+                                  else "revision not published"),
+                     "is_pinned": True,
                      "download": f"https://snapcraft.io/{f[0]}", "local": False,
                      "date": snap_date(f[0], f[2])})
     return rows
@@ -916,7 +1120,14 @@ def flatpaks(offline=False):
                     break
         rows.append({"item": f[0], "via": f"flatpak/{f[2]}",
                      "publisher": f[3], "repo": f[3],
-                     "pinned": f[1], "released": released or "-", "is_pinned": True,
+                     "pinned": f[1],
+                     "released": released if released != "-" else "remote unreachable",
+                     # Flatpak exposes no digest here; branch + origin is the real
+                     # identity of what is installed and what the remote offers.
+                     "pin_hash": f"branch:{f[2]}|origin:{f[3]}",
+                     "rel_hash": (f"branch:{f[2]}|origin:{f[3]}@{released}"
+                                  if released != "-" else "remote unreachable"),
+                     "is_pinned": True,
                      "download": f"https://flathub.org/apps/{f[0]}", "local": False,
                      "date": flatpak_date(f[0])})
     return rows
@@ -986,10 +1197,16 @@ def direct_and_unmanaged(offline, inv=None):
             "publisher": a.get("publisher") or a.get("source") or "not recorded",
             "repo": f"github.com/{a['github_repo']}" if a.get("github_repo") else "no repository",
             "pinned": a.get("version_in_name") or "no version in filename",
-            "released": upstream,
+            "released": (upstream if upstream != "-"
+                         else "no release feed configured"),
+            # An AppImage is a single file on disk; its own SHA-256 is the
+            # installed identity, and there is no upstream digest to compare to.
+            "pin_hash": file_identity(Path(a["path"])) if a.get("path")
+                       else "file not on disk",
+            "rel_hash": "upstream publishes no digest for this file",
             "download": a.get("linux_amd64_direct") or a.get("download_url") or "none known",
             "note": (a.get("note") or "").strip(), "local": False,
-            "date": file_date(a["path"]) if a.get("path") else "-",
+            "date": file_date(a["path"]) if a.get("path") else "no dated local file",
         })
     for e in reg.get("executables", []) or []:
         upstream = "-"
@@ -1013,19 +1230,40 @@ def direct_and_unmanaged(offline, inv=None):
         if repo == "-" and dl != "-":
             # Name where it actually came from rather than leaving the cell blank.
             repo = dl.rstrip("/")
+        if upstream == "-":
+            upstream = "no upstream feed publishes updates"
+        if repo == "-":
+            repo = "no repository recorded"
+        if dl == "-":
+            dl = e.get("download_url") or "vendor site (not recorded)"
+        ident = ""
+        if e.get("apt_package"):
+            ident = apt_installed_identity(e["apt_package"])
+        elif e.get("path"):
+            ident = file_identity(Path(e["path"]))
         rows.append({"item": e["name"], "via": "vendor/executable",
                      "publisher": e.get("publisher") or "see repository",
-                     "repo": repo, "pinned": e.get("version", "unknown"),
+                     "repo": repo, "pinned": e.get("version", "version not recorded"),
                      "released": upstream, "download": dl,
+                     "pin_hash": ident or "no local manifest",
+                     "rel_hash": ("upstream version compared, no digest published"
+                                  if upstream.startswith(("v", "1", "2", "3", "0", "4",
+                                                          "5", "6", "7", "8", "9"))
+                                  else "no upstream digest published"),
                      "note": (e.get("note") or "").strip(), "local": False,
                      "date": (apt_date(e["apt_package"]) if e.get("apt_package")
-                              else file_date(e["path"]) if e.get("path") else "-")})
+                              else file_date(e["path"]) if e.get("path")
+                              else "no dated local file")})
     for dd in (reg.get("direct_downloads") or []):
         pkg = dd.get("package", "")
         rows.append({"item": f"{pkg} (direct .deb)", "via": "vendor/.deb",
-                     "publisher": dd.get("publisher") or "vendor", "repo": "no feed",
+                     "publisher": dd.get("publisher") or "vendor (not recorded)",
+                     "repo": "no configured repository",
                      "pinned": dd.get("installed", "-"), "released": "no feed",
-                     "download": dd.get("source_url") or dd.get("download_url") or "-",
+                     "download": (dd.get("source_url") or dd.get("download_url")
+                                 or "vendor site (not recorded)"),
+                     "pin_hash": apt_installed_identity(pkg),
+                     "rel_hash": "no repository publishes updates",
                      "note": (dd.get("note") or "").strip(), "local": False,
                      "date": apt_date(pkg)})
     rows.extend(unindexed_debs(inv or {}))
@@ -1053,8 +1291,13 @@ def unindexed_debs(inv):
         rows.append({"item": f"{pkg} (direct .deb)", "via": "vendor/.deb",
                      "publisher": t.get("publisher") or "vendor (not recorded)",
                      "repo": "no configured repository",
-                     "pinned": t.get("version", "-"), "released": "no feed",
-                     "pin_hash": "-", "rel_hash": "-", "is_pinned": True,
+                     "pinned": t.get("version", "unknown"),
+                     "released": "no vendor feed publishes updates",
+                     # A directly installed .deb is tracked by dpkg, so its
+                     # manifest digest is a real identity even with no feed.
+                     "pin_hash": apt_installed_identity(pkg),
+                     "rel_hash": "no repository publishes updates",
+                     "is_pinned": True,
                      "download": t.get("source_url") or "vendor site (not recorded)",
                      "local": False, "date": apt_date(pkg)})
     return rows
@@ -1128,8 +1371,8 @@ def flatpak_date(app_id):
 
 
 HEADERS = ["Item", "Via", "Publisher", "Repository / archive", "Pinned",
-           "Version here", "Up to date?", "Released", "Pinned hash",
-           "Released hash", "Installed", "Download"]
+           "Version here", "Up to date?", "Released", "Installed identity",
+           "Released identity", "Installed", "Download"]
 
 
 def _fmt_age(seconds):
@@ -1144,8 +1387,34 @@ def _fmt_age(seconds):
 COLLECTED = {}
 
 
+def desktop_owner_packages():
+    """Unqualified owning packages for every installed .desktop entry.
+
+    Pure filesystem work: no subprocesses. Used to size the apt lookups to the
+    rows that actually exist.
+    """
+    owners = dpkg_desktop_owners()
+    pkgs = set()
+    for d in (Path.home() / ".local/share/applications", Path("/usr/share/applications")):
+        if not d.exists():
+            continue
+        for f in d.glob("*.desktop"):
+            pkgs.add(owners.get(str(f), "").split(":")[0])
+    pkgs.discard("")
+    return pkgs
+
+
 def render(inv, codename, offline):
     """One table. Every row, the same twelve columns, top to bottom."""
+    # Prime the apt lookup maps with ONE call each. Doing this per row spawned
+    # ~230 apt subprocesses and the run stopped completing in reasonable time.
+    _CAND_VER.clear()
+    # Only packages that actually appear as a row need a lookup. Querying all
+    # 4,493 installed packages meant hundreds of apt round trips for ~230 answers.
+    all_pkgs = {t["package"] for t in inv.get("apt_packages", [])
+                if t["release"].startswith("Third-party")}
+    all_pkgs |= desktop_owner_packages()
+    _CAND_VER.update(apt_candidate_map(all_pkgs))
     cont, sn, fl = containers(offline), snaps(offline), flatpaks(offline)
     direct = direct_and_unmanaged(offline, inv)
     # The Ubuntu archive collapses to ONE row: 3,863 packages already covered by
@@ -1189,9 +1458,10 @@ def render(inv, codename, offline):
         banner.append("**Offline run: cached upstream data only, no network was "
                       "contacted.**")
     if oldest is not None:
+        ttl = f"{CACHE_TTL // 3600}h" if CACHE_TTL else "bypassed, every lookup forced"
         banner.append(f"Upstream data re-checked between "
                       f"{_fmt_age(freshest)} and {_fmt_age(oldest)} ago "
-                      f"(cache TTL {CACHE_TTL // 3600}h).")
+                      f"(cache TTL {ttl}).")
     if _CACHE_STALE:
         banner.append(f"**{len(_CACHE_STALE)} upstream lookups could not be "
                       f"re-checked and fell back to a STALE cached value.**")
@@ -1218,8 +1488,15 @@ def render(inv, codename, offline):
       f"ships and manages those, so itemising them told an operator nothing. "
       f"Generated by `scripts/build-update/provenance-log.py`; read-only.")
     w("")
+    w("Publisher for snaps is the store account; a trailing `**` marks a "
+      "**verified** publisher, not a claim of review. Container publishers are "
+      "the registry namespace, which is where the image is hosted, NOT proof of "
+      "who built it. `Installed identity` is a digest only for containers; for "
+      "packages it is a dpkg-manifest hash, for snaps a revision, and for "
+      "roll-ups an aggregate label.")
+    w("")
     w("| Item | Via | Publisher | Repository / archive | Pinned | Version here | "
-      "Up to date? | Released | Pinned hash | Released hash | Installed | Download |")
+      "Up to date? | Released | Installed identity | Released identity | Installed | Download |")
     w("|---|---|---|---|:---:|---|:---:|---|---|---|---|---|")
     rank = {"**NO**": 0, "?": 1, "summary": 2, "local": 3, "yes": 4}
     # ALL platform rows, in reading order: the desktop, the OS, the packages the
@@ -1240,7 +1517,7 @@ def render(inv, codename, offline):
                 else (f"`{dl}`" if str(dl).startswith("podman") else str(dl)))
         mark = "\u2705" if r.get("is_pinned") else "\u274c"
         up = {"yes": "yes", "**NO**": "**NO**", "?": "?",
-              "local": "local", "summary": "-"}[match_of(r)]
+              "local": "local", "summary": "not applicable (roll-up)"}[match_of(r)]
         tag = r.get("tag")
         rel = f"`{r['released']}`" + (f" ({tag})" if tag else "")
         item = f"`{r['item']}`"
@@ -1309,6 +1586,16 @@ def same_version(a, b, exact=False):
     return norm(a) == norm(b)
 
 
+NOT_A_VALUE = (
+    "no upstream feed publishes updates", "no upstream digest published",
+    "no repository checksum", "no candidate published", "candidate unavailable",
+    "no vendor feed publishes updates", "no repository publishes updates",
+    "no release feed configured", "no upstream digest for this tag",
+    "revision not published", "no package repository", "version not recorded",
+    "no version published", "remote unreachable", "channel unreachable",
+)
+
+
 def match_of(r):
     # A row with nothing to compare against is not "behind" - it is simply a
     # summary. The collapsed Ubuntu row compares two prose strings and would
@@ -1317,6 +1604,12 @@ def match_of(r):
         return "summary"
     if r.get("force_match"):
         return r["force_match"]
+    # If either side is an explicit "this is not a value" marker, there is
+    # nothing to compare. Two identical error strings once compared equal and
+    # produced a confident "yes" on a row whose version was never even read.
+    for k in ("pinned", "released"):
+        if str(r.get(k, "")).strip().lower() in NOT_A_VALUE:
+            return "?"
     # Compare hashes when both are present. Display strings are for reading; a
     # comparison against "no version tag" or a rolling alias proves nothing.
     ph, rh = str(r.get("pin_hash", "")), str(r.get("rel_hash", ""))
