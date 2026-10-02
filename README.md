@@ -3023,9 +3023,10 @@ Wallet layout (folder: purpose). Four folders are in active use; the
 | `ao-sales` | `sales-db-password` |
 | `ao-fabrication` | `fabrication-db-password` |
 | `ao-mastodon` | Mastodon application secrets (§15.3) and OpenClaw OAuth material; read by `fetch-mastodon-env.sh` and the wallet bridge |
-| `ao-admin` | Grafana, Metabase, sales-reporting, metaread and restic-repository passwords |
+| `ao-admin` | `grafana-db-password`, `grafana-admin-password`, `metabase-db-password`, `metaread-password`, `sales-reporting-password`, `restic-repository-password` (presence verified 2026-10-01; `grafana-admin-password` added by the Grafana migration) |
 | `ao-mapping` | WebODM postgres password |
-| `ao-sales`, `ao-payment`, `ao-field`, `ao-mapping`, `ao-ledger`, `ao-archive`, `ao-admin`, `ao-sim-vehicle`, `ao-sim-fabrication` | Per-domain credential folders matching the Section 14.1 authorized-domain table (provisioned empty 2026-08-31) |
+| `ao-sales`, `ao-mapping`, `ao-admin`, `ao-sim-vehicle`, `ao-sim-fabrication` | Per-domain credential folders matching the Section 14.1 authorized-domain table. **Verified present 2026-10-01 by enumerating `folderList`**, which returns 18 unique folders; these five are all present |
+| `ao-payment`, `ao-field`, `ao-ledger`, `ao-archive` | **Do not exist.** An earlier revision of this line claimed these were "provisioned empty 2026-08-31"; that was wrong and is retracted here. `folderList` does not return them. `kwallet-provision.sh` knows how to create folders (`createFolder`, and `put()` auto-creates a missing one), but it was evidently never run for these four — only `ao-sales`, `ao-mapping`, `ao-admin`, `ao-sim-vehicle` and `ao-sim-fabrication` exist. `ao-payment` is deliberately empty per ST-12 (its four entries are listed as outstanding there); the other three have no deployed consumer yet. Do not "helpfully" create them |
 
 Current entry inventory (names only; values never in Git, logs, or docs). Every
 key lives in the `ao-` folder for the domain that owns it; the legacy
@@ -3045,6 +3046,64 @@ Rules:
   Section 14.1 authorized-domain boundaries.
 - Rotation, revocation, expiration, and recovery procedures must be
   documented before production use (Section 14.1 requirement).
+
+**Resolved 2026-10-01: Grafana is wallet-backed like everything else.** The
+Grafana *web admin* password was the last secret on this host that lived only in
+a plaintext file. `config/platform/monitoring/grafana.env` held a cleartext
+`GF_SECURITY_ADMIN_PASSWORD` at mode `0664` and there was no corresponding
+wallet entry, so the wallet could not be treated as the authority. That file has
+been split:
+
+| File | Contents | Tracking |
+|---|---|---|
+| `config/platform/monitoring/grafana-admin.env` | Non-secret settings only (`GF_SECURITY_ADMIN_USER`, `GF_USERS_ALLOW_SIGN_UP`, `GF_AUTH_ANONYMOUS_ENABLED`) | Tracked |
+| `%h/.local/share/ao-secrets/reporting-grafana-admin.env` | `GF_SECURITY_ADMIN_PASSWORD`, materialized `0600` by the unit's `ExecStartPre` | Never tracked |
+
+The password now lives in KDE Wallet as `ao-admin/grafana-admin-password`.
+`fetch-kwallet-secret.sh` maps it via `wallet_folder_for` and emits a
+`grafana-admin-password` case branch, and `ao-grafana.container` reads the two
+files separately. Verified after the change: `/api/health` 200, database ok,
+and an admin login using the wallet value returns HTTP 200.
+
+**Resolved 2026-10-01: no plaintext duplicate of a wallet entry remains.**
+Seven files under `secrets/` and `config/` held credentials that the wallet also
+holds. Each was compared against its wallet entry before removal (values never
+printed); all matched or were confirmed superseded, then shredded:
+
+| Removed file | Wallet entry now authoritative |
+|---|---|
+| `config/platform/monitoring/grafana.env` | `ao-admin/grafana-admin-password` |
+| `secrets/reporting/grafana-postgres.env` | `ao-admin/grafana-db-password` |
+| `secrets/reporting/metabase.env` | `ao-admin/metabase-db-password` |
+| `secrets/reporting/metaread.env` | `ao-admin/metaread-password` |
+| `secrets/reporting/sales-reporting.env` | `ao-admin/sales-reporting-password` |
+| `secrets/mastodon/openclaw-mastodon.env` | `ao-mastodon/openclaw-bot-*` |
+| `secrets/mastodon-db.env` | `ao-mastodon/mastodon-db-password` (the copy was stale; its password did **not** match the wallet, confirming it was a leftover) |
+
+The scripts that read those files were repointed at the wallet first, so none of
+them depends on a plaintext copy any more:
+
+- `scripts/operations/fetch-kwallet-secret.sh` — added `grafana-admin-password`
+  and the other `ao-admin` keys to `wallet_folder_for`.
+- `scripts/ops/provision-metaread.sh`, `provision-sales-reporting.sh` —
+  now read the password from the wallet and mirror it back instead of
+  seeding it from a file.
+- `scripts/ops/provision-reporting-postgres.sh` — reads
+  `metabase-db-password` / `grafana-db-password` from `ao-admin`.
+- `scripts/mastodon/post.sh` — materializes the bot credential from the wallet
+  into a `0600` temp file and shreds it on exit.
+- `scripts/mastodon/provision-openclaw-bot.sh` — stores the generated password
+  in the wallet only and writes no env file.
+
+`check-secrets-exposure.sh` was extended with three rule-7 checks: a tracked
+`.env` must not carry a credential, a Quadlet `EnvironmentFile` pointing into
+`config/` or `secrets/` must not be secret-bearing, and any secret-bearing env
+file on disk must not be accessible by other users. Both new file checks were
+confirmed to fail on deliberately planted regressions before being left in
+place.
+
+`ao-payment` remains intentionally empty (ST-12); the adapter is not enabled
+against live traffic, so there is no credential to migrate yet.
 
 ### 14.1.2 Secret-delivery open items
 
@@ -3167,18 +3226,44 @@ createFolder(i, s folder, s app) -> b
 entriesList(i, s folder, s app) -> a{sv}
 ```
 
-**Two `busctl` pitfalls, both of which produce misleading errors:**
+**Three `busctl` pitfalls, all of which produce misleading errors:**
 
 1. `int64` arguments need an explicit type prefix — `open kdewallet x 0 app`.
    Without it: `Unknown signature type k`. Omit `x` and the call fails.
 2. Several methods are **overloaded**, and `busctl` picks one signature:
    `isOpen` exists as both `isOpen(i)` and `isOpen(s)`, so
    `isOpen kdewallet` fails with `Too few parameters for signature`.
+3. **The same overload trap applies to `dbus-python`, not just `busctl`.**
+   dbus-python binds the proxy to the *last declared* signature, so
+   `iface.isOpen(handle, 'app')` raises
+   `TypeError: Fewer items found in D-Bus signature` — the opposite error text
+   from `busctl`, for the same underlying cause. **Use the one-argument
+   `isOpen(handle)`.** `folderList` and `entriesList` are also multi-argument:
+   `folderList(handle, app)` and `entriesList(handle, folder, app)`.
 
 There is **no `listFolders` method** — the folder enumeration method is
 `folderList`. There is also no `introspect` on `org.kde.KWallet`; that lives on
 `org.freedesktop.DBus.Introspectable`. Both mistakes were made and corrected
 while auditing the Mastodon bridge.
+
+**`folderList` returns DUPLICATE rows — de-duplicate before counting.** Measured
+2026-10-01: a raw count reported 990 rows / "972 folders", which looks like
+catastrophic duplication. `set()` gives the true **18 folders**; the same applies
+to `entriesList`, whose de-duplicated `ao-*` + `Passwords` total is **39 entries**.
+
+**Readiness: use `isOpen`, not daemon presence.** Gating on
+`busctl --user list | grep kwalletd6` is wrong — kwalletd6 is D-Bus-activated the
+moment anything touches it and appears long before the wallet is unlocked, so the
+gate returns true instantly and any timeout behind it never waits. This caused a
+login outage on 2026-10-01: `ao-grafana` and `ao-metabase` read a locked wallet,
+failed their `ExecStartPre`, exhausted systemd's 5 fast restarts in ~5s and stayed
+down. Both fetchers now use `isOpen(handle)` with a 30×2s budget.
+
+**The locked path cannot be tested directly.** KWallet exposes no `lock()`;
+`closeAllWallets()` does not leave the wallet locked, because the next `open()`
+transparently re-unlocks via PAM. Use the forensic signal instead: a **0-byte
+`.tmp`** from a failed fetch proves the wallet was locked, since the write block
+never ran.
 
 **Environment is not a barrier.** The systemd user manager carries
 `DBUS_SESSION_BUS_ADDRESS`, `DISPLAY`, `WAYLAND_DISPLAY` and
