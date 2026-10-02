@@ -16,6 +16,25 @@ decision, made after reading what acquisition recorded.
 
 ---
 
+## -1. Before anything: is the host behind?
+
+```bash
+/ALWAYSON/scripts/build-update/drift-report.py --markdown --out /ALWAYSON/docs/drift.md
+```
+
+This resolves every pinned image against its upstream registry and compares it to
+apt, snap, and flatpak, then writes `docs/drift.md`. **It is read-only**: it never
+pulls, installs, or restarts. It exits non-zero when anything needs a decision, so
+it can gate a later pipeline.
+
+Two verdicts mean different things:
+
+- **DRIFT** — behind a *tracked release tag* (Mastodon `v4.3.7`). The host intends to
+  be on that release, so this is a real finding.
+- **BEHIND LATEST** — the upstream `latest` tag moved. Usually **not a defect**: an
+  image deliberately held at an older major (Postgres 17 while `latest` is 18) reports
+  exactly this. Promoting to `latest` would be a *major version change*.
+
 ## 0. Before anything: know what is pinned
 
 ```bash

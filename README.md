@@ -1028,6 +1028,12 @@ until `ao-sim-fabrication` re-pins it. That fail-safe is intended.
 `config/platform/network-cidrs.yaml`, and `check-network-isolation.sh` asserts it
 as an egress network.
 
+**Reporting: pinned vs stable.** `scripts/build-update/drift-report.py` resolves every
+pinned image against its upstream registry and compares apt, snap, and flatpak, then
+writes `docs/drift.md`. It is read-only — it never pulls, installs, or restarts — and
+distinguishes a real DRIFT from a BEHIND-LATEST condition, which for an image held at
+an older major on purpose is information rather than a defect.
+
 **The update procedure.** The full operator path — inventory, acquire, promote,
 deploy, verify, record, and roll back — is in
 `docs/runbooks/software-update.md`. Promotion is done with
