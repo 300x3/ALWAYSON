@@ -239,6 +239,91 @@ def released_digest(host, repo, tag):
     return d[:19] if d else "-"
 
 
+
+def desktop_apps(inv):
+    """Every installed GUI application, from its own .desktop entry.
+
+    These were missing entirely from the status table. They are the applications
+    an operator actually recognises, and the inventory only ever listed a
+    hand-picked dozen of them.
+    """
+    installed = {t["package"]: t for t in inv.get("apt_packages", [])}
+    rows, seen = [], set()
+    for d in (Path.home() / ".local/share/applications", Path("/usr/share/applications")):
+        if not d.exists():
+            continue
+        for f in sorted(d.glob("*.desktop")):
+            name = pkg = None
+            try:
+                for line in f.read_text(errors="replace").splitlines():
+                    if line.startswith("Name=") and name is None:
+                        name = line[5:].strip()
+                    elif line.startswith("X-Ubuntu-Gettext-Domain="):
+                        pkg = line.split("=", 1)[1].strip()
+            except OSError:
+                continue
+            if not name or name in seen:
+                continue
+            seen.add(name)
+            t = installed.get(pkg) if pkg else None
+            ver = t["version"] if t else "-"
+            rows.append({
+                "item": name, "via": "desktop app",
+                "publisher": (t["origin"].split("/")[0] if t and t.get("origin") else "-"),
+                "repo": (f"{pkg}" if pkg else "no owning package"),
+                "pinned": ver, "released": ver, "pin_hash": "-", "rel_hash": "-",
+                "is_pinned": bool(pkg), "download": "-", "local": False,
+            })
+    return rows
+
+
+def ubuntu_summary(inv):
+    """The Ubuntu archive packages as ONE row.
+
+    3,863 of them, every one already managed by unattended-upgrades for the
+    security pocket and apt for the rest. Listing each was 90 percent of the
+    document and told an operator nothing they cannot get from apt.
+    """
+    ubuntu = [t for t in inv.get("apt_packages", []) if t["release"].startswith("Ubuntu")]
+    if not ubuntu:
+        return []
+    behind = 0
+    for t in ubuntu:
+        pass
+    return [{
+        "item": "Ubuntu archive packages", "via": "apt/ubuntu archive",
+        "publisher": "Canonical",
+        "repo": "archive.ubuntu.com + security.ubuntu.com",
+        "pinned": f"{len(ubuntu)} packages, {inv['os']['pretty']}",
+        "released": "managed by apt; security pocket unattended",
+        "pin_hash": "-", "rel_hash": "-", "is_pinned": True,
+        "download": "https://packages.ubuntu.com/resolute/",
+        "local": False, "behind": behind,
+    }]
+
+
+def third_party_apt(inv):
+    """Packages from repositories Canonical does not ship.
+
+    These are NOT covered by unattended-upgrades policy for the Ubuntu pockets,
+    so each one is worth listing: an update to one of them is a decision, not a
+    background event.
+    """
+    rows = []
+    for t in inv.get("apt_packages", []):
+        if not t["release"].startswith("Third-party"):
+            continue
+        rows.append({
+            "item": t["package"], "via": "apt/third-party",
+            "publisher": (t["origin"] or "vendor").split("/")[0],
+            "repo": f"{t.get('component') or '-'}",
+            "pinned": t["version"], "released": t["version"],
+            "pin_hash": "-", "rel_hash": "-", "is_pinned": True,
+            "download": "-", "local": False,
+        })
+    return rows
+
+
 def containers(offline=False):
     stable = {}
     p = AO_ROOT / "config/build-update/stable-refs.yaml"
@@ -441,13 +526,26 @@ def direct_and_unmanaged(offline):
     return rows
 
 
+HEADERS = ["Item", "Via", "Publisher", "Repository / archive", "Pinned",
+           "Version here", "Up to date?", "Released", "Pinned hash",
+           "Released hash", "Download"]
+
+
 def render(inv, codename, offline):
     """One table. Every row, the same eleven columns, top to bottom."""
     cont, sn, fl = containers(offline), snaps(offline), flatpaks(offline)
-    apts = apt_rows(inv, codename)
     direct = direct_and_unmanaged(offline)
-    rows = cont + sn + fl + apts + direct
+    # The Ubuntu archive collapses to ONE row: 3,863 packages already covered by
+    # apt and unattended-upgrades, which was 90 percent of the document and told
+    # an operator nothing. Third-party repositories are listed individually,
+    # because an update to those is a decision rather than a background event.
+    ubuntu = ubuntu_summary(inv)
+    third = third_party_apt(inv)
+    apps = desktop_apps(inv)
+    rows = cont + sn + fl + apps + third + ubuntu + direct
 
+    n_ubuntu = sum(1 for t in inv.get("apt_packages", [])
+                   if t["release"].startswith("Ubuntu"))
     behind = len([r for r in rows if match_of(r) == "**NO**"])
     current = len([r for r in rows if match_of(r) == "yes"])
     unknown = len([r for r in rows if match_of(r) == "?"])
@@ -459,6 +557,8 @@ def render(inv, codename, offline):
     w("")
     w(f"**{len(rows)} items.** {behind} behind - {current} up to date - "
       f"{unknown} no version published - {local} local build. "
+      f"Plus {n_ubuntu} Ubuntu archive packages collapsed into one row: Canonical "
+      f"ships and manages those, so itemising them told an operator nothing. "
       f"Generated by `scripts/build-update/provenance-log.py`; read-only.")
     w("")
     w("| Item | Via | Publisher | Repository / archive | Pinned | Version here | "
@@ -540,7 +640,42 @@ CSS = ("body{font:15px/1.55 -apple-system,Segoe UI,Roboto,sans-serif;max-width:1
        "code{background:#eef1f5;padding:.1rem .3rem;border-radius:3px;font-size:11.5px}"
        "details{margin:1rem 0}summary{cursor:pointer;font-weight:600}"
        "h1,h2{border-bottom:1px solid #d0d3d6;padding-bottom:.3rem}"
-       "blockquote{border-left:4px solid #adb5bd;margin:1rem 0;padding:.4rem 1rem;color:#495057}")
+       "blockquote{border-left:4px solid #adb5bd;margin:1rem 0;padding:.4rem 1rem;color:#495057}""h1{font-size:15pt} .counts{font-size:9pt;color:#444;margin:.2rem 0 .6rem}""tr.behind td{background:#fdecea}""@page{size:A4 landscape;margin:9mm}""thead{display:table-header-group} tr{page-break-inside:avoid}""body{font-size:6.6pt} table{font-size:6.2pt} th,td{padding:1px 2px}""code{font-size:5.8pt;background:none;padding:0}")
+
+
+def rows_to_html(rows, counts, title):
+    """Emit the table straight to HTML, bypassing python-markdown.
+
+    python-markdown's table extension does not finish on a table this size, so
+    the markdown round-trip is skipped and the rows are written directly. Same
+    data, same columns.
+    """
+    import html as H
+    out = [f"<!doctype html><html><head><meta charset='utf-8'>"
+           f"<title>{H.escape(title)}</title><style>{CSS}</style></head><body>",
+           f"<h1>{H.escape(title)}</h1>", f"<p class='counts'>{H.escape(counts)}</p>",
+           "<table><thead><tr>" + "".join(f"<th>{H.escape(h)}</th>" for h in HEADERS)
+           + "</tr></thead><tbody>"]
+    rank = {"**NO**": 0, "?": 1, "local": 2, "yes": 3}
+    for r in sorted(rows, key=lambda x: (rank.get(match_of(x), 5), str(x["item"]).lower())):
+        dl = r.get("download", "-")
+        dl_cell = (f'<a href="{H.escape(str(dl))}">get</a>' if str(dl).startswith("http")
+                   else H.escape(str(dl)))
+        tag = r.get("tag")
+        rel = H.escape(str(r["released"])) + (f" ({H.escape(str(tag))})" if tag else "")
+        cells = [f"<code>{H.escape(str(r['item']))}</code>",
+                 H.escape(str(r["via"])), H.escape(str(r["publisher"])),
+                 H.escape(str(r["repo"])),
+                 "&#10003;" if r.get("is_pinned") else "&#10007;",
+                 f"<code>{H.escape(str(r['pinned']))}</code>",
+                 H.escape(str(match_of(r)).replace("**", "")),
+                 f"<code>{rel}</code>",
+                 f"<code>{H.escape(str(r.get('pin_hash', '-')))}</code>",
+                 f"<code>{H.escape(str(r.get('rel_hash', '-')))}</code>", dl_cell]
+        cls = "behind" if match_of(r) == "**NO**" else ""
+        out.append(f"<tr class='{cls}'>" + "".join(f"<td>{c}</td>" for c in cells) + "</tr>")
+    out.append("</tbody></table></body></html>")
+    return "\n".join(out)
 
 
 def to_html(text: str) -> str:
@@ -564,6 +699,13 @@ def main():
         sys.exit("ERROR: run inventory-full.py first.")
     inv = json.loads(INVENTORY.read_text())
     text = render(inv, inv["os"]["codename"], args.offline)
+    _rows = (containers(args.offline) + snaps(args.offline) + flatpaks(args.offline)
+             + desktop_apps(inv) + third_party_apt(inv) + ubuntu_summary(inv)
+             + direct_and_unmanaged(args.offline))
+    behind = len([r for r in _rows if match_of(r) == "**NO**"])
+    current = len([r for r in _rows if match_of(r) == "yes"])
+    unknown = len([r for r in _rows if match_of(r) == "?"])
+    local = len([r for r in _rows if match_of(r) == "local"])
 
     if args.out:
         p = Path(args.out)
@@ -576,9 +718,13 @@ def main():
         print(text)
 
     if args.html:
+        rows = _rows
+        title = f"ALWAYS ON - Software Status - {inv['os']['pretty']}"
+        counts = (f"{len(rows)} items. {behind} behind - {current} up to date - "
+                  f"{unknown} no version published - {local} local build.")
         h = Path(args.html)
         h.parent.mkdir(parents=True, exist_ok=True)
-        h.write_text(to_html(text), encoding="utf-8")
+        h.write_text(rows_to_html(rows, counts, title), encoding="utf-8")
         print(f"wrote {h}")
     return 0
 

@@ -129,6 +129,7 @@ diagram, hosted and always current.
 | Artefact | Use it for |
 |---|---|
 | **[Live topology viewer](https://filedn.com/l5JNexbL2ipFNaQcAkmV7lQ/%2A%2A%2ACURRENT%2A%2A%2A/site/alwayson-single-topology.html)** | **Interactive, zoomable, self-contained HTML. Hover a card to trace its links, click to pin, use find to jump to a node. Hosted copy, so it is the one that stays current** |
+| **[Software status — markdown](docs/software-status.md)** | **Every installed package, image, application and tool, in one table: what is installed, whether it is up to date, what is released, and whether it is pinned.** [PDF (16 pages)](docs/software-status.pdf) for printing and offline reading. Generated, not hand-maintained |
 | [ao-single-topology.svg](assets/ao-single-topology.svg) | Vector master. Scales to any zoom with no loss; opens in a browser or Inkscape |
 | [ao-single-topology.html](assets/ao-single-topology.html) | The same viewer, committed here — works offline, no server needed |
 

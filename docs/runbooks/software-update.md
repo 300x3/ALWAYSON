@@ -52,7 +52,27 @@ log to read first; the reports below are the detail behind it.
 | `Released` | what the publisher currently offers |
 | `Pinned hash` / `Released hash` | the raw digests the verdict compares |
 
+The Ubuntu archive is **one row**, not 3,863: Canonical ships and manages those, so
+itemising them told an operator nothing apt does not already say. Third-party
+repositories *are* listed individually — an update to one of those is a decision,
+not a background event.
+
 Read-only: it installs nothing and changes nothing.
+
+Regenerate both the markdown and the PDF:
+
+```bash
+/ALWAYSON/scripts/build-update/provenance-log.py \
+  --markdown --out /ALWAYSON/docs/software-status.md \
+  --html /ALWAYSON/tmp/software-status.html
+
+google-chrome --headless --disable-gpu --no-pdf-header-footer \
+  --print-to-pdf=/ALWAYSON/docs/software-status.pdf \
+  file:///ALWAYSON/tmp/software-status.html
+```
+
+The HTML is written directly rather than through python-markdown, whose table
+extension does not finish on a table this size.
 
 ## -1b. What should I do about it?
 
