@@ -142,7 +142,7 @@ separate diagram.
 | **Federation and chat** — `mastodon.300x3.com`, and `chat.300x3.com` (OpenClaw relay / sitebot) | `ao-sales` via the Cloudflare Tunnel | `ao-sales` coordinates social media, email, and Mastodon; the AI bot and chat; and the order-request and receipt workflows. Mastodon web/streaming and OpenClaw chat. Origin stays loopback (`127.0.0.1:3000`, `:4000`, `:18790`). It is the only domain that touches customers directly. | Inbound via `cloudflared-alwayson.service`; outbound federation via Sidekiq on `ao-sales` |
 | **`ao-ingress-payment`** | adapter | **Zelle, PayPal, and Coinbase payment verification.** Receives provider webhook/relay events, verifies the signature, and emits a normalized payment event. | Inbound. **Planned — not yet deployed**, blocked on the provider decision (§18.4) |
 | **`ao-egress-archive`** | adapter | **Moving large data and the image/map/telemetry files into IPFS for transfer after sale**, plus encrypted pCloud replication. Destination allowlist, separate credentials, transfer audit. | Outbound. **Planned — not yet deployed**, archive credentials pending |
-| **`ao-build-update`** | adapter | **Software updates.** Image and package acquisition before controlled promotion, with digest capture and update audit. Never attaches to a workload. | Outbound. **Planned — not yet deployed** |
+| **`ao-build-update`** | adapter | **Software updates.** Image and package acquisition before controlled promotion, with digest capture and update audit. Never attaches to a workload. | Outbound. **Scaffolded — not enabled** (§5.2.1) |
 
 **AO- means "ALWAYS ON".** Every `ao-*` network is one isolation domain. The internal workloads (`ao-payment`, `ao-field`, `ao-mapping`, `ao-sim-vehicle`, `ao-sim-fabrication`, `ao-ledger-ingest`, `ao-ledger-core`, `ao-data`, `ao-admin`, `ao-fabrication`) are all `Internal=true` with no public listener. `ao-sales` is the deliberate exception: it is `Internal=false` so Sidekiq can deliver ActivityPub to remote instances, and it is held to containment by having no attachment or route to any other `ao-*` domain. The adapters above are the other deliberate exceptions.
 
@@ -868,7 +868,7 @@ recorded as group C row "Community publication".
 <tr><td colspan="7" style="background-color:#c9ccd1; border-top:2px solid #8a8f98; border-bottom:1px solid #8a8f98; padding:5px 8px; font-weight:bold; letter-spacing:0.04em;">B · CONTROLLED INGRESS AND EGRESS ADAPTERS — architecture-controlled exceptions, not general-purpose Internet access</td></tr>
 <tr><td><code>ao-ingress-payment</code></td><td><code>ao-payment</code></td><td><strong>Payment verification for Zelle, PayPal, and Coinbase.</strong> Receives the provider webhook or approved relay event, verifies the signature, normalizes it, and emits the verified payment event. Also carries the website path: email &gt; PDF &gt; Corda processing. <strong>Planned — not yet deployed</strong></td><td>Verified normalized payment event</td><td>Minimal event and audit record</td><td>Inbound only. Minimal listener, provider-signature verification, rate limits, audit log, normalized event output</td><td>ST-12</td></tr>
 <tr><td><code>ao-egress-archive</code></td><td><code>ao-sales</code> (sale-transfer duty)</td><td><strong>ARCHIVED FOR DATA TRANSFER AND SALE &mdash; this is not a backup.</strong> Holds a sold package so it can be <em>transferred</em> to the authorised recipient. IPFS provides file-transfer verification and, where applicable, a blockchain sales listing; encrypted pCloud replication is the second copy. <strong>Requires <code>ao-sales</code> authorisation first</strong> — it is not reached directly from the internet. "Data sales": maps and telemetry/IoT products, not application databases. No restore, no recovery, no retention duty: <strong>restic (§17.1) is the backup</strong>. <strong>Planned — not yet deployed</strong></td><td>Approved encrypted transfer bundle; post-sale IPFS transfer; encrypted pCloud transfer copy</td><td>Staging and transfer log; no backup set, no retention record</td><td>Outbound only, and only after <code>ao-sales</code> authorisation. Destination allowlist, TLS validation, encrypted payloads, separate credentials, transfer audit</td></tr>
-<tr><td><code>ao-build-update</code></td><td><code>ao-admin</code> (build/update duty)</td><td><strong>Software updates only — all host software.</strong> Image and package acquisition from the upstream software source (package and container registries) before controlled promotion. <strong>It does not touch WebODM or imagery</strong>: all photo processing and verification belongs to <code>ao-mapping</code>. <strong>Planned — not yet deployed</strong></td><td>Verified image and package set</td><td>Update audit log</td><td>Outbound only. Verified source, digest capture, update audit, no direct workload attachment</td><td>ST-01</td></tr>
+<tr><td><code>ao-build-update</code></td><td><code>ao-build-update</code> (10.89.13.0/24, <code>Internal=false</code>)</td><td><strong>Software updates only — all host software.</strong> Image and package acquisition from the upstream software source (package and container registries) before controlled promotion. <strong>It does not touch WebODM or imagery</strong>: all photo processing and verification belongs to <code>ao-mapping</code>. <strong>Scaffolded and deployed, not enabled</strong> (§5.2.1)</td><td>Verified image and package set</td><td>Update audit log</td><td>Outbound only, on its own dedicated egress network. Verified source, digest capture, update audit, no direct workload attachment, and no promotion authority</td><td>ST-01</td></tr>
 
 <tr><td colspan="7" style="background-color:#c9ccd1; border-top:2px solid #8a8f98; border-bottom:1px solid #8a8f98; padding:5px 8px; font-weight:bold; letter-spacing:0.04em;">C · COMPONENT BOUNDARY MATRIX — what each component may accept, emit, store, and reach</td></tr>
 <tr><td>Sales API</td><td><code>ao-sales</code></td><td>Verified payment state and approved support requests</td><td>Signed receipt/entitlement manifests</td><td>Sales PostgreSQL</td><td>None directly</td><td>ST-11</td></tr>
@@ -968,6 +968,83 @@ folded into `ao-sales` and remains OPEN in §18.6.
 
 **Combined into the single matrix in §5.1, group B.** The three controlled adapters
 (`ao-ingress-payment`, `ao-egress-archive`, `ao-build-update`) are rows in that table
+### 5.2.1 `ao-build-update` — Controlled Software-Update Acquisition
+
+**Status: scaffolded and deployed, not enabled.** The unit, its network, its
+allowlist, and its acquisition script all exist and are verified. The service is
+deliberately left disabled, because running it reaches the public internet and
+that is an operator decision, not an automatic one.
+
+**What it is.** `ao-build-update` is the controlled acquisition stage of the
+software-update path. It resolves candidate container images and host package
+metadata from allowlisted upstream sources, captures the digest of every
+candidate, and writes an append-only update audit record, producing a *verified
+image and package set* that an operator can review. It is the formalisation of
+the manual chain this system has always used — pull, capture the digest, edit the
+`Image=` line, redeploy, restart, verify — with the first two steps automated and
+the last three deliberately left alone.
+
+**What it is not, by design.** It has no promotion authority. It never installs a
+package, never runs `apt`, `dpkg`, or `unattended-upgrades`, never edits a
+Quadlet, never restarts a unit, and never redeploys a container. It is not
+attached to `ao-admin`, and no workload container is ever attached to its network.
+A fetched image is a **candidate**: promotion to a running service is a separate,
+human action, and digest pinning (§4.1 rule 9) is what makes that decision
+reviewable. This is the same posture the rest of the platform already takes — no
+automatic deployment, no `podman auto-update` policy, no Watchtower — expressed as
+a component instead of as an absence.
+
+**Corrected network placement.** This subsection records a correction to the
+§5.1 group B row. That row previously placed the adapter on `ao-admin`
+(build/update duty). **`ao-admin` is `Internal=true`, which makes the adapter's
+only possible function impossible.** `Internal=true` provides no external
+resolver and no outbound route, verified directly on this host:
+
+```text
+$ podman run --rm --network ao-admin alpine nslookup registry-1.docker.io
+** server can't find registry-1.docker.io: NXDOMAIN
+$ podman run --rm --network ao-reporting-egress alpine nc -z registry-1.docker.io 443
+TCP OK
+```
+
+A container on `ao-admin` cannot pull an image at all. The adapter is therefore
+placed on its own dedicated egress network, `ao-build-update` at `10.89.13.0/24`,
+`Internal=false`, following the existing `ao-reporting-egress` precedent. The
+placement was also wrong on the merits: `ao-admin` is the monitoring and
+reporting plane (Prometheus, node_exporter, Grafana, Metabase, backup/restore),
+and an update audit log is a compliance record rather than a metric. After the
+change the same probe on the new network returns `TCP OK`.
+
+**Containment.** Acquisition over HTTPS/443 to the registry hosts named in
+`config/build-update/registry-allowlist.yaml` is the *only* sanctioned outbound.
+The allowlist is mounted read-only, so the adapter cannot widen its own boundary.
+`packages.ros.org` is on an explicit deny list rather than merely absent, because
+it fails TLS verification from this host and that verification is deliberately
+not disabled. The adapter publishes no port and serves no listener; it runs as a
+oneshot and the host reads its exit status and the audit record. Any reference
+that is not both allowlisted and digest-pinned is a finding, not a pass, and the
+run exits non-zero.
+
+**One open question this does not settle.** The component is named
+`build`/`update`, but its specified role is *updates only*. Image builds —
+notably the Gazebo Containerfiles under `GAZEBO/containers/` — currently have no
+owner, no digest capture, and no update audit. Either the name narrows to
+`ao-update`, or the build half is brought into scope. Recorded rather than
+decided here, because the answer changes §5.1.
+
+**Files.** `quadlet/build-update/ao-build-update.network`,
+`quadlet/build-update/ao-build-update.container`,
+`config/build-update/registry-allowlist.yaml`, and
+`scripts/build-update/ao-build-update.py`. The CIDR is registered in
+`config/platform/network-cidrs.yaml`, and `check-network-isolation.sh` asserts it
+as an egress network.
+
+**Enabling it.** `systemctl --user start ao-build-update` runs one acquisition
+pass. The unit carries no `WantedBy=`, so it will not start on its own. Enabling
+it permanently, and any decision to automate acquisition, requires operator
+approval.
+
+
 along with their purpose, direction, and mandatory controls.
 
 ### 5.3 Approved Local Data Paths
@@ -4629,7 +4706,7 @@ listed; they are recorded as evidence in section 20.
 |---|---|---|---|---|
 | 1 | **Corda key/certificate ceremony** | §18.3, §11 | Operator ceremony performed and output recorded. No production ledger keys generated, replaced, exported, or activated without explicit operator approval. | Ledger core, all §11 flows |
 | 2 | **Corda 5 build on PostgreSQL** | ES.1, §18.2 | Node built on Corda 5 against `cordadb` in PostgreSQL 18, with the previous V4 installation and database removed and no data migrated; correlation join by receipt number, serial number, and UTC timestamp proven. | Ledger core |
-| 3 | **Controlled ingress/egress adapters** | §5.2 | `ao-ingress-payment`, `ao-egress-archive`, `ao-build-update` implemented with destination allowlists, validated TLS, separate credentials, and connection logging. Community publication is carried inside `ao-sales`. | External payment, archive, community connectivity |
+| 3 | **Controlled ingress/egress adapters** | §5.2 | `ao-build-update` **scaffolded and deployed, not enabled** (§5.2.1): its own `Internal=false` egress network at `10.89.13.0/24`, digest-pinned unit, read-only registry allowlist, and acquisition script that resolves candidates, captures digests, and writes an update audit record with no promotion authority. The `ao-admin` placement in the §5.1 group B row was corrected, because `Internal=true` made registry pulls impossible. **Remaining:** operator decision on enabling it, and the `build`/`update` scope question. `ao-ingress-payment` and `ao-egress-archive` still require implementation with destination allowlists, validated TLS, separate credentials, and connection logging. Community publication is carried inside `ao-sales`. | External payment, archive, community connectivity |
 | 4 | **Unattended secret delivery decision** | §14.1, §18 | Either migrate mastodon-db, sales-db, and webodm-db to Podman secrets or systemd credentials, or record an approved deviation with compensating controls, before any production declaration. | Production declaration |
 | 5 | **Mapping runtime designation** | §13.2 | WebODM runtime finally designated rootless, system-level, or mixed, and the mixed-store deviation in §13.2 closed or confirmed. | Mapping production declaration |
 

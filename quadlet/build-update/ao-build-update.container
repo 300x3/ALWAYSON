@@ -1,0 +1,88 @@
+# /ALWAYSON/quadlet/build-update/ao-build-update.container
+#
+# ALWAYS ON build/update adapter (README 5.1 group B, 5.2.1, ST-01).
+#
+# ROLE - controlled software-update ACQUISITION. This container fetches candidate
+# images and package metadata from allowlisted upstream sources, captures their
+# digests, and writes an update audit record. That is the whole job.
+#
+# WHAT IT DELIBERATELY CANNOT DO
+# ------------------------------
+#   - It does not promote. It never edits a Quadlet, never restarts a unit,
+#     never redeploys a container, and never touches a workload. Promotion is a
+#     human action taken from the verified set this produces.
+#   - It does not install host packages. No apt, no dpkg, no unattended-upgrades.
+#   - It does not attach to ao-admin, and no workload is ever attached to
+#     ao-build-update. The README 5.1 group B row previously named ao-admin as
+#     this adapter's domain; that was wrong and is corrected - ao-admin is
+#     Internal=true and cannot reach a registry. See ao-build-update.network.
+#   - It does not touch WebODM or imagery. All photo processing and verification
+#     belongs to ao-mapping (README 5.1 group B).
+#   - It publishes no port and serves no listener. It runs as a oneshot; the
+#     host reads its exit status and the audit log it writes.
+#
+# WRITTEN BUT NOT ENABLED. This unit is deployed to the systemd user directory
+# so it can be inspected, but it is not enabled and will not start on its own.
+# `systemctl --user start ao-build-update` is the only way to run it, and that
+# is an operator action. Enabling it is deliberately left to the operator because
+# acquisition reaches the public internet.
+#
+# Image is the same digest-pinned python image already validated in place for
+# ao-ingress-payment, so this adapter adds no new unverified image to the host.
+[Unit]
+Description=ALWAYS ON build/update acquisition adapter (ao-build-update)
+After=network-online.target
+Wants=network-online.target
+Documentation=file:/ALWAYSON/README.md
+
+[Container]
+Image=docker.io/library/python@sha256:79e7a9b9ff1cbceff819f856fb374477792a5967759d94df266de7b7b4120e6f
+ContainerName=ao-build-update
+# The ONLY network this adapter is attached to. It is not on ao-admin and no
+# workload joins this network.
+Network=ao-build-update.network
+# The allowlist is baked read-only: the adapter cannot widen its own boundary.
+Volume=/ALWAYSON/scripts/build-update:/opt/ao-build-update:ro,Z
+Volume=/ALWAYSON/config/build-update:/opt/ao-build-update/config:ro,Z
+# Staging and the audit log are the only writable paths, and they are the two
+# the operator reads afterwards. Everything else is read-only.
+Volume=/ALWAYSON/data/build-update:/var/lib/ao-build-update:rw,Z
+Volume=/ALWAYSON/logs/operations:/var/log/ao-build-update:rw,Z
+NoNewPrivileges=true
+ReadOnly=true
+# The project is not mounted at its host path inside the container, so the
+# acquisition script is told which root it is running under. With this set, the
+# allowlist at /opt/ao-build-update/config and the paths it names resolve to
+# /opt/ao-build-update/config/... , /var/lib/ao-build-update/staging and
+# /var/log/ao-build-update/build-update-audit.log. Those are the same two host
+# directories as the allowlist's staging_dir and audit_log, so a container run
+# and a host run write evidence to the same place.
+Environment=AO_ROOT=/opt/ao-build-update
+# The config directory is mounted directly, so the allowlist is one level up
+# from the path the host uses; AO_ROOT alone would look for a
+# "config/build-update/" subdirectory that does not exist in the container.
+Environment=AO_BUILD_UPDATE_ALLOWLIST=/opt/ao-build-update/config/registry-allowlist.yaml
+# The two writable mounts. These resolve to the same host directories as the
+# allowlist's staging_dir (/ALWAYSON/data/build-update/staging) and audit_log
+# (/ALWAYSON/logs/operations/build-update-audit.log), so a container run and a
+# host run write evidence to the same files.
+Environment=AO_BUILD_UPDATE_STAGING=/var/lib/ao-build-update/staging
+Environment=AO_BUILD_UPDATE_AUDIT_LOG=/var/log/ao-build-update/build-update-audit.log
+# Not privileged, and no capability beyond the container defaults.
+DropCapability=ALL
+SecurityLabelDisable=false
+# Default: --plan, which makes no network call at all.
+Exec=/usr/local/bin/python3 /opt/ao-build-update/ao-build-update.py --plan
+
+[Service]
+Type=oneshot
+RemainAfterExit=no
+# A oneshot must fail loudly. A non-zero exit from the allowlist check (3) or an
+# allowlist violation (4) is a real finding and must not be silently retried
+# into a success.
+Restart=no
+TimeoutStartSec=300
+
+[Install]
+# Intentionally NOT WantedBy=default.target. Not enabled by default: this unit
+# reaches the public internet, so starting it is an operator decision.

@@ -1,0 +1,78 @@
+# ALWAYS ON registry allowlist for the build/update adapter.
+#
+# This is the concrete meaning of the "verified source" control that README 5.1
+# group B requires of ao-build-update and that the two sibling adapters spell
+# out for themselves. The adapter will not resolve, pull, or report on any
+# registry host that is not listed here. An empty allowlist means the adapter
+# acquires nothing, which is the correct default before operator sign-off.
+#
+# SCOPE NOTE - this is an acquisition allowlist, not a trust grant. Listing a
+# host means "the adapter is permitted to contact it to obtain a candidate".
+# What it does NOT mean:
+#   - that the host's content is trusted, or
+#   - that anything fetched is approved to run.
+# A fetched image is a CANDIDATE. It lands in the staging directory with its
+# digest recorded, and a human decides whether it is promoted. Promotion is
+# never automatic (README 5.2.1).
+#
+# The hosts below are the registries already used by digest-pinned quadlets in
+# /ALWAYSON/quadlet, so an empty run here is scoped to what the system actually
+# depends on rather than to the whole internet.
+
+# schema_version is checked by the adapter; bump it if the shape below changes.
+schema_version: 1
+
+# Public upstream registries, contacted over HTTPS/443 only.
+# Any image reference resolved against these hosts MUST be pinned by digest at
+# the point of use. A tag-only reference is a finding, not a pass.
+# NOTE ON DOCKER HUB NAMING - this bit us in testing, so it is recorded here.
+# The reference prefix and the API endpoint are NOT the same string. A pull of
+# "docker.io/library/postgres@sha256:..." is served by the host
+# "registry-1.docker.io". The allowlist is matched against the PREFIX as it
+# appears in the image reference, because that is what the adapter parses out of
+# the reference; the endpoint is recorded as a comment so the two are not
+# confused again. An allowlist entry of "registry-1.docker.io" therefore fails
+# to match a perfectly valid "docker.io/..." reference.
+registries:
+  - host: docker.io  # API endpoint: registry-1.docker.io
+    schemes: [https]
+    purpose: "Docker Hub container images (postgres, redis, python, webodm, metabase, grafana, prometheus)"
+  - host: ghcr.io
+    schemes: [https]
+    purpose: "GitHub Container Registry (mastodon, ardupilot-sitl)"
+  - host: quay.io
+    schemes: [https]
+    purpose: "quay.io images, if a pinned service later moves there"
+
+# Distribution sources for host packages. Listed for completeness of the
+# acquisition boundary; the adapter reports on them but does not invoke apt,
+# unattended-upgrades, or dpkg. Host package upgrades stay an operator action
+# governed by /etc/apt/apt.conf.d/50unattended-upgrades.
+package_sources:
+  - host: archive.ubuntu.com
+    schemes: [https]
+    purpose: "Ubuntu archive (resolute), candidate package metadata"
+  - host: security.ubuntu.com
+    schemes: [https]
+    purpose: "Ubuntu security pocket, candidate package metadata"
+  # packages.ros.org is deliberately ABSENT. It fails TLS verification from
+  # this host (cert CN=*.osuosl.org does not cover the name) and verification
+  # is deliberately not disabled. Adding it here would paper over a real
+  # transport fault; it stays out until the fault is fixed. See README 10.2.2.
+
+# Never contacted under any circumstance. Present so the intent is recorded
+# rather than merely absent; the adapter logs a violation if one is requested.
+denied:
+  - host: packages.ros.org
+    reason: "TLS verification failure from this host; not disabled by decision"
+  - host: localhost
+    reason: "no loopback acquisition"
+  - host: 127.0.0.1
+    reason: "no loopback acquisition"
+
+# Where a verified candidate set is staged. Read by the operator for review;
+# never on an execution path.
+staging_dir: /ALWAYSON/data/build-update/staging
+
+# The update audit log. Append-only, one record per acquisition run.
+audit_log: /ALWAYSON/logs/operations/build-update-audit.log

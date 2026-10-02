@@ -16,12 +16,13 @@ expected=(ao-payment ao-field ao-mapping ao-sim-vehicle ao-sim-fabrication ao-le
 # every workload CIDR (README §5.1), but they are recorded and checked against
 # Internal=false rather than being reported as a violation.
 #   ao-reporting-egress  10.89.10.0/24  ao-grafana, ao-metabase
+#   ao-build-update      10.89.13.0/24  ao-build-update (adapter; acquisition only)
 #
 # ao-egress-community is RETIRED and removed from this host. It is no longer
 # listed here or in the registry, because the live podman network is gone.
 # ao-sales is now Internal=false and carries ActivityPub delivery itself.
 # See README 15.4 / 18.5 / 18.6.
-egress=(ao-reporting-egress ao-sales)
+egress=(ao-reporting-egress ao-sales ao-build-update)
 fails=0
 {
   echo "# Podman network CIDR registry - maintained by check-network-isolation.sh"

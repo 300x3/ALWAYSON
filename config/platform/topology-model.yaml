@@ -459,10 +459,11 @@ edge:
       note: "Blocked on provider decision (README 18.4)"
 
     - id: edge-ao-build-update
-      label: "ao-build-update (adapter, not yet deployed)"
+      label: "ao-build-update (adapter, deployed, not enabled)"
       software: "image / package acquisition before controlled promotion"
-      status: planned
+      status: scaffolded
       direction: outbound
+      note: "Dedicated Internal=false egress network 10.89.13.0/24 (README 5.2.1). Replaces the ao-admin placement, which was Internal=true and therefore could not reach a registry."
 
     - id: edge-reticulum-tcp
       label: "Reticulum public TCP peers / backbone"
@@ -596,6 +597,7 @@ networks:
   ao-build-update:
     purpose: "Image and package acquisition before controlled promotion (outbound adapter)"
     adapter: true
-    status: planned
-    note: "Not deployed; no direct workload attachment permitted (README 5.2)"
+    status: scaffolded
+    network: "ao-build-update (10.89.13.0/24, Internal=false)"
+    note: "Deployed but NOT enabled; no promotion authority. Own Internal=false egress network because ao-admin is Internal=true and cannot reach a registry (README 5.2.1)."
 
