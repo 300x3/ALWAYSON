@@ -11,6 +11,21 @@
 # The output records which mode produced it, so a reader never mistakes a
 # partial set for a complete one.
 #
+# PREFER NOT TO. Two reasons, both learned the hard way:
+#
+#   1. Running this script under pkexec means ROOT executes a file that lives in
+#      a directory owned by the operator. That is the classic pkexec anti-pattern:
+#      there is no root-owned copy, no polkit action naming a specific command,
+#      and no integrity check, so anything that can modify this file gets to run
+#      as root the next time it is invoked. Nothing here needs root - the
+#      unprivileged path covers the whole inventory - so the default is off and
+#      the only thing root adds is the /etc/shadow entry NAMES.
+#   2. If a privileged run IS wanted, copy the script to a root-owned location
+#      first and run that copy, so root is not executing a user-writable file:
+#        pkexec install -m 0755 -o root -g root \
+#          /ALWAYSON/scripts/build-update/collect-root-facts.sh /usr/local/sbin/
+#        pkexec /bin/bash /usr/local/sbin/collect-root-facts.sh --privileged
+#
 # The exhaustive inventory needs a small number of facts that cannot be read as
 # an unprivileged user. This script collects exactly those and nothing else. It
 # is the ONLY privileged step in the inventory, it runs once, and it exits.
@@ -94,6 +109,19 @@ else
 fi
 
 # ---- write JSON ---------------------------------------------------------
+# Create the temp file with mktemp, NOT a predictable "${OUT}.tmp.$$" path.
+# This directory is owned by the operator, so in a --privileged run a predictable
+# name is a symlink attack: any process running as the operator could pre-create
+# "${OUT}.tmp.<pid>" as a symlink to any root-writable path, and root would then
+# truncate that file through the redirect and make it durable with the mv below.
+# mktemp creates the file with O_EXCL, so the race is not winnable.
+# umask 077 keeps the privileged output unreadable to other local accounts from
+# the moment it is created, rather than only after the chmod at the end.
+umask 077
+TMP_OUT="$(mktemp "${OUT}.tmp.XXXXXX")" || {
+  echo "ERROR: cannot create a temp file next to $OUT" >&2
+  exit 10
+}
 {
   printf '{\n'
   printf '  "collected_by": "collect-root-facts.sh",\n'
@@ -114,14 +142,22 @@ fi
   printf '  "shadow_values_collected": false,\n'
   printf '  "argv_collected": false\n'
   printf '}\n'
-} > "${OUT}.tmp.$$"
-mv -f "${OUT}.tmp.$$" "$OUT" 2>/dev/null || {
+} > "$TMP_OUT"
+mv -f "$TMP_OUT" "$OUT" 2>/dev/null || {
   echo "ERROR: cannot replace $OUT (it may be owned by another user)." >&2
   echo "       Remove it once as root:  pkexec rm -f $OUT" >&2
-  rm -f "${OUT}.tmp.$$"
+  rm -f "$TMP_OUT"
   exit 10
 }
-chmod 0644 "$OUT" 2>/dev/null || true
+# 0600, not 0644. In privileged mode this file carries /etc/shadow entry names,
+# and 0644 in a 0755 directory would leave that list world-readable to every
+# local account. Unprivileged mode carries nothing sensitive, so 0644 is used
+# there to keep the file convenient to read.
+if (( IS_ROOT )); then
+  chmod 0600 "$OUT" 2>/dev/null || true
+else
+  chmod 0644 "$OUT" 2>/dev/null || true
+fi
 
 echo "wrote $OUT"
 if (( IS_ROOT )); then

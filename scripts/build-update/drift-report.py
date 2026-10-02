@@ -40,6 +40,7 @@ from pathlib import Path
 AO_ROOT = Path(os.environ.get("AO_ROOT", "/ALWAYSON"))
 QUADLET = AO_ROOT / "quadlet"
 
+DEFAULT_STABLE_TAG = "latest"
 MANIFEST_ACCEPT = ", ".join([
     "application/vnd.oci.image.index.v1+json",
     "application/vnd.docker.distribution.manifest.list.v2+json",
@@ -48,25 +49,23 @@ MANIFEST_ACCEPT = ", ".join([
 ])
 TIMEOUT = 20
 
-# Which upstream tag counts as "stable" for a given image. Not every project
-# publishes a `stable` tag; where there is none, `latest` is the project's own
-# release channel. This mapping is a POLICY decision, kept here in one place so
-# it can be argued about rather than buried in code.
-STABLE_TAG = {
-    "docker.io/library/postgres": "latest",
-    "docker.io/library/redis": "latest",
-    "docker.io/library/python": "latest",
-    "docker.io/grafana/grafana-oss": "latest",
-    "docker.io/metabase/metabase": "latest",
-    "docker.io/prom/prometheus": "latest",
-    "docker.io/prom/node-exporter": "latest",
-    "docker.io/opendronemap/nodeodm": "latest",
-    "docker.io/webodm/webodm_webapp": "latest",
-    "docker.io/webodm/webodm_db": "latest",
-    "ghcr.io/mastodon/mastodon": "v4.3.7",
-    "ghcr.io/mastodon/mastodon-streaming": "v4.3.7",
-}
-DEFAULT_STABLE_TAG = "latest"
+# ---------------------------------------------------------------------------
+# STABLE REFERENCE POLICY - the data behind "released as stable by the repo"
+# ---------------------------------------------------------------------------
+# This lives in data, not in code, because it is a POLICY decision and it is
+# meant to be argued about and edited without touching Python.
+#
+#   tracked_tag: a release the host INTENDS to be on. pinned != tracked_tag is a
+#     real DRIFT and needs a human decision.
+#   major_series: the major version the host is deliberately held at. When
+#     upstream's `latest` has moved to a NEW major, the row is reported as
+#     BEHIND LATEST, which is information rather than a defect: promoting would
+#     be a major version change, not an update.
+#   None means no declared stable channel exists for that image, so the
+#   comparison falls back to `latest` and is reported as BEHIND LATEST.
+#
+# Populated from what the project actually runs, not from every image on the
+# internet. Verify the tags exist before trusting a row.
 
 # Hosts whose name in a reference differs from the registry API hostname.
 REGISTRY_API = {
@@ -80,6 +79,45 @@ TOKEN_URL = {
     "ghcr.io": ("https://ghcr.io/token?scope=repository:{repo}:pull", None),
     "quay.io": ("https://quay.io/v2/auth?service=quay.io&scope=repository:{repo}:pull", None),
 }
+
+
+def load_stable_refs():
+    """Read config/build-update/stable-refs.yaml into {repo: {attr: value}}.
+
+    A hand parser rather than PyYAML: this runs against a minimal image and the
+    file shape is fixed by schema_version. Parsed by indentation - a two-space
+    indent is an image key, a deeper indent is one of its attributes.
+
+    It fails loudly rather than returning {} on an unrecognised shape, because
+    an empty policy silently turns every DRIFT into a BEHIND LATEST and hides
+    the one real finding.
+    """
+    path = AO_ROOT / "config/build-update/stable-refs.yaml"
+    if not path.exists():
+        raise SystemExit(f"ERROR: stable-reference policy not found: {path}")
+    images, cur, in_images = {}, None, False
+    for raw in path.read_text().splitlines():
+        line = raw.split("#", 1)[0].rstrip()
+        if not line.strip():
+            continue
+        indent = len(line) - len(line.lstrip())
+        s = line.strip()
+        if indent == 0:
+            in_images = (s == "images:")
+            cur = None
+            continue
+        if not in_images:
+            continue
+        if indent == 2 and s.endswith(":"):
+            cur = s[:-1]
+            images[cur] = {}
+        elif cur and indent >= 4 and ":" in s:
+            k, _, v = s.partition(":")
+            v = v.strip().strip("\"'")
+            images[cur][k.strip()] = None if v in ("null", "~", "") else v
+    if not images:
+        raise SystemExit(f"ERROR: no image entries parsed from {path}")
+    return images
 
 
 def now_utc() -> str:
@@ -233,6 +271,7 @@ def collect_apt():
     # 2. drift set, one call
     _, out, _ = run(["apt", "list", "--upgradable"], timeout=120)
     drifted = []
+    seen = {}
     for line in out.splitlines():
         line = line.strip()
         if not line or line.startswith("Listing"):
@@ -244,7 +283,18 @@ def collect_apt():
         # consumed or the bracket never matches.
         m = re.match(r"^([^/]+)/\S+\s+\S+\s+\S+\s+\[upgradable from:\s*([^\]]+)\]", line)
         if m:
-            drifted.append({"package": m.group(1), "installed": m.group(2)})
+            name = m.group(1)
+            # `apt list --upgradable` emits one line per ARCHITECTURE, so a
+            # multi-arch package (gstreamer1.0-plugins-good on amd64 AND i386)
+            # appears twice with identical versions. Keyed on package name, that
+            # double-counted the package and reported 5 pending where there were
+            # 4 distinct packages. Keep one row per package.
+            if name in seen:
+                seen[name]["architectures"].add(line.split()[2] if len(line.split()) > 2 else "?")
+                continue
+            seen[name] = {"package": name, "installed": m.group(2),
+                          "architectures": {line.split()[2] if len(line.split()) > 2 else "?"}}
+            drifted.append(seen[name])
 
     # 3. resolve repository for the drift set only
     for r in drifted:
@@ -325,8 +375,9 @@ def build(as_md: bool, offline: bool):
         w(f"ALWAYS ON - pinned vs stable   {now_utc()}")
         w("")
 
+    STABLE = load_stable_refs()
     summary = {"in_sync": 0, "drift": 0, "unresolved": 0, "local": 0,
-               "unpinned": 0, "behind_latest": 0}
+               "unpinned": 0, "behind_latest": 0, "behind_tracked": 0}
     containers = collect_containers()
 
     # ---- containers ------------------------------------------------------
@@ -351,25 +402,39 @@ def build(as_md: bool, offline: bool):
             summary["unpinned"] += 1
         else:
             host, repo, pinned = parse_ref(ref)
-            stable_tag = STABLE_TAG.get(f"{host}/{repo}", DEFAULT_STABLE_TAG)
+            key = f"{host}/{repo}"
+            policy = STABLE.get(key, {})
+            tracked = policy.get("tracked_tag")
+            compare_tag = tracked or DEFAULT_STABLE_TAG
             if offline:
                 up, verdict = "-", "NOT CHECKED (offline)"
                 summary["unresolved"] += 1
             else:
-                up, err = registry_digest(host, repo, stable_tag)
+                up, err = registry_digest(host, repo, compare_tag)
                 if up is None:
                     up, verdict = "-", f"UNRESOLVED: {err}"
                     summary["unresolved"] += 1
                 elif up == pinned:
                     verdict = "IN SYNC"
                     summary["in_sync"] += 1
+                elif tracked and policy.get("tag_kind") == "release":
+                    # A precise release the host intends to be on, and it is not
+                    # on it. Unambiguously a finding.
+                    verdict = f"DRIFT (release {tracked})"
+                    summary["drift"] += 1
+                elif tracked:
+                    # A ROLLING major tag (postgres:17, redis:7). These are
+                    # rebuilt for security patches, so a mismatch means a newer
+                    # patch of the same major is available. Actionable, but it is
+                    # not a version decision and must not be read as one.
+                    verdict = f"BEHIND TRACKED TAG ({tracked}, rolling: newer patch of same major)"
+                    summary["behind_tracked"] = summary.get("behind_tracked", 0) + 1
                 else:
-                    if stable_tag == DEFAULT_STABLE_TAG:
-                        verdict = "BEHIND LATEST (not a tracked release tag)"
-                        summary["behind_latest"] = summary.get("behind_latest", 0) + 1
-                    else:
-                        verdict = f"DRIFT (tracked tag {stable_tag})"
-                        summary["drift"] += 1
+                    # No declared stable channel. Upstream `latest` moved. For an
+                    # image held at an older major this is expected; for a
+                    # rebuilt base tag it is routine. Information, not action.
+                    verdict = "BEHIND LATEST (no tracked release tag)"
+                    summary["behind_latest"] = summary.get("behind_latest", 0) + 1
 
         sp = str(pinned).split(":")[-1][:16]
         su = str(up).split(":")[-1][:16]
@@ -453,7 +518,8 @@ def build(as_md: bool, offline: bool):
         w("|---|---|---|")
         w(f"| IN SYNC | {summary['in_sync']} | Pinned digest equals upstream stable. Leave alone. |")
         w(f"| **DRIFT** | **{summary['drift']}** | Behind a tracked release tag. Needs a decision. |")
-        w(f"| BEHIND LATEST | {summary['behind_latest']} | Behind the `latest` tag. **Not necessarily a defect** — an image held at an older major on purpose looks like this. |")
+        w(f"| BEHIND TRACKED TAG | {summary['behind_tracked']} | Newer **patch of the same major** is out (rolling tag). Safe to take; not a version decision. |")
+        w(f"| BEHIND LATEST | {summary['behind_latest']} | No tracked release tag exists for this image, so `latest` is all there is. **Not a defect.** |")
         w(f"| UNRESOLVED | {summary['unresolved']} | Registry did not answer. Retry or investigate. |")
         w(f"| LOCAL BUILD | {summary['local']} | Built on this host; no upstream to compare. |")
         w(f"| **NOT PINNED** | **{summary['unpinned']}** | Floating tag or missing `Image=`. A finding in itself. |")
@@ -508,7 +574,7 @@ def main() -> int:
             side.write_text(json.dumps({
                 "generated": now_utc(), "summary": summary,
                 "apt_package_count": len(apt_installed),
-                "apt_drift": drift_apt,
+                "apt_drift": [{**r, "architectures": sorted(r.get("architectures", []))} for r in drift_apt],
                 "snaps": snaps, "flatpaks": apps,
             }, indent=2, sort_keys=True), encoding="utf-8")
             print(f"wrote {side}")

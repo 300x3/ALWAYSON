@@ -1,0 +1,126 @@
+# ALWAYS ON — what "released as stable" means for each managed image.
+#
+# drift-report.py reads this instead of hardcoding the policy in Python, because
+# it is a decision that should be reviewed and changed like any other config.
+#
+# HOW TO READ IT
+#   tracked_tag:  the release this host INTENDS to be on. If the pinned digest
+#                 does not match this tag, that is a DRIFT and needs a decision.
+#   major_series: the major version the host is deliberately held at. When
+#                 upstream `latest` has moved past it, the report says
+#                 BEHIND LATEST, which is information: promoting would be a MAJOR
+#                 version change, not an update.
+#   tag_kind:     "release" for a precise version tag (v4.3.7) - missing it means
+#                 the host is not on a release it intended to be on.
+#                 "rolling" for a moving major/minor tag (17, 7) - the tag is
+#                 REBUILT for security patches, so a mismatch means a newer
+#                 patch of the SAME major exists. Still actionable, but it is
+#                 not a version decision and must not be read as one.
+#   null:         the project publishes no declared stable channel, so the
+#                 comparison falls back to `latest` and reports BEHIND LATEST.
+#                 That is a deliberate "we do not track a release here" answer.
+#
+# Versions below were read from the RUNNING containers on 2026-10-01, not
+# copied from the README. Where a tag could not be confirmed to exist upstream,
+# tracked_tag is null rather than guessed.
+
+schema_version: 1
+
+images:
+
+  # --- deliberately held at an older major -------------------------------
+  docker.io/library/postgres:
+    major_series: "17"
+    tracked_tag: "17"
+    tag_kind: "rolling"
+    running: "PostgreSQL 17.11"
+    note: >-
+      Deliberately on 17, not 18. `latest` is 18, so this will always report
+      BEHIND LATEST. That is correct and must not be "fixed" by promoting: a
+      Postgres major bump needs a dump/restore and a compatibility check.
+
+  docker.io/library/redis:
+    major_series: "7"
+    tracked_tag: "7"
+    tag_kind: "rolling"
+    running: "Redis 7.4.11"
+    note: "Held at major 7."
+
+  # --- tracked release tags ----------------------------------------------
+  ghcr.io/mastodon/mastodon:
+    tracked_tag: "v4.3.7"
+    tag_kind: "release"
+    major_series: "4"
+    running: "v4.3.7"
+    note: "Tracked release. web and sidekiq both sit on it; streaming does not."
+
+  ghcr.io/mastodon/mastodon-streaming:
+    tracked_tag: "v4.3.7"
+    tag_kind: "release"
+    major_series: "4"
+    running: "unknown, pinned by digest only"
+    note: >-
+      Same release as the web image, but pinned to a DIFFERENT digest, which is
+      why it reports DRIFT while its two siblings report IN SYNC. This is the
+      one real finding the report currently produces.
+
+  docker.io/webodm/webodm_webapp:
+    tracked_tag: null
+    major_series: null
+    running: "v3.2.8 per version-matrix"
+    note: "No declared stable channel; upstream publishes no versioned tags."
+
+  # --- no declared stable channel ----------------------------------------
+  docker.io/grafana/grafana-oss:
+    tracked_tag: null
+    major_series: null
+    running: "unknown from the container"
+    note: >-
+      Grafana publishes rolling tags, not a stable release line, so there is no
+      tracked_tag to compare against. Reported as BEHIND LATEST. Filling this in
+      with a real major series would turn that into a meaningful comparison.
+
+  docker.io/metabase/metabase:
+    tracked_tag: null
+    major_series: null
+    running: "unknown from the container"
+    note: "Same situation as Grafana: rolling tags only."
+
+  docker.io/prom/prometheus:
+    tracked_tag: null
+    major_series: "3"
+    running: "v3.x"
+    note: "Held at major 3. Upstream v3.5.0 exists as a tag."
+
+  docker.io/prom/node-exporter:
+    tracked_tag: null
+    major_series: null
+    running: "unknown"
+    note: "Rolling tags only."
+
+  docker.io/library/python:
+    tracked_tag: null
+    major_series: null
+    running: "3.13 base image"
+    note: >-
+      Python base images are rebuilt on the same tag, so the digest changes
+      without a version change. A digest bump here is routine, not a release.
+
+  docker.io/opendronemap/nodeodm:
+    tracked_tag: null
+    major_series: null
+    running: "unknown"
+    note: "No declared stable channel."
+
+  docker.io/webodm/webodm_db:
+    tracked_tag: null
+    major_series: null
+    running: "unknown"
+    note: "No declared stable channel."
+
+# Image references that are not tracked because no upstream is meaningful.
+untracked:
+  - pattern: "localhost/*"
+    reason: "local build; the owning domain re-pins after a rebuild"
+  - pattern: "ghcr.io/ardupilot/ardupilot-sitl"
+    reason: "floating :latest tag, not deployed; pinning it is an open item"
