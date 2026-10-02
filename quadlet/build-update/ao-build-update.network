@@ -6,24 +6,16 @@
 # and it is the only thing that makes the adapter able to do its one job:
 # fetch candidate images and packages from upstream registries.
 #
-# WHY A DEDICATED NETWORK, AND NOT ao-admin
-# -----------------------------------------
-# README 5.1 group B previously placed this adapter on "ao-admin (build/update
-# duty)". ao-admin is Internal=true, which was verified to be fatal to the
-# adapter's purpose:
+# WHY Internal=false IS REQUIRED
+# ------------------------------
+# This network exists so the adapter can reach a container registry.
+# Internal=true provides no external resolver and no outbound route, so a
+# container on such a network cannot pull an image and could not perform
+# acquisition. That is the whole reason this is a separate network rather than
+# a membership of an existing one.
 #
-#   $ podman run --rm --network ao-admin alpine nslookup registry-1.docker.io
-#   ** server can't find registry-1.docker.io: NXDOMAIN
-#   $ podman run --rm --network ao-reporting-egress alpine nc -z registry-1.docker.io 443
-#   TCP OK
-#
-# Internal=true gives no external resolver and no outbound route, so a
-# container on ao-admin cannot pull an image at all. The adapter was inert by
-# construction. The README has been corrected; this network is the fix.
-#
-# ao-admin was also the wrong home on the merits: it is the monitoring and
-# reporting plane ("Prometheus, node_exporter, Grafana, Metabase, backup/
-# restore"). An update audit log is a compliance record, not a metric.
+# ao-admin is not an option on two counts: it is Internal=true, and it is the
+# monitoring and reporting plane, where an update audit record does not belong.
 #
 # CONTAINMENT - acquisition is the sanctioned outbound, nothing else:
 #   - Outbound HTTPS/443 to the registry hosts named in

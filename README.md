@@ -986,34 +986,21 @@ the last three deliberately left alone.
 
 **What it is not, by design.** It has no promotion authority. It never installs a
 package, never runs `apt`, `dpkg`, or `unattended-upgrades`, never edits a
-Quadlet, never restarts a unit, and never redeploys a container. It is not
-attached to `ao-admin`, and no workload container is ever attached to its network.
+Quadlet, never restarts a unit, and never redeploys a container. No workload
+container is ever attached to its network.
 A fetched image is a **candidate**: promotion to a running service is a separate,
 human action, and digest pinning (§4.1 rule 9) is what makes that decision
 reviewable. This is the same posture the rest of the platform already takes — no
 automatic deployment, no `podman auto-update` policy, no Watchtower — expressed as
 a component instead of as an absence.
 
-**Corrected network placement.** This subsection records a correction to the
-§5.1 group B row. That row previously placed the adapter on `ao-admin`
-(build/update duty). **`ao-admin` is `Internal=true`, which makes the adapter's
-only possible function impossible.** `Internal=true` provides no external
-resolver and no outbound route, verified directly on this host:
-
-```text
-$ podman run --rm --network ao-admin alpine nslookup registry-1.docker.io
-** server can't find registry-1.docker.io: NXDOMAIN
-$ podman run --rm --network ao-reporting-egress alpine nc -z registry-1.docker.io 443
-TCP OK
-```
-
-A container on `ao-admin` cannot pull an image at all. The adapter is therefore
-placed on its own dedicated egress network, `ao-build-update` at `10.89.13.0/24`,
-`Internal=false`, following the existing `ao-reporting-egress` precedent. The
-placement was also wrong on the merits: `ao-admin` is the monitoring and
-reporting plane (Prometheus, node_exporter, Grafana, Metabase, backup/restore),
-and an update audit log is a compliance record rather than a metric. After the
-change the same probe on the new network returns `TCP OK`.
+**Network.** The adapter runs on its own egress network, `ao-build-update` at
+`10.89.13.0/24`, `Internal=false`, following the `ao-reporting-egress` precedent.
+It requires a non-internal network: `Internal=true` provides no external resolver
+and no outbound route, so a container on such a network cannot reach a registry
+and could not perform acquisition. `ao-admin` is `Internal=true` and is
+additionally the monitoring and reporting plane, so an update audit record does
+not belong on it. No workload container is attached to this network.
 
 **Containment.** Acquisition over HTTPS/443 to the registry hosts named in
 `config/build-update/registry-allowlist.yaml` is the *only* sanctioned outbound.
@@ -1025,12 +1012,13 @@ oneshot and the host reads its exit status and the audit record. Any reference
 that is not both allowlisted and digest-pinned is a finding, not a pass, and the
 run exits non-zero.
 
-**One open question this does not settle.** The component is named
-`build`/`update`, but its specified role is *updates only*. Image builds —
-notably the Gazebo Containerfiles under `GAZEBO/containers/` — currently have no
-owner, no digest capture, and no update audit. Either the name narrows to
-`ao-update`, or the build half is brought into scope. Recorded rather than
-decided here, because the answer changes §5.1.
+**Scope boundary: builds.** This adapter's role is *updates*, not image builds.
+Builds belong to the domain that consumes the image. The Gazebo Containerfiles
+under `GAZEBO/containers/` are owned by `ao-sim-fabrication`, which mounts
+`/ALWAYSON/GAZEBO` read-only and runs the world from it; this adapter does not
+acquire, rebuild, or promote them. `ao-sim-fabrication-gz` is digest-pinned to a
+local build, so a Containerfile rebuild changes the digest and fails the unit
+until `ao-sim-fabrication` re-pins it. That fail-safe is intended.
 
 **Files.** `quadlet/build-update/ao-build-update.network`,
 `quadlet/build-update/ao-build-update.container`,
@@ -4706,7 +4694,7 @@ listed; they are recorded as evidence in section 20.
 |---|---|---|---|---|
 | 1 | **Corda key/certificate ceremony** | §18.3, §11 | Operator ceremony performed and output recorded. No production ledger keys generated, replaced, exported, or activated without explicit operator approval. | Ledger core, all §11 flows |
 | 2 | **Corda 5 build on PostgreSQL** | ES.1, §18.2 | Node built on Corda 5 against `cordadb` in PostgreSQL 18, with the previous V4 installation and database removed and no data migrated; correlation join by receipt number, serial number, and UTC timestamp proven. | Ledger core |
-| 3 | **Controlled ingress/egress adapters** | §5.2 | `ao-build-update` **scaffolded and deployed, not enabled** (§5.2.1): its own `Internal=false` egress network at `10.89.13.0/24`, digest-pinned unit, read-only registry allowlist, and acquisition script that resolves candidates, captures digests, and writes an update audit record with no promotion authority. The `ao-admin` placement in the §5.1 group B row was corrected, because `Internal=true` made registry pulls impossible. **Remaining:** operator decision on enabling it, and the `build`/`update` scope question. `ao-ingress-payment` and `ao-egress-archive` still require implementation with destination allowlists, validated TLS, separate credentials, and connection logging. Community publication is carried inside `ao-sales`. | External payment, archive, community connectivity |
+| 3 | **Controlled ingress/egress adapters** | §5.2 | `ao-build-update` **scaffolded and deployed, not enabled** (§5.2.1): its own `Internal=false` egress network at `10.89.13.0/24`, digest-pinned unit, read-only registry allowlist, and acquisition script that resolves candidates, captures digests, and writes an update audit record with no promotion authority. **Remaining:** operator decision on enabling it, and the `build`/`update` scope question. `ao-ingress-payment` and `ao-egress-archive` still require implementation with destination allowlists, validated TLS, separate credentials, and connection logging. Community publication is carried inside `ao-sales`. | External payment, archive, community connectivity |
 | 4 | **Unattended secret delivery decision** | §14.1, §18 | Either migrate mastodon-db, sales-db, and webodm-db to Podman secrets or systemd credentials, or record an approved deviation with compensating controls, before any production declaration. | Production declaration |
 | 5 | **Mapping runtime designation** | §13.2 | WebODM runtime finally designated rootless, system-level, or mixed, and the mixed-store deviation in §13.2 closed or confirmed. | Mapping production declaration |
 

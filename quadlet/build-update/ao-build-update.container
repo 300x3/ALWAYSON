@@ -12,12 +12,9 @@
 #     never redeploys a container, and never touches a workload. Promotion is a
 #     human action taken from the verified set this produces.
 #   - It does not install host packages. No apt, no dpkg, no unattended-upgrades.
-#   - It does not attach to ao-admin, and no workload is ever attached to
-#     ao-build-update. The README 5.1 group B row previously named ao-admin as
-#     this adapter's domain; that was wrong and is corrected - ao-admin is
-#     Internal=true and cannot reach a registry. See ao-build-update.network.
-#   - It does not touch WebODM or imagery. All photo processing and verification
-#     belongs to ao-mapping (README 5.1 group B).
+#   - It does not build. Image builds belong to the domain that consumes the
+#     image; the Gazebo Containerfiles under GAZEBO/containers/ are owned by
+#     ao-sim-fabrication, and this adapter does not acquire or promote them.
 #   - It publishes no port and serves no listener. It runs as a oneshot; the
 #     host reads its exit status and the audit log it writes.
 #
@@ -51,16 +48,12 @@ Volume=/ALWAYSON/logs/operations:/var/log/ao-build-update:rw,Z
 NoNewPrivileges=true
 ReadOnly=true
 # The project is not mounted at its host path inside the container, so the
-# acquisition script is told which root it is running under. With this set, the
-# allowlist at /opt/ao-build-update/config and the paths it names resolve to
-# /opt/ao-build-update/config/... , /var/lib/ao-build-update/staging and
-# /var/log/ao-build-update/build-update-audit.log. Those are the same two host
-# directories as the allowlist's staging_dir and audit_log, so a container run
-# and a host run write evidence to the same place.
+# acquisition script is told which root it is running under. These point the
+# script at this unit's actual mount points; a host run and a container run then
+# write evidence to the same files.
 Environment=AO_ROOT=/opt/ao-build-update
-# The config directory is mounted directly, so the allowlist is one level up
-# from the path the host uses; AO_ROOT alone would look for a
-# "config/build-update/" subdirectory that does not exist in the container.
+# The config directory is mounted directly, so the allowlist sits one level up
+# from the path the host uses.
 Environment=AO_BUILD_UPDATE_ALLOWLIST=/opt/ao-build-update/config/registry-allowlist.yaml
 # The two writable mounts. These resolve to the same host directories as the
 # allowlist's staging_dir (/ALWAYSON/data/build-update/staging) and audit_log

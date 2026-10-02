@@ -463,7 +463,7 @@ edge:
       software: "image / package acquisition before controlled promotion"
       status: scaffolded
       direction: outbound
-      note: "Dedicated Internal=false egress network 10.89.13.0/24 (README 5.2.1). Replaces the ao-admin placement, which was Internal=true and therefore could not reach a registry."
+      note: "Dedicated Internal=false egress network 10.89.13.0/24 (README 5.2.1)."
 
     - id: edge-reticulum-tcp
       label: "Reticulum public TCP peers / backbone"

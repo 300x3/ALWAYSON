@@ -32,16 +32,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 AO_ROOT = Path(os.environ.get("AO_ROOT", "/ALWAYSON"))
-# AO_BUILD_UPDATE_ALLOWLIST exists because the two roots do not agree on the
-# config path. On the host the allowlist is
-#   /ALWAYSON/config/build-update/registry-allowlist.yaml
-# but the Quadlet mounts that config directory directly at
-#   /opt/ao-build-update/config
-# so inside the container the same file is at
-#   /opt/ao-build-update/config/registry-allowlist.yaml
-# Re-rooting AO_ROOT is therefore not enough on its own, and guessing a
-# "config/build-update/" subdirectory that does not exist in the container is
-# what produced exit code 3 in the first run. The unit sets this explicitly.
+# The host and the Quadlet do not agree on the config path: the allowlist is
+# /ALWAYSON/config/build-update/registry-allowlist.yaml on the host, but the
+# unit mounts that config directory directly at /opt/ao-build-update/config, so
+# inside the container it is /opt/ao-build-update/config/registry-allowlist.yaml.
+# Re-rooting AO_ROOT is therefore not sufficient, and the unit sets this
+# explicitly rather than leaving the script to infer the layout.
 ALLOWLIST = Path(os.environ.get(
     "AO_BUILD_UPDATE_ALLOWLIST",
     AO_ROOT / "config/build-update/registry-allowlist.yaml"))
@@ -136,9 +132,9 @@ def parse_allowlist(path: Path) -> dict:
         die(3, "allowlist must set staging_dir and audit_log")
 
     # Evidence paths get their own overrides for the same reason as the
-    # allowlist: AO_ROOT re-rooting alone would aim at
-    # /opt/ao-build-update/data/... and /opt/ao-build-update/logs/..., but the
-    # writable mounts are /var/lib/ao-build-update and /var/log/ao-build-update.
+    # allowlist: AO_ROOT re-rooting alone would aim under /opt/ao-build-update,
+    # but the writable mounts are /var/lib/ao-build-update and
+    # /var/log/ao-build-update.
     staging = os.environ.get("AO_BUILD_UPDATE_STAGING") or str(_resolve(staging, AO_ROOT))
     audit = os.environ.get("AO_BUILD_UPDATE_AUDIT_LOG") or str(_resolve(audit, AO_ROOT))
 
