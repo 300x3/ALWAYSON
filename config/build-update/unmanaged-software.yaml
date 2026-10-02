@@ -1,0 +1,126 @@
+# ALWAYS ON — registry for software NO package manager tracks.
+#
+# The operator's decision, 2026-10-02: "YOUR JOB IS TO TRACK THESE AS WELL."
+# Previously these were listed and left alone. They are now in scope for
+# freshness tracking.
+#
+# Why this file exists: an AppImage or a script in ~/.local/bin has no package
+# manager watching it, so a stale copy stays invisible until it fails. Recording
+# what each thing IS and where it came from is the minimum needed to notice when
+# one of them falls behind.
+#
+# checkable: true  - upstream can be queried for a newer version
+# checkable: false - there is no way to check automatically; recorded so its
+#                      absence from the report is a known gap, not an oversight
+#
+# check_kind:
+#   pypi     - installed Python package, compare against PyPI
+#   github   - a published release tag
+#   apt      - the host package database knows the version
+#   none     - nothing to compare against
+
+schema_version: 1
+
+# ---------------------------------------------------------------------------
+# AppImages - a version in the filename is the only signal available
+# ---------------------------------------------------------------------------
+appimages:
+  - name: "QGroundControl-x86_64.AppImage"
+    path: "/home/scottw/Documents/APP IMAGES/QGroundControl-x86_64.AppImage"
+    version_in_name: null
+    source: "https://droidplanner.github.io/QGroundControl/"
+    check_kind: none
+    checkable: false
+    note: >-
+      Filename carries no version, so freshness cannot be inferred from it. Would
+      need the download page parsed. Tracked, but reported as UNCHECKABLE.
+
+  - name: "LM-Studio-0.4.20-1-x64.AppImage"
+    path: "/home/scottw/Documents/APP IMAGES/LM-Studio-0.4.20-1-x64.AppImage"
+    version_in_name: "0.4.20-1"
+    source: "https://lmstudio.ai/download"
+    check_kind: none
+    checkable: false
+    note: "Version is readable from the filename, but there is no feed to compare it to."
+
+  - name: "pCloud.AppImage"
+    path: "/home/scottw/Documents/APP IMAGES/pCloud.AppImage"
+    version_in_name: null
+    source: "https://www.pcloud.com/download"
+    check_kind: none
+    checkable: false
+
+  - name: "nPerf.AppImage"
+    path: "/home/scottw/.local/bin/nPerf.AppImage"
+    version_in_name: null
+    source: "unknown - no provenance recorded"
+    check_kind: none
+    checkable: false
+    note: "Provenance UNKNOWN. This is a finding: nothing records where it came from."
+
+  - name: "ReticulumMeshChatX-v4.9.1-linux-x86_64.AppImage"
+    path: "/home/scottw/Applications/ReticulumMeshChatX-v4.9.1-linux-x86_64.AppImage"
+    version_in_name: "4.9.1"
+    source: "https://github.com/liamcottle/reticulum-meshchat or a packaged build"
+    check_kind: none
+    checkable: false
+    note: >-
+      This AppImage is the SOURCE the running native backend was extracted from,
+      not the thing that runs. The service execs
+      ~/Applications/meshchatx-native/ReticulumMeshChatX. Keep the AppImage as
+      the re-extraction source; do not treat it as the live version.
+
+# ---------------------------------------------------------------------------
+# ~/.local/bin executables with an identifiable origin
+# ---------------------------------------------------------------------------
+executables:
+  - name: "pymavlink (mav* tools)"
+    version: "2.4.49"
+    provides: ["mavlink_bitmask_decoder.py", "mavfft.py", "mavfft_isb.py", "mavflightmodes.py",
+               "mavflighttime.py", "mavgen.py", "mavgpslock.py", "mavgraph.py", "mavkml.py",
+               "mavlogdump.py", "mavextract.py", "mavmission.py", "mavparmdiff.py",
+               "mavparms.py", "mavplayback.py", "mavsearch.py", "mavsigloss.py", "mavsummarize.py",
+               "mavtogpx.py", "mavtotomfile.py"]
+    check_kind: pypi
+    pypi_package: "pymavlink"
+    checkable: true
+
+  - name: "bun"
+    version: "1.4.2"
+    check_kind: github
+    github_repo: "oven-sh/bun"
+    checkable: true
+
+  - name: "gh (GitHub CLI)"
+    version: "2.97.0"
+    check_kind: github
+    github_repo: "cli/cli"
+    checkable: true
+
+  - name: "cline"
+    version: "3.0.60"
+    check_kind: github
+    github_repo: "cline/cline"
+    checkable: true
+
+  - name: "google-chrome"
+    version: "154.0.8037.92"
+    check_kind: apt
+    apt_package: "google-chrome-stable"
+    checkable: true
+
+  - name: "mcp"
+    check_kind: none
+    checkable: false
+    note: >-
+      BROKEN as installed. Running it reports "typer is required". Recorded so the
+      fault is visible rather than silently counted as working.
+
+# ---------------------------------------------------------------------------
+# Items deliberately NOT tracked
+# ---------------------------------------------------------------------------
+operator_managed:
+  items:
+    - "obsidian"
+    - "crossover"
+  note: "The operator keeps track of these personally. Not our concern."

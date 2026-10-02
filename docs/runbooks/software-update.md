@@ -63,6 +63,26 @@ this tool to act, it needs a person and a decision instead.
 | `UNMANAGED` | No package manager tracks it at all |
 | `LEAVE` | Behind upstream with no tracked release. **Not a to-do** |
 
+## -1c. Unmanaged software — is any of it stale?
+
+```bash
+/ALWAYSON/scripts/build-update/track-unmanaged.py --markdown \
+  --out /ALWAYSON/docs/unmanaged.md
+```
+
+Tracks the AppImages, `/opt` trees and `~/.local/bin` executables, which have no
+package manager watching them. Provenance is recorded in
+`config/build-update/unmanaged-software.yaml`.
+
+**Read-only.** It queries version endpoints and reads files. It installs nothing
+and changes nothing.
+
+Outcomes are `CURRENT`, `BEHIND`, `UNCHECKABLE`, `NOT CHECKED`, `UNREGISTERED`
+and `MISSING`. `UNCHECKABLE` is a **known gap, not a pass** — most AppImages
+carry no version and have no feed, so they cannot be compared automatically.
+
+Obsidian and Crossover are not tracked; the operator manages those personally.
+
 ## -1. Before anything: is the host behind?
 
 ```bash
