@@ -1,6 +1,6 @@
 # ALWAYS ON — Exhaustive Software Inventory
 
-> Generated `2026-10-02T03:42:51+00:00` by `scripts/build-update/inventory-full.py`.
+> Generated `2026-10-02T04:01:10+00:00` by `scripts/build-update/inventory-full.py`.
 > Do not hand-edit; regenerate with:
 >
 > ```bash
@@ -25,7 +25,7 @@ supported platform, or is it something a third party ships?
 | — of which in no apt index | **3** |
 | apt packages behind `Candidate` | **4** |
 | Desktop applications (`.desktop`) | **319** |
-| Applications with no package manager | **16** |
+| Applications with no package manager | **13** |
 | Executables in `~/.local/bin` | **88** |
 | pip / pipx / npm-global | **39** |
 | Snap packages | **16** |
@@ -4414,16 +4414,13 @@ update, so an update means re-downloading and reinstalling by hand.
 
 ### AppImages
 
-`8` AppImages. **None update themselves.** A version in the file name
+`5` AppImages. **None update themselves.** A version in the file name
 is the only freshness signal available, and a duplicate filename means a
 superseded copy is still on disk.
 
 | AppImage | Path |
 |---|---|
-| `QGroundControl-x86_64.AppImage` | `/home/scottw/Applications/QGroundControl-x86_64.AppImage` |
-| `ReticulumMeshChatX-v4.8.5-linux-x86_64.AppImage` | `/home/scottw/Applications/ReticulumMeshChatX-v4.8.5-linux-x86_64.AppImage` |
 | `ReticulumMeshChatX-v4.9.1-linux-x86_64.AppImage` | `/home/scottw/Applications/ReticulumMeshChatX-v4.9.1-linux-x86_64.AppImage` |
-| `nPerf-latest-x86_64.AppImage` | `/home/scottw/Applications/nPerf-latest-x86_64.AppImage` |
 | `LM-Studio-0.4.20-1-x64.AppImage` | `/home/scottw/Documents/APP IMAGES/LM-Studio-0.4.20-1-x64.AppImage` |
 | `QGroundControl-x86_64.AppImage` | `/home/scottw/Documents/APP IMAGES/QGroundControl-x86_64.AppImage` |
 | `pCloud.AppImage` | `/home/scottw/Documents/APP IMAGES/pCloud.AppImage` |
@@ -4790,10 +4787,7 @@ re-download, and a stale one is invisible until it fails.
 
 | Kind | Name | Path | Update source |
 |---|---|---|---|
-| AppImage | `QGroundControl-x86_64.AppImage` | `/home/scottw/Applications/QGroundControl-x86_64.AppImage` | MANUAL re-download; no package manager |
-| AppImage | `ReticulumMeshChatX-v4.8.5-linux-x86_64.AppImage` | `/home/scottw/Applications/ReticulumMeshChatX-v4.8.5-linux-x86_64.AppImage` | MANUAL re-download; no package manager |
 | AppImage | `ReticulumMeshChatX-v4.9.1-linux-x86_64.AppImage` | `/home/scottw/Applications/ReticulumMeshChatX-v4.9.1-linux-x86_64.AppImage` | MANUAL re-download; no package manager |
-| AppImage | `nPerf-latest-x86_64.AppImage` | `/home/scottw/Applications/nPerf-latest-x86_64.AppImage` | MANUAL re-download; no package manager |
 | AppImage | `LM-Studio-0.4.20-1-x64.AppImage` | `/home/scottw/Documents/APP IMAGES/LM-Studio-0.4.20-1-x64.AppImage` | MANUAL re-download; no package manager |
 | AppImage | `QGroundControl-x86_64.AppImage` | `/home/scottw/Documents/APP IMAGES/QGroundControl-x86_64.AppImage` | MANUAL re-download; no package manager |
 | AppImage | `pCloud.AppImage` | `/home/scottw/Documents/APP IMAGES/pCloud.AppImage` | MANUAL re-download; no package manager |

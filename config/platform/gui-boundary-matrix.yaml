@@ -40,7 +40,7 @@ entries:
 
   - id: qgroundcontrol-simulation
     scope_item: "QGroundControl simulation workflow"
-    gui: "QGroundControl host application (AppImage: ~/Applications/QGroundControl-x86_64.AppImage; installed, unvalidated)"
+    gui: "QGroundControl host application (AppImage: ~/Documents/APP IMAGES/QGroundControl-x86_64.AppImage; installed, launch verified 2026-10-02). The older ~/Applications/ copy was removed as a duplicate; the KDE launcher already pointed at the Documents path."
     purpose: "Simulated-vehicle mission planning and monitoring against ArduPilot SITL via MAVLink router."
     runtime_placement:
       app: "host; no Podman network attachment"
@@ -179,7 +179,7 @@ entries:
 
   - id: field-link-quality
     scope_item: "Field gateway/link-quality display"
-    gui: "MeshChatX AppImage (~/Applications/ReticulumMeshChatX-v4.8.5-linux-x86_64.AppImage, installed); link-quality display via protected Grafana when deployed"
+    gui: "MeshChatX backend runs as a HOST systemd user service, not a container: reticulum-meshchatx.service execs the extracted native binary ~/Applications/meshchatx-native/ReticulumMeshChatX (extracted from AppImage v4.9.1), --headless on 127.0.0.1:18000. It is loopback-bound, not attached to ao-field. The KDE launcher opens the web UI over Firefox, so the AppImage is only the source it was extracted from. The superseded v4.8.5 AppImage was removed 2026-10-02."
     purpose: "Field-link visibility: packet rate, RSSI, SNR, retries, replay rejections, spool depth (Section 17.2)."
     runtime_placement:
       appimage: "host; no Podman network attachment"
