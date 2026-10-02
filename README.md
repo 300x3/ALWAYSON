@@ -122,12 +122,13 @@ panel and none is split across the fold. For a fully zoomable,
 resolution-independent view, or to open the two portrait panels side by side, use
 the vector and self-contained viewer:
 
-**[Open the live topology viewer](https://filedn.com/l5JNexbL2ipFNaQcAkmV7lQ/%2A%2A%2ACURRENT%2A%2A%2A/site/alwayson-single-topology-v2.html)** — the interactive
-diagram, hosted and always current (v2, rebuilt 2026-10-02).
+**[Open the live topology viewer](https://filedn.com/l5JNexbL2ipFNaQcAkmV7lQ/%2A%2A%2ACURRENT%2A%2A%2A/site/alwayson-single-topology.html)** — the interactive
+diagram, hosted and always current (rebuilt 2026-10-02). This link is stable; it is
+replaced in place each time the diagram is rebuilt, so it never changes.
 
 | Artefact | Use it for |
 |---|---|
-| **[Live topology viewer](https://filedn.com/l5JNexbL2ipFNaQcAkmV7lQ/%2A%2A%2ACURRENT%2A%2A%2A/site/alwayson-single-topology-v2.html)** | **Interactive, zoomable, self-contained HTML (v2, rebuilt 2026-10-02). Hover a card to trace its links, click to pin, use find to jump to a node. Hosted copy, so it is the one that stays current** |
+| **[Live topology viewer](https://filedn.com/l5JNexbL2ipFNaQcAkmV7lQ/%2A%2A%2ACURRENT%2A%2A%2A/site/alwayson-single-topology.html)** | **Interactive, zoomable, self-contained HTML (rebuilt 2026-10-02). Hover a card to trace its links, click to pin, use find to jump to a node. Hosted copy at a stable link, so it is the one that stays current** |
 | [ao-single-topology.svg](assets/ao-single-topology.svg) | Vector master. Scales to any zoom with no loss; opens in a browser or Inkscape |
 | [ao-single-topology.html](assets/ao-single-topology.html) | The same viewer, committed here — works offline, no server needed |
 | **[Software status — markdown](docs/software-status.md)** | **Every installed package, image, application and tool, in one table: what is installed, whether it is up to date, what is released, and whether it is pinned.** [PDF (16 pages)](docs/software-status.pdf) for printing and offline reading. Generated, not hand-maintained |
