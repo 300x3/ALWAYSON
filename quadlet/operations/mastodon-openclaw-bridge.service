@@ -1,0 +1,21 @@
+[Unit]
+Description=Permanent OpenClaw to local Mastodon mention bridge
+# Tracked in /ALWAYSON/quadlet/operations/mastodon-openclaw-bridge.service; script in
+# /ALWAYSON/scripts/mastodon/mastodon-openclaw-bridge.py
+# Starts at graphical login
+# Mastodon access token from KDE Wallet (with file fallback in /ALWAYSON/secrets).
+After=network-online.target openclaw-gateway.service graphical-session.target
+PartOf=graphical-session.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /ALWAYSON/scripts/mastodon/mastodon-openclaw-bridge.py
+WorkingDirectory=/home/scottw
+Restart=always
+RestartSec=10
+Environment=HOME=/home/scottw
+Environment=PATH=/home/scottw/.local/bin:/home/scottw/.npm-global/bin:/usr/local/bin:/usr/bin:/bin
+
+[Install]
+WantedBy=graphical-session.target
