@@ -1027,6 +1027,12 @@ until `ao-sim-fabrication` re-pins it. That fail-safe is intended.
 `config/platform/network-cidrs.yaml`, and `check-network-isolation.sh` asserts it
 as an egress network.
 
+**The update procedure.** The full operator path — inventory, acquire, promote,
+deploy, verify, record, and roll back — is in
+`docs/runbooks/software-update.md`. Promotion is done with
+`scripts/build-update/promote-image-digest.sh`, which edits exactly one `Image=`
+line and refuses an unqualified, unpinned, or cross-registry reference.
+
 **Enabling it.** `systemctl --user start ao-build-update` runs one acquisition
 pass. The unit carries no `WantedBy=`, so it will not start on its own. Enabling
 it permanently, and any decision to automate acquisition, requires operator
