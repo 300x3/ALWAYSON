@@ -1034,6 +1034,14 @@ writes `docs/drift.md`. It is read-only — it never pulls, installs, or restart
 distinguishes a real DRIFT from a BEHIND-LATEST condition, which for an image held at
 an older major on purpose is information rather than a defect.
 
+**Recommendations: advisory only.** `scripts/build-update/recommend.py` turns the
+drift report and the inventory into a ranked, explained recommendation — what needs
+a decision, why, the risk, and the command to run *if you choose to*. It applies
+nothing: it cannot install, promote, deploy, or restart. **Automatic updates are
+the last thing this system does and require review and explicit authorization;
+they are not built, and the reporting tools are not to be extended to perform
+them.**
+
 **The update procedure.** The full operator path — inventory, acquire, promote,
 deploy, verify, record, and roll back — is in
 `docs/runbooks/software-update.md`. Promotion is done with

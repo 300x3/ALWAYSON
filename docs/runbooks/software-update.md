@@ -33,6 +33,36 @@ only then to the repository delivering it, because that is the question that
 matters when deciding what to update: part of the supported platform, or a third
 party's release cadence?
 
+## -1b. What should I do about it?
+
+```bash
+/ALWAYSON/scripts/build-update/recommend.py --markdown \
+  --out /ALWAYSON/docs/recommendations.md
+```
+
+Turns the drift report and the inventory into a ranked, explained
+recommendation: what needs a decision, why, what the risk is, and the exact
+command to run **if you choose to**.
+
+**It applies nothing.** It cannot install a package, promote a digest, edit a
+Quadlet, deploy a unit, or restart a service. The commands it prints are for a
+human to read and decide about.
+
+Automatic updates are the **last** thing this system does and require review and
+explicit authorization. They are not built. If a future change appears to need
+this tool to act, it needs a person and a decision instead.
+
+| Class | Means |
+|---|---|
+| `SECURITY` | A security-pocket update is pending; normally unattended-upgrades takes it |
+| `REVIEW` | Not on a release the host says it tracks. Read before applying |
+| `TAKE_NOW` | Newer patch of the same major. Low risk, still your decision |
+| `UNPINNED` | A floating tag that can move underneath the unit |
+| `BLOCKED` | Installed software no repository can deliver an update to |
+| `ORPHANED` | Installed, but present in no repository index |
+| `UNMANAGED` | No package manager tracks it at all |
+| `LEAVE` | Behind upstream with no tracked release. **Not a to-do** |
+
 ## -1. Before anything: is the host behind?
 
 ```bash

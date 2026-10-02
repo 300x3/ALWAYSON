@@ -379,6 +379,7 @@ def build(as_md: bool, offline: bool):
     summary = {"in_sync": 0, "drift": 0, "unresolved": 0, "local": 0,
                "unpinned": 0, "behind_latest": 0, "behind_tracked": 0}
     containers = collect_containers()
+    verdicts = []
 
     # ---- containers ------------------------------------------------------
     w("## 1. Container images" if as_md else "\n=== 1. CONTAINER IMAGES ===")
@@ -436,6 +437,8 @@ def build(as_md: bool, offline: bool):
                     verdict = "BEHIND LATEST (no tracked release tag)"
                     summary["behind_latest"] = summary.get("behind_latest", 0) + 1
 
+        verdicts.append({"unit": name, "domain": c["domain"], "ref": ref,
+                         "pinned": pinned, "upstream": up, "verdict": verdict})
         sp = str(pinned).split(":")[-1][:16]
         su = str(up).split(":")[-1][:16]
         if as_md:
@@ -548,7 +551,7 @@ def build(as_md: bool, offline: bool):
         w(f"  local      {summary['local']}")
         w(f"  unpinned   {summary['unpinned']}")
 
-    return "\n".join(lines) + "\n", summary, apt_installed, drift_apt, snaps, apps
+    return "\n".join(lines) + "\n", summary, apt_installed, drift_apt, snaps, apps, verdicts
 
 
 def main() -> int:
@@ -559,7 +562,8 @@ def main() -> int:
                     help="skip network resolution; mark upstream UNKNOWN")
     args = ap.parse_args()
 
-    text, summary, apt_installed, drift_apt, snaps, apps = build(args.markdown, args.offline)
+    text, summary, apt_installed, drift_apt, snaps, apps, verdicts = build(
+        args.markdown, args.offline)
 
     if args.out:
         p = Path(args.out)
@@ -575,7 +579,7 @@ def main() -> int:
                 "generated": now_utc(), "summary": summary,
                 "apt_package_count": len(apt_installed),
                 "apt_drift": [{**r, "architectures": sorted(r.get("architectures", []))} for r in drift_apt],
-                "snaps": snaps, "flatpaks": apps,
+                "snaps": snaps, "flatpaks": apps, "containers": verdicts,
             }, indent=2, sort_keys=True), encoding="utf-8")
             print(f"wrote {side}")
         except OSError as e:
