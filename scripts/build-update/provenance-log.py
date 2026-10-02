@@ -28,6 +28,7 @@ import argparse
 import json
 import os
 import re
+import time
 import subprocess
 import sys
 import urllib.error
@@ -61,13 +62,71 @@ def run(cmd, timeout=30):
         return 127, "", str(e)
 
 
+CACHE_DIR = AO_ROOT / "data/build-update/cache"
+# How long a fetched "latest version" stays usable without re-checking. A stale
+# verdict is still reported, but age is written into the document so a reader can
+# see it. Re-checking is cheap; lying about freshness is not.
+CACHE_TTL = int(os.environ.get("AO_CACHE_TTL", "21600"))   # 6h
+OFFLINE = False          # set by --offline; never touches the network
+_CACHE_HITS = {}
+_CACHE_STALE = {}
+
+
+def _cache_path(url):
+    import hashlib
+    h = hashlib.sha256(url.encode()).hexdigest()[:40]
+    host = re.sub(r"[^A-Za-z0-9._-]", "_", url.split("/")[2] if "//" in url else "local")
+    return CACHE_DIR / host / f"{h}.json"
+
+
+def _cache_read(url):
+    p = _cache_path(url)
+    if not p.exists():
+        return None
+    try:
+        rec = json.loads(p.read_text())
+    except (OSError, ValueError):
+        return None
+    # A recorded FAILURE is never promoted to a value. Reusing it as an answer
+    # would turn a transient outage into a permanent "no update available".
+    if rec.get("state") == "error":
+        return None
+    age = time.time() - rec.get("ts", 0)
+    _CACHE_HITS[url] = age
+    return rec
+
+
+def _cache_write(url, value):
+    p = _cache_path(url)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    rec = {"ts": time.time(), "url": url, "value": value, "state": "ok"}
+    t = p.with_suffix(".json.tmp")
+    try:
+        t.write_text(json.dumps(rec))   # tmp+rename: a crash never leaves a half file
+        t.replace(p)
+    except OSError:
+        pass
+
+
 def get_json(url):
+    if OFFLINE:
+        rec = _cache_read(url)
+        return rec.get("value") if rec else None
+    rec = _cache_read(url)
+    if rec and (time.time() - rec.get("ts", 0)) < CACHE_TTL:
+        return rec.get("value")
     req = urllib.request.Request(url, headers={"User-Agent": "alwayson-ao-build-update"})
     try:
         with urllib.request.urlopen(req, timeout=TIMEOUT) as r:
-            return json.loads(r.read().decode())
+            val = json.loads(r.read().decode())
     except (urllib.error.URLError, OSError, ValueError, TimeoutError):
+        # Fall back to a stale value but record it as stale, never as fresh.
+        if rec:
+            _CACHE_STALE[url] = True
+            return rec.get("value")
         return None
+    _cache_write(url, val)
+    return val
 
 
 def norm(v):
@@ -108,6 +167,15 @@ def registry_digest_raw(host, repo, tag):
            "quay.io": "quay.io"}.get(host)
     if api is None:
         return None
+    ckey = f"registry:{host}/{repo}:{tag}"
+    if OFFLINE:
+        rec = _cache_read(ckey)
+        _RAW_CACHE[key] = rec.get("value") if rec else None
+        return _RAW_CACHE[key]
+    rec = _cache_read(ckey)
+    if rec and (time.time() - rec.get("ts", 0)) < CACHE_TTL:
+        _RAW_CACHE[key] = rec.get("value")
+        return _RAW_CACHE[key]
     token = None
     tok = {"docker.io": f"https://auth.docker.io/token?service=registry.docker.io&scope=repository:{repo}:pull",
            "ghcr.io": f"https://ghcr.io/token?scope=repository:{repo}:pull"}.get(host)
@@ -125,8 +193,11 @@ def registry_digest_raw(host, repo, tag):
     try:
         with urllib.request.urlopen(req, timeout=TIMEOUT) as r:
             _RAW_CACHE[key] = r.headers.get("Docker-Content-Digest")
+            _cache_write(ckey, _RAW_CACHE[key])
             return _RAW_CACHE[key]
     except Exception:
+        # A failed fetch must never be cached as "this digest", which would read
+        # as a definitive answer on every later run.
         _RAW_CACHE[key] = None
         return None
 
@@ -240,15 +311,98 @@ def released_digest(host, repo, tag):
 
 
 
+_DPKG_LIST_DIR = Path("/var/lib/dpkg/info")
+
+# Packages whose version tracks the framework, theme or config rather than the
+# application an operator launches. Their version is shown qualified.
+_DATA_PKG_SUFFIX = ("-data", "-common", "-bin", "-doc", "-docs", "-extra",
+                    "-config", "-plugins", "-extras", "-udeb")
+
+
+def dpkg_desktop_owners():
+    """Map each /usr/share/applications path to the package that ships it.
+
+    Read from dpkg's own .list manifests instead of calling `dpkg -S`. dpkg -S
+    treats each argument as a SUBSTRING/GLOB pattern against every file in every
+    package, so a bare name silently resolves to the wrong package -- `dpkg -S
+    ark` answers kf6-breeze-icon-theme -- and a bulk call returns matches for
+    paths that were never asked about. These manifests are exact, and building
+    the whole map takes about 0.07s.
+    """
+    m = {}
+    if not _DPKG_LIST_DIR.is_dir():
+        return m
+    for lst in _DPKG_LIST_DIR.glob("*.list"):
+        pkg = lst.name[:-len(".list")]
+        try:
+            with lst.open(errors="replace") as fh:
+                for line in fh:
+                    p = line.strip()
+                    if p.startswith("/usr/share/applications/") and p.endswith(".desktop"):
+                        m.setdefault(p, pkg)
+        except OSError:
+            continue
+    return m
+
+
+def maintainer_map(inv):
+    """Debian Maintainer field per package, keyed to the INSTALLED version.
+
+    `apt-cache show` prints one stanza per available version and its FIRST
+    stanza is the candidate, not what is installed -- those differ in practice
+    (google-chrome-stable installed .92 against candidate .97). Matching the
+    stanza to the version dpkg reports keeps the publisher and the version
+    column describing the same package state.
+
+    This is the Debian *packager*, not the upstream vendor: most of this host
+    resolves to Kubuntu Developers. The column says so rather than implying an
+    upstream publisher that was never actually read.
+    """
+    installed = {t["package"]: t.get("version") for t in inv.get("apt_packages", [])}
+    rc, txt, _ = run(["apt-cache", "show"] + sorted(installed))
+    if rc != 0 or not txt.strip():
+        return {}
+    stanzas, cur = [], {}
+    for line in txt.splitlines():
+        if not line.strip():
+            if cur:
+                stanzas.append(cur)
+            cur = {}
+        elif not line[0].isspace() and ":" in line:
+            k, _, v = line.partition(":")
+            cur[k.strip()] = v.strip()
+    if cur:
+        stanzas.append(cur)
+    by_pkg = {}
+    for s in stanzas:
+        by_pkg.setdefault(s.get("Package"), []).append(s)
+    out = {}
+    for pkg, want in installed.items():
+        for s in by_pkg.get(pkg, []):
+            if not want or s.get("Version") == want:
+                m = (s.get("Maintainer") or "").split("<")[0].strip()
+                if m:
+                    out[pkg] = m
+                break
+    return out
+
+
 def desktop_apps(inv):
     """Every installed GUI application, from its own .desktop entry.
 
     These were missing entirely from the status table. They are the applications
     an operator actually recognises, and the inventory only ever listed a
-    hand-picked dozen of them.
+    299 of the 307 entries have no X-Ubuntu-Gettext-Domain key, so they used to
+    render as "no owning package" with no version and no publisher. They are now
+    resolved through dpkg's file manifests and rolled up by owning package:
+    plasma-workspace alone ships 28 entries, and listing those 28 separately
+    inflated the document without adding information.
     """
     installed = {t["package"]: t for t in inv.get("apt_packages", [])}
-    rows, seen = [], set()
+    owners = dpkg_desktop_owners()
+    maint = maintainer_map(inv)
+
+    groups, order = {}, []
     for d in (Path.home() / ".local/share/applications", Path("/usr/share/applications")):
         if not d.exists():
             continue
@@ -262,18 +416,91 @@ def desktop_apps(inv):
                         pkg = line.split("=", 1)[1].strip()
             except OSError:
                 continue
-            if not name or name in seen:
+            if not name:
                 continue
-            seen.add(name)
-            t = installed.get(pkg) if pkg else None
-            ver = t["version"] if t else "-"
-            rows.append({
-                "item": name, "via": "desktop app",
-                "publisher": (t["origin"].split("/")[0] if t and t.get("origin") else "-"),
-                "repo": (f"{pkg}" if pkg else "no owning package"),
-                "pinned": ver, "released": ver, "pin_hash": "-", "rel_hash": "-",
-                "is_pinned": bool(pkg), "download": "-", "local": False,
-            })
+            # An explicit gettext domain is authoritative; otherwise fall back to
+            # whichever package actually ships this file.
+            owner = pkg if pkg in installed else owners.get(str(f))
+            if owner:
+                key, label = ("pkg", owner), owner
+            else:
+                # Not dpkg-owned. Group by the display name, not the file: pcloud
+                # and appimagekit-pcloud are two files for one application, and
+                # CrossOver writes several files with the same label. Keying on
+                # the path emitted a row per file and duplicated the table.
+                kind = ("CrossOver (/opt)" if "cxoffice" in str(f).lower()
+                        else "user-installed (~/.local)")
+                key, label = ("raw:" + name), kind
+            if key not in groups:
+                groups[key] = (label, [], [])
+                order.append(key)
+            if name not in groups[key][1]:
+                groups[key][1].append(name)
+                groups[key][2].append(f)
+
+    # A display name can legitimately belong to several packages: plasma-discover,
+    # plasma-discover-notifier and plasma-discover-backend-snap are all called
+    # "Discover", and kded5/kded6 are both "KDED". An unqualified name would
+    # leave those rows indistinguishable, so the package is named in that case.
+    name_owners = {}
+    for k in order:
+        if not k[0].startswith("raw:"):
+            for nm in groups[k][1]:
+                name_owners.setdefault(nm, set()).add(k[1])
+
+    rows = []
+    for key in order:
+        label, names, files = groups[key]
+        names = sorted(names)
+        if key[0].startswith("raw:") and names[0] in name_owners:
+            # A user copy of an application apt already owns (Google Chrome
+            # ships its own .desktop). The owned row covers it; a second row for
+            # the same application is noise.
+            continue
+        multi = len(names) > 1
+        suffix = f" ({len(names)} launchers)" if multi else ""
+        # Name the owning package only when the display name is ambiguous.
+        shown = (f"{label}{suffix}" if multi
+                 else (f"{names[0]} ({label})"
+                       if len(name_owners.get(names[0], ())) > 1 else names[0]))
+        if key[0] == "pkg":
+            # dpkg names a multi-arch package's manifest "pkg:amd64", but the
+            # inventory and apt-cache both key on the unqualified name.
+            bare = label.split(":")[0]
+            t = installed.get(bare, {})
+            ver = t.get("version") or "-"
+            # Qualify where the version tracks the framework rather than the app.
+            pinned = f"{ver} (via {label})" if label.endswith(_DATA_PKG_SUFFIX) else ver
+            row = {
+                "item": shown,
+                "via": "desktop app (apt)",
+                "publisher": maint.get(bare, "-"),
+                "repo": f"apt: {label}",
+                "pinned": pinned, "released": "no upstream feed",
+                "pin_hash": "-", "rel_hash": "-",
+                "is_pinned": True, "download": f"apt show {label}",
+                "local": False, "date": apt_date(bare),
+            }
+        else:
+            p = Path(files[0])
+            row = {
+                "item": shown,
+                "via": "desktop app (not dpkg-owned)",
+                "publisher": "not dpkg-owned", "repo": label,
+                "pinned": "not installed by a package",
+                "released": "no upstream feed",
+                "pin_hash": "-", "rel_hash": "-", "is_pinned": False,
+                "download": "vendor site (not recorded)",
+                "local": False, "date": file_date(p) if p.exists() else "-",
+            }
+        # NEVER let released mirror pinned. When both held the same string,
+        # same_version() returned True and the row claimed to be "up to date"
+        # with no upstream comparison performed at all. There is no feed for a
+        # plain apt package here, so these honestly stay "?" until one exists.
+        row["force_match"] = "?"
+        if multi:
+            row["members"] = names
+        rows.append(row)
     return rows
 
 
@@ -320,6 +547,7 @@ def third_party_apt(inv):
             "pinned": t["version"], "released": t["version"],
             "pin_hash": "-", "rel_hash": "-", "is_pinned": True,
             "download": "-", "local": False,
+            "date": apt_date(t["package"]),
         })
     return rows
 
@@ -466,21 +694,79 @@ def kde_block(inv):
                 if re.match(r"^(kde|plasma|libdde|sddm|konsole|dolphin|kate|"
                             r"okular|ark|discover|gwenview|spectacle|kcalc|systemsettings)", p)}
     plasma = kde_pkgs.get("plasma-desktop") or kde_pkgs.get("plasma-workspace") or "-"
-    plasma_n = plasma.split("-")[0] if plasma != "-" else "?"
-    for name, pkg in members:
-        if not pkg:
-            for cand in ("plasma-desktop", "systemsettings"):
-                pass
+    plasma_n = plasma.split(":")[-1].split("-")[0] if plasma != "-" else "?"
     ver = f"Plasma {plasma_n}" if plasma != "-" else "-"
+
+    # KDE on this host is NOT served by a Kubuntu repository. Verified: no
+    # kubuntu/ppa/launchpad source is configured at all. Plasma ships from the
+    # ordinary Ubuntu archive under universe/kde, and it is the KUBUNTU team
+    # that maintains it there -- 95 of the 147 desktop owners on this machine
+    # list "Kubuntu Developers" as Maintainer. Naming the team is accurate;
+    # inventing a Kubuntu repository would not be, so the row reports the
+    # archive it actually came from, read from apt rather than assumed.
+    origin, section = "-", "-"
+    rc, pol, _ = run(["apt-cache", "policy", "plasma-desktop"])
+    if rc == 0:
+        seen = []
+        # A version-table line is "<pin> <uri> <suite>/<component> <arch> Packages",
+        # so the URI is not at the start of the line.
+        for line in pol.splitlines():
+            m = re.search(r"(https?://\S+/ubuntu)\s+(\S+)/(\S+)", line)
+            if m and m.group(1) not in seen:
+                seen.append((m.group(1), m.group(2), m.group(3)))
+        if seen:
+            uri, suite, comp = seen[0]
+            origin = f"{uri} {suite}/{comp}"
+    rc2, show, _ = run(["apt-cache", "show", "plasma-desktop"])
+    if rc2 == 0:
+        m2 = re.search(r"^Section:\s*(.+)$", show, re.M)
+        if m2:
+            section = m2.group(1).strip()
+    repo = origin if origin != "-" else (f"Ubuntu archive — {section}"
+                                         if section != "-" else "-")
+
     row = {
         "item": f"KDE Plasma Desktop ({len(members)} components)",
-        "via": "apt/KDE packages", "publisher": "KDE",
-        "repo": f"{len(kde_pkgs)} kde/plasma packages",
-        "pinned": ver, "released": f"KDE Gear; updated with the Ubuntu archive (Plasma {plasma_n})",
+        "via": "apt/KDE packages",
+        "publisher": "KDE, packaged by Kubuntu for Ubuntu",
+        "repo": repo,
+        "pinned": ver,
+        "released": (f"KDE Plasma {plasma_n} via the Ubuntu archive; "
+                     f"no separate Kubuntu repository exists on this host"),
         "pin_hash": "-", "rel_hash": "-", "is_pinned": True,
-        "download": "https://apps.kde.org/", "local": False, "nocompare": True,
+        "download": "https://packages.kubuntu.org/", "local": False,
+        "nocompare": True,
     }
     return row, sorted(members)
+
+
+def image_dates():
+    """Map repository -> local image creation date.
+
+    podman reports Created as a relative string ("16 hours ago"), which is
+    useless in a table, so CreatedAt is requested instead and truncated to a
+    date. Read once per run rather than per container.
+    """
+    rc, out, _ = run(["podman", "images", "--format",
+                      "{{.Repository}}|{{.CreatedAt}}"], timeout=90)
+    m = {}
+    if rc != 0:
+        return m
+    for line in out.splitlines():
+        if "|" not in line:
+            continue
+        repo, _, created = line.partition("|")
+        d = created.strip().split(" ")[0]
+        repo = repo.strip()
+        m.setdefault(repo, d)
+        # podman always prints the registry, but a quadlet may write the short
+        # form ("webodm/webodm_db"). Index both spellings so a short reference
+        # finds its date instead of silently rendering as "-".
+        if "/" in repo:
+            host, _, short = repo.partition("/")
+            if "/" not in short:
+                m.setdefault(short, d)
+    return m
 
 
 def containers(offline=False):
@@ -489,11 +775,7 @@ def containers(offline=False):
     if p.exists():
         stable = (load_yaml(p).get("images") or {})
     rows = []
-    stable = {}
-    p = AO_ROOT / "config/build-update/stable-refs.yaml"
-    if p.exists():
-        stable = (load_yaml(p).get("images") or {})
-    rows = []
+    dates = image_dates()
     for f in sorted((AO_ROOT / "quadlet").glob("*/*.container")):
         ref = next((l.split("=", 1)[1].strip() for l in f.read_text().splitlines()
                     if l.startswith("Image=")), "")
@@ -502,19 +784,29 @@ def containers(offline=False):
             rows.append({"item": f.stem, "via": f"container/{f.parent.name}",
                          "publisher": publisher, "repo": ref or "-",
                          "pinned": "-", "released": "no upstream",
-                         "download": "(local build; no upstream)", "local": True})
+                         "download": "(local build; no upstream)", "local": True,
+                         "date": dates.get(ref.split("@")[0].split(":")[0], "-")})
             continue
         if "@" in ref:
             base, digest = ref.split("@", 1)
         else:
             base, digest = ref, ""
         host, _, repo = base.partition("/")
+        # A quadlet may write a short reference such as "webodm/webodm_db". The
+        # first component is then part of the repository path, not a registry:
+        # Docker's own rule is that a first component containing no "." or ":",
+        # and not named "localhost", is not a registry host. Without this, host
+        # came out as "webodm", matched no registry API, and the Released hash
+        # silently rendered as "-" instead of the digest.
+        if not repo or ("." not in host and ":" not in host and host != "localhost"):
+            repo, host = base, "docker.io"
         tag = (stable.get(f"{host}/{repo}") or {}).get("tracked_tag") or "latest"
-        released = "-" if offline else released_digest(host, repo, tag)
+        # One fetch serves both the short digest and the reverse version lookup.
+        rel_full = None if offline else registry_digest_raw(host, repo, tag)
+        released = rel_full[:19] if rel_full else "-"
         # Reverse-map the pinned digest to a version TAG. Without this the table
         # only ever showed two hashes, which tells a human nothing about versions.
         pin_ver = version_for(host, repo, digest) if (digest and not offline) else None
-        rel_full = registry_digest_raw(host, repo, tag) if not offline else None
         rel_ver = version_for(host, repo, rel_full) if rel_full else None
         rows.append({
             "item": f.stem, "via": f"container/{f.parent.name}",
@@ -528,6 +820,7 @@ def containers(offline=False):
             "is_pinned": bool(digest),
             "download": f"podman pull {base}@{digest}" if digest else ref,
             "local": False, "exact": False,
+            "date": dates.get(base.split("@")[0], "-"),
         })
     return rows
 
@@ -541,20 +834,27 @@ def snaps(offline=False):
         f = line.split()
         if len(f) < 4:
             continue
-        released = "-"
+        released, publisher = "-", (f[4] if len(f) > 4 else "-")
         if not offline:
             _, info, _ = run(["snap", "info", f[0]], timeout=30)
             for line in info.splitlines():
                 st = line.strip()
-                if st.startswith("latest/") and ":" in st:
+                # The store names the publisher ("Brave Software"); `snap list`
+                # only carries a verified account id ("brave**"). Prefer the name.
+                if st.startswith("publisher:"):
+                    named = st.split(":", 1)[1].split("(")[0].strip()
+                    if named:
+                        publisher = named
+                elif st.startswith("latest/") and ":" in st:
                     # "latest/stable:  1.96.60 2026-09-30 (688) 227MB -"
                     released = st.split(":", 1)[1].split()[0]
                     break
         rows.append({"item": f[0], "via": f"snap/{f[3]}",
-                     "publisher": f[5] if len(f) > 5 else "canonical",
+                     "publisher": publisher,
                      "repo": "snap store",
                      "pinned": f[1], "released": released or "-", "is_pinned": True,
-                     "download": f"https://snapcraft.io/{f[0]}", "local": False})
+                     "download": f"https://snapcraft.io/{f[0]}", "local": False,
+                     "date": snap_date(f[0], f[2])})
     return rows
 
 
@@ -579,7 +879,8 @@ def flatpaks(offline=False):
         rows.append({"item": f[0], "via": f"flatpak/{f[2]}",
                      "publisher": f[3], "repo": f[3],
                      "pinned": f[1], "released": released or "-", "is_pinned": True,
-                     "download": f"https://flathub.org/apps/{f[0]}", "local": False})
+                     "download": f"https://flathub.org/apps/{f[0]}", "local": False,
+                     "date": flatpak_date(f[0])})
     return rows
 
 
@@ -632,7 +933,7 @@ def apt_rows(inv, codename):
     return rows
 
 
-def direct_and_unmanaged(offline):
+def direct_and_unmanaged(offline, inv=None):
     """Vendor-published software: publisher site, version, download link."""
     reg = load_yaml(UNMANAGED)
     rows = []
@@ -650,6 +951,7 @@ def direct_and_unmanaged(offline):
             "released": upstream,
             "download": a.get("linux_amd64_direct") or a.get("download_url") or "none known",
             "note": (a.get("note") or "").strip(), "local": False,
+            "date": file_date(a["path"]) if a.get("path") else "-",
         })
     for e in reg.get("executables", []) or []:
         upstream = "-"
@@ -674,26 +976,129 @@ def direct_and_unmanaged(offline):
                      "publisher": e.get("publisher") or "see repository",
                      "repo": repo, "pinned": e.get("version", "unknown"),
                      "released": upstream, "download": dl,
-                     "note": (e.get("note") or "").strip(), "local": False})
+                     "note": (e.get("note") or "").strip(), "local": False,
+                     "date": (apt_date(e["apt_package"]) if e.get("apt_package")
+                              else file_date(e["path"]) if e.get("path") else "-")})
     for dd in (reg.get("direct_downloads") or []):
         pkg = dd.get("package", "")
         rows.append({"item": f"{pkg} (direct .deb)", "via": "vendor/.deb",
                      "publisher": dd.get("publisher") or "vendor", "repo": "no feed",
                      "pinned": dd.get("installed", "-"), "released": "no feed",
                      "download": dd.get("source_url") or dd.get("download_url") or "-",
-                     "note": (dd.get("note") or "").strip(), "local": False})
+                     "note": (dd.get("note") or "").strip(), "local": False,
+                     "date": apt_date(pkg)})
+    rows.extend(unindexed_debs(inv or {}))
     return rows
+
+
+def unindexed_debs(inv):
+    """Installed .deb packages that belong to no configured apt repository.
+
+    crossover, obsidian and foxglove were installed from a file downloaded from
+    the vendor. dpkg tracks them, but no repository declares them, so apt will
+    never list an update for them and they never appeared in this table at all.
+    An operator has to track these by hand, which is only useful if they are
+    visible here.
+    """
+    rows = []
+    dd = inv.get("direct_downloads") or {}
+    items = ([{"package": k, **(v if isinstance(v, dict) else {})}
+              for k, v in dd.items()] if isinstance(dd, dict)
+             else [{"package": p} for p in dd])
+    for t in items:
+        pkg = t.get("package", "")
+        if not pkg:
+            continue
+        rows.append({"item": f"{pkg} (direct .deb)", "via": "vendor/.deb",
+                     "publisher": t.get("publisher") or "vendor (not recorded)",
+                     "repo": "no configured repository",
+                     "pinned": t.get("version", "-"), "released": "no feed",
+                     "pin_hash": "-", "rel_hash": "-", "is_pinned": True,
+                     "download": t.get("source_url") or "vendor site (not recorded)",
+                     "local": False, "date": apt_date(pkg)})
+    return rows
+
+
+def apt_date(pkg):
+    """Install date for a Debian package.
+
+    dpkg records no install timestamp in its database, so the only local
+    evidence is the mtime of the package's .list file, written when dpkg last
+    unpacked it. That is the install OR last upgrade date - there is no way to
+    tell which, so the column is labelled honestly rather than pretending.
+    """
+    if not pkg:
+        return "-"
+    for suf in (".list",):
+        p = Path("/var/lib/dpkg/info") / f"{pkg}{suf}"
+        try:
+            if p.exists():
+                return time.strftime("%Y-%m-%d",
+                                     time.gmtime(p.stat().st_mtime))
+        except OSError:
+            return "-"
+    return "-"
+
+
+def snap_date(name, rev):
+    """Install date for a snap, from the blob file in /var/lib/snapd/snaps."""
+    if not name:
+        return "-"
+    d = Path("/var/lib/snapd/snaps")
+    for cand in (d / f"{name}_{rev}.snap", d / f"{name}_{rev}.squashfs"):
+        try:
+            if cand.exists():
+                return time.strftime("%Y-%m-%d", time.gmtime(cand.stat().st_mtime))
+        except OSError:
+            continue
+    return "-"
+
+
+def file_date(path):
+    """mtime of a vendor file, for software with no package database."""
+    try:
+        p = Path(path).expanduser()
+        if p.exists():
+            return time.strftime("%Y-%m-%d", time.gmtime(p.stat().st_mtime))
+    except OSError:
+        pass
+    return "-"
+
+
+def flatpak_date(app_id):
+    """Install date for a flatpak, from its app directory mtime."""
+    if not app_id:
+        return "-"
+    try:
+        p = Path("/var/lib/flatpak/app") / app_id
+        if p.exists():
+            return time.strftime("%Y-%m-%d", time.gmtime(p.stat().st_mtime))
+    except OSError:
+        pass
+    return "-"
 
 
 HEADERS = ["Item", "Via", "Publisher", "Repository / archive", "Pinned",
            "Version here", "Up to date?", "Released", "Pinned hash",
-           "Released hash", "Download"]
+           "Released hash", "Installed", "Download"]
+
+
+def _fmt_age(seconds):
+    s = int(seconds)
+    if s < 90:
+        return f"{s}s"
+    if s < 5400:
+        return f"{s // 60}m"
+    return f"{s // 3600}h"
+
+
+COLLECTED = {}
 
 
 def render(inv, codename, offline):
-    """One table. Every row, the same eleven columns, top to bottom."""
+    """One table. Every row, the same twelve columns, top to bottom."""
     cont, sn, fl = containers(offline), snaps(offline), flatpaks(offline)
-    direct = direct_and_unmanaged(offline)
+    direct = direct_and_unmanaged(offline, inv)
     # The Ubuntu archive collapses to ONE row: 3,863 packages already covered by
     # apt and unattended-upgrades, which was 90 percent of the document and told
     # an operator nothing. Third-party repositories are listed individually,
@@ -714,11 +1119,50 @@ def render(inv, codename, offline):
     unknown = len([r for r in rows if match_of(r) == "?"])
     local = len([r for r in rows if match_of(r) == "local"])
     summary = len([r for r in rows if match_of(r) == "summary"])
+    # Hand the collected rows back to main(). Rebuilding them there re-ran every
+    # network lookup and every apt query a second time, doubling an online run.
+    COLLECTED["rows"] = rows
+    COLLECTED["counts"] = (behind, current, unknown, local, summary)
+    COLLECTED["kde_members"] = kde_members
+    COLLECTED["kde_row"] = kde_row
 
     L = []
     w = L.append
     w(f"# Software status - {inv['os']['pretty']} - {now_utc()[:10]}")
     w("")
+    freshest = max(_CACHE_HITS.values(), default=None)
+    oldest = None
+    if _CACHE_HITS:
+        ages = [a for a in _CACHE_HITS.values()]
+        oldest, freshest = max(ages), min(ages)
+    banner = []
+    if offline:
+        banner.append("**Offline run: cached upstream data only, no network was "
+                      "contacted.**")
+    if oldest is not None:
+        banner.append(f"Upstream data re-checked between "
+                      f"{_fmt_age(freshest)} and {_fmt_age(oldest)} ago "
+                      f"(cache TTL {CACHE_TTL // 3600}h).")
+    if _CACHE_STALE:
+        banner.append(f"**{len(_CACHE_STALE)} upstream lookups could not be "
+                      f"re-checked and fell back to a STALE cached value.**")
+    if banner:
+        w(" ".join(banner))
+        w("")
+
+    # A container whose digest could not be fetched shows "-" in Released hash,
+    # which is indistinguishable at a glance from "nothing to compare". Say
+    # which ones failed so a blank is never read as a clean result.
+    unresolved = [r["item"] for r in rows
+                  if str(r.get("via", "")).startswith("container")
+                  and str(r.get("rel_hash", "-")) == "-"
+                  and not r.get("local")]
+    if unresolved:
+        w(f"**{len(unresolved)} container(s) have no Released hash:** "
+          f"{', '.join(sorted(unresolved))}. Each is a distinct condition — a "
+          f"local build, a floating tag, or an upstream fetch that failed; "
+          f"expand the row to see which.")
+        w("")
     w(f"**{len(rows)} items.** {behind} behind - {current} up to date - "
       f"{unknown} no version published - {local} local build - {summary} summary. "
       f"Plus {n_ubuntu} Ubuntu archive packages collapsed into one row: Canonical "
@@ -726,8 +1170,8 @@ def render(inv, codename, offline):
       f"Generated by `scripts/build-update/provenance-log.py`; read-only.")
     w("")
     w("| Item | Via | Publisher | Repository / archive | Pinned | Version here | "
-      "Up to date? | Released | Pinned hash | Released hash | Download |")
-    w("|---|---|---|---|:---:|---|:---:|---|---|---|---|")
+      "Up to date? | Released | Pinned hash | Released hash | Installed | Download |")
+    w("|---|---|---|---|:---:|---|:---:|---|---|---|---|---|")
     rank = {"**NO**": 0, "?": 1, "summary": 2, "local": 3, "yes": 4}
     # ALL platform rows, in reading order: the desktop, the OS, the packages the
     # OS carries, the robot stack bound to it, and the simulator. A partial list
@@ -755,7 +1199,20 @@ def render(inv, codename, offline):
             item = f"*{item}*"
         w(f"| {item} | {r['via']} | {r['publisher']} | {r['repo']} | {mark} | "
           f"`{r['pinned']}` | {up} | {rel} | `{r.get('pin_hash', '-')}` | "
-          f"`{r.get('rel_hash', '-')}` | {cell} |")
+          f"`{r.get('rel_hash', '-')}` | {r.get('date', '-')} | {cell} |")
+    rolled = [(r["item"], r["members"]) for r in rows if r.get("members")]
+    if rolled:
+        w("")
+        w("<details><summary>Rolled-up launchers — expand to list every "
+          f"application entry ({sum(len(m) for _, m in rolled)} entries "
+          f"across {len(rolled)} groups)</summary>")
+        w("")
+        w("| Package / group | Launchers |")
+        w("|---|---|")
+        for item, members in sorted(rolled):
+            w(f"| `{item}` | {', '.join(members)} |")
+        w("")
+        w("</details>")
     if kde_members:
         w("")
         w(f"<details><summary>KDE Plasma Desktop — expand to list all "
@@ -771,7 +1228,8 @@ def render(inv, codename, offline):
     return "\n".join(L) + "\n"
 
 
-UNKNOWN = ("-", "no upstream", "no feed", "unreachable", "not recorded", "")
+UNKNOWN = ("-", "no upstream", "no upstream feed", "no feed", "unreachable",
+           "not recorded", "not installed by a package", "")
 
 
 def _is_digest(v):
@@ -883,7 +1341,8 @@ def rows_to_html(rows, counts, title, kde_members=None):
                  H.escape(str(match_of(r)).replace("**", "")),
                  f"<code>{rel}</code>",
                  f"<code>{H.escape(str(r.get('pin_hash', '-')))}</code>",
-                 f"<code>{H.escape(str(r.get('rel_hash', '-')))}</code>", dl_cell]
+                 f"<code>{H.escape(str(r.get('rel_hash', '-')))}</code>",
+                 H.escape(str(r.get('date', '-'))), dl_cell]
         cls = "behind" if match_of(r) == "**NO**" else ""
         out.append(f"<tr class='{cls}'>" + "".join(f"<td>{c}</td>" for c in cells) + "</tr>")
     out.append("</tbody></table>")
@@ -911,23 +1370,27 @@ def main():
     ap.add_argument("--markdown", action="store_true")
     ap.add_argument("--out")
     ap.add_argument("--html", help="also render to HTML at this path")
-    ap.add_argument("--offline", action="store_true")
+    ap.add_argument("--offline", action="store_true",
+                    help="use cached upstream data only; never touch the network")
+    ap.add_argument("--refresh", action="store_true",
+                    help="ignore the cache TTL and re-check every upstream "
+                         "value now (this is how the Released hash column is "
+                         "brought up to date quickly)")
     args = ap.parse_args()
+    global OFFLINE, CACHE_TTL
+    OFFLINE = args.offline
+    if args.refresh and not OFFLINE:
+        # TTL 0 makes every cached entry read as expired, so each lookup is
+        # re-fetched. Failed fetches are still never written as values.
+        CACHE_TTL = 0
 
     if not INVENTORY.exists():
         sys.exit("ERROR: run inventory-full.py first.")
     inv = json.loads(INVENTORY.read_text())
     text = render(inv, inv["os"]["codename"], args.offline)
-    _rows = (containers(args.offline) + snaps(args.offline) + flatpaks(args.offline)
-             + desktop_apps(inv)
-             + [t for t in third_party_apt(inv) if "ros.org" not in (t["publisher"] or "")]
-             + ubuntu_summary(inv) + ros_summary(inv) + gazebo_summary(inv)
-             + direct_and_unmanaged(args.offline))
-    _kde, _km = kde_block(inv)
-    behind = len([r for r in _rows if match_of(r) == "**NO**"])
-    current = len([r for r in _rows if match_of(r) == "yes"])
-    unknown = len([r for r in _rows if match_of(r) == "?"])
-    local = len([r for r in _rows if match_of(r) == "local"])
+    _rows = COLLECTED["rows"]
+    _km = COLLECTED["kde_members"]
+    behind, current, unknown, local, _summary = COLLECTED["counts"]
 
     if args.out:
         p = Path(args.out)
