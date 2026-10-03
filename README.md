@@ -1013,42 +1013,48 @@ secrets, no local ports and no internal hosts. What it may and must never contai
 ## 7.1.1 Frontend Website Details
 
 Source is the [HTML-300X3](https://github.com/300x3/HTML-300X3) repository. It publishes as
-a **single self-contained `index.html`** — one page, no build-time subpages. Sections are
-collapsed `<div class="sec">` blocks on that page, and each catalog entry is a `data-item`
-JSON payload rendered into a modal. The pCloud Public Folder holds exactly two files.
+a **single self-contained `index.html`** — one page, no build-time subpages. The sections
+below are regions of that page; each catalog entry is a `data-item` JSON payload rendered
+into a modal.
 
 ```text
 www.300x3.com
-└── index.html                     the entire site, ~85 KB, self-contained
+└── index.html                       the entire site, ~85 KB, self-contained
+    ├── MAIN PAGE                    hero, project introduction, status highlights
+    │   └── navigation to every section below
+    ├── EQUIPMENT                    Camping (Walk&Car) Essentials · Adapter · Boiler
+    │   │                             Pneumatic Speargun Ulu · Structural Battery
+    │   │                             Appliances · Computer
+    ├── BUILDINGS                    Furniture · ADU (80sf and up) · Mall · Tower
+    │                                 Concrete Island
+    ├── VEHICLES                     Drone (air/land/sea) · Boat (micro modular
+    │                                 aircraft carrier) · Personal Vehicle
+    │                                 Electric Car Wheel · Balloon
+    ├── DIGITAL                      Images (Reality Capture) · Topography (3D points)
+    │                                 Route Around Your County (turn-by-turn)
+    │                                 Where's My ______? (telemetry)
+    ├── DISCUSSION                   Forum (Mastodon) · RNS MeshChatX (+LoRa)
+    ├── DOCUMENTATION                 Introductory Video · Project Plan (Working PDF)
+    │                                 Server Coding · 3D Models · Heads Up Display App
+    │                                 Simulations · AI Systems · Hardware · Software
+    │                                 Fabrication · Raw Material
+    ├── DONATE                       PayPal button; Zelle; Coinbase / stablecoin;
+    │                                 other — customisation at 300X3@POSTEO.NET
+    ├── KIT REQUEST                  written request form, composed to the operator
+    └── CHAT                         OpenClaw assistant panel, exposes no infrastructure
 ```
 
-**Sections and the catalog entries each one carries.** These are the accordion sections in
-the page, in order; the entries are the modal items inside them.
-
-| Section | Entries |
-|---|---|
-| **Equipment** | Camping (Walk&Car) – Essentials · Adapter · Boiler · Pneumatic Speargun Ulu · Structural Battery · Appliances · Computer |
-| **Buildings** | Furniture · ADU (80sf and up) · Mall · Tower · Concrete Island |
-| **Vehicles** | Drone (air/land/sea) · Boat (micro modular aircraft carrier) · Personal Vehicle · Electric Car Wheel · Balloon |
-| **Digital** | Images (Reality Capture) · Topography (3D points) · Route Around Your County (Turn By Turn Directions) · Where's My ______? (Telemetry) |
-| **Discussion** | Forum (Mastodon) · RNS MeshChatX (+LoRa) |
-| **Documentation** | Introductory Video · Project Plan (Working PDF) · Server Coding · 3D Models · Heads Up Display App · Simulations · AI Systems · Hardware · Software · Fabrication · Raw Material |
-
-The page also carries site furniture outside the catalog sections: a home/hero block, a
-follow-up → support → chat link order (§7.1.1), a KIT REQUEST form, an OpenClaw chat panel,
-and a PayPal donate button.
-
-**What lives on disk.** The publish folder is:
+The publish folder holds exactly two files:
 
 ```text
 PCLOUD-PUBLIC/***CURRENT***/site/
-├── index.html                     the site
-└── alwayson-single-topology.html  the topology viewer (ES.2)
+├── index.html                       the site
+└── alwayson-single-topology.html    the topology viewer (ES.2)
 ```
 
-Catalog entries are therefore modal payloads inside `index.html`, not directories. Each entry
-carries the sales action below. `§7.1.2` lists the additional live views that are specified
-for the product modals but are not in this build.
+Catalog entries are modal payloads inside `index.html`, not directories. Every Equipment,
+Buildings and Vehicles entry carries the sales action below. `§7.1.2` lists the additional
+live views specified for the product modals that are not in this build.
 
 ### Order of follow-up, support, and chat links
 
