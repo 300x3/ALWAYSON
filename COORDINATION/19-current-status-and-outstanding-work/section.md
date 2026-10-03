@@ -34,18 +34,18 @@ collide and a new item never renumbers an existing one.
 <table>
 <thead>
 <tr>
-<th align="left" width="4%">ID</th>
-<th align="left" width="13%">Item</th>
-<th align="left" width="5%">Component</th>
-<th align="left" width="7%">Status</th>
-<th align="left" width="11%">Standard served</th>
-<th align="left" width="60%">Current state or acceptance criteria</th>
+<th align="left" width="7%">ID</th>
+<th align="left" width="12%">Item</th>
+<th align="left" width="9%">Component</th>
+<th align="left" width="11%">Status</th>
+<th align="left" width="8%">Standard served</th>
+<th align="left" width="53%">Current state or acceptance criteria</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td valign="top"><strong>COMPONENTS</strong></td>
-<td valign="top">The state of each component. Source of truth for what is built.</td>
+<td valign="top">—</td>
+<td valign="top"><strong>COMPONENTS</strong> — The state of each component. Source of truth for what is built.</td></td>
 <td valign="top"></td>
 <td valign="top"></td>
 <td valign="top"></td>
@@ -292,8 +292,8 @@ collide and a new item never renumbers an existing one.
 <td valign="top">Host services remain loopback-only; administration uses dedicated host or <code>ao-admin</code> identities</td>
 </tr>
 <tr>
-<td valign="top"><strong>OPEN WORK</strong></td>
-<td valign="top">Everything still to be done, by group.</td>
+<td valign="top">—</td>
+<td valign="top"><strong>OPEN WORK</strong> — Everything still to be done, by group.</td></td>
 <td valign="top"></td>
 <td valign="top"><strong>Open</strong></td>
 <td valign="top"></td>
@@ -1133,12 +1133,12 @@ verification checks against the running system. Nothing listed here is outstandi
 <table>
 <thead>
 <tr>
-<th align="left" width="4%">ID</th>
-<th align="left" width="13%">Item</th>
-<th align="left" width="5%">Component</th>
-<th align="left" width="7%">Status</th>
-<th align="left" width="11%">Standard served</th>
-<th align="left" width="60%">Current state or acceptance criteria</th>
+<th align="left" width="7%">ID</th>
+<th align="left" width="12%">Item</th>
+<th align="left" width="9%">Component</th>
+<th align="left" width="11%">Status</th>
+<th align="left" width="8%">Standard served</th>
+<th align="left" width="53%">Current state or acceptance criteria</th>
 </tr>
 </thead>
 <tbody>

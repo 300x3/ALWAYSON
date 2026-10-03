@@ -3288,16 +3288,6 @@ confirmed sale, as opposed to the request PDF, which is an inquiry and never bec
 Both are hash-captured into `manifests/`, and the request PDF is preserved in `archive/`
 so the two are never confused.
 
-**Operator review PDFs.** `scripts/sales/intake-to-pdf.sh <email> <outdir>` parses a website
-KIT REQUEST email into `request-record.json` and renders two single-page PDFs from
-`forms/handoffs/`: `00-kit-request-intake-record` (what was received) and
-`01-kit-request-work-order`. Items missing from `config/sales/catalogue.csv` are marked
-unresolved rather than assigned a guessed SKU. Styling is `assets/sales-print.css`.
-
-`scripts/sales/add-pdf-form-fields.py` overlays real AcroForm widgets on the intake record,
-making it clickable and typeable; field positions are measured from sentinels the template
-places in the page. Both outputs carry `sale_logged=false` and `corda_state=NOT_SUBMITTED`.
-
 ## 15.2 Community and AI Controls
 
 Mastodon/community controls:
@@ -3834,18 +3824,18 @@ collide and a new item never renumbers an existing one.
 <table>
 <thead>
 <tr>
-<th align="left" width="4%">ID</th>
-<th align="left" width="13%">Item</th>
-<th align="left" width="5%">Component</th>
-<th align="left" width="7%">Status</th>
-<th align="left" width="11%">Standard served</th>
-<th align="left" width="60%">Current state or acceptance criteria</th>
+<th align="left" width="7%">ID</th>
+<th align="left" width="12%">Item</th>
+<th align="left" width="9%">Component</th>
+<th align="left" width="11%">Status</th>
+<th align="left" width="8%">Standard served</th>
+<th align="left" width="53%">Current state or acceptance criteria</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td valign="top"><strong>COMPONENTS</strong></td>
-<td valign="top">The state of each component. Source of truth for what is built.</td>
+<td valign="top">—</td>
+<td valign="top"><strong>COMPONENTS</strong> — The state of each component. Source of truth for what is built.</td></td>
 <td valign="top"></td>
 <td valign="top"></td>
 <td valign="top"></td>
@@ -4092,8 +4082,8 @@ collide and a new item never renumbers an existing one.
 <td valign="top">Host services remain loopback-only; administration uses dedicated host or <code>ao-admin</code> identities</td>
 </tr>
 <tr>
-<td valign="top"><strong>OPEN WORK</strong></td>
-<td valign="top">Everything still to be done, by group.</td>
+<td valign="top">—</td>
+<td valign="top"><strong>OPEN WORK</strong> — Everything still to be done, by group.</td></td>
 <td valign="top"></td>
 <td valign="top"><strong>Open</strong></td>
 <td valign="top"></td>
@@ -4673,7 +4663,7 @@ collide and a new item never renumbers an existing one.
 <td valign="top">ST-01, ST-25</td>
 <td valign="top"><strong>Open</strong></td>
 <td valign="top">§16.1</td>
-<td valign="top"><strong>Partly done 2026-10-03:</strong> <code>scripts/sales/</code> now exists — <code>intake-request-record.py</code>, <code>intake-to-pdf.sh</code>, <code>autofill-handoff-form.py</code>, <code>add-pdf-form-fields.py</code>, <code>intake-kit-request-pdf.sh</code>. Still open: this item also names <code>validate-sale-receipt.sh</code>, which is not in the repo; the closest is <code>validate-transaction-bundle.sh</code>. Either add the named script or re-point the reference.</td>
+<td valign="top">Layout is missing the <code>sales/</code> directory and <code>validate-sale-receipt.sh</code>, both referenced elsewhere. Add or repoint them.</td>
 </tr>
 <tr>
 <td valign="top">OPS-04</td>
@@ -4933,12 +4923,12 @@ verification checks against the running system. Nothing listed here is outstandi
 <table>
 <thead>
 <tr>
-<th align="left" width="4%">ID</th>
-<th align="left" width="13%">Item</th>
-<th align="left" width="5%">Component</th>
-<th align="left" width="7%">Status</th>
-<th align="left" width="11%">Standard served</th>
-<th align="left" width="60%">Current state or acceptance criteria</th>
+<th align="left" width="7%">ID</th>
+<th align="left" width="12%">Item</th>
+<th align="left" width="9%">Component</th>
+<th align="left" width="11%">Status</th>
+<th align="left" width="8%">Standard served</th>
+<th align="left" width="53%">Current state or acceptance criteria</th>
 </tr>
 </thead>
 <tbody>
@@ -4949,14 +4939,6 @@ verification checks against the running system. Nothing listed here is outstandi
 <td valign="top"><strong>Complete</strong></td>
 <td valign="top">§17.2, §3.3</td>
 <td valign="top">COMPLETE — verified 2026-10-03. Prometheus now holds <code>alwayson_db_*</code> series over <strong>every</strong> database declared in §3.3.1 — seven PostgreSQL targets and three SQLite stores, each reporting its own reachability. Mail (Akonadi/KDE PIM) and browser profile stores are excluded by operator instruction and are not touched. <code>scripts/operations/collect-db-security.py</code> is a host-side read-only pass that writes node_exporter textfile format to <code>data/prometheus-textfile/</code>, run every 60s by <code>ao-db-security-collect.timer</code> and surfaced through the already-scraped <code>node-host</code> job. Measured: <code>curl -s localhost:9090/api/v1/label/__name__/values</code> returns the 13 series; <code>alwayson_db_postgres_backends{db="grafana"}</code> reads 21; <code>alwayson_db_sqlite_integrity_ok{db="meshchatx",result="ok"}</code> is 1 over a 43-table store. <strong>Three constraints were measured, not assumed, and each changed the design.</strong> Every container on <code>ao-admin</code> is <code>Internal=true</code> and cannot reach the databases — TCP probes from <code>ao-prometheus</code> and <code>ao-node-exporter</code> to the host PostgreSQL both returned NOT-reachable — so the collector must be a host process, not a container. The same isolation blocks the gateway: a probe from inside <code>ao-prometheus</code> to <code>10.89.9.1:9101</code> returned NOT-reachable, so a separate exporter port cannot be scraped at all. The textfile collector exists only in node_exporter (the <code>prom/prometheus</code> binary has none), which is why these metrics ride the existing job instead of a new one. Connection detail worth recording: <code>pg_hba.conf</code> grants the application roles <code>scram-sha-256</code> on <code>host 127.0.0.1</code> but <code>peer</code> on the local socket for non-superusers, so a unix-socket connection fails as <code>Peer authentication failed</code> however correct the password is; TCP is the path scram accepts. No credential is given to Prometheus — the collector holds the wallet-backed read identity and emits metric lines only, verified by grepping the output for the password value (absent).</td>
-</tr>
-<tr>
-<td valign="top">—</td>
-<td valign="top">KIT REQUEST intake and work-order PDFs</td>
-<td valign="top">ST-11</td>
-<td valign="top"><strong>Complete</strong></td>
-<td valign="top">§15.1.2</td>
-<td valign="top">COMPLETE — verified 2026-10-03. Email → two single-page PDFs; intake record carries 20 registered AcroForm fields, 0 overlaps across three item rows. Two defects found by inspecting output, not code: widgets were added only to <code>/Annots</code>, never <code>/AcroForm /Fields</code>, so the PDF reported zero fields and clicking did nothing; and row cells were measured against unrelated column edges, leaving <code>item_name</code> 47pt short of its printed column. A first fix grouped rows by left edge and was worse (all fields to page edge, overlapping); caught by the overlap check.</td>
 </tr>
 <tr>
 <td valign="top">—</td>
