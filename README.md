@@ -215,52 +215,35 @@ Decisions** with a rationale, compensating controls, owner, and resolution condi
 
 # 1. System Purpose
 
-ALWAYS ON is a compartmentalized, on-premises platform supporting an automated
-approximately 160-square-foot modular live/fabricate facility and an
-accompanying modular micro-aircraft carrier. Both of which grow to generally any
-size / quantity.
+ALWAYS ON is an on-premises platform supporting an automated modular live/fabricate facility
+of roughly 160 square feet, and an accompanying micro-aircraft carrier. Both scale in size
+and quantity without changing the architecture.
 
-The platform supports:
+| Capability | Scope |
+|---|---|
+| Field | Drone telemetry and field communications over the Reticulum mesh |
+| Mapping | Photogrammetry and 3D model production |
+| Simulation | Vehicle rehearsal; fabrication, facility, inventory, kitchen and logistics rehearsal |
+| Facility | Home automation |
+| Commerce | Static storefront, hosted checkout, receipt generation |
+| Provenance | Corda-backed receipts, entitlements and approved state transitions |
+| Archive | Encrypted pCloud replication and controlled IPFS distribution |
+| Content | Static HTML and interactive iframe content from other servers |
 
-- Drone telemetry and field communications.
-- Photogrammetry and mapping.
-- Vehicle simulation.
-- Home automation.
-- Fabrication, facility, inventory, kitchen, and logistics simulation.
-- Static HTML & interactive iframe content from other servers.
-- Hosted payment checkout and receipt generation.
-- Corda-backed provenance, receipts, entitlements, and approved state records.
-- Encrypted pCloud archival replication and controlled IPFS artifact
-  distribution.
+**Deployment roles.** The workstation is the development, integration and validation host. It
+runs Kubuntu 26.04 LTS on an AMD CPU with an EVGA NVIDIA GTX 1080. Compute-intensive
+production workloads may move to an immersion-cooled server rack and a Raspberry Pi
+edge-computing cluster.
 
-The current workstation is a development, integration, and validation host. It
-uses Kubuntu 26.04 LTS software, an AMD CPU, and an EVGA NVIDIA GTX 1080.
-Future compute-intensive production workloads may move to an immersion-cooled
-server rack and a Raspberry Pi edge-computing cluster.
+Kubuntu is the desktop for four reasons: it is built on Ubuntu LTS with support through April
+2031, giving a predictable maintenance horizon; it carries the ROS 2 and Gazebo toolchain plus
+QGroundControl that the simulation work depends on; KDE Plasma provides the login-gated KDE
+Wallet secret flow (§14.1) and Konqueror as the dedicated automation browser; and the KDE
+suite covers the desktop and portable hardware this system is built for.
 
-Kubuntu was selected for the current workstation role for four primary reasons:
-
-- **Commercially stable with long-term service.** It is built on Ubuntu LTS, whose
-  standard support is scheduled through April 2031, so the workstation has a
-  predictable, vendor-backed maintenance horizon rather than a rolling-release one.
-- **First-class ROS 2 support for robotics work.** It carries the ROS 2 and Gazebo
-  toolchain this project depends on for vehicle and fabrication simulation, plus
-  QGroundControl for mission planning and GPU diagnostics for the GTX 1080.
-- **The KDE Plasma desktop environment.** Plasma is the shell this project is
-  designed around — it provides the login-gated KDE Wallet secret flow in §14.1.1
-  and Konqueror as the dedicated automation browser.
-- **The huge KDE suite of software and related personal-computing hardware.**
-  This matters most for laptops: Linux on comparable hardware runs roughly four
-  times better than similarly priced non-Linux machines, and the KDE suite covers
-  the desktop and portable use that the system is built for.
-
-These are the primary reasons it was selected.
-
-Podman is the only supported container runtime. Containers are managed through
-systemd Quadlet definitions rather than Kubernetes, shell wrappers, Docker
-Compose, or any other orchestration mechanism or a Docker daemon.
-
----
+**Container runtime.** Podman is the only supported container runtime. Containers are managed
+through systemd Quadlet definitions — never Kubernetes, Docker Compose, a Docker daemon, or
+shell-wrapper orchestration (§13).
 
 # 2. Platform Baseline
 
@@ -268,7 +251,7 @@ Compose, or any other orchestration mechanism or a Docker daemon.
 
 | Area | Architecture requirement |
 |---|---|
-| Host OS | Kubuntu 26.04 LTS workstation — selected for commercial stability and long-term service on an Ubuntu LTS base (support through April 2031), first-class ROS 2 support for the robotics/simulation work, the KDE Plasma desktop environment, and the huge KDE software suite together with compatible personal-computing hardware (Linux laptops run ~4× better than similarly priced non-Linux machines). These are the primary reasons it was selected (§1) |
+| Host OS | Kubuntu 26.04 LTS workstation; the selection rationale is in §1 |
 | Current CPU/GPU | AMD CPU and EVGA NVIDIA GTX 1080 |
 | Future compute | Immersion-cooled server rack and Raspberry Pi edge cluster |
 | Container engine | Podman only |
@@ -299,7 +282,7 @@ recorded in §19.1 as status and are not restated here; where this section and �
 |---|---|
 | Kernel | Ubuntu LTS kernel, `7.0.0-34-generic` |
 | Podman | `5.7.0`, rootless for every workload (§13.1, §13.2) |
-| Podman networks | **Twelve** `ao-*` networks: **10** `Internal=true` workload domains (`ao-admin`, `ao-data`, `ao-fabrication`, `ao-field`, `ao-ledger-core`, `ao-ledger-ingest`, `ao-mapping`, `ao-payment`, `ao-sim-fabrication`, `ao-sim-vehicle`) plus **2** deliberately non-internal (`ao-sales` for ActivityPub delivery, `ao-reporting-egress` for Grafana/Metabase) |
+| Podman networks | **Fourteen** `ao-*` networks, all registered in `config/platform/network-cidrs.yaml`, which is the only authoritative list. **Eleven** are `Internal=true`: the ten workload domains `ao-admin`, `ao-data`, `ao-fabrication`, `ao-field`, `ao-ledger-core`, `ao-ledger-ingest`, `ao-mapping`, `ao-payment`, `ao-sim-fabrication`, `ao-sim-vehicle`, plus `ao-html-window`. **Three** are deliberately `Internal=false`: `ao-sales` for ActivityPub delivery, `ao-reporting-egress` for Grafana and Metabase, and `ao-build-update` for software acquisition |
 | GPU | EVGA NVIDIA GTX 1080 |
 | NVIDIA driver | `580.178.04` |
 | NVIDIA integration | CDI devices registered, including `nvidia.com/gpu=0`. The authoritative spec is `/var/run/cdi/nvidia.yaml`. `/etc/cdi/nvidia.yaml` is not a source of truth and is regenerated or removed at each driver change. Only the authoritative spec contributes devices |
@@ -2801,7 +2784,7 @@ and `podman-connections.json` declares no separate connections.
 ├── VERSION
 ├── AGENTS.md
 ├── quadlet/
-│   ├── networks/          # the 12 ao-* .network definitions
+│   ├── networks/          # the 14 ao-* .network definitions (see network-cidrs.yaml)
 │   ├── sales/             # ao-mastodon-{db,redis,web,sidekiq,streaming}, ao-sales-db
 │   ├── mapping/           # ao-webodm-{webapp,worker,db,broker}, ao-nodeodm
 │   ├── operations/        # grafana, metabase, prometheus, node-exporter, bridges
@@ -2835,7 +2818,7 @@ or archived material:
 | Path | What it is |
 |---|---|
 | `TOPOLOGY/` | topology graphic source and review material |
-| `LOGOS-JOURNALS/` | operations journal (gitignored) |
+| `LOGS-JOURNALS/` | pointer only — the logs live in `logs/` (§16.3, §18.7) |
 | `GAZEBO/`, `SIMULATION.png`, `WEBSITEMAIN.png` | simulation and storefront imagery |
 | `README - ARCHIVE/` | archived README versions and review comments |
 | `docs/` | supporting documentation, including `docs/readme-change-log.md` |
@@ -3631,28 +3614,52 @@ Every script must:
 All logs and journals are kept in one place:
 
 ```text
-/ALWAYSON/LOGS-JOURNALS/
+/ALWAYSON/logs/
 ```
+
+`/ALWAYSON/LOGS-JOURNALS/` is **not** the location. That name appeared in an
+earlier draft of this section and was never true of the implementation. An
+audit on 2026-10-02 found it held exactly one file while every other log
+lived in `/ALWAYSON/logs/`, which is the path every writer actually uses:
+
+| Writer | Path it uses |
+|---|---|
+| `scripts/lib/common.sh` | `AO_LOG_DIR="/ALWAYSON/logs"` |
+| `ao-sim-fabrication-gz.container` (deployed) | `--log-opt path=/ALWAYSON/logs/sim-gz-server.log` |
+| `ao-build-update.container` (deployed) | `Volume=/ALWAYSON/logs/operations:/var/log/ao-build-update` |
+| §11.1 install step | `/ALWAYSON/logs/installation/agent-install.log` |
+
+Moving the tree into `LOGS-JOURNALS/` would have broken running services, so
+the tree stayed where the writers point and this section was corrected
+instead. `LOGS-JOURNALS/` now holds only
+`README-THIS-DIRECTORY.txt`, which points here. The operational journal
+history that lived there was copied into `logs/operations-journal.log`
+(2766 lines, verbatim) and verified identical before the duplicate was
+removed. See §18.6.
+
+Every log below is created and append-only. Writers are named so a log that
+stops updating has an obvious cause.
 
 | Log / journal | How often it updates | Purpose |
 |---|---|---|
-| `installation-journal.log` | Appended during every install or change session | The installation journal required by §4.1 rule 11. Records commands, versions, significant output, and failures. |
-| `operations-journal.log` | Appended on every operational change | The operational journal. Records deploys, enable/disable, restarts, and the outcome of validation scripts. |
-| `audit.log` | Appended on every audited operation | Immutable audit trail of operational changes and authorization decisions. |
-| `backup.log` | After every backup run | Records each backup run, repository used, snapshot ID, and success/failure. |
-| `restore-test.log` | After every restore test | Records the isolated restore test: source backup ID, operator, result, and exceptions. |
-| `gpu-runtime-check.log` | On each GPU runtime validation | Driver/CDI state and whether GPU access was granted to the workload. |
-| `script-runs.log` | On every script invocation | Which script ran, its arguments, exit code, and dry-run status. |
+| `installation-journal.log` | Appended during every install or change session | The installation journal required by §4.1 rule 11. Records commands, versions, significant output, and failures. Writer: `ao_install` in `scripts/lib/common.sh`. |
+| `operations-journal.log` | Appended on every operational change | The operational journal. Records deploys, enable/disable, restarts, and the outcome of validation scripts. Writer: `ao_operation`. Had **no writer at all** before 2026-10-02, which is why it was stale. |
+| `audit.log` | Appended on every audited operation | Immutable audit trail of operational changes and authorization decisions. Writer: `ao_audit`, with `ao_audit_secret` redacting credentials. |
+| `backup.log` | After every backup run | Records each backup run, repository used, snapshot ID, and success/failure. Writer: `ao_backup_run`, called by `scripts/backup/restic-run.sh`. Dry runs are recorded as `DRY-RUN` and are not counted as backup runs. |
+| `restore-test.log` | After every restore test | Records the isolated restore test: source backup ID, operator, result, and exceptions. Writer: `ao_restore_test`. **No entries yet** — every script under `scripts/restore/` exits 3 as PENDING, so no restore test has ever completed here. |
+| `gpu-runtime-check.log` | On each GPU runtime validation | Driver/CDI state and whether GPU access was granted to the workload. Writer: `scripts/validation/check-gpu-runtime.sh`. |
+| `script-runs.log` | On every script invocation | Which script ran, its arguments, exit code, and dry-run status. Writer: `ao_log`. |
 | `mastodon-local-proxy.log` | While the local proxy runs | Local Mastodon proxy activity and errors. |
-| `meshchatx.log` | Continuously while MeshChatX runs | MeshChatX application log: interface state, connectivity, and persistence errors. |
-| `sim-gz-server.log` | While the Gazebo server runs | Headless Gazebo simulation output. |
+| `meshchatx.log` | Continuously while MeshChatX runs | MeshChatX application log: interface state, connectivity, and persistence errors. **MeshChatX is not installed on this host**, so this file holds no events and must not be fabricated. Its authoritative log when installed is `$HOME/.reticulum-meshchatx/logs/meshchatx.log`. |
+| `sim-gz-server.log` | While the Gazebo server runs | Headless Gazebo simulation output. Written by the deployed quadlet. |
 | `sim-foxglove-bridge.log` | While the bridge runs | Foxglove bridge output and connection state. |
 | `sim-clock-bridge.log` | While the clock bridge runs | Simulation clock bridge output. |
 | `web-console.log` | On console operations | Web console operations and their outcomes. |
 | `lmstudio-readme-preset.sha256` | On preset change | Checksum of the LM Studio README preset, for drift detection. |
-| `gpu-runtime/` | On each validation | Directory of GPU runtime validation captures. |
+| `gpu-runtime/` | On each validation | Directory of GPU runtime validation captures, one timestamped file per run. |
 | `backup/` | After every backup run | Directory of backup run records and repository metadata. |
-| `operations/` | On each operational change | Directory of per-operation journals, one file per operation. |
+| `operations/` | On each operational change | Directory of per-operation journals, one file per operation. Mounted into `ao-build-update`; do not relocate. |
+| `installation/` | During install sessions | The install-step output log `agent-install.log` referenced by §11.1. Retained as-is. |
 
 Logs are classified per §4.2 and are never a place to record secrets.
 
@@ -4076,7 +4083,7 @@ use.
 **Compensating control — applied.** All three are registered in
 `/ALWAYSON/config/platform/network-cidrs.yaml`, so that file is again the single authority
 for workload CIDRs as §5.1 requires. `scripts/validation/check-network-isolation.sh`
-regenerates that file and now passes with all thirteen networks present:
+regenerates that file and now passes with all fourteen networks present:
 
 ```
 OK: all domain networks present; isolation domains internal-only
@@ -4115,6 +4122,56 @@ The migration is only **half done in practice**:
 - `quadlet/sales/ao-egress-community.network` is **retired, not restored**.
   `scripts/mastodon/federate-local.sh` no longer installs it; it now installs
   `ao-sales.network` alone. Nothing recreates the network.
+
+## 18.7 Logs-Journals Location Correction (`LOGS-JOURNALS/` → `logs/`)
+
+**Decision:** The canonical log and journal location is `/ALWAYSON/logs/`.
+`/ALWAYSON/LOGS-JOURNALS/` is a pointer directory, not the store.
+
+**Status:** Corrected and closed on 2026-10-02. Any physical consolidation of
+the two trees needs operator approval first.
+
+**The fault.** §16.3 stated that all logs and journals are kept in
+`/ALWAYSON/LOGS-JOURNALS/`. That was never true. An audit on 2026-10-02 found
+the directory contained exactly **one** file (`operations-journal.log`,
+176 KB) while **every other** log lived in `/ALWAYSON/logs/`, which is what the
+writers actually use. Five of the seventeen documented logs and directories
+did not exist anywhere on the host.
+
+**Why the implementation was believed over the README.** Measured, not assumed:
+
+| Writer | Path it uses |
+|---|---|
+| `scripts/lib/common.sh` | `AO_LOG_DIR="/ALWAYSON/logs"` |
+| `~/.config/containers/systemd/ao-sim-fabrication-gz.container` | `--log-opt path=/ALWAYSON/logs/sim-gz-server.log` |
+| `~/.config/containers/systemd/ao-build-update.container` | `Volume=/ALWAYSON/logs/operations:/var/log/ao-build-update:rw,Z` |
+| README §11.1 install step | `logs/installation/agent-install.log` |
+
+Two of these are **live deployed units** writing to `logs/`. Moving the tree
+into `LOGS-JOURNALS/` would have silently broken the running Gazebo server's
+log and the `ao-build-update` bind mount. Per §4.1 rule 1 (inspect before
+changing) the tree was left alone and the README was corrected.
+
+**"Updated regularly" was not met even where logs existed.**
+`operations-journal.log` had **no writer anywhere in the repository** — a
+hand-maintained file that had gone stale, not a live journal. Four helpers were
+added to `scripts/lib/common.sh` (`ao_operation`, `ao_install`,
+`ao_backup_run`, `ao_restore_test`) and wired into the scripts that should have
+been calling them.
+
+**Nothing was deleted.** The operational journal history was copied from
+`LOGS-JOURNALS/` into `logs/operations-journal.log` and verified identical on
+the body (2766 lines, `diff` clean) before the duplicate was removed.
+`logs/installation/agent-install.log` was **not** renamed to
+`installation-journal.log`; both exist and the relationship is documented in
+each file's header.
+
+**Two logs are deliberately empty and must stay that way.** `meshchatx.log`
+holds no events because MeshChatX is not installed on this host, and
+`restore-test.log` holds none because every script under `scripts/restore/`
+exits 3 as PENDING. Both were given headers explaining why. Fabricating entries
+to make them look "regularly updated" would defeat the audit — an empty log
+with a stated reason is evidence; a log full of invented events is not.
 
 ---
 
@@ -4235,7 +4292,7 @@ detail lives here and only here. Completed work is not listed — it is evidence
 | 50 | **Single authoritative network inventory** | ST-01, ST-02 | §2.2, §5.1, §18.6 | One list of every `ao-*` network with its CIDR, `Internal` flag and owning component, generated from `config/platform/network-cidrs.yaml`, which both §2.2 and §5.1 cite. It must account for `ao-html-window` (10.89.14) and `ao-build-update` (10.89.13), which appear in the topology but in no table. §2.2 says twelve, §13.3 says twelve, §18.6 says thirteen — all three become one asserted count. `check-network-isolation.sh` must not regenerate the CIDR file from a hardcoded list, or the named source of truth is not authoritative. |
 | 51 | **Reconcile the payment-provider decision** | ST-12, ST-27 | §18.4, §7.2, §7.3 | §18.4 records PayPal, Zelle and Coinbase as decided; ST-27 and ES.2 still treat the provider as undecided. State once which providers are in scope now and make every other reference match, so the sales pipeline is not gated on a decision that already exists. |
 | 52 | **Reconcile secret-delivery policy with the implementation** | ST-24, ST-30 | §14.1, §14.1.1 | §14.1 mandates Podman secrets or systemd credentials; every implemented path is a wallet-materialised `0600` env file, which the same subsection calls a plaintext duplicate. Either move to Podman/systemd credentials or record the deviation in §18 with env-file lifetime and shred-on-exit behaviour, and close the `~/secrets/fabrication-db.env` recorded in ST-30. §14.1.1 points at a §18 subsection that does not exist. |
-| 53 | **One canonical journal root** | ST-01 | §16.3, §12.1, §13.3.1 | Four different roots are named: `/ALWAYSON/LOGS-JOURNALS/`, `LOGOS-JOURNALS/`, `logs/`, and the paths §20 cites. Declare one root and make the others symlinks or aliases, put it in the restic path set, and state a retention policy — none of the ~20 artifacts in §16.3 has one. Rule-11 compliance is not auditable until this exists. |
+| 53 | **One canonical journal root** | ST-01 | §16.3, §12.1, §13.3.1 | **Root decided 2026-10-02: `/ALWAYSON/logs/`** (§18.7). README §16.3 and §13.3.1 corrected, the `LOGOS-JOURNALS` typo at §13.3.1 fixed, and `LOGS-JOURNALS/` reduced to a pointer file. The 2 766-line operational journal was merged and verified identical. Five entries that existed nowhere (`installation-journal.log`, `backup.log`, `restore-test.log`, `meshchatx.log`, `gpu-runtime/`) were created and given writers; `check-logs-journals.sh` now asserts existence and freshness for all 18. **Remaining, all needing operator approval:** (a) physically merging the two trees means redeploying the *flat copies* of `ao-sim-fabrication-gz.container` and `ao-build-update.container` (§16.1.1) and restarting them — not done, and the README now matches reality instead; (b) adding `logs/` to the restic path set; (c) a **retention policy — none of the ~20 §16.3 artifacts has one**, and `sim-gz-server.log` was already 540 KB; (d) a backup timer, without which `backup.log` stays empty (§17.1 cadence unmet). |
 | 54 | **Documented credential rotation, revocation and recovery** | ST-24 | §14.1.1 | §14.1.1 requires rotation, revocation, expiration and recovery to be documented before production use. None exists in §14, §16, §17 or §18. Include a wallet backup and restore procedure that is itself inside the backup set, and a break-glass order for the operator. |
 | 55 | **Executable restore runbook with RPO and RTO** | ST-18 | §17.1 | §17.1 is policy only: no restic command sequence, no restore ordering between filesystem and PostgreSQL dumps, no `pg_restore` or role-recreation step, no ownership handling, and no RPO or RTO stated per data class. Write the preflight, snapshot selection, filesystem restore, database restore in dependency order, credential re-provision and hash re-verification steps. |
 | 56 | **Restic path set covers every data class** | ST-18, ST-03 | §17.1, §3.3.1, §8.4 | The path set covers `config`, `artifacts`, `backups/postgres` and manifests. `data/` is excluded and the photogrammetry drive is on neither list, so the drive the whole §8.5 mount-validation regime exists to protect is not backed up. Enumerate include/exclude against §3.3.1 and §8.4 and rewrite the §17.1 schedule to match what is actually captured. |
