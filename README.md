@@ -540,11 +540,7 @@ requirements.
    Corda payloads, shell history, or documentation examples. Only use KDE Wallet
    for passwords, tokens, keys, and other secret material.
 8. Never use `--privileged` as a default.
-9. Use pinned image digests for operational services. The authoritative record of every pinned
-   image and package version is `/ALWAYSON/config/platform/version-matrix.yaml`, which is
-   version-controlled, refreshed by `scripts/validation/capture-version-matrix.sh`, and
-   regenerated from the deployed units rather than typed by hand. A digest recorded anywhere
-   else is not authoritative.
+9. Use pinned image digests for operational services (§5.2.1).
 10. Verify the photogrammetry drive before deploying or operating WebODM.
 11. Record commands, versions, significant output, and failures in the
     installation or operational journal.
@@ -571,26 +567,21 @@ requirements.
 
 ## 4.3 Prohibited Paths
 
-The full flow is drawn in the master topology graphic in ES.2. The five numbered steps of
-the sale chain — catalogue to checkout, verified payment event, `salesdb` record, signed
-receipt manifest, and Corda state — are steps 1 to 5 in the highlighted column below,
-which is that same graphic with the chain highlighted:
+No component may take any of the following paths. Each prohibition is enforced by the rule
+named in the last column; the rule text is in §4.1.
 
-![Zoom of the full “what actually happens” column of the ES.2 master topology, at readable scale: sale chain, Corda state, CAD and model registry, correlation tuple, the 500GB photogrammetry drive, mapping ingest/process/export, and storage to shelf to robot.](assets/topology-detail-mapping.png)
-
-*Figure 3.3.2 — A **zoom** of the catalogue-to-ledger chain from the ES.2 master
-topology, enlarged so the labels are readable. It is a zoom of that one graphic, not a
-second diagram.*
-
-Two paths feed that chain, and both are in the same graphic. The **PDF intake path** runs
-from `KIT REQUEST PDF intake` into `ao-sales` ("PDF requests in"), which is the public
-storefront intake. The **website path** runs from the customer email inbox through the
-Cloudflare edge and tunnel into `ao-sales` as a loopback origin. From there `ao-sales`
-emits a **signed receipt manifest** into `ao-ledger-ingest`, which performs mTLS,
-authorization, idempotency, and audit before passing an **approved state transition** to
-`ao-ledger-core`. Ledger state reaches the reporting tools by two separate approved
-routes, both drawn in the graphic: `ao-ledger-core` supplies status over a narrow API,
-and `salesdb` supplies **read-only views** to Metabase.
+| Prohibited path | Why | Rule |
+|---|---|---|
+| Simulation domain to live machinery | A rehearsal must never command a real machine, a real robot arm, or a live flight controller | Rule 12, §10.2 |
+| Any workload network to the public internet | Public reach exists only through a controlled adapter | Rules 6, §5.2 |
+| One component to a second domain network | A service joins exactly one network; a second requires an explicitly approved path | §5.1 |
+| Cross-domain traffic without mTLS, a dedicated identity, and a signed payload where provenance matters | Provenance is meaningless if any hop is anonymous | §4.4 |
+| Any secret material outside KDE Wallet | Passwords, tokens and keys exist in the wallet only | Rules 7, 4.2 |
+| Sensitive or accounting data to public IPFS, or to the pCloud Public Folder | These are not publishable data classes | Rule 7, §4.2 |
+| A storefront or public page to any internal service | The public site carries no internal host, port, or path | Rule 6, §7.1 |
+| A reporting tool to write into a source database | Grafana and Metabase are read-only over their sources | §3.3, §6.A.2 |
+| A wider privilege, mount, or secret to make an error go away | Least privilege is not negotiable to clear a fault | Rules 13, 6.A.3 |
+| An adapter to a workload, or a workload to an adapter | The adapter boundary is one-way and holds its own credentials | §5.2 |
 
 ## 4.4 Approved Internal Paths
 
@@ -821,6 +812,11 @@ status and is recorded in §19.1.
 **Combined into the single matrix in §5.1, group B.** The three controlled adapters
 (`ao-ingress-payment`, `ao-egress-archive`, `ao-build-update`) are rows in that table
 ### 5.2.1 `ao-build-update` — Controlled Software-Update Acquisition
+
+**The authoritative record of every pinned image and package version is
+`/ALWAYSON/config/platform/version-matrix.yaml`.** It is version-controlled, refreshed by
+`scripts/validation/capture-version-matrix.sh`, and regenerated from the deployed units
+rather than typed by hand. A digest recorded anywhere else is not authoritative (§4.1 rule 9).
 
 **Status: scaffolded and deployed, not enabled.** The unit, its network, its
 allowlist, and its acquisition script all exist and are verified. The service is
@@ -1270,6 +1266,27 @@ Ledger-ingestion gateway
               ▼
 Corda receipt and entitlement state
 ```
+
+The full flow is drawn in the master topology graphic in ES.2. The five numbered steps of
+the sale chain — catalogue to checkout, verified payment event, `salesdb` record, signed
+receipt manifest, and Corda state — are steps 1 to 5 in the highlighted column below,
+which is that same graphic with the chain highlighted:
+
+![Zoom of the full “what actually happens” column of the ES.2 master topology, at readable scale: sale chain, Corda state, CAD and model registry, correlation tuple, the 500GB photogrammetry drive, mapping ingest/process/export, and storage to shelf to robot.](assets/topology-detail-mapping.png)
+
+*Figure 3.3.2 — A **zoom** of the catalogue-to-ledger chain from the ES.2 master
+topology, enlarged so the labels are readable. It is a zoom of that one graphic, not a
+second diagram.*
+
+Two paths feed that chain, and both are in the same graphic. The **PDF intake path** runs
+from `KIT REQUEST PDF intake` into `ao-sales` ("PDF requests in"), which is the public
+storefront intake. The **website path** runs from the customer email inbox through the
+Cloudflare edge and tunnel into `ao-sales` as a loopback origin. From there `ao-sales`
+emits a **signed receipt manifest** into `ao-ledger-ingest`, which performs mTLS,
+authorization, idempotency, and audit before passing an **approved state transition** to
+`ao-ledger-core`. Ledger state reaches the reporting tools by two separate approved
+routes, both drawn in the graphic: `ao-ledger-core` supplies status over a narrow API,
+and `salesdb` supplies **read-only views** to Metabase.
 
 ---
 
@@ -4312,6 +4329,7 @@ detail lives here and only here. Completed work is not listed — it is evidence
 | 65 | **Accounting model for the authoritative ledger** | ST-09, ST-10 | §11.1, §11.3, §4.4, §7.2 | Corda is declared the authoritative ledger of debits and credits and §4.4 requires an accounting report, but §11.3 defines no accounts, no debit/credit entry semantics, no posting rule, no currency handling, and no reconciliation between Corda state and `salesdb`. §7.2 calls Corda the source of truth for financial ledger information while §11.1 makes PostgreSQL authoritative for source data. Define the model or state that the ledger records references only and accounting is computed in reporting. |
 | 66 | **Re-runnable evidence entries in section 20** | ST-01 | §20 | Most rows carry an outcome but no date, no command and no criterion for deciding when to re-run, so §20 cannot be re-verified. One row claims the backup schedule was automated 2026-08-31 while ST-18 records the renamed timers have not yet fired. Add the command and the date to each check, and re-run the evidence before relying on it. |
 | 67 | **The two radio profiles are identical** | ST-04 | §9.4 | `config/field/heltec-v3/radio-profile-us915.yaml` and `config/drone/waveshare-lora/radio-profile-us915.yaml` are byte-identical: same sync word `0x12`, same encryption key ID, same device identity placeholder, and neither declares a frequency. The two radios therefore cannot be told apart on air, which contradicts §9.2.1 and the 915/917 MHz split in §9.1. The profiles also disagree with `version-matrix.yaml`: profiles say 125 kHz and spreading factor 10, the matrix and §9.2.1 say 250 kHz and spreading factor 7 for `DRONE-RADIO`. Give each profile its own frequency, sync word, key ID and device identity, reconcile the bandwidth and spreading factor against the matrix, and confirm on air that `DRONE-RADIO` carries missions only |
+| 68 | **Confirm the 4.3 prohibited-paths list** | ST-01, ST-02 | §4.3 | §4.3 was titled "Prohibited Paths" and is cited elsewhere as the prohibition on simulation-to-live paths and as a pair with §4.4, but its body had been replaced by a duplicate of the sale-chain diagram. The list now in §4.3 was rebuilt from prohibitions stated elsewhere in this document and is **not** the operator-approved original. Confirm it is complete and correct, and supply anything that was lost with the misplaced content |
 
 ## 19.3 Completed items
 
