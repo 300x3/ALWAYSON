@@ -62,16 +62,21 @@ stage_repos() {
 }
 
 # ---- 20: host dependencies ----------------------------------------------
-# Mirrors README 12.3 so the two do not drift; README 12.3 stays authoritative.
+# DELEGATES to scripts/bootstrap/02 rather than repeating its package list.
+# Two copies of that list had already drifted from README 12.3; one owner is
+# the point of item 62 ("one ordered procedure that names the scripts").
 stage_deps() {
-  say "--- stage 20: host dependencies"
-  for p in podman uidmap slirp4netns fuse-overlayfs containernetworking-plugins \
-           nftables ufw git curl jq ca-certificates gnupg openssl restic \
-           smartmontools lm-sensors acl python3 python3-venv python3-pip; do
-    dpkg -s "$p" >/dev/null 2>&1 && continue
-    run 20 "apt-get install -y $p"
-  done
-  run 20 "apt-get update"
+  say "--- stage 20: host dependencies (delegating to scripts/bootstrap/02)"
+  run 20 "bash $AO_ROOT/scripts/bootstrap/02-install-host-dependencies.sh"
+  # bootstrap/02 exits 5 rather than installing unattended: it wants an
+  # operator at the keyboard. Keep that gate; do not paper over it.
+  say "  NOTE: bootstrap/02 exits 5 when packages are missing and will not"
+  say "  install unattended. Run the printed sudo apt line yourself."
+  # Layout and networks are also already owned by the bootstrap chain; do not
+  # reimplement them here.
+  run 20 "bash $AO_ROOT/scripts/bootstrap/03-create-operational-layout.sh"
+  run 20 "bash $AO_ROOT/scripts/bootstrap/04-create-podman-networks.sh"
+  run 20 "bash $AO_ROOT/scripts/bootstrap/00-inventory.sh"
 }
 
 # ---- 30: snaps and flatpak ----------------------------------------------
