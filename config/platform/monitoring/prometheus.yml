@@ -12,3 +12,27 @@ scrape_configs:
   - job_name: node-host
     static_configs:
       - targets: ['ao-node-exporter:9100']
+
+  # Database security facts (README 3.3, 17.2) arrive through node-host, not a
+  # separate exporter, and this is deliberate. Prometheus does security work
+  # OUTWARD on the databases; nothing acts on it. The outward half is
+  # scripts/operations/collect-db-security.py, a host-side read-only pass over
+  # PostgreSQL and SQLite that writes the node_exporter textfile collector
+  # format into data/prometheus-textfile/. node_exporter is started with
+  # --collector.textfile.directory pointing there, so the facts surface under
+  # the existing node-host job.
+  #
+  # Two measured facts ruled out the alternatives:
+  #   1. Every container on ao-admin is Internal=true, so it cannot reach the
+  #      databases -- TCP probes from ao-prometheus and ao-node-exporter to the
+  #      host PostgreSQL both returned NOT-reachable. The collector must be a
+  #      host process, run by ao-db-security-collect.timer.
+  #   2. Internal=true also blocks the gateway, so a host-side exporter on
+  #      10.89.9.1:9101 was probed and returned NOT-reachable from inside
+  #      ao-prometheus. A separate exporter port cannot be scraped at all.
+  #   The textfile collector exists only in node_exporter (verified: the
+  #   prom/prometheus binary has no textfile collector, node-exporter has
+  #   --collector.textfile.directory), and node_exporter is already scraped.
+  #
+  # No credential is ever given to Prometheus. The collector holds the
+  # wallet-backed read identity and writes only metric lines.

@@ -11,10 +11,22 @@ Image=docker.io/prom/node-exporter@sha256:863b62ff9f392b6f472e22b4b670ad1cabb66b
 ContainerName=ao-node-exporter
 Network=ao-admin.network
 Volume=/:/host:ro
+# Read-only view of the database-security textfile directory. The host-side
+# collector scripts/operations/collect-db-security.py writes node_exporter text
+# format here (README 3.3, 17.2); Prometheus picks the facts up through the
+# existing node-host job. Mounted ro so the exporter can never alter a file, and
+# :Z so the label matches the other mounts on this container.
+Volume=/ALWAYSON/data/prometheus-textfile:/textfile:ro,Z
 SecurityLabelDisable=true
 NoNewPrivileges=true
 DropCapability=all
-Exec=--path.rootfs=/host
+# --collector.textfile.directory surfaces metrics a host process cannot push
+# directly: every container on ao-admin is Internal=true, so neither this
+# container nor Prometheus can reach the databases or even the gateway
+# (both probed and measured NOT-reachable). The textfile collector is the only
+# path that works, and it exists only in node_exporter -- the prom/prometheus
+# binary has no such collector.
+Exec=--path.rootfs=/host --collector.textfile.directory=/textfile
 
 
 [Service]

@@ -1,0 +1,16 @@
+[Unit]
+Description=Refresh the ALWAYS ON database-security facts every minute
+Documentation=file:///ALWAYSON/README.md#33-databases
+# Armed only during a login session: the PostgreSQL password comes from KDE
+# Wallet via the env file, so a pre-login firing could only fail.
+# Persistent=true catches a missed cycle at the next login.
+PartOf=graphical-session.target
+
+[Timer]
+OnBootSec=120s
+OnUnitActiveSec=60s
+AccuracySec=10s
+Persistent=true
+
+[Install]
+WantedBy=graphical-session.target

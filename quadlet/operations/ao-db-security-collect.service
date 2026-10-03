@@ -1,0 +1,32 @@
+[Unit]
+Description=ALWAYS ON database-security facts for Prometheus
+Documentation=file:///ALWAYSON/README.md#33-databases
+# Prometheus does security work OUTWARD on the databases; nothing acts on it
+# (README 3.3, 17.2). This is the outward half: a read-only pass over
+# PostgreSQL and SQLite that writes node_exporter textfile format into
+# data/prometheus-textfile/, where the already-scraped node-exporter picks it up.
+#
+# It must be a HOST process, not a container. Every container on ao-admin is
+# Internal=true and cannot reach the databases -- TCP probes from ao-prometheus
+# and ao-node-exporter to the host PostgreSQL both returned NOT-reachable, and
+# so did a probe to the gateway.
+#
+# Reads GF_DATABASE_PASSWORD from the same 0600 KDE-Wallet env file the Grafana
+# and Metabase Quadlets use. No secret is passed on the command line, none is
+# written to the unit, and none reaches Prometheus: this process holds the
+# read identity and emits metric lines only.
+After=postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=oneshot
+EnvironmentFile=%h/.local/share/ao-secrets/reporting-grafana-postgres.env
+Environment=AO_PROM_PG_HOST=127.0.0.1
+Environment=AO_PROM_PG_PASSWORD_USER=grafana_app
+Environment=AO_PROM_TEXTFILE_DIR=/ALWAYSON/data/prometheus-textfile
+ExecStart=/usr/bin/python3 /ALWAYSON/scripts/operations/collect-db-security.py
+# Read-only inspection. A slow pass must not pile up behind the timer.
+TimeoutStartSec=90
+# Monitoring facts are not load-bearing: a failure must not take the session
+# down, and the previous metric file is left in place for the next pass.
+SuccessExitStatus=0
