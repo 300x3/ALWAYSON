@@ -188,11 +188,18 @@ of the operator console, and of Domoticz.
 - **Prometheus is isolated, and the isolation is a requirement.** Nothing queries
   Prometheus — no dashboard, service or query may read it. Nothing acts
   on it either: no rule, job or component may reconfigure, reload or silence it.
-  Configuration is operator action through §16 and §18 only. Prometheus acts *on*
-  the other systems; that direction is its purpose. `ao-admin` is `Internal=true`,
-  so there is no egress path, and the boundary to hold is lateral and local:
-  anything sharing `ao-admin`, and anything able to reach a published Prometheus
-  port (OPS-29).
+  Configuration is operator action through §16 and §18 only. `ao-admin` is
+  `Internal=true`, so there is no egress path, and the boundary to hold is
+  lateral and local: anything sharing `ao-admin`, and anything able to reach a
+  published Prometheus port (OPS-29).
+- **The isolation is one-directional: Prometheus acts outward, nothing acts on it.**
+  The access it holds is a working capability, not an exposure. Prometheus does
+  security work **on the databases of the system — PostgreSQL and SQLite** — and
+  on the services and hosts around them. That outward direction is its purpose
+  and is required. What is forbidden is the reverse: no database, service,
+  dashboard or operator tool may reach *into* Prometheus to read it, reconfigure
+  it, feed it, or influence what it does. Access *to* Prometheus is denied;
+  access *from* Prometheus is its job.
 - **Topology is input to Prometheus, never its output.** Prometheus does not create
   system topology. It must *know* the topology — which networks, units, ports and
   domains exist, and how they relate — in order to enact security policy, so
@@ -345,7 +352,7 @@ none is a system of record, and none ever writes to a source database.**
 |---|---|---|
 | **Grafana** | Stable, curated, long-lived dashboards and metrics — a number that must stay on a wall or in a briefing | Reads approved PostgreSQL datasources read-only. Keeps its own PostgreSQL application database for users, dashboards and datasource configuration |
 | **Metabase** | Ad-hoc reporting: a question asked in the browser, saved, filtered, exported. The saved question, not the dashboard, is the unit of work | Reads the other PostgreSQL and MySQL databases **and** local SQLite files over per-source read-only roles — one read-only role per source, so a badly written query cannot modify a source. Keeps its own PostgreSQL application database for its schema, saved questions, dashboards, filters and subscriptions. That database is not a system of record and is never written to by a reporting source |
-| **Prometheus** | Security instrumentation only — time-series store, rule evaluation, alerting | Acts alone and independently. Not replaced by PostgreSQL, Grafana or Metabase, and does not depend on any of them |
+| **Prometheus** | Security instrumentation only — time-series store, rule evaluation, alerting | Acts alone and independently. Does security work **outward**, on the PostgreSQL and SQLite databases and the services around them; nothing acts on it or reaches into it (§3.3). Not replaced by PostgreSQL, Grafana or Metabase, and does not depend on any of them |
 
 A recurring ad-hoc Metabase report that proves its worth is **promoted into a Grafana
 dashboard**, where it becomes stable and curated.
@@ -4336,6 +4343,7 @@ collide and a new item never renumbers an existing one.
 | OPS-29 | **Off-site restic repository does not exist** | ST-18 | §17.1, §11.6 | The pCloud folder `ALWAYSON-RESTIC2PCLOUD` exists at the account root but is empty and nothing has been uploaded. Point the restic repository at it (rclone WebDAV or SFTP) so a second, host-disjoint copy exists. The repository is encrypted client-side, so pCloud holds ciphertext only, which stays inside the §11.6 boundary |
 | OPS-30 | **Restore has never been proven** | ST-18 | §17.1 | **Superseded by OPS-24, which ran the restore on 2026-10-02 and proved it.** Kept so the original gap is not lost from the record: until then only one snapshot included `data/` and no restore had ever been tested. |
 | OPS-31 | **The backup shares a filesystem with the data it protects** | ST-18 | §17.1 | The restic repository is on the same machine as the live data, so no copy survives loss of this host. `ao-egress-archive` is not a substitute: it is a sale-transfer store with no restore duty (§11.6). Closes only when OPS-27 delivers a host-disjoint repository |
+| OPS-32 | **Prometheus has no working access to any database** | ST-19 | §17.2, §3.3 | Prometheus is required to do security work **on** the PostgreSQL and SQLite databases (§3.3), and it currently cannot do any. Measured 2026-10-02 against the running container: environment holds only `HOME=/home` and no database credential of any kind; mounts are its own TSDB and `prometheus.yml` only, with no database socket or data directory; the image has neither `psql` nor `sqlite3`; the only scrape targets are `node-host` and `prometheus`; and a metric-name query returns zero PostgreSQL and zero Redis series. Against the §3.3.1 inventory that means no access to `salesdb`, `mastodon`, `webodm`, `cordadb`, the host cluster, either Redis instance, Grafana, Metabase, or the MeshChatX SQLite store. This is the outward half of the one-directional rule and it is undelivered, while OPS-28 closes the inward half. **Decide the mechanism before building it:** read-only exporter processes per database (no credential enters Prometheus, and a compromised exporter exposes one metric surface) versus credentialed clients inside the Prometheus container (simpler, but puts live database credentials in the security component, which is the thing most likely to be attacked). The exporter route is the stronger fit for §3.3 and is what this item recommends. Whichever is chosen, PostgreSQL and SQLite must both be covered, and every credential is wallet-backed per §14.1.1 and never written to a file or a log. |
 
 ## 19.3 Completed items
 
