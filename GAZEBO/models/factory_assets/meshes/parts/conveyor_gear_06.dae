@@ -1,0 +1,29 @@
+<?xml version="1.0"?>
+<COLLADA xmlns="http://www.collada.org/2005/11/COLLADASchema" version="1.4.1">
+  <asset><up_axis>Z_UP</up_axis><unit meter="1" name="inch"/></asset>
+  <library_geometries>
+    <geometry id="conveyor_gear_06">
+      <mesh>
+        <source id="conveyor_gear_06_pos">
+          <float_array id="conveyor_gear_06_pos_a" count="18">273.5 114.21843 1.29961 274.0625 113.65593 1.29961 273.5 113.65593 1.29961 273.5 113.65593 24.29961 273.5 150.46843 1.29961 310.3125 113.65593 1.29961</float_array>
+          <technique_common>
+            <accessor source="#conveyor_gear_06_pos_a" count="6" stride="3">
+              <param name="X" type="float"/><param name="Y" type="float"/><param name="Z" type="float"/>
+            </accessor>
+          </technique_common>
+        </source>
+        <vertices id="conveyor_gear_06_v"><input semantic="POSITION" source="#conveyor_gear_06_pos"/></vertices>
+        <triangles count="4">
+          <input semantic="VERTEX" source="#conveyor_gear_06_v" offset="0"/>
+          <p>0 1 2 1 0 3 4 5 2 2 2 5</p>
+        </triangles>
+      </mesh>
+    </geometry>
+  </library_geometries>
+  <library_visual_scenes>
+    <visual_scene id="conveyor_gear_06_vs">
+      <node id="conveyor_gear_06_n"><instance_geometry url="#conveyor_gear_06"/></node>
+    </visual_scene>
+  </library_visual_scenes>
+  <scene><instance_visual_scene url="#conveyor_gear_06_vs"/></scene>
+</COLLADA>

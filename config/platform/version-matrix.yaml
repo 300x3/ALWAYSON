@@ -25,9 +25,13 @@ mapping:
   processing_profiles_commit: "see git log - config/mapping/processing-profiles"
 
 simulation:
-  ros2_distribution: "lyrical (host-installed) - DEVIATION FROM SPEC Jazzy APPROVED BY OPERATOR 2026-08-24; graphics-proven Gazebo retained"
-  gazebo_release: "gz sim 10.5.0 (host-installed, graphics-verified) - operator approved over spec Harmonic"
-  foxglove_bridge_version: "3.5.0-2resolute.20260915.091635 (ros-lyrical-foxglove-bridge; loopback-only browser test 2026-09-28: Gazebo headless + ros_gz_bridge /clock + foxglove_bridge :8765, /chatter round-trip verified via Firefox/Playwright ws subprotocol foxglove.sdk.v1)"
+  # Gazebo runs as the ao-sim-fabrication-gz container (digest-pinned local build).
+  # foxglove_bridge runs in the ao-sim-fabrication-foxglove container.
+  ros2_distribution: "lyrical - HOST-INSTALLED at /opt/ros/lyrical (ROS_DISTRO=lyrical, 313 ros-lyrical-* pkgs). DEVIATION FROM SPEC Jazzy APPROVED BY OPERATOR 2026-08-24. Lyrical is the correct ROS 2 LTS for Ubuntu 26.04; upstream Gazebo lists Lyrical LTS + Jetty LTS as the recommended pairing. ros_gz bridge IS installed and working: ros-lyrical-ros-gz-bridge 3.0.10-1resolute.20260915.142616"
+  gazebo_release: "gz sim 10.5.0 - CONTAINER-ONLY, NOT host-installed (the previous host-installed claim was false; dpkg -l | grep gz-sim10 returns nothing and no libgz-sim*/libgz-rendering* exist outside /opt/ros/lyrical - only the gz CLI front-end from gz-tools, which cannot run a world). 10.5.0 is the NEWEST Gazebo published for resolute: gz-sim10-server, -cli and libgz-sim10-gui all at 10.5.0-2~resolute; gz-sim9 and gz-sim11 have no candidate on this suite. libgz-rendering10-ogre2 10.0.2-3~resolute"
+  gazebo_images: "localhost/gz-sim10-resolute - FROM docker.io/library/ros@sha256:0c19f326a339ed770ef1d4c0646a8b53bdb49dd5ff74b6de41ebdb8ac21e1806 (Ubuntu 26.04.1 resolute + ROS 2 lyrical). The :gui tag overrides ENTRYPOINT via Quadlet rather than being a separate image."
+  foxglove_bridge_version: "ros-lyrical-foxglove-bridge 3.5.0 in the ao-sim-fabrication-foxglove container (ros:lyrical-ros-base-resolute). Publishes ws://127.0.0.1:8081 loopback-only, bridges gz /factory/camera/image -> ROS sensor_msgs/msg/Image, view-only capabilities."
+  image_foxglove_bridge: "localhost/foxglove-bridge@sha256:6d3461ddf0277ff7a94ea4da088aceba72be842b4f7b5c41aaf42e401402c738 (FROM docker.io/library/ros:lyrical-ros-base-resolute@sha256:0c19f326a339ed770ef1d4c0646a8b53bdb49dd5ff74b6de41ebdb8ac21e1806)"
   ardupilot_commit: "e57b8a47d3 (ArduPilot-4.6.0-beta1-7859-ge57b8a47d3, 2026-08-04; /ALWAYSON/data/ardupilot)"
   qgroundcontrol_version: ""
   sb3_version: ""
@@ -39,7 +43,7 @@ sales:
     image_web: "ghcr.io/mastodon/mastodon@sha256:76436bccad38f134cb9a5a6e9c83445915790fc12caf60e3a8ee9cbef8376a56 (v4.3.7)"
     image_streaming: "ghcr.io/mastodon/mastodon-streaming@sha256:24834e873cc79ae0677c7e5938e575b4367f2c1c6df46376eb7aa937ee467f4b (v4.3.7)"
     image_sidekiq: "ghcr.io/mastodon/mastodon@sha256:76436bccad38f134cb9a5a6e9c83445915790fc12caf60e3a8ee9cbef8376a56 (v4.3.7)"
-    image_nginx: "REMOVED 2026-10-01 - the gazebo-portal nginx:alpine container was retired mid-session; the :8765 portal is now a python3 host process serving GAZEBO/portal/index.html"
+    image_nginx: "not in use - the :8765 portal is the ao-sim-fabrication-portal.service python3 host process serving GAZEBO/portal/index.html"
     image_postgres: "docker.io/library/postgres@sha256:a65e6a841f6c4dbc4abda3d67fa3bc21824e9611064fcd82e87ea67aad60a0c3"
     image_redis: "docker.io/library/redis@sha256:91d0f7e8c748ec7a4c2b4fb2c4f84edab794dd91d01e095e38dc906db9d684ab"
     db_version: "17 (bundled in postgres digest above)"

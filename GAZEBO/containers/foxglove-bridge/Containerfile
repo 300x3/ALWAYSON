@@ -1,24 +1,78 @@
-# Foxglove bridge: build on the HOST ROS base instead of plain Ubuntu.
-# The ros-lyrical-* packages live in the ROS apt repo under the host's suite
-# name (resolute), not noble — plain ubuntu:24.04 resolves lsb_release to
-# noble, where ros-lyrical-* does not exist.
+# Foxglove bridge for the AO-Sim fabrication simulation.
 #
-# Host-run alternative (preferred, zero new images — ros_gz_bridge is already
-# installed at /opt/ros/lyrical, foxglove_bridge needs one apt install):
-#   sudo apt-get install -y ros-lyrical-foxglove-bridge
-#   source /opt/ros/lyrical/setup.bash
-#   ROS_DOMAIN_ID=22 GZ_PARTITION=alwayson_fabrication_sim \
-#     ros2 run foxglove_bridge foxglove_bridge --port 8766
-FROM docker.io/library/ubuntu:24.04
+# WHY NOT ubuntu:24.04 (the revision this file replaces): plain Ubuntu resolves
+# lsb_release to "noble", and the ros-lyrical-* packages do NOT exist there -
+# they are published under the host suite name "resolute". An ubuntu:24.04 base
+# therefore cannot install them at all. Use the ROS base image directly, which
+# is already suite-correct and carries the ROS apt sources.
+#
+# WHY THIS IMAGE EXISTS AT ALL: the GUI runs as gz-sim-gui-client and speaks
+# gz-transport; Foxglove speaks ROS 2. This bridges the two, then serves the
+# Foxglove WebSocket protocol on top. Two hops, one container.
+#
+# VERSION COMPATIBILITY (measured 2026-10-01, not assumed):
+#   server  ao-sim-fabrication-gz : gz-transport15
+#   bridge  ros-lyrical-ros-gz-bridge : links libgz-transport.so.15  -> MATCH
+# If the server is ever rebuilt against a different gz-transport, re-check this
+# with:  ldd /opt/ros/lyrical/lib/libros_gz_bridge.so | grep gz-transport
+#
+# Base pinned by digest (README rule 9). The tag is kept as a human label only.
+#
+# PORT NOTE: this is the IN-CONTAINER port. The quadlet publishes it
+# loopback-only as 127.0.0.1:8081:8081; the mapping is what exposes it, not this
+# file. Never publish this on 0.0.0.0.
+FROM docker.io/library/ros:lyrical-ros-base-resolute@sha256:0c19f326a339ed770ef1d4c0646a8b53bdb49dd5ff74b6de41ebdb8ac21e1806
+
 ENV DEBIAN_FRONTEND=noninteractive
+
+# ros-lyrical-ros-gz-bridge    : gz-transport <-> ROS 2 (sensor data hop)
+# ros-lyrical-foxglove-bridge : ROS 2 -> Foxglove WebSocket (viewer hop)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      curl lsb-release gnupg ca-certificates \
-    && curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key \
-      -o /usr/share/keyrings/ros-archive-keyring.gpg \
-    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu resolute main" \
-      > /etc/apt/sources.list.d/ros2.list \
-    && apt-get update && apt-get install -y --no-install-recommends \
+      ros-lyrical-ros-gz-bridge \
       ros-lyrical-foxglove-bridge \
     && rm -rf /var/lib/apt/lists/*
-EXPOSE 8766/tcp
-ENTRYPOINT ["bash", "-c", "source /opt/ros/lyrical/setup.bash && exec ros2 run foxglove_bridge foxglove_bridge --port 8766"]
+
+# These must match ao-sim-fabrication-gz.container. GZ_PARTITION is what lets
+# the bridge find the server's gz-transport discovery; ROS_DOMAIN_ID is what
+# puts the bridged topics where Foxglove will look for them.
+ENV GZ_PARTITION=alwayson_fabrication_sim
+ENV ROS_DOMAIN_ID=22
+
+EXPOSE 8081/tcp
+
+# TWO HOPS IN ONE CONTAINER. Both must run, or Foxglove shows nothing:
+#   1. ros_gz_bridge    : gz-transport <-> ROS 2   (brings the camera image IN)
+#   2. foxglove_bridge : ROS 2 -> Foxglove WS     (serves it to the viewer)
+# An earlier revision ran ONLY foxglove_bridge and the viewer connected
+# successfully but advertised only /rosout and /parameter_events - an empty
+# Foxglove with no fault visible anywhere. Measured, not assumed.
+#
+# NOTE 1 - binary paths: both are ament packages whose executables live under
+# /opt/ros/lyrical/lib/<pkg>/ and are NOT on PATH even after sourcing
+# setup.bash. The bare names exit 127. Measured.
+#
+# NOTE 2 - foxglove_bridge's port is a ROS PARAMETER, not a flag. Measured on
+# foxglove_bridge 3.5.0 (lyrical): "--port 8081", "-p 8081", "--ws-port 8081"
+# and "--websocket-port 8081" are ALL silently ignored and the server still
+# binds its compiled-in default 8765. "--help" is ignored too - the process
+# just starts, so this cannot be discovered from the binary. The working form
+# is "--ros-args -p port:=8081". Do NOT simplify it back to --port.
+#
+# NOTE 3 - the bridge_type is gz.msgs.Image. The camera sensor publishes on
+# gz-transport as /factory/camera/image (named explicitly in factory.world so
+# the topic is knowable at all - the server image ships no gz-transport CLI
+# tools, so a generated default name could not be read back).
+#
+# The gz_transport hop runs in background, foxglove_bridge in foreground as PID
+# 1's exec target so container lifetime follows the serving process.
+# NOTE 4 - SHELL PRECEDENCE TRAP, cost three failed builds. Do not "simplify"
+# this back into a one-liner. In "a && b & c", the shell backgrounds the ENTIRE
+# "a && b" list and then runs c in the foreground WITHOUT it. So with
+#   source setup.bash && export LD_LIBRARY_PATH=... && bridge_node ... & foxglove_bridge ...
+# the foreground foxglove_bridge never gets the sourced library path and dies:
+#   error while loading shared libraries: libfoxglove_bridge_component.so
+# The fix is an explicit script file where both hops are separate statements,
+# with the environment exported before either one runs.
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+ENTRYPOINT ["/entrypoint.sh"]

@@ -2035,6 +2035,27 @@ an operator. The portal is reachable only by the approved local path on
 control path to the real machines: the separation from live machinery recorded in §10.2
 applies to it exactly as it applies to everything else in this domain.
 
+**3D viewer and camera set.** The world carries eight static cameras, all aimed from the
+cell datums in `GAZEBO/sim/boning.yaml` so that every view is derived from boned data
+rather than eyeballed, with standoff `d = (across-frame width / 2) / tan(h_fov / 2)`. The
+across-frame width is the axis perpendicular to the view direction, not the extent named
+in the boning datum. Four vantages look into the robot-arm cell — `arms_ne`, `arms_n`,
+`arms_e`, `arms_se`, all at 1.9 m and 22° — and three are true elevations at pitch
+exactly `0.0000`: `elev_arms` from the north, `elev_conveyor` from the south, and
+`elev_massing` from the east, each level with its subject and face-on to one side. The
+remaining `image` view is the default perspective set in both `factory.world` and the GUI
+`gui.config`, so it applies whenever the world opens. Each feed is bridged gz→ROS and
+served read-only.
+
+The Foxglove bridge is a container, and the browser client that consumes it is
+`GAZEBO/portal/viewer/index.html`, served by the portal at `/viewer`. It decodes the
+bridge's CDR binary frames, draws the selected feed, and lets the operator resize the 3D
+view. Two properties are load-bearing and worth recording. The bridge container must be on
+both `ao-html-window` and `ao-sim-fabrication`: a matching `GZ_PARTITION` does not route
+between two internal bridges, and gz-transport discovery is link-local multicast. And the
+server must set `GZ_IP=0.0.0.0`; the GUI appears to work without it only because it shares
+the server's network namespace.
+
 **Files.** The baseline deliverables live under `GAZEBO/sim/` and are read by the portal:
 
 | File | Contents |
@@ -4330,6 +4351,7 @@ detail lives here and only here. Completed work is not listed — it is evidence
 | 66 | **Re-runnable evidence entries in section 20** | ST-01 | §20 | Most rows carry an outcome but no date, no command and no criterion for deciding when to re-run, so §20 cannot be re-verified. One row claims the backup schedule was automated 2026-08-31 while ST-18 records the renamed timers have not yet fired. Add the command and the date to each check, and re-run the evidence before relying on it. |
 | 67 | **The two radio profiles are identical** | ST-04 | §9.4 | `config/field/heltec-v3/radio-profile-us915.yaml` and `config/drone/waveshare-lora/radio-profile-us915.yaml` are byte-identical: same sync word `0x12`, same encryption key ID, same device identity placeholder, and neither declares a frequency. The two radios therefore cannot be told apart on air, which contradicts §9.2.1 and the 915/917 MHz split in §9.1. The profiles also disagree with `version-matrix.yaml`: profiles say 125 kHz and spreading factor 10, the matrix and §9.2.1 say 250 kHz and spreading factor 7 for `DRONE-RADIO`. Give each profile its own frequency, sync word, key ID and device identity, reconcile the bandwidth and spreading factor against the matrix, and confirm on air that `DRONE-RADIO` carries missions only |
 | 68 | **Confirm the 4.3 prohibited-paths list** | ST-01, ST-02 | §4.3 | §4.3 was titled "Prohibited Paths" and is cited elsewhere as the prohibition on simulation-to-live paths and as a pair with §4.4, but its body had been replaced by a duplicate of the sale-chain diagram. The list now in §4.3 was rebuilt from prohibitions stated elsewhere in this document and is **not** the operator-approved original. Confirm it is complete and correct, and supply anything that was lost with the misplaced content |
+| 69 | **Publish the Gazebo viewer at `www.300x3.com`** | ST-08 | §10.2.1 | The 3D viewer and its eight read-only camera feeds are verified working on the local path and **not published** (operator decision 2026-10-02). `ao-html-window` (`10.89.14.0/24`, `Internal=true`) exists for public-facing windows on local services and is the network the Foxglove bridge joins for this purpose. Outstanding when it proceeds: confirm the hostname, add the ingress route to `~/.cloudflared/config.yml` (a customer-facing production config, not changed unilaterally), and decide whether the viewer alone or the portal too is published, since the portal renders boning derived from real machines |
 
 ## 19.3 Completed items
 

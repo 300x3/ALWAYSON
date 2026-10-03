@@ -271,11 +271,15 @@ services:
   - name: Gazebo factory world portal
     url: http://127.0.0.1:8765/
     expect_status: [200]
-    expect_title: "ALWAYSON — Gazebo factory.world portal"
+    expect_title: "ALWAYS ON — ao-sim-fabrication portal (Gazebo factory world)"
     expect_body: "factory.world"
     note: >-
-      Served by the running container "gazebo-portal", published as
-      127.0.0.1:8765->80/tcp. This is the browser HTML portal that ES.1 and
+      Served by ao-sim-fabrication-portal.service (scripts/simulation/
+      ao-sim-portal.py) from GAZEBO/portal/index.html, which is the versioned
+      source of truth. This replaced the throwaway container "gazebo-portal",
+      which served a copy present in no repository and had no owning unit.
+      It is published as 127.0.0.1:8765->80/tcp. This is the browser HTML
+      portal that ES.1 and
       section 10.2.1 require for the fabrication and facility simulation, and
       it is that requirement being met: the portal documents the world at
       /ALWAYSON/GAZEBO/worlds/factory.world, lists the four SketchUp mesh

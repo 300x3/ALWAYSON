@@ -45,11 +45,65 @@
 <sdf version="1.11">
   <world name="factory">
 
+    <!--
+      WORLD SYSTEM PLUGINS — added 2026-10-02.
+
+      These are declared HERE, in the world SDF, and are load-bearing. Without
+      them Gazebo prints "No systems loaded from SDF, loading defaults", loads
+      only the three systems named in $GZHOME/.gz/sim/10/server.config
+      (Physics, UserCommands, SceneBroadcaster) and the camera sensor on the
+      camera_rig link is NEVER instantiated: no Sensors system means no
+      render thread, so /factory/camera/image is never advertised and the
+      Foxglove bridge has nothing to bridge.
+
+      Measured A/B on this host, same image and same world apart from this
+      block (see logs/operations/sim-fabrication-sensor-and-foxglove-network-2026-10-02.log):
+        without this block -> 0 x "CameraSensor", topic absent
+        with this block    -> Sensors system loaded, ogre2 headless,
+                              "Camera images ... advertised on [/factory/camera/image]"
+
+      DO NOT "simplify" these away by relying on server.config defaults. The
+      default set does not include Sensors, and the failure is silent: the
+      server looks completely healthy and only the viewer is empty.
+
+      Sensors must come first: it owns the render thread the other systems and
+      the camera sensor initialise against.
+    -->
+    <plugin filename="gz-sim-sensors-system" name="gz::sim::systems::Sensors"/>
+    <plugin filename="gz-sim-user-commands-system" name="gz::sim::systems::UserCommands"/>
+    <plugin filename="gz-sim-scene-broadcaster-system" name="gz::sim::systems::SceneBroadcaster"/>
+    <plugin filename="gz-sim-physics-system" name="gz::sim::systems::Physics"/>
+
     <scene>
-      <ambient>0.4 0.4 0.4 1</ambient>
+      <ambient>0.62 0.62 0.66 1</ambient>
       <background>0.7 0.7 0.7 1</background>
       <shadows>true</shadows>
     </scene>
+
+    <!--
+      The factory massing occupies 0..7.87 x 0..4.83 x 0..2.06 with its link at
+      the world origin. Without an explicit camera the Gazebo Sim GUI places its
+      default camera at the origin, i.e. inside the building: backface culling
+      hides every surface and the viewport renders as empty background colour.
+
+      Plant envelope (union of the four meshes, world units, scale 0.0254):
+        x 0..6.96  y 0..4.83  z 0..2.06, centre (3.48, 2.415, 1.03).
+
+      2026-10-02: moved with the operator's camera to 10 ft above ground
+      (z 3.048) and re-aimed at the plant centre. This GUI viewport camera is
+      kept byte-identical in pose to the camera_rig model below so the viewport
+      and the selectable sensor never disagree; document G records that a
+      mismatch between the two misleads the operator.
+    -->
+    <gui>
+      <camera name="user_camera">
+        <!-- Kept byte-identical to the camera_rig model pose below and to
+             gui.config camera_pose, so the viewport camera and the visible 3D
+             marker never disagree. Changed together on 2026-10-02 when the
+             operator moved the camera 80% toward the plant centre. -->
+        <pose>8.536 5.249 2.551 0 0.5236 -2.3562</pose>
+      </camera>
+    </gui>
 
     <physics name="default_physics" default="0" type="dart">
       <max_step_size>0.001</max_step_size>
@@ -60,9 +114,21 @@
     <light type="directional" name="sun">
       <cast_shadows>true</cast_shadows>
       <pose>0 0 10 0 0 0</pose>
-      <diffuse>0.8 0.8 0.8 1</diffuse>
-      <specular>0.2 0.2 0.2 1</specular>
-      <direction>-0.5 0.1 -0.9</direction>
+      <diffuse>1.0 0.98 0.94 1</diffuse>
+      <specular>0.35 0.35 0.35 1</specular>
+      <direction>-0.45 0.35 -0.82</direction>
+    </light>
+
+    <!-- Cool fill from the opposite side. The single key light left every face
+         turned away from it sitting at the ambient floor, so the building read
+         as one flat silhouette. This lifts the shadow sides without washing
+         out the key. -->
+    <light type="directional" name="fill">
+      <cast_shadows>false</cast_shadows>
+      <pose>0 0 10 0 0 0</pose>
+      <diffuse>0.42 0.48 0.58 1</diffuse>
+      <specular>0.0 0.0 0.0 1</specular>
+      <direction>0.55 -0.42 -0.72</direction>
     </light>
 
     <model name="ground_plane">
@@ -93,6 +159,13 @@
     </model>
 
     <model name="factory">
+      <!-- Raised 0.02 m to break the depth tie with ground_plane (z=0).
+           massing_fab.dae carries a floor slab whose underside vertices are
+           exactly z=0, coplanar with the ground plane, which made the two
+           surfaces z-fight (visible flicker). Offsetting the whole model is
+           the minimal fix: ground_plane stays at exactly z=0, and no
+           collision pose is altered. -->
+      <pose>0 0 0.02 0 0 0</pose>
       <static>true</static>
 
       <link name="building_massing">
@@ -101,9 +174,14 @@
           <geometry>
             <mesh>
               <uri>model://factory_assets/meshes/massing_fab.dae</uri>
-              <scale>0.0254 0.0254 0.0254</scale>
+              <scale>1.0 1.0 1.0</scale>
             </mesh>
           </geometry>
+            <material>
+              <ambient>0.30 0.21 0.14 1</ambient>
+              <diffuse>0.44 0.31 0.20 1</diffuse>
+              <specular>0.2 0.2 0.2 1</specular>
+            </material>
         </visual>
         <collision name="collision">
           <pose>3.937000 2.415536 1.028700 0 0 0</pose>
@@ -115,13 +193,222 @@
 
       <link name="conveyor_system">
         <pose>0 0 0 0 0 0</pose>
+        <visual name="conveyor_gear_00">
+          <geometry>
+            <mesh>
+              <uri>model://factory_assets/meshes/parts/conveyor_gear_00.dae</uri>
+              <!-- The split tool writes <unit meter="1" name="inch"/>, so the
+                   inch->metre conversion is NOT applied by the loader here and
+                   must come from this scale. The opposite of the monolithic
+                   meshes, which declare meter="0.0254" and therefore need 1.0. -->
+              <scale>0.0254 0.0254 0.0254</scale>
+            </mesh>
+          </geometry>
+          <material>
+            <ambient>0.58 0.59 0.62 1</ambient>
+            <diffuse>0.76 0.77 0.80 1</diffuse>
+            <specular>0.65 0.65 0.68 1</specular>
+          </material>
+        </visual>
+        <visual name="conveyor_gear_01">
+          <geometry>
+            <mesh>
+              <uri>model://factory_assets/meshes/parts/conveyor_gear_01.dae</uri>
+              <!-- The split tool writes <unit meter="1" name="inch"/>, so the
+                   inch->metre conversion is NOT applied by the loader here and
+                   must come from this scale. The opposite of the monolithic
+                   meshes, which declare meter="0.0254" and therefore need 1.0. -->
+              <scale>0.0254 0.0254 0.0254</scale>
+            </mesh>
+          </geometry>
+          <material>
+            <ambient>0.58 0.59 0.62 1</ambient>
+            <diffuse>0.76 0.77 0.80 1</diffuse>
+            <specular>0.65 0.65 0.68 1</specular>
+          </material>
+        </visual>
+        <visual name="conveyor_gear_02">
+          <geometry>
+            <mesh>
+              <uri>model://factory_assets/meshes/parts/conveyor_gear_02.dae</uri>
+              <!-- The split tool writes <unit meter="1" name="inch"/>, so the
+                   inch->metre conversion is NOT applied by the loader here and
+                   must come from this scale. The opposite of the monolithic
+                   meshes, which declare meter="0.0254" and therefore need 1.0. -->
+              <scale>0.0254 0.0254 0.0254</scale>
+            </mesh>
+          </geometry>
+          <material>
+            <ambient>0.58 0.59 0.62 1</ambient>
+            <diffuse>0.76 0.77 0.80 1</diffuse>
+            <specular>0.65 0.65 0.68 1</specular>
+          </material>
+        </visual>
+        <visual name="conveyor_gear_03">
+          <geometry>
+            <mesh>
+              <uri>model://factory_assets/meshes/parts/conveyor_gear_03.dae</uri>
+              <!-- The split tool writes <unit meter="1" name="inch"/>, so the
+                   inch->metre conversion is NOT applied by the loader here and
+                   must come from this scale. The opposite of the monolithic
+                   meshes, which declare meter="0.0254" and therefore need 1.0. -->
+              <scale>0.0254 0.0254 0.0254</scale>
+            </mesh>
+          </geometry>
+          <material>
+            <ambient>0.58 0.59 0.62 1</ambient>
+            <diffuse>0.76 0.77 0.80 1</diffuse>
+            <specular>0.65 0.65 0.68 1</specular>
+          </material>
+        </visual>
+        <visual name="conveyor_gear_04">
+          <geometry>
+            <mesh>
+              <uri>model://factory_assets/meshes/parts/conveyor_gear_04.dae</uri>
+              <!-- The split tool writes <unit meter="1" name="inch"/>, so the
+                   inch->metre conversion is NOT applied by the loader here and
+                   must come from this scale. The opposite of the monolithic
+                   meshes, which declare meter="0.0254" and therefore need 1.0. -->
+              <scale>0.0254 0.0254 0.0254</scale>
+            </mesh>
+          </geometry>
+          <material>
+            <ambient>0.58 0.59 0.62 1</ambient>
+            <diffuse>0.76 0.77 0.80 1</diffuse>
+            <specular>0.65 0.65 0.68 1</specular>
+          </material>
+        </visual>
+        <visual name="conveyor_gear_05">
+          <geometry>
+            <mesh>
+              <uri>model://factory_assets/meshes/parts/conveyor_gear_05.dae</uri>
+              <!-- The split tool writes <unit meter="1" name="inch"/>, so the
+                   inch->metre conversion is NOT applied by the loader here and
+                   must come from this scale. The opposite of the monolithic
+                   meshes, which declare meter="0.0254" and therefore need 1.0. -->
+              <scale>0.0254 0.0254 0.0254</scale>
+            </mesh>
+          </geometry>
+          <material>
+            <ambient>0.58 0.59 0.62 1</ambient>
+            <diffuse>0.76 0.77 0.80 1</diffuse>
+            <specular>0.65 0.65 0.68 1</specular>
+          </material>
+        </visual>
+        <visual name="conveyor_gear_06">
+          <geometry>
+            <mesh>
+              <uri>model://factory_assets/meshes/parts/conveyor_gear_06.dae</uri>
+              <!-- The split tool writes <unit meter="1" name="inch"/>, so the
+                   inch->metre conversion is NOT applied by the loader here and
+                   must come from this scale. The opposite of the monolithic
+                   meshes, which declare meter="0.0254" and therefore need 1.0. -->
+              <scale>0.0254 0.0254 0.0254</scale>
+            </mesh>
+          </geometry>
+          <material>
+            <ambient>0.58 0.59 0.62 1</ambient>
+            <diffuse>0.76 0.77 0.80 1</diffuse>
+            <specular>0.65 0.65 0.68 1</specular>
+          </material>
+        </visual>
+        <visual name="conveyor_gear_07">
+          <geometry>
+            <mesh>
+              <uri>model://factory_assets/meshes/parts/conveyor_gear_07.dae</uri>
+              <!-- The split tool writes <unit meter="1" name="inch"/>, so the
+                   inch->metre conversion is NOT applied by the loader here and
+                   must come from this scale. The opposite of the monolithic
+                   meshes, which declare meter="0.0254" and therefore need 1.0. -->
+              <scale>0.0254 0.0254 0.0254</scale>
+            </mesh>
+          </geometry>
+          <material>
+            <ambient>0.58 0.59 0.62 1</ambient>
+            <diffuse>0.76 0.77 0.80 1</diffuse>
+            <specular>0.65 0.65 0.68 1</specular>
+          </material>
+        </visual>
+        <visual name="conveyor_gear_08">
+          <geometry>
+            <mesh>
+              <uri>model://factory_assets/meshes/parts/conveyor_gear_08.dae</uri>
+              <!-- The split tool writes <unit meter="1" name="inch"/>, so the
+                   inch->metre conversion is NOT applied by the loader here and
+                   must come from this scale. The opposite of the monolithic
+                   meshes, which declare meter="0.0254" and therefore need 1.0. -->
+              <scale>0.0254 0.0254 0.0254</scale>
+            </mesh>
+          </geometry>
+          <material>
+            <ambient>0.58 0.59 0.62 1</ambient>
+            <diffuse>0.76 0.77 0.80 1</diffuse>
+            <specular>0.65 0.65 0.68 1</specular>
+          </material>
+        </visual>
+        <visual name="conveyor_gear_09">
+          <geometry>
+            <mesh>
+              <uri>model://factory_assets/meshes/parts/conveyor_gear_09.dae</uri>
+              <!-- The split tool writes <unit meter="1" name="inch"/>, so the
+                   inch->metre conversion is NOT applied by the loader here and
+                   must come from this scale. The opposite of the monolithic
+                   meshes, which declare meter="0.0254" and therefore need 1.0. -->
+              <scale>0.0254 0.0254 0.0254</scale>
+            </mesh>
+          </geometry>
+          <material>
+            <ambient>0.58 0.59 0.62 1</ambient>
+            <diffuse>0.76 0.77 0.80 1</diffuse>
+            <specular>0.65 0.65 0.68 1</specular>
+          </material>
+        </visual>
+        <visual name="conveyor_gear_10">
+          <geometry>
+            <mesh>
+              <uri>model://factory_assets/meshes/parts/conveyor_gear_10.dae</uri>
+              <!-- The split tool writes <unit meter="1" name="inch"/>, so the
+                   inch->metre conversion is NOT applied by the loader here and
+                   must come from this scale. The opposite of the monolithic
+                   meshes, which declare meter="0.0254" and therefore need 1.0. -->
+              <scale>0.0254 0.0254 0.0254</scale>
+            </mesh>
+          </geometry>
+          <material>
+            <ambient>0.58 0.59 0.62 1</ambient>
+            <diffuse>0.76 0.77 0.80 1</diffuse>
+            <specular>0.65 0.65 0.68 1</specular>
+          </material>
+        </visual>
+        <visual name="conveyor_gear_11">
+          <geometry>
+            <mesh>
+              <uri>model://factory_assets/meshes/parts/conveyor_gear_11.dae</uri>
+              <!-- The split tool writes <unit meter="1" name="inch"/>, so the
+                   inch->metre conversion is NOT applied by the loader here and
+                   must come from this scale. The opposite of the monolithic
+                   meshes, which declare meter="0.0254" and therefore need 1.0. -->
+              <scale>0.0254 0.0254 0.0254</scale>
+            </mesh>
+          </geometry>
+          <material>
+            <ambient>0.58 0.59 0.62 1</ambient>
+            <diffuse>0.76 0.77 0.80 1</diffuse>
+            <specular>0.65 0.65 0.68 1</specular>
+          </material>
+        </visual>
         <visual name="visual">
           <geometry>
             <mesh>
               <uri>model://factory_assets/meshes/conveyor.dae</uri>
-              <scale>0.0254 0.0254 0.0254</scale>
+              <scale>1.0 1.0 1.0</scale>
             </mesh>
           </geometry>
+            <material>
+              <ambient>0.10 0.20 0.46 1</ambient>
+              <diffuse>0.14 0.29 0.68 1</diffuse>
+              <specular>0.2 0.2 0.2 1</specular>
+            </material>
         </visual>
         <collision name="collision">
           <pose>6.072981 2.337311 1.028700 0 0 0</pose>
@@ -137,9 +424,14 @@
           <geometry>
             <mesh>
               <uri>model://factory_assets/meshes/arms.dae</uri>
-              <scale>0.0254 0.0254 0.0254</scale>
+              <scale>1.0 1.0 1.0</scale>
             </mesh>
           </geometry>
+            <material>
+              <ambient>0.62 0.31 0.06 1</ambient>
+              <diffuse>0.88 0.45 0.10 1</diffuse>
+              <specular>0.2 0.2 0.2 1</specular>
+            </material>
         </visual>
         <collision name="collision">
           <pose>6.401314 2.697865 1.150797 0 0 0</pose>
@@ -149,25 +441,368 @@
         </collision>
       </link>
 
-      <link name="vehicles_overlay">
-        <pose>0 0 2.5 0 0 0</pose>
-        <visual name="visual">
-          <geometry>
-            <mesh>
-              <uri>model://factory_assets/meshes/vehicles_arms.dae</uri>
-              <scale>0.0254 0.0254 0.0254</scale>
-            </mesh>
-          </geometry>
-        </visual>
-        <collision name="collision">
-          <pose>3.873492 0.512019 0.725369 0 0 0</pose>
-          <geometry>
-            <box><size>4.537352 0.918508 1.450042</size></box>
-          </geometry>
-        </collision>
-      </link>
+      <!-- vehicles_overlay (vehicles_arms.dae) was removed 2026-10-01 on
+           operator instruction: the vehicle does not belong in the
+           fabrication simulation, it belongs to ao-sim-vehicles
+           (quadlet/sim-vehicle, ArduPilot SITL). It had only been parked
+           here temporarily, which is why its link sat at z=2.5 rather than
+           on the floor - that offset was a staging position, not a defect.
+           The mesh itself is retained untouched on disk for the vehicle sim;
+           only the reference to it was removed. Previous link pose was
+           0 0 2.5 0 0 0. -->
 
+      <!-- Operator-facing view camera, 2026-10-01.
+           The <gui><camera name="user_camera"> block in the <world> is a GUI
+           viewport camera: it is NOT a scene entity, so it never appears in
+           the Entity Tree and its pose cannot be read or edited there. A
+           camera that is selectable in the tree must be a <sensor> of type
+           "camera" on a link, which is what this link provides.
+
+           The POSE LIVES ON THE LINK, not on the sensor, and the sensor sits
+           at identity relative to the link. That is deliberate: the two
+           marker visuals below are drawn at the link origin, so dragging
+           camera_rig in the viewport moves the marker and the camera as one,
+           and the link Pose the operator reads IS the camera pose. Putting
+           the offset on the sensor instead would decouple them.
+
+           camera_body is the housing; camera_nose is a cylinder along the
+           camera's local +X (its viewing axis), so the operator can see which
+           way it faces. They are visual-only: no collision, so they cannot
+           affect the physics world. -->
     </model>
 
-  </world>
+    <!-- Operator view camera, 2026-10-01. Deliberately its OWN top-level model
+         rather than a link inside the static "factory" model: a link inside a
+         static model cannot be dragged independently, and attempting it risks
+         moving the whole factory. static=true keeps it from falling under
+         gravity; the pose below is exactly what the operator sets.
+         POSE LIVES ON THE MODEL, with link and sensor at identity, so the
+         marker visuals sit at the camera position and every level of the
+         hierarchy (model, link, sensor) reports the SAME world pose. Putting
+         the pose on the link instead left the MODEL at the origin, so
+         selecting camera_rig put the transform gizmo at (0,0,0) while the
+         marker box sat at (-8,-8,6) - gizmo and object far apart. -->
+    <model name="camera_rig">
+      <!-- 2026-10-02, operator request: move 90% of the way from the previous
+           marker position to the CENTRE OF MASS of the building_massing mesh.
+
+           Target is NOT the old assumed centre. The centre of mass was measured
+           directly from massing_fab.dae by scanning all 82,210 vertex
+           positions and taking the AABB midpoint:
+             source AABB  min (-1.0,-1.0,-1.0)  max (274.0,190.1997,81.0)
+             scale 0.0254 -> world size 6.985 x 4.857 x 2.083 m
+             local centre  (3.4671, 2.4028, 1.016)
+             + factory model pose z +0.02 -> WORLD (3.4671, 2.4028, 1.036)
+           The previously used (3.48, 2.415, 1.03) was an approximation and is
+           off by ~1.5 cm; this is the measured value.
+
+           Move: from (4.584, 3.232, 1.344), distance to centre 1.4247 m,
+           90% = 1.2823 m, leaving 0.1425 m (verified 10%). Result:
+           3.5788 2.4857 1.0668. Uniform 0.9 scale on all three axes, so the
+           aim direction toward the centre is unchanged.
+
+           WARNING - OPERATOR-NOTIFIED: this is 0.14 m from the centre of mass
+           of a solid building. It is inside the massing AABB (x 0..6.985,
+           y 0..4.857, z 0..2.103), so the GUI camera at this pose looks at the
+           inside faces of the geometry and backface culling renders empty
+           background colour. The operator has been told this twice and asked
+           for the marker position specifically rather than the viewport view.
+
+           rpy unchanged at 0 0.22476 -2.5045. -->
+      <pose>8.536 5.249 2.551 0 0.5236 -2.3562</pose>
+      <static>true</static>
+      <!-- Marker size, operator request: 10% of the current representative size.
+           NOTE: there is deliberately NO <scale> element here. SDF defines
+           <scale> only inside <mesh>; on a <box>/<cylinder> primitive (and on
+           <model> or <visual>) it is NOT part of the spec. gz sdf printed
+           "XML Element[scale], child of element[visual], not defined in SDF.
+           Copying[scale] as children of [visual]" and then DROPPED it - the box
+           stayed 0.20x0.14x0.14. An earlier version had <scale>0.3</scale> on the
+           <model>, which was silently ignored for the same reason, so the
+           marker had never actually been resized. The size is therefore
+           authored into the geometry numbers themselves:
+             box 0.20x0.14x0.14  -> 0.0060x0.0042x0.0042   (x0.1)
+             cylinder r=0.05 l=0.22 -> r=0.0015 l=0.0066   (x0.1)
+             nose offset 0.20 along +X -> 0.006, also x0.1, so the nose stays
+             attached to the front face of the shrunken body.
+           Re-tune all four numbers together, or the nose will detach. -->
+      <link name="camera_rig">
+        <pose>0 0 0 0 0 0</pose>
+        <!-- VISIBLE CAMERA MARKER. 2026-10-01, operator request: a 3D object
+             saved AT the default startup camera pose, so the camera's location
+             and aim are visible in the scene instead of only existing as a
+             number in gui.config.
+
+             SELF-OCCLUSION IS THE WHOLE PROBLEM WITH THIS OBJECT, and the
+             first attempt got it wrong. The viewport camera sits AT this
+             model origin, so ANY geometry at or in front of the origin is
+             between the lens and the plant. An earlier revision put a barrel at
+             local x=+0.15 and four frustum lines 2 m long down +X; the barrel
+             alone subtended ~18 deg of a 30 deg half-FOV and filled the screen
+             with solid teal, hiding the entire factory. Verified by screenshot.
+
+             Therefore: ALL geometry sits BEHIND the lens (negative local X),
+             and there is no forward frustum. From the default view the marker is
+             behind the camera and occludes nothing; the operator still sees it
+             the moment they orbit or pull back, which is when they need it.
+
+             Orientation: the camera looks down local +X. The lens face is at
+             the origin and the body trails away along -X, so the marker points
+             the same way the camera looks.
+
+             Body 0.09 x 0.06 x 0.06, centred at x=-0.075 so its front face is
+             0.03 behind the origin. Sized to be recognisable from ~7 m, the
+             measured distance from the camera to the plant centre.
+
+             2026-10-02: SHRUNK 70% at operator request, i.e. 30% of the
+             previous size. Previous body 0.30 x 0.20 x 0.20 at x=-0.25;
+             previous lens r=0.07 l=0.02 at x=-0.02. All six numbers scaled by
+             0.3 together - retune them as a set or the lens detaches. -->
+        <visual name="camera_body">
+          <pose>-0.075 0 0 0 0 0</pose>
+          <geometry>
+            <box><size>0.09 0.06 0.06</size></box>
+          </geometry>
+          <material>
+            <ambient>0.90 0.10 0.90 1</ambient>
+            <diffuse>0.90 0.10 0.90 1</diffuse>
+            <specular>0.30 0.30 0.30 1</specular>
+          </material>
+        </visual>
+        <!-- Lens ring on the front face, flush with the origin. Radius 0.021 is
+             within the body's half-height (0.03) minus a small inset, so it
+             reads as a lens without poking through the sides. Its 0.006 length is
+             entirely behind the origin, so it cannot occlude. -->
+        <visual name="camera_lens">
+          <pose>-0.006 0 0 0 1.5707963 0</pose>
+          <geometry>
+            <cylinder><radius>0.021</radius><length>0.006</length></cylinder>
+          </geometry>
+          <material>
+            <ambient>0.10 0.90 0.90 1</ambient>
+            <diffuse>0.10 0.90 0.90 1</diffuse>
+            <specular>0.30 0.30 0.30 1</specular>
+          </material>
+        </visual>
+        <sensor name="user_camera" type="camera">
+          <pose>0 0 0 0 0 0</pose>
+          <always_on>1</always_on>
+          <update_rate>10</update_rate>
+          <visualize>1</visualize>
+          <!-- 2026-10-01, Foxglove work. Without <topic>, Gazebo invents a
+               generated default name, and that name cannot be read back from
+               this image: the server ships no gz-transport CLI tools
+               (/usr/libexec/gz/ holds only sim10; `gz log` fails with
+               ENOENT on gz-transport-log-main), so there is no way to
+               enumerate the advertised topics from inside. Naming it
+               explicitly is what makes the topic knowable at all.
+               Keep the "/factory/" segment: ros_gz_bridge preserves the
+               gz topic name, and the leading slash keeps it a valid global
+               ROS 2 topic. Verified against the Foxglove bridge hop. -->
+          <topic>/factory/camera/image</topic>
+          <camera name="user_camera">
+            <horizontal_fov>1.047</horizontal_fov>
+            <clip>
+              <near>0.05</near>
+              <far>100</far>
+            </clip>
+          </camera>
+        </sensor>
+      </link>
+    </model>
+
+  
+
+
+
+
+    <!-- Camera "arms-ne": robot arms, north-east external corner.
+         Aimed at a BONED cell centre from GAZEBO/sim/boning.yaml, not at the
+         building centre. The earlier four were all aimed at the massing centre
+         (3.937, 2.416, 1.029), which is why the robot arms - boned at
+         (6.821, 3.534, 1.151) - never appeared in them.
+         Every camera sits OUTSIDE the massing envelope
+         (0,0,0)-(7.874,4.831072,2.0574) so no view is from inside a wall. -->
+    <model name="camera_arms_ne">
+      <static>true</static>
+      <pose>8.067 4.780 1.863 0 0.3840 3.9270</pose>
+      <link name="camera_arms_ne">
+        <pose>0 0 0 0 0 0</pose>
+        <sensor name="camera_arms_ne" type="camera">
+          <pose>0 0 0 0 0 0</pose>
+          <always_on>1</always_on>
+          <update_rate>10</update_rate>
+          <visualize>0</visualize>
+          <topic>/factory/camera/arms_ne</topic>
+          <camera name="camera_arms_ne">
+            <horizontal_fov>1.047</horizontal_fov>
+            <clip><near>0.05</near><far>100</far></clip>
+          </camera>
+        </sensor>
+      </link>
+    </model>
+
+    <!-- Camera "arms-n": robot arms, from the north, lower and more side-on.
+         Aimed at a BONED cell centre from GAZEBO/sim/boning.yaml, not at the
+         building centre. The earlier four were all aimed at the massing centre
+         (3.937, 2.416, 1.029), which is why the robot arms - boned at
+         (6.821, 3.534, 1.151) - never appeared in them.
+         Every camera sits OUTSIDE the massing envelope
+         (0,0,0)-(7.874,4.831072,2.0574) so no view is from inside a wall. -->
+    <model name="camera_arms_n">
+      <static>true</static>
+      <pose>6.821 5.296 1.863 0 0.3840 4.7124</pose>
+      <link name="camera_arms_n">
+        <pose>0 0 0 0 0 0</pose>
+        <sensor name="camera_arms_n" type="camera">
+          <pose>0 0 0 0 0 0</pose>
+          <always_on>1</always_on>
+          <update_rate>10</update_rate>
+          <visualize>0</visualize>
+          <topic>/factory/camera/arms_n</topic>
+          <camera name="camera_arms_n">
+            <horizontal_fov>1.047</horizontal_fov>
+            <clip><near>0.05</near><far>100</far></clip>
+          </camera>
+        </sensor>
+      </link>
+    </model>
+
+    <!-- Camera "arms-se": robot arms, south-east external corner.
+         Aimed at a BONED cell centre from GAZEBO/sim/boning.yaml, not at the
+         building centre. The earlier four were all aimed at the massing centre
+         (3.937, 2.416, 1.029), which is why the robot arms - boned at
+         (6.821, 3.534, 1.151) - never appeared in them.
+         Every camera sits OUTSIDE the massing envelope
+         (0,0,0)-(7.874,4.831072,2.0574) so no view is from inside a wall. -->
+    <model name="camera_arms_se">
+      <static>true</static>
+      <pose>5.575 4.780 1.863 0 0.3840 5.4978</pose>
+      <link name="camera_arms_se">
+        <pose>0 0 0 0 0 0</pose>
+        <sensor name="camera_arms_se" type="camera">
+          <pose>0 0 0 0 0 0</pose>
+          <always_on>1</always_on>
+          <update_rate>10</update_rate>
+          <visualize>0</visualize>
+          <topic>/factory/camera/arms_se</topic>
+          <camera name="camera_arms_se">
+            <horizontal_fov>1.047</horizontal_fov>
+            <clip><near>0.05</near><far>100</far></clip>
+          </camera>
+        </sensor>
+      </link>
+    </model>
+
+    <!-- Camera "arms-w" (renamed from arms-e: due east was occluded by the
+         building's own east wall; this vantage is from the open aisle side) -->
+    <!-- Camera "arms-e": robot arms, due east, higher.
+         Aimed at a BONED cell centre from GAZEBO/sim/boning.yaml, not at the
+         building centre. The earlier four were all aimed at the massing centre
+         (3.937, 2.416, 1.029), which is why the robot arms - boned at
+         (6.821, 3.534, 1.151) - never appeared in them.
+         Every camera sits OUTSIDE the massing envelope
+         (0,0,0)-(7.874,4.831072,2.0574) so no view is from inside a wall. -->
+    <!-- Camera "arms-4th": 4th distinct vantage on the arms cell. This cell is
+         in the building's north-east corner; measured occlusion map - az 45/90/135
+         CLEAR, az 0/180/225/315 all BLOCKED by the building's own walls or the
+         conveyor. This one is az 60 / 38 deg, inside the clear quadrant. -->
+    <model name="camera_arms_e">
+      <static>true</static>
+      <pose>7.570 4.831 2.321 0 0.6632 4.1888</pose>
+      <link name="camera_arms_e">
+        <pose>0 0 0 0 0 0</pose>
+        <sensor name="camera_arms_e" type="camera">
+          <pose>0 0 0 0 0 0</pose>
+          <always_on>1</always_on>
+          <update_rate>10</update_rate>
+          <visualize>0</visualize>
+          <topic>/factory/camera/arms_e</topic>
+          <camera name="camera_arms_e">
+            <horizontal_fov>1.047</horizontal_fov>
+            <clip><near>0.05</near><far>100</far></clip>
+          </camera>
+        </sensor>
+      </link>
+    </model>
+
+    <!-- Camera "elev-arms": elevation over the robot arms.
+         Aimed at a BONED cell centre from GAZEBO/sim/boning.yaml, not at the
+         building centre. The earlier four were all aimed at the massing centre
+         (3.937, 2.416, 1.029), which is why the robot arms - boned at
+         (6.821, 3.534, 1.151) - never appeared in them.
+         Every camera sits OUTSIDE the massing envelope
+         (0,0,0)-(7.874,4.831072,2.0574) so no view is from inside a wall. -->
+    <model name="camera_elev_arms">
+      <static>true</static>
+      <pose>6.821 6.203 1.151 0 0.0000 -1.5708</pose>
+      <link name="camera_elev_arms">
+        <pose>0 0 0 0 0 0</pose>
+        <sensor name="camera_elev_arms" type="camera">
+          <pose>0 0 0 0 0 0</pose>
+          <always_on>1</always_on>
+          <update_rate>10</update_rate>
+          <visualize>0</visualize>
+          <topic>/factory/camera/elev_arms</topic>
+          <camera name="camera_elev_arms">
+            <horizontal_fov>0.6</horizontal_fov>
+            <clip><near>0.05</near><far>100</far></clip>
+          </camera>
+        </sensor>
+      </link>
+    </model>
+
+    <!-- Camera "elev-conveyor": elevation over the conveyor.
+         Aimed at a BONED cell centre from GAZEBO/sim/boning.yaml, not at the
+         building centre. The earlier four were all aimed at the massing centre
+         (3.937, 2.416, 1.029), which is why the robot arms - boned at
+         (6.821, 3.534, 1.151) - never appeared in them.
+         Every camera sits OUTSIDE the massing envelope
+         (0,0,0)-(7.874,4.831072,2.0574) so no view is from inside a wall. -->
+    <model name="camera_elev_conveyor">
+      <static>true</static>
+      <pose>6.073 -2.042 1.029 0 0.0000 1.5708</pose>
+      <link name="camera_elev_conveyor">
+        <pose>0 0 0 0 0 0</pose>
+        <sensor name="camera_elev_conveyor" type="camera">
+          <pose>0 0 0 0 0 0</pose>
+          <always_on>1</always_on>
+          <update_rate>10</update_rate>
+          <visualize>0</visualize>
+          <topic>/factory/camera/elev_conveyor</topic>
+          <camera name="camera_elev_conveyor">
+            <horizontal_fov>0.6</horizontal_fov>
+            <clip><near>0.05</near><far>100</far></clip>
+          </camera>
+        </sensor>
+      </link>
+    </model>
+
+    <!-- Camera "elev-massing": elevation over the building massing / storage.
+         Aimed at a BONED cell centre from GAZEBO/sim/boning.yaml, not at the
+         building centre. The earlier four were all aimed at the massing centre
+         (3.937, 2.416, 1.029), which is why the robot arms - boned at
+         (6.821, 3.534, 1.151) - never appeared in them.
+         Every camera sits OUTSIDE the massing envelope
+         (0,0,0)-(7.874,4.831072,2.0574) so no view is from inside a wall. -->
+    <model name="camera_elev_massing">
+      <static>true</static>
+      <pose>11.746 2.416 1.029 0 0.0000 3.1416</pose>
+      <link name="camera_elev_massing">
+        <pose>0 0 0 0 0 0</pose>
+        <sensor name="camera_elev_massing" type="camera">
+          <pose>0 0 0 0 0 0</pose>
+          <always_on>1</always_on>
+          <update_rate>10</update_rate>
+          <visualize>0</visualize>
+          <topic>/factory/camera/elev_massing</topic>
+          <camera name="camera_elev_massing">
+            <horizontal_fov>0.6</horizontal_fov>
+            <clip><near>0.05</near><far>100</far></clip>
+          </camera>
+        </sensor>
+      </link>
+    </model>
+
+</world>
 </sdf>

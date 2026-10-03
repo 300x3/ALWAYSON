@@ -2,81 +2,130 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>ALWAYSON — ao-sim-fabrication portal (Gazebo factory world)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ALWAYS ON — ao-sim-fabrication portal (Gazebo factory world)</title>
 <style>
-  body { font-family: sans-serif; max-width: 70em; margin: 2em auto; padding: 0 1em;
-         background: #1a1a1a; color: #e8e8e8; }
-  h1 { color: #ffb340; } h2 { color: #7fd4ff; border-bottom: 1px solid #444; }
-  code, pre { background: #2a2a2a; padding: 0.15em 0.4em; border-radius: 4px; }
-  pre { padding: 1em; overflow-x: auto; }
-  table { border-collapse: collapse; width: 100%; }
-  th, td { border: 1px solid #555; padding: 0.4em 0.8em; text-align: left; }
-  th { background: #333; } a { color: #7fd4ff; }
-  .warn { background: #3a2a00; border-left: 4px solid #ffb340; padding: 1em; }
-  .ok { color: #7fff9f; } .no { color: #ff7f7f; } .run { color: #7fd4ff; }
-  button { font-size: 1.1em; margin: 0.3em; padding: 0.5em 1.2em; cursor: pointer; }
-  #log { white-space: pre-wrap; max-height: 20em; overflow-y: auto; }
+  :root { --bg:#14161a; --panel:#1e2228; --edge:#333a44; --fg:#e6e8ea;
+          --accent:#7fd4ff; --warn:#ffb340; --ok:#7fff9f; --bad:#ff7f7f; }
+  * { box-sizing:border-box; }
+  body { font-family:system-ui,sans-serif; background:var(--bg); color:var(--fg);
+         margin:0; padding:1.5rem; max-width:78em; margin-inline:auto; }
+  h1 { color:var(--accent); font-size:1.4rem; margin:0 0 .2rem; }
+  h2 { font-size:1.05rem; margin:0 0 .6rem; color:var(--fg);
+       border-bottom:1px solid var(--edge); padding-bottom:.3rem; }
+  .sub { color:#9aa4b2; font-size:.85rem; margin:0 0 1.2rem; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(21em,1fr)); gap:1rem; }
+  .card { background:var(--panel); border:1px solid var(--edge); border-radius:8px; padding:1rem; }
+  button { background:#2b3138; color:var(--fg); border:1px solid var(--edge);
+           border-radius:5px; padding:.45rem .9rem; margin:.15rem .25rem .15rem 0;
+           cursor:pointer; font-size:.9rem; }
+  button:hover { background:#39414a; }
+  button.warn { border-color:var(--warn); color:var(--warn); }
+  pre { background:#0e1013; border:1px solid var(--edge); border-radius:5px;
+        padding:.7rem; overflow-x:auto; font-size:.8rem; margin:.5rem 0 0; }
+  table { border-collapse:collapse; width:100%; font-size:.82rem; }
+  th,td { border:1px solid var(--edge); padding:.35rem .5rem; text-align:left; }
+  th { background:#232830; }
+  code { background:#0e1013; padding:.1rem .3rem; border-radius:3px; font-size:.85em; }
+  .ok{color:var(--ok)} .bad{color:var(--bad)} .warn{color:var(--warn)}
+  .note { color:#9aa4b2; font-size:.78rem; margin-top:.5rem; }
 </style>
 </head>
 <body>
-<h1>ao-sim-fabrication — Gazebo factory world (README §10.2)</h1>
-<p>Domain unit: <code>ao-sim-fabrication-gz.service</code> (Quadlet,
-<code>ao-sim-fabrication</code> network, Internal=true).
-World: <code>/ALWAYSON/data/sim-fabrication/worlds/factory.world</code>,
-<code>model://factory_assets/…</code> via <code>GZ_SIM_RESOURCE_PATH=/world</code>.
-Operates the <b>simulation only</b> — never a path to live machinery (§4.3).</p>
-
-<h2>Operate</h2>
-<p>
-<button onclick="act('start')">Start</button>
-<button onclick="act('stop')">Stop</button>
-<button onclick="act('reset')">Reset</button>
-<button onclick="act('inspect')">Inspect</button>
+<h1>ao-sim-fabrication — Gazebo factory world</h1>
+<p class="sub">
+  Operator surface for the fabrication simulation domain (README §10.2.1).
+  This portal operates the <b>simulation only</b> and is never a control path to
+  live machinery (§4.3). It is served from
+  <code>GAZEBO/portal/index.html</code> by
+  <code>ao-sim-fabrication-portal.service</code> on
+  <code>127.0.0.1:8765</code> — loopback only, not published through Podman,
+  Cloudflare or a router.
 </p>
-<pre id="log">status: loading…</pre>
+
+<div class="grid">
+
+  <div class="card">
+    <h2>World status</h2>
+    <p class="note"><strong>View only.</strong> This portal shows the simulation;
+      it cannot change it. To start, stop, reset or inspect the running world, run
+      <code>scripts/operations/ao-sim-portal.sh &lt;action&gt;</code> in a terminal.</p>
+    <button onclick="load('status','ctl')">Refresh status</button>
+    <pre id="ctl">ready</pre>
+  </div>
+
+  <div class="card">
+    <h2>Server state</h2>
+    <p class="note">Live state of the Gazebo server unit and the loaded world.</p>
+    <button onclick="load('status','st')">Refresh</button>
+    <pre id="st">loading…</pre>
+  </div>
+
+  <div class="card">
+    <h2>Boning and tolerances</h2>
+    <p class="note">Per README §10.2.1 the boning data ships with the world so a
+      simulated reach can be checked against a machine envelope.</p>
+    <button onclick="load('boning','bon')">Load boning</button>
+    <pre id="bon">not loaded</pre>
+  </div>
+
+  <div class="card">
+    <h2>Reinforcement learning objects</h2>
+    <p class="note">Trainable entities. Each has a stable id and a home pose, and
+      is held in its own non-static model so placement can vary without
+      rebuilding the world.</p>
+    <button onclick="load('objects','obj')">Load objects</button>
+    <pre id="obj">not loaded</pre>
+  </div>
+
+</div>
+
+<div class="card" style="margin-top:1rem">
+  <h2>Scope and honesty</h2>
+  <ul class="note" style="line-height:1.6">
+    <li>Every boning datum in <code>sim/boning.yaml</code> is
+      <b>derived from the SketchUp export AABBs</b>, not surveyed on the shop
+      floor. The 3D printer and CNC bed are not in the exports at all.</li>
+    <li>The portal therefore reports
+      <code>reach_verified_against_machine</code> as <b>false</b> until an
+      operator declares those frames. A simulated reach must not be called
+      verified against a real envelope before then.</li>
+    <li>The Gazebo 3D view is a separate client
+      (<code>ao-sim-fabrication-gui-gz</code>), started on demand. It is not
+      embedded in this page.</li>
+  </ul>
+</div>
+
 <script>
-async function act(a){
-  const el = document.getElementById('log');
-  el.textContent = a + ': running…';
-  try {
-    const r = await fetch('/api/' + a, {method:'POST'});
-    el.textContent = a + ': ' + (await r.text());
-  } catch(e){ el.textContent = a + ': ERROR ' + e; }
+const j = async (u, o) => { const r = await fetch(u, o); return r.json(); };
+function show(el, v){ document.getElementById(el).textContent = v; }
+async function load(k, el){
+  show(el, 'loading…');
+  try{ const d = await j('/api/'+k);
+    if(k==='boning'){
+      const lines = [];
+      lines.push('frame          : ' + d.frame);
+      lines.push('verified vs machine : ' + (d.reach_verified_against_machine ? 'YES' : 'NO'));
+      (d.cells||[]).forEach(c => lines.push('  cell ' + c.id.padEnd(14) +
+        'origin ' + JSON.stringify(c.origin) + ' [' + c.datum_source + ']'));
+      (d.machines||[]).forEach(m => lines.push('  machine ' + m.id.padEnd(12) +
+        'envelope declared: ' + (m.envelope_declared ? 'yes' : 'NO')));
+      lines.push('');
+      lines.push(d.note||'');
+      show(el, lines.join('\n'));
+    } else if(k==='objects'){
+      const lines = ['total objects: ' + d.total_objects +
+                     '   model: ' + d.model + '   resettable: ' + d.resettable, ''];
+      (d.groups||[]).forEach(g => {
+        lines.push(g.id + ' — ' + g.name);
+        (g.objects||[]).forEach(o => lines.push('   ' + o.id.padEnd(14) +
+          o.class.padEnd(12) + 'home ' + JSON.stringify(o.home_pose)));
+      });
+      show(el, lines.join('\n'));
+    } else { show(el, JSON.stringify(d, null, 2)); }
+  }catch(e){ show(el, 'ERROR ' + e); }
 }
-fetch('/api/status', {method:'POST'}).then(r=>r.text()).then(t=>{
-  document.getElementById('log').textContent = 'status: ' + t;
-}).catch(e=>{ document.getElementById('log').textContent = 'status: ERROR ' + e; });
+load('status','st');
 </script>
-
-<h2>World contents</h2>
-<table>
-<tr><th>Link</th><th>Source mesh</th><th>Pose</th></tr>
-<tr><td>building_massing</td><td><code>massing_fab.dae</code><br>(newline-leading massing export)</td><td>0 0 0</td></tr>
-<tr><td>conveyor_system</td><td><code>conveyor.dae</code></td><td>0 0 0</td></tr>
-<tr><td>robot_arms</td><td><code>arms.dae</code></td><td>0 0 0</td></tr>
-<tr><td>vehicles_overlay</td><td><code>vehicles_arms.dae</code></td><td>0 0 <b>2.5</b> (lifted, deliberate)</td></tr>
-</table>
-<p>All exports: inch units (scale 0.0254), Z-up, shared aligned frame.</p>
-
-<h2>Validation status</h2>
-<ul>
-<li class="ok">PASS — <code>gz sdf --check factory.world</code> → Valid (model:// via resource path)</li>
-<li class="ok">PASS — <code>--print</code> shows ground_plane + factory / 4 links</li>
-<li class="ok">SIGNED — <a href="/manifest.json">fabrication_simulation manifest</a> (Ed25519, ao-sim-fabrication key)</li>
-</ul>
-
-<h2>Files</h2>
-<ul>
-<li><a href="/world.sdf">data/sim-fabrication/worlds/factory.world</a></li>
-<li><a href="/model.sdf">GAZEBO/models/factory_assets/model.sdf</a> (design artifact)</li>
-<li><a href="/readme.txt">GAZEBO/README-GAZEBO-WORLD_MOVING.txt</a></li>
-<li><a href="/manifest.json">artifacts/fabrication-simulation-manifests/factory-world-v1.json</a></li>
-</ul>
-
-<h2>Env (fabrication sim domain)</h2>
-<pre>ROS_DOMAIN_ID=22
-GZ_PARTITION=alwayson_fabrication_sim
-GZ_SIM_RESOURCE_PATH=/world (in unit)</pre>
 </body>
 </html>
-

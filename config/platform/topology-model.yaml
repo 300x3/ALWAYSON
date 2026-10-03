@@ -366,11 +366,18 @@ desktop_software:
     connects: ["tcp/127.0.0.1:5760 (SITL)", "MAVLink over DRONE-RADIO"]
     status: partial
 
-  - id: desktop-gazebo
-    label: "Gazebo Sim 10.5.0 + ROS 2 Lyrical"
-    software: "gz sim 10.5.0, ROS 2 Lyrical, ros_gz_bridge, foxglove_bridge"
-    listens: ["127.0.0.1:8765 (foxglove_bridge ws)", "gz transport TCP/UDP"]
-    env: ["ROS_DOMAIN_ID=21", "GZ_PARTITION=alwayson_vehicle_sim"]
+  - id: ao-sim-fabrication-foxglove
+    label: "Fabrication simulation viewer (Foxglove)"
+    software: "foxglove_bridge 3.5.0, ros_gz_bridge (ros-lyrical-foxglove-bridge)"
+    listens: ["127.0.0.1:8081 (foxglove_bridge ws, loopback only)"]
+    connects: ["ao-html-window + ao-sim-fabrication", "gz /factory/camera/image"]
+    env: ["ROS_DOMAIN_ID=22", "GZ_PARTITION=alwayson_fabrication_sim"]
+    status: implemented
+
+  - id: ao-sim-fabrication-portal
+    label: "Fabrication simulation portal (view-only HTML)"
+    software: "python3 http.server serving GAZEBO/portal/index.html"
+    listens: ["127.0.0.1:8765 (http, loopback only)"]
     status: implemented
 
   - id: desktop-konqueror

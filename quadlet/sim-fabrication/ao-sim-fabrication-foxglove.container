@@ -1,0 +1,95 @@
+# /ALWAYSON/quadlet/sim-fabrication/ao-sim-fabrication-foxglove.container
+# ALWAYS ON Foxglove bridge for the fabrication simulation.
+#
+# WHAT THIS IS: the viewer path. The Gazebo GUI runs as gz-sim-gui-client and
+# speaks gz-transport; Foxglove speaks ROS 2 and then the Foxglove WebSocket
+# protocol. This container does BOTH hops: gz-transport -> ROS 2
+# (ros_gz_bridge), then ROS 2 -> WebSocket (foxglove_bridge).
+#
+# IT IS VIEW-ONLY BY DESIGN. Foxglove is a viewer here, not a controller. This
+# bridge is started WITHOUT any gz->ROS parameter_bridge entries for /world/*/control
+# or service traffic, so a Foxglove client can SUBSCRIBE and cannot drive the
+# simulation. If that ever changes, this file must be re-reviewed: an
+# unrestricted bridge turns a read-only display surface into a control path.
+#
+# PublishPort is LOOPBACK ONLY (127.0.0.1:8081). The operator reaches Foxglove
+# Studio at ws://127.0.0.1:8081 from a browser/app on this machine. It binds no
+# public interface: the LAN address still refuses. Operator-approved 2026-10-01.
+# 8081 is the in-container port too, so the mapping is 1:1.
+#
+# 8080 was NOT used: it is already bound by domoticz (host service). Measured
+# free at creation: 8081, 8088, 8090, 8099.
+#
+# TWO NETWORKS, AND THE SECOND ONE IS LOAD-BEARING (added 2026-10-02).
+#
+# ao-sim-fabrication is where the Gazebo SERVER lives (10.89.5.0/24). The bridge
+# MUST also be attached to it or gz-transport discovery can never complete: both
+# containers have to share one L2 segment, because discovery is UDP multicast on
+# the local link. A matching GZ_PARTITION is NOT sufficient - it partitions
+# traffic, it does not route between two separate Internal=true bridges.
+#
+# Measured before this fix, from inside the bridge:
+#   /proc/net/route -> only 000E590A/00FFFFFF (10.89.14.0/24)
+#   connect 10.89.5.24:11345 -> "Network is unreachable"
+# Symptom was a Foxglove viewer that connected fine and showed nothing but
+# /rosout and /parameter_events.
+#
+# ao-html-window stays the primary: it is the operator's view-only display
+# network (requested 2026-10-01, registered in config/platform/network-cidrs.yaml
+# as 10.89.14.0/24). Both networks are Internal=true, so a container attached to
+# both still cannot reach anything off-host - joining two internal bridges grants
+# no egress, it only lets this container see the server it bridges.
+#
+# CORRECTION to the note this replaces: it claimed "reachability comes from the
+# loopback publish, not from network egress", citing ao-mapping -> ao-webodm-web
+# on 8000. That is a category error. The loopback publish makes the VIEWER able
+# to reach the bridge; it does nothing for the bridge reaching the SERVER, which
+# travels over gz-transport. Nothing in the ao-mapping precedent bridges across
+# networks, so it was never a like-for-like comparison.
+[Unit]
+Description=ALWAYS ON Foxglove bridge (ao-sim-fabrication)
+# The bridge is useless without the server it bridges, so start after it.
+After=ao-sim-fabrication-gz.service
+Wants=ao-sim-fabrication-gz.service
+
+[Container]
+# Digest-pinned 2026-10-02 (README §4.1 rule 9), RE-PINNED after the entrypoint
+# fix that made the gz hop actually bridge (see entrypoint.sh). This is a
+# LOCALLY BUILT image, so like the gz-sim10-server pin the digest is the
+# immutability record of the exact build validated against the live server, not
+# an upstream release reference.
+#
+#   820dd22a4a7d...  first pin 2026-10-02 - ENTRYPOINT BROKEN, bridged nothing
+#   b58ea8704f17...  2026-10-02 - gz hop verified bridging at ~9.7 Hz
+#   e4e8baa67056...  re-pin 2026-10-02 - VIEW-ONLY enforced: clientPublish,
+#                     parameters and services dropped; whitelists narrowed
+#
+# Pinning means a later rebuild will NOT silently take over this unit: it fails
+# to start instead, which is the intent for a viewer whose gz-transport
+# compatibility is measured (Containerfile, VERSION COMPATIBILITY).
+# Previous pin retained in git history; re-pin deliberately after re-running
+# the validation.
+Image=localhost/foxglove-bridge@sha256:9acc6d4df749ea10f3e97b4b6676a14d864dcb06781ffe7ad551736af0052c87
+ContainerName=ao-sim-fabrication-foxglove
+Network=ao-html-window.network
+# Load-bearing: see the TWO NETWORKS note above. Removing this line silently
+# yields an empty Foxglove while the container stays "healthy" and running.
+Network=ao-sim-fabrication.network
+# Must match ao-sim-fabrication-gz.container. GZ_PARTITION is what lets
+# gz_transport discovery find the server; ROS_DOMAIN_ID is where the bridged
+# topics land. Changing one without the other silently yields an empty Foxglove.
+Environment=GZ_PARTITION=alwayson_fabrication_sim
+Environment=ROS_DOMAIN_ID=22
+PublishPort=127.0.0.1:8081:8081
+# View-only: no control/input paths are bridged. See the header note.
+NoNewPrivileges=true
+
+[Service]
+Restart=on-failure
+RestartSec=15
+MemoryMax=2G
+CPUQuota=100%
+TimeoutStartSec=120
+
+[Install]
+WantedBy=default.target

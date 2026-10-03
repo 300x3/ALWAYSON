@@ -9,7 +9,7 @@ registry="$AO_ROOT/config/platform/network-cidrs.yaml"
 # isolation domain, so a non-internal network here is a failure.
 # ao-sales is NOT in this list: it is deliberately non-internal so Sidekiq can
 # deliver ActivityPub, and is asserted as Internal=false in the egress list.
-expected=(ao-payment ao-field ao-mapping ao-sim-vehicle ao-sim-fabrication ao-ledger-ingest ao-ledger-core ao-data ao-admin ao-fabrication)
+expected=(ao-payment ao-field ao-mapping ao-sim-vehicle ao-sim-fabrication ao-ledger-ingest ao-ledger-core ao-data ao-admin ao-fabrication ao-html-window)
 # Egress networks are deliberately NOT internal: they exist to reach a provider
 # or the public internet, which is the whole point of a separate egress network.
 # They are still registered here so the registry is the single authority for
@@ -17,6 +17,9 @@ expected=(ao-payment ao-field ao-mapping ao-sim-vehicle ao-sim-fabrication ao-le
 # Internal=false rather than being reported as a violation.
 #   ao-reporting-egress  10.89.10.0/24  ao-grafana, ao-metabase
 #   ao-build-update      10.89.13.0/24  ao-build-update (adapter; acquisition only)
+#
+# ao-html-window (10.89.14.0/24) is in the internal list above. It is the
+# operator-facing view-only display network and carries the Foxglove bridge.
 #
 # ao-egress-community is RETIRED and removed from this host. It is no longer
 # listed here or in the registry, because the live podman network is gone.

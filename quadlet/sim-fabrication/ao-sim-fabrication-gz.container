@@ -39,7 +39,24 @@ Volume=/ALWAYSON/data/sim-fabrication/gzhome:/gzhome:Z
 Volume=/ALWAYSON/data/sim-fabrication/fuel:/gzfuel:Z
 Volume=/ALWAYSON/data/sim-fabrication/plugins:/gzplugins:ro,Z
 Volume=/ALWAYSON/data/sim-fabrication/results:/results:Z
-Environment=GZ_IP=127.0.0.1
+# GZ_IP is the address this server ADVERTISES in gz-transport discovery, and
+# it must be reachable by every container that bridges or views the world.
+# It was 127.0.0.1, which only worked for ao-sim-fabrication-gui-gz because that
+# container shares this container's network namespace. Measured consequence with
+# the loopback value: from ao-sim-fabrication-foxglove,
+#   gz topic -i -t /factory/camera/image
+#     "No publishers on topic [/factory/camera/image]"
+# i.e. the subscriber connected and the topic name was visible, but no image
+# data ever arrived, so the local viewer received an advertised topic and zero
+# frames. 127.0.0.1 means "me" to whichever container reads it, so a remote
+# subscriber resolves the publisher to its own loopback.
+#
+# The server therefore needs a routable, STABLE address: discovery advertises
+# this value, so it must not change on restart. PodmanArgs below pins the
+# container to SERVER_IP. If the address is changed here it must be changed in
+# both places, and 10.89.5.0/24 is registered in
+# config/platform/network-cidrs.yaml as the ao-sim-fabrication domain.
+Environment=GZ_IP=10.89.5.10
 Environment=GZ_PARTITION=alwayson_fabrication_sim
 Environment=GZ_VERSION=10
 Environment=GZ_SIM_RESOURCE_PATH=/ALWAYSON/GAZEBO/models
@@ -52,7 +69,9 @@ Exec=/ALWAYSON/GAZEBO/worlds/factory.world -r -s -v 4
 # journald driver (the systemd default) ignores --log-opt path, so the k8s-file
 # driver is selected explicitly to write that file.
 LogDriver=k8s-file
-PodmanArgs=--entrypoint /usr/libexec/gz/sim10/gz-sim-server --log-opt path=/ALWAYSON/logs/sim-gz-server.log
+# --ip pins the container to the address advertised in GZ_IP above. Both must
+# agree or gz-transport discovery advertises an address nothing is listening on.
+PodmanArgs=--ip 10.89.5.10 --entrypoint /usr/libexec/gz/sim10/gz-sim-server --log-opt path=/ALWAYSON/logs/sim-gz-server.log
 
 [Service]
 Restart=on-failure

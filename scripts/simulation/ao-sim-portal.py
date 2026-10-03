@@ -32,7 +32,6 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import subprocess
 import sys
 import urllib.parse
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -43,45 +42,38 @@ BONING = os.path.join(ROOT, "sim", "boning.yaml")
 OBJECTS = os.path.join(ROOT, "sim", "objects.yaml")
 WORLD = os.path.join(ROOT, "worlds", "factory.world")
 
-# The one and only unit this portal is permitted to act on.
+# The unit this portal REPORTS on. It is never acted upon from here - see the
+# module docstring. World lifecycle is the operator CLI ao-sim-portal.sh.
 CONTROLLED_UNIT = "ao-sim-fabrication-gz.service"
-ACTIONS = ("start", "stop", "reset", "inspect", "status")
+
+# View-only. Nothing in this tuple can change the state of the simulation.
+READ_ACTIONS = ("status", "inspect")
 
 
 def log(msg: str) -> None:
     print(f"[ao-sim-portal] {msg}", file=sys.stderr, flush=True)
 
 
-def unit_action(action: str) -> str:
-    """Run a systemctl action against the single permitted unit."""
-    if action == "reset":
-        cmd = ["systemctl", "--user", "restart", CONTROLLED_UNIT]
-    elif action == "status":
-        cmd = ["systemctl", "--user", "is-active", CONTROLLED_UNIT]
-    else:
-        cmd = ["systemctl", "--user", action, CONTROLLED_UNIT]
-    try:
-        p = subprocess.run(cmd, capture_output=True, text=True, timeout=90)
-        out = (p.stdout or "").strip() or (p.stderr or "").strip()
-        return f"{' '.join(cmd[2:])} -> rc={p.returncode} {out}".strip()
-    except subprocess.TimeoutExpired:
-        return f"{action}: timed out"
-
-
 def unit_state() -> dict:
-    try:
-        p = subprocess.run(
-            ["systemctl", "--user", "show", CONTROLLED_UNIT, "-p", "ActiveState",
-             "-p", "SubState", "-p", "MainPID", "--no-pager"],
-            capture_output=True, text=True, timeout=30)
-        st = {}
-        for line in p.stdout.splitlines():
-            if "=" in line:
-                k, v = line.split("=", 1)
-                st[k] = v
-        return st
-    except Exception as exc:  # noqa: BLE001
-        return {"error": type(exc).__name__}
+    """Read-only view of the simulation's data files. NO systemctl, NO control.
+
+    Deliberately does not shell out. It reports what exists on disk and when it
+    last changed, which is enough for an operator to tell whether the world has
+    been rebuilt, without this process holding any handle on the running
+    simulation. Probing a gz-transport control service instead would defeat the
+    view-only guarantee - see the module docstring.
+    """
+    out = {"unit": CONTROLLED_UNIT, "controlled": False,
+           "note": "view-only portal; it never acts on the unit. "
+                   "Use scripts/operations/ao-sim-portal.sh for control."}
+    for label, path in (("world", WORLD), ("boning", BONING), ("objects", OBJECTS)):
+        try:
+            st = os.stat(path)
+            out[label] = {"path": path, "size_bytes": st.st_size,
+                          "modified_epoch": int(st.st_mtime)}
+        except OSError as exc:
+            out[label] = {"path": path, "error": str(exc)}
+    return out
 
 
 def load_yaml(path: str):
@@ -214,6 +206,20 @@ class Handler(BaseHTTPRequestHandler):
                     self._send(200, fh.read(), "text/html; charset=utf-8")
             except OSError as exc:
                 self._send(500, str(exc).encode(), "text/plain")
+        elif path == "/viewer" or path.startswith("/viewer/"):
+            # The local simulation viewer. Static HTML only: it opens a
+            # WebSocket to the Foxglove bridge on 127.0.0.1:8081 and renders
+            # the camera. It sends nothing outward and has no credentials -
+            # the bridge it talks to is loopback-only.
+            rel = path[len("/viewer"):].lstrip("/") or "index.html"
+            if ".." in rel or rel.startswith("/"):
+                self._send(400, b"bad path", "text/plain")
+                return
+            try:
+                with open(os.path.join(PORTAL_DIR, "viewer", rel), "rb") as fh:
+                    self._send(200, fh.read(), "text/html; charset=utf-8")
+            except OSError as exc:
+                self._send(404, str(exc).encode(), "text/plain")
         elif path == "/api/status":
             self._json(200, {"unit": CONTROLLED_UNIT, "state": unit_state(),
                              "world": world_summary()})
@@ -222,36 +228,42 @@ class Handler(BaseHTTPRequestHandler):
         elif path == "/api/objects":
             self._json(200, objects_summary())
         elif path == "/api/health":
-            self._json(200, {"ok": True, "controls": CONTROLLED_UNIT})
+            self._json(200, {"ok": True, "view_only": True,
+                             "reports_on": CONTROLLED_UNIT,
+                             "controls": None})
         else:
             self._send(404, b"not found", "text/plain")
 
     def do_POST(self):
-        path = urllib.parse.urlparse(self.path).path
-        if not path.startswith("/api/"):
-            self._send(404, b"not found", "text/plain")
-            return
-        action = path[len("/api/"):]
-        if action not in ACTIONS:
-            self._json(400, {"error": f"unknown action; allowed: {', '.join(ACTIONS)}"})
-            return
-        length = int(self.headers.get("Content-Length") or 0)
-        if length:
-            self.rfile.read(length)
-        result = unit_action(action)
-        self._json(200, {"action": action, "unit": CONTROLLED_UNIT,
-                         "result": result, "state": unit_state()})
+        # VIEW-ONLY. Every write verb is refused; the portal exposes no route
+        # that can change the simulation. 405 with an Allow header is the
+        # correct response for a method the resource does not support.
+        body = json.dumps({
+            "error": "view-only portal: this service cannot modify the simulation",
+            "control_path": "/ALWAYSON/scripts/operations/ao-sim-portal.sh "
+                            "{start|stop|reset|inspect|status}",
+            "allowed": list(READ_ACTIONS),
+        }, indent=2).encode()
+        self.send_response(405)
+        self.send_header("Allow", "GET, HEAD")
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        if self.command != "HEAD":
+            self.wfile.write(body)
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="ao-sim-fabrication portal control surface")
+    ap = argparse.ArgumentParser(description="ao-sim-fabrication portal, VIEW-ONLY (no control actions)")
     ap.add_argument("--host", default="127.0.0.1")
     ap.add_argument("--port", type=int, default=8765)
     args = ap.parse_args()
     if args.host not in ("127.0.0.1", "localhost", "::1"):
         log(f"REFUSING to bind {args.host}: the portal is loopback-only by policy")
         return 2
-    log(f"portal on {args.host}:{args.port}; controls {CONTROLLED_UNIT} only")
+    log(f"portal on {args.host}:{args.port}; VIEW-ONLY, controls nothing "
+        f"(reports on {CONTROLLED_UNIT}; control via scripts/operations/ao-sim-portal.sh)")
     HTTPServer((args.host, args.port), Handler).serve_forever()
     return 0
 

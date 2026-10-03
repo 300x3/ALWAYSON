@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>ALWAYS ON — ao-sim-fabrication viewer (local Foxglove client)</title>
+<style>
+  :root { --fg:#e6e6e6; --bg:#14171a; --edge:#2b3138; --accent:#4aa3df; --ok:#5fb878; --bad:#d4645f; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg);
+         font:14px/1.5 system-ui,'Noto Sans',sans-serif; }
+  header { padding:10px 16px; border-bottom:1px solid var(--edge); display:flex;
+           gap:16px; align-items:center; flex-wrap:wrap; }
+  h1 { font-size:15px; margin:0; font-weight:600; }
+  .pill { padding:3px 10px; border-radius:11px; border:1px solid var(--edge);
+          font-size:12px; background:#1b1f23; }
+  .dot { display:inline-block; width:8px; height:8px; border-radius:50%;
+         margin-right:6px; background:#666; }
+  .dot.ok { background:var(--ok); } .dot.bad { background:var(--bad); }
+  main { display:flex; gap:16px; padding:16px; align-items:flex-start;
+         flex-wrap:wrap; }
+  /* User-resizable viewport. Drag the bottom-right corner to size the 3D view;
+     the pixel size controls below do the same thing numerically. The canvas
+     backing store is resized to match so the image stays crisp instead of
+     being stretched by CSS. */
+  #viewwrap { display:inline-block; resize:both; overflow:hidden; flex:0 0 auto;
+              min-width:240px; min-height:180px;
+              background:#000; border:1px solid var(--edge); border-radius:4px; }
+  #view { display:block; image-rendering:pixelated; }
+  aside { min-width:280px; }
+  table { border-collapse:collapse; width:100%; font-size:13px; }
+  td { padding:3px 0; }
+  td.k { color:#9aa4ad; }
+  .note { color:#9aa4ad; font-size:12px; margin-top:14px; line-height:1.6; }
+  button { background:#2b3138; color:var(--fg); border:1px solid var(--edge);
+           border-radius:4px; padding:6px 12px; cursor:pointer; font-size:13px; }
+  button:hover { background:#39414a; }
+  select { background:#2b3138; color:var(--fg); border:1px solid var(--edge);
+           border-radius:4px; padding:5px 8px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>ao-sim-fabrication — local simulation viewer</h1>
+  <span class="pill"><span class="dot" id="dot"></span><span id="stat">connecting…</span></span>
+  <span class="pill" id="rate">—</span>
+</header>
+
+<main>
+  <div>
+    <div id="viewwrap" style="width:640px;height:480px">
+      <canvas id="view" width="640" height="480"></canvas>
+    </div>
+    <div style="margin-top:8px;font-size:12px;color:#9aa4ad">
+      Drag the bottom-right corner of the frame to resize, or:
+      width <input id="w" type="number" value="640" min="240" max="1920" step="20"
+             style="width:74px"> &times;
+      height <input id="h" type="number" value="480" min="180" max="1080" step="20"
+             style="width:74px">
+      px
+      <button id="fit" style="margin-left:8px">Fit</button>
+      <button id="full">Full</button>
+    </div>
+  </div>
+  <aside>
+    <table>
+      <tr><td class="k">Bridge</td><td id="v-bridge">—</td></tr>
+      <tr><td class="k">Topic</td><td id="v-topic">—</td></tr>
+      <tr><td class="k">Message type</td><td id="v-schema">—</td></tr>
+      <tr><td class="k">Resolution</td><td id="v-res">—</td></tr>
+      <tr><td class="k">Encoding</td><td id="v-enc">—</td></tr>
+      <tr><td class="k">Frame rate</td><td id="v-hz">—</td></tr>
+      <tr><td class="k">Last frame</td><td id="v-age">—</td></tr>
+    </table>
+    <div style="margin-top:14px">
+      <label class="k" style="font-size:12px">Camera feed</label><br>
+      <select id="sel"></select>
+    </div>
+    <div style="margin-top:10px"><button id="pause">Pause</button></div>
+    <p class="note">
+      Connects to <code>ws://127.0.0.1:8081</code> — the local
+      <code>ao-sim-fabrication-foxglove</code> bridge. Nothing is sent to any
+      external service; this page is served from the host and talks only to
+      loopback.<br><br>
+      <strong>View only.</strong> The bridge advertises no
+      <code>clientPublish</code> capability, so this client cannot write to the
+      simulation. Pause and camera selection affect this page alone.
+    </p>
+  </aside>
+</main>
+
+<script>
+// ---------------------------------------------------------------------------
+// Minimal CDR decoder for sensor_msgs/msg/Image, then blit to a canvas.
+//
+// WHY hand-rolled: the bridge serves the image as CDR (binary), not JSON. A
+// local viewer that only spoke JSON would show nothing. The layout below is
+// fixed by sensor_msgs/Image and is stable:
+//   std_msgs/Header header
+//     builtin_interfaces/Time stamp  (int32 sec, uint32 nanosec)
+//     string frame_id
+//   uint32 height
+//   uint32 width
+//   string encoding
+//   uint8 is_bigendian
+//   uint32 step
+//   uint8[] data
+// CDR alignment rules are applied as we walk the buffer.
+// ---------------------------------------------------------------------------
+
+// Locate the encoding field (e.g. "rgb8\0") inside a frame, then read the
+// sensor_msgs/Image fields relative to it.
+//
+// WHY SELF-LOCATING: the bridge prepends a variable-length preamble to the CDR
+// payload (measured 17 bytes for the camera channel, and it carries the
+// subscription id, so it is not a fixed constant). Hard-coding 17 would break
+// silently on the next change. Instead the encoding string is a stable
+// landmark, and every other field is found relative to it.
+//
+// Verified layout for this channel (offsets absolute in a 230493-byte frame):
+//   height 240 @65, width 320 @69, "rgb8\0" @77, step 960 @85, data @93
+//   230493 - 93 == 240*320*3 == 230400   <- the length check below
+function findEncoding(u) {
+  const cands = ['rgb8', 'bgr8', 'rgba8', 'bgra8', 'mono8', 'mono16', '8UC3', '8UC1'];
+  const pats = cands.map(c => ({ s: c, b: Array.from(new TextEncoder().encode(c)) }));
+  for (let i = 4; i < 256; i++) {
+    for (const p of pats) {
+      let ok = true;
+      for (let k = 0; k < p.b.length; k++) {
+        if (u[i + k] !== p.b[k]) { ok = false; break; }
+      }
+      if (ok && u[i + p.b.length] === 0) return { enc: p.s, at: i, len: p.b.length };
+    }
+  }
+  return null;
+}
+
+function decodeImage(buf) {
+  const u = new Uint8Array(buf);
+  const hit = findEncoding(u);
+  if (!hit) return null;
+  const dv = new DataView(buf);
+  // CDR alignment is relative to the encapsulation start; using the encoding
+  // field's own offset gives the same residue, so relative alignment is exact.
+  const base = hit.at % 4;
+  const align = p => p + (((base - (p % 4)) % 4) + 4) % 4;
+
+  const height = dv.getUint32(hit.at - 12, true);
+  const width  = dv.getUint32(hit.at - 8, true);
+  if (!(height > 0 && height < 4000 && width > 0 && width < 4000)) return null;
+
+  // after the encoding chars + NUL comes is_bigendian (1 byte), then step
+  const stepOff = align(hit.at + hit.len + 1 + 1);
+  const step = dv.getUint32(stepOff, true);
+  const dataOff = stepOff + 8;          // 4 bytes of step + 4 bytes of length
+  const dataLen = buf.byteLength - dataOff;
+
+  // Reject a misread rather than drawing garbage.
+  if (step !== width * 3 && step !== width * 4 && step !== width) return null;
+  if (dataLen < step * height * 0.9) return null;
+  return { height, width, encoding: hit.enc, step, dataOff, dataLen };
+}
+
+const $ = id => document.getElementById(id);
+const canvas = $('view'), ctx = canvas.getContext('2d');
+let paused = false;
+let ws = null;
+let subId = 1;   // must match the id sent in the subscribe op
+let lastFrameAt = 0, rateWindow = [], channelId = null;
+let decodeCanvas = null;   // scratch canvas for the native-resolution frame
+let schemaName = '';
+
+function setStatus(cls, text) {
+  $('dot').className = 'dot ' + cls;
+  $('stat').textContent = text;
+}
+
+function render(msg) {
+  const img = decodeImage(msg);
+  if (!img) { return; }
+  // Do NOT resize the canvas here: that would fight the user's chosen viewport
+  // size on every frame. Scale the decoded image into the current canvas
+  // instead, preserving aspect ratio.
+  $('v-res').textContent = img.width + ' x ' + img.height;
+  $('v-enc').textContent = img.encoding;
+
+  const out = ctx.createImageData(img.width, img.height);
+  ctx.imageSmoothingEnabled = true;
+  const px = out.data;
+  const e = img.encoding.toLowerCase();
+  const d = new Uint8Array(msg, img.dataOff);
+
+  for (let i = 0; i < img.width * img.height; i++) {
+    const o = i * 4;
+    let r, g, b;
+    const s3 = i * 3, s4 = i * 4;
+    if (e === 'rgb8')        { r = d[s3]; g = d[s3+1]; b = d[s3+2]; }
+    else if (e === 'bgr8')   { b = d[s3]; g = d[s3+1]; r = d[s3+2]; }
+    else if (e === 'rgba8')  { r = d[s4]; g = d[s4+1]; b = d[s4+2]; }
+    else if (e === 'bgra8')  { b = d[s4]; g = d[s4+1]; r = d[s4+2]; }
+    else if (e === 'mono8')  { r = g = b = d[s3]; }
+    else { r = g = b = 128; }
+    px[o] = r; px[o+1] = g; px[o+2] = b; px[o+3] = 255;
+  }
+  // Decode into an OFFSCREEN canvas, never into the visible one. Writing the
+  // native-resolution frame straight into the visible canvas and then calling
+  // drawImage(canvas, ...) to scale it copies the canvas onto ITSELF, so the
+  // unscaled original survives in the corner whenever the scale is > 1 - which
+  // is why a small duplicate image sat in the top-left of any view scaled up.
+  if (!decodeCanvas) { decodeCanvas = document.createElement('canvas'); }
+  if (decodeCanvas.width !== img.width || decodeCanvas.height !== img.height) {
+    decodeCanvas.width = img.width; decodeCanvas.height = img.height;
+  }
+  const dctx = decodeCanvas.getContext('2d');
+  dctx.putImageData(out, 0, 0);
+
+  // fit-to-viewport, letterboxed. Clear first so any area not covered by the
+  // letterbox bars is background, not a ghost of the previous frame.
+  const scale = Math.min(canvas.width / img.width, canvas.height / img.height);
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(decodeCanvas, 0, 0, img.width, img.height,
+                (canvas.width - img.width * scale) / 2,
+                (canvas.height - img.height * scale) / 2,
+                img.width * scale, img.height * scale);
+
+  const now = performance.now();
+  rateWindow.push(now);
+  while (rateWindow.length && now - rateWindow[0] > 2000) rateWindow.shift();
+  $('v-hz').textContent = (rateWindow.length / 2).toFixed(1) + ' Hz';
+  $('v-age').textContent = 'just now';
+  lastFrameAt = Date.now();
+}
+
+function connect() {
+  const url = 'ws://' + location.hostname + ':8081';
+  $('v-bridge').textContent = url;
+  ws = new WebSocket(url, 'foxglove.sdk.v1');
+
+  ws.binaryType = 'arraybuffer';
+
+  ws.onopen = () => setStatus('ok', 'connected');
+
+  // The bridge sends JSON control frames (serverInfo/advertise) as text, but
+  // CDR message data arrives as a BINARY frame whose payload is the raw CDR
+  // buffer for the channel named in the subscription. Measured: ~10 binary
+  // frames per second at 240p. Attempting JSON.parse on those throws and the
+  // image is silently dropped - which looks exactly like "connected but blank".
+  ws.binaryType = 'arraybuffer';
+
+  ws.onmessage = ev => {
+    if (typeof ev.data !== 'string') {
+      // Binary payload. IMPORTANT: a foxglove binary frame does NOT say which
+      // channel it belongs to in the payload itself - the SUBSCRIPTION ID is
+      // carried at byte 1 (a frame for subscription 11 starts 1,11,0,0).
+      // Without this check, frames from a previous selection keep rendering
+      // and the dropdown appears to do nothing.
+      const sid = new Uint8Array(ev.data, 0, 2)[1];
+      if (sid !== subId) return;
+      if (!paused && channelId !== null) {
+        try { render(ev.data); } catch (err) { /* skip malformed frame */ }
+      }
+      return;
+    }
+    let m;
+    try { m = JSON.parse(ev.data); } catch (e) { return; }
+    if (m.op === 'advertise') {
+      // Only the camera feeds are offered. The bridge also advertises
+      // /rosout, /parameter_events and its own sysinfo; a viewer of the plant
+      // should not have to pick them out of the list.
+      (m.channels || []).filter(c => /\/factory\/camera\//.test(c.topic || '')).forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.id;
+        opt.textContent = c.topic;
+        $('sel').appendChild(opt);
+        if (!channelId) { channelId = c.id; $('sel').value = c.id; }
+      });
+      const cam = (m.channels || []).find(c => /camera|image/i.test(c.topic));
+      if (cam) {
+        channelId = cam.id;
+        $('sel').value = cam.id;
+        schemaName = cam.schemaName || '';
+        $('v-schema').textContent = schemaName;
+        $('v-topic').textContent = cam.topic;
+        ws.send(JSON.stringify({op:'subscribe', subscriptions:[{id:subId, channelId:cam.id, encoding:'cdr'}]}));
+      }
+    } else if (m.op === 'serverInfo') {
+      setStatus('ok', 'connected');
+    }
+  };
+
+  ws.onclose = () => {
+    setStatus('bad', 'disconnected — retrying');
+    setTimeout(connect, 2000);
+  };
+  ws.onerror = () => setStatus('bad', 'error');
+}
+
+// ---- viewport sizing -------------------------------------------------------
+// The canvas backing store follows the wrapper so the feed stays 1:1 instead
+// of being stretched, and the next frame repaints at the new size.
+function applySize(w, h) {
+  const wrap = $('viewwrap');
+  w = Math.max(240, Math.min(1920, Math.round(w)));
+  h = Math.max(180, Math.min(1080, Math.round(h)));
+  wrap.style.width = w + 'px';
+  wrap.style.height = h + 'px';
+  canvas.width = w;
+  canvas.height = h;
+  $('w').value = w;
+  $('h').value = h;
+  lastW = w; lastH = h;
+}
+// Guarded so it cannot ratchet downwards. Writing the observed size back into
+// the same style that produced it makes the observer fire again with the value
+// it just wrote, and repeated clamping collapses the panel to its minimum.
+// Only react to a genuinely different size, and never write the element's own
+// measured width back into its style.
+let lastW = 0, lastH = 0;
+new ResizeObserver(() => {
+  const wrap = $('viewwrap');
+  const w = wrap.clientWidth, h = wrap.clientHeight;
+  if (w === lastW && h === lastH) return;
+  lastW = w; lastH = h;
+  canvas.width = w; canvas.height = h;
+  $('w').value = w; $('h').value = h;
+}).observe($('viewwrap'));
+$('w').addEventListener('change', () => applySize(+$('w').value, +$('h').value));
+$('h').addEventListener('change', () => applySize(+$('w').value, +$('h').value));
+$('fit').addEventListener('click', () => applySize(canvas.width * 0.75, canvas.height * 0.75));
+$('full').addEventListener('click', () => applySize(
+    Math.min(1920, window.innerWidth - 120), Math.min(1080, window.innerHeight - 220)));
+
+$('sel').addEventListener('change', () => {
+  const next = parseInt($('sel').value, 10);
+  const nextTopic = $('sel').selectedOptions[0].textContent;
+  if (!ws || next === channelId) { channelId = next; return; }
+  // Changing the dropdown must actually MOVE the subscription. Setting the
+  // variable alone left the old channel subscribed, so the picture never
+  // changed - the selector looked broken.
+  // Use a FRESH subscription id for every selection. Reusing the same id
+  // means any frame still in flight from the previous channel carries the
+  // matching id, passes the sid filter, and keeps overdrawing the canvas - so
+  // the dropdown appears to do nothing. A new id makes every stale frame fail
+  // the filter immediately, whether or not the unsubscribe lands.
+  // NOTE: the two ops use DIFFERENT field names. `subscribe` takes
+  // `subscriptions: [{id, channelId}]`; `unsubscribe` takes a flat
+  // `subscriptionIds: [id]`. Sending `subscriptions` to an unsubscribe makes the
+  // bridge reply "missing field `subscriptionIds`" and drop the message, which
+  // silently leaves the old subscription alive.
+  if (channelId !== null) {
+    const oldId = subId;
+    subId = (subId % 200) + 1;   // keep it in the 1..255 byte-1 range
+    ws.send(JSON.stringify({op:'unsubscribe', subscriptionIds:[oldId]}));
+  } else {
+    subId = (subId % 200) + 1;
+  }
+  channelId = next;
+  ws.send(JSON.stringify({op:'subscribe',
+    subscriptions:[{id:subId, channelId: next, encoding:'cdr'}]}));
+  $('v-topic').textContent = nextTopic;
+  $('v-res').textContent = '\u2014';
+  $('v-enc').textContent = '\u2014';
+  $('v-hz').textContent = '\u2014';
+  rateWindow = [];
+});
+$('pause').addEventListener('click', () => {
+  paused = !paused;
+  $('pause').textContent = paused ? 'Resume' : 'Pause';
+});
+
+setInterval(() => {
+  if (lastFrameAt && Date.now() - lastFrameAt > 3000) $('v-age').textContent = 'stale';
+}, 1000);
+
+connect();
+</script>
+</body>
+</html>
