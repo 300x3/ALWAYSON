@@ -32,6 +32,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import subprocess
 import sys
 import urllib.parse
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -189,6 +190,22 @@ def objects_summary() -> dict:
     }
 
 
+def safety_zones_summary() -> dict:
+    """Resolved safety-zone model, or the error that stopped it resolving.
+
+    Runs the same verifier the operator runs, so the portal cannot report a zone
+    as covering something the verifier says it does not.
+    """
+    cmd = [sys.executable,
+           os.path.join(ROOT, "..", "scripts", "simulation", "verify_safety_zones.py"),
+           "--json"]
+    try:
+        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+        return json.loads(proc.stdout)
+    except (OSError, ValueError, subprocess.TimeoutExpired) as exc:
+        return {"error": str(exc), "rehearsal_only": True}
+
+
 def world_summary() -> dict:
     links = []
     try:
@@ -252,6 +269,10 @@ class Handler(BaseHTTPRequestHandler):
             self._json(200, boning_summary())
         elif path == "/api/objects":
             self._json(200, objects_summary())
+        elif path == "/api/safety-zones":
+            # Rehearsal-only zone model. Read-only, and deliberately reports
+            # what it cannot resolve rather than implying full coverage.
+            self._json(200, safety_zones_summary())
         elif path == "/api/health":
             self._json(200, {"ok": True, "view_only": True,
                              "reports_on": CONTROLLED_UNIT,

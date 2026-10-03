@@ -1,0 +1,112 @@
+# ALWAYS ON - fabrication safety zones and interlocks (README Section 10.2).
+#
+# WHAT THIS IS, PRECISELY. A rehearsal-only model of the safety zones and the
+# interlocks that guard them, for `ao-sim-fabrication`. It exists so a task
+# plan can be checked against the same zones the layout implies BEFORE anyone
+# spends time in the GUI, and so a rehearsal can show what a real interlock
+# would have done.
+#
+# WHAT THIS IS NOT. This is not a safety system. It holds no production data,
+# actuates nothing, and is not connected to ao-fabrication or to any real
+# machine (README Section 10.2; real machines are in ao-fabrication, Section
+# 3.3.0). Nothing here can stop a real arm. Its only output is a zone
+# occupancy verdict that a rehearsal plan can read.
+#
+# PROVENANCE. Every zone is DERIVED from a boned cell datum in boning.yaml,
+# with a named clearance added. No zone is hand-placed in world coordinates.
+# Where a zone depends on a machine that has not been declared (printer-01,
+# cnc-01 are `source: declared-by-operator` with null origins), the zone is
+# marked `unresolved` and MUST NOT be treated as covering that machine. That
+# is the same honesty rule boning.yaml already applies to machine envelopes:
+# refuse to report a reach as verified while a frame in its chain is
+# undeclared. See `verify_safety_zones.py`.
+#
+# Units: metres, shop-floor-datum, same frame as boning.yaml.
+schema_version: "1.0"
+world: /ALWAYSON/GAZEBO/worlds/factory.world
+frame: shop-floor-datum
+rehearsal_only: true
+actuates_nothing: true
+
+# Clearance added to a cell's boned envelope to form its zone. This is a
+# modelling parameter, not a measured safety distance: no risk assessment has
+# been performed and none of these numbers came from a real installation.
+clearances_m:
+  operator_aisle: 1.000
+  arm_reach: 0.750
+  pinch_point: 0.250
+
+zones:
+  - id: zone-arms-cell
+    name: "Robot arm cell"
+    derived_from: cell-arms
+    kind: restricted
+    clearance: operator_aisle
+    note: >-
+      Operator approach to the arm cell. The approach aisle already recorded in
+      boning.yaml spans y 1.861669..3.534061; this zone widens it by
+      `operator_aisle` on every side.
+  - id: zone-arms-reach
+    name: "Arm reach envelope"
+    derived_from: cell-arms
+    kind: robot_reach
+    clearance: arm_reach
+    note: >-
+      Where an arm end effector may be. A task plan that asks the arm to place
+      outside this zone is asking for a reach the layout does not support.
+  - id: zone-conveyor-cell
+    name: "Conveyor system"
+    derived_from: cell-conveyor
+    kind: restricted
+    clearance: pinch_point
+    note: >-
+      Conveyor pinch-point zone. Smallest clearance in the file, because
+      conveyor nip points are the tightest thing a person reaches into.
+  - id: zone-fabrication-floor
+    name: "Fabrication floor"
+    derived_from: cell-massing
+    kind: restricted
+    clearance: operator_aisle
+    note: >-
+      Whole-floor restricted area. Everything else in this file sits inside it.
+
+# Machines that a zone should cover but which have no declared datum. These
+# are listed explicitly so the gap is visible rather than inferred from a
+# missing zone.
+unresolved_dependencies:
+  - machine: printer-01
+    because: "datum.origin is null (source: declared-by-operator)"
+    blocks: "any zone intended to cover the printer bed"
+  - machine: cnc-01
+    because: "datum.origin is null (source: declared-by-operator)"
+    blocks: "any zone intended to cover the CNC bed"
+
+# Interlocks. Each names the condition, the zones it reads, and what it would
+# permit. `enforced_in_simulation: false` is the important field: this model
+# REPORTS whether an interlock would be satisfied. It does not stop anything,
+# because nothing in the simulation has an actuator to stop.
+interlocks:
+  - id: ilk-entry-permitted
+    name: "Entry permitted only when the cell is idle"
+    condition: "No arm motion active AND no object inside the zone"
+    zones: [zone-arms-cell]
+    would_permit: "operator entry"
+    enforced_in_simulation: false
+  - id: ilk-reach-within-envelope
+    name: "Arm reach confined to its envelope"
+    condition: "Every commanded end-effector pose lies inside zone-arms-reach"
+    zones: [zone-arms-reach]
+    would_permit: "arm motion"
+    enforced_in_simulation: false
+  - id: ilk-conveyor-clear
+    name: "Conveyor motion only when the pinch zone is clear"
+    condition: "No object inside zone-conveyor-cell"
+    zones: [zone-conveyor-cell]
+    would_permit: "conveyor motion"
+    enforced_in_simulation: false
+
+status:
+  note: >-
+    Rehearsal model. Derived from boned datums with nominal clearances. No risk
+    assessment performed, no real machine consulted, no interlock actuated.
+  reviewed: 2026-10-03

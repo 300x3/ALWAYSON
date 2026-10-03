@@ -25,7 +25,10 @@
   #viewwrap { display:inline-block; resize:both; overflow:hidden; flex:0 0 auto;
               min-width:240px; min-height:180px;
               background:#000; border:1px solid var(--edge); border-radius:4px; }
-  #view { display:block; image-rendering:pixelated; }
+  /* bilinear, not pixelated: a 1280x960 sensor downscaled or shown at 1:1
+     looks correct, and pixelated is only right if the sensor is smaller than
+     the canvas. Left as pixelated it was the visible blockiness. */
+  #view { display:block; image-rendering:auto; }
   aside { min-width:280px; }
   table { border-collapse:collapse; width:100%; font-size:13px; }
   td { padding:3px 0; }

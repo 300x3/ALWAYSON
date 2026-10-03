@@ -602,6 +602,7 @@
           <topic>/factory/camera/image</topic>
           <camera name="user_camera">
             <horizontal_fov>1.047</horizontal_fov>
+            <image><width>640</width><height>480</height></image>
             <clip>
               <near>0.05</near>
               <far>100</far>
@@ -636,6 +637,7 @@
           <topic>/factory/camera/arms_ne</topic>
           <camera name="camera_arms_ne">
             <horizontal_fov>1.047</horizontal_fov>
+            <image><width>640</width><height>480</height></image>
             <clip><near>0.05</near><far>100</far></clip>
           </camera>
         </sensor>
@@ -662,6 +664,7 @@
           <topic>/factory/camera/arms_n</topic>
           <camera name="camera_arms_n">
             <horizontal_fov>1.047</horizontal_fov>
+            <image><width>640</width><height>480</height></image>
             <clip><near>0.05</near><far>100</far></clip>
           </camera>
         </sensor>
@@ -688,6 +691,7 @@
           <topic>/factory/camera/arms_se</topic>
           <camera name="camera_arms_se">
             <horizontal_fov>1.047</horizontal_fov>
+            <image><width>640</width><height>480</height></image>
             <clip><near>0.05</near><far>100</far></clip>
           </camera>
         </sensor>
@@ -720,6 +724,7 @@
           <topic>/factory/camera/arms_e</topic>
           <camera name="camera_arms_e">
             <horizontal_fov>1.047</horizontal_fov>
+            <image><width>640</width><height>480</height></image>
             <clip><near>0.05</near><far>100</far></clip>
           </camera>
         </sensor>
@@ -746,6 +751,7 @@
           <topic>/factory/camera/elev_arms</topic>
           <camera name="camera_elev_arms">
             <horizontal_fov>0.6</horizontal_fov>
+            <image><width>640</width><height>480</height></image>
             <clip><near>0.05</near><far>100</far></clip>
           </camera>
         </sensor>
@@ -772,6 +778,7 @@
           <topic>/factory/camera/elev_conveyor</topic>
           <camera name="camera_elev_conveyor">
             <horizontal_fov>0.6</horizontal_fov>
+            <image><width>640</width><height>480</height></image>
             <clip><near>0.05</near><far>100</far></clip>
           </camera>
         </sensor>
@@ -798,6 +805,7 @@
           <topic>/factory/camera/elev_massing</topic>
           <camera name="camera_elev_massing">
             <horizontal_fov>0.6</horizontal_fov>
+            <image><width>640</width><height>480</height></image>
             <clip><near>0.05</near><far>100</far></clip>
           </camera>
         </sensor>
@@ -951,6 +959,36 @@
       </link>
     </model>
     <!-- END GENERATED: rl_objects -->
+
+    <!-- BEGIN GENERATED: safety_zones (scripts/simulation/verify_safety_zones.py) -->
+    <!-- Rehearsal-only zone volumes, DERIVED from boning.yaml cell datums plus
+         the named clearance. Visual only: no collision, no actuation, no interlock.
+         Generated - edit GAZEBO/sim/safety_zones.yaml, not here. -->
+    <model name="safety_zones">
+      <static>true</static>
+      <pose>0 0 0 0 0 0</pose>
+      <!-- zone-arms-cell (restricted) derived from cell-arms +operator_aisle m clearance -->
+      <link name="zone-arms-cell">
+        <pose>6.4013 2.6979 1.1508 0 0 0</pose>
+        <!-- volume not rendered: pass the visual flag to draw zones -->
+      </link>
+      <!-- zone-arms-reach (robot_reach) derived from cell-arms +arm_reach m clearance -->
+      <link name="zone-arms-reach">
+        <pose>6.4013 2.6979 1.1508 0 0 0</pose>
+        <!-- volume not rendered: pass the visual flag to draw zones -->
+      </link>
+      <!-- zone-conveyor-cell (restricted) derived from cell-conveyor +pinch_point m clearance -->
+      <link name="zone-conveyor-cell">
+        <pose>6.0730 2.3373 1.0287 0 0 0</pose>
+        <!-- volume not rendered: pass the visual flag to draw zones -->
+      </link>
+      <!-- zone-fabrication-floor (restricted) derived from cell-massing +operator_aisle m clearance -->
+      <link name="zone-fabrication-floor">
+        <pose>3.9370 2.4155 1.0287 0 0 0</pose>
+        <!-- volume not rendered: pass the visual flag to draw zones -->
+      </link>
+    </model>
+    <!-- END GENERATED: safety_zones -->
 
 </world>
 </sdf>
