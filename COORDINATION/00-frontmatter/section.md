@@ -41,6 +41,7 @@
 | 14 | Secrets and Service Identity | 60 |
 | 15 | Sales, Mastodon, OpenClaw, and Local AI | 63 |
 | 16 | Scripts and Operational Standards | 68 |
+| 16.4 | Document Coordination | 71 |
 | 17 | Backup, Restore, Monitoring, and Completion Criteria | 70 |
 | 19 | Current Status and Outstanding Work | 72 |
 | 19.2 | Completed items and verification evidence | 74 |

@@ -41,6 +41,7 @@
 | 14 | Secrets and Service Identity | 60 |
 | 15 | Sales, Mastodon, OpenClaw, and Local AI | 63 |
 | 16 | Scripts and Operational Standards | 68 |
+| 16.4 | Document Coordination | 71 |
 | 17 | Backup, Restore, Monitoring, and Completion Criteria | 70 |
 | 19 | Current Status and Outstanding Work | 72 |
 | 19.2 | Completed items and verification evidence | 74 |
@@ -3645,6 +3646,51 @@ and is within its staleness budget: exit 0 pass, 1 missing, 2 stale.
 | `installation/` | During install sessions | The install-step output log `agent-install.log` referenced by §12.1. Retained as-is. |
 
 Logs are classified per §4.2 and are never a place to record secrets.
+
+## 16.4 Document Coordination
+
+`README.md` is **compiled, not hand-edited**. The source of truth is `COORDINATION/`, which
+holds one folder per section. Each session edits only its own file, so two sessions can
+never collide on the same 4,000-line document.
+
+| Path | Role |
+|---|---|
+| `COORDINATION/MANIFEST.md` | The fixed section order the compiler concatenates in |
+| `COORDINATION/<nn>-<slug>/section.md` | One README section, beginning with its own `# N. Title` heading |
+| `COORDINATION/tools/split.py` | `README.md` → the section folders |
+| `COORDINATION/tools/compile.py` | The section folders → `README.md`; `--check` verifies without writing |
+
+**Rules.**
+
+1. **Edit one file.** A session owns one section folder and changes nothing else.
+2. **Never edit `README.md` directly.** Edit the section file, then recompile.
+3. **Keep the heading.** Each `section.md` opens with its section heading. Renaming a section
+   means renaming its folder *and* its row in `MANIFEST.md`.
+4. **Never renumber `19.x` item IDs.** Items are keyed by group prefix (`PLAT`, `NET`,
+   `SEC`, `LEDGER`, `PAY`, `COMM`, `FIELD`, `SIM`, `OPS`) precisely so a new item cannot
+   collide and adding one never renumbers another. Take the next free number in its group.
+5. **New work goes in §19.1 only.** It is the single status log; never start a parallel list.
+6. **Sections 1–16 stay specification** — no status, history, revision or decision dates.
+   Anything current belongs in §17 or §19.
+7. **Commit only your own section file.** `git add -A` sweeps in other sessions' work.
+
+**The two roles.**
+
+| Role | Does |
+|---|---|
+| Section session | Edits exactly one `section.md`; commits only that file |
+| Compiler session | Runs `compile.py`, requires `--check` to report `identical`, then pushes |
+
+**If `--check` reports `DIFFERS`**, someone edited `README.md` directly. Do not overwrite
+it — that discards their work. Re-run `split.py` to fold their edit into the section file,
+confirm the round trip, and continue. This has happened; it is recoverable, and the recovery
+is one command.
+
+The split/compile round trip is byte-exact, so the README can always be trusted to equal the
+sum of its parts.
+
+This folder is distinct from `COORDINATION BETWEEN AI/`, which holds session handoff
+narrative. That folder is prose; `COORDINATION/` is build input.
 
 ---
 
