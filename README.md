@@ -333,12 +333,9 @@ in sections 1–16 states whether something is built, and this subsection does n
 
 ## 3.3 DATABASES AND DATA STORES
 
-PostgreSQL 18 is the system-wide relational database platform. The target is one
-host-managed PostgreSQL installation with separate logical databases and separate
-application roles. During the current migration, some applications still run
-container-scoped PostgreSQL instances; those are current-state implementations,
-not the permanent architecture. The database name and role boundary remain
-unchanged.
+PostgreSQL 18 is the system-wide relational database platform: one host-managed installation
+with separate logical databases and separate application roles. The database name and role
+boundary per application are fixed.
 
 Target logical databases:
 
@@ -998,12 +995,9 @@ its owning domain and its implementation status.
 
 ## 6.A GUI Reporting Tools and Podman Network Mapping
 
-This subsection is an **architecture requirement**. It defines the required
-relationship between operator GUIs, reporting tools, dashboards, desktop
-clients, external provider dashboards, workload domains, and Podman networks.
-
-This subsection is an architecture requirement. Work remaining against it is recorded in §19.2;
-it is not restated or redefined here.
+This subsection is an **architecture requirement**: the required relationship between operator
+GUIs, reporting tools, dashboards, desktop clients, external provider dashboards, workload
+domains, and Podman networks. Work remaining against it is recorded in §19.2.
 
 ### 6.A.1 GUI ↔ Podman Network Mapping
 
@@ -1781,45 +1775,35 @@ Heltec gateway service
        ├── Telemetry normalization
        └── Signed telemetry-manifest exporter
 ```
-The host uses two separate raw-LoRa/Reticulum interfaces. **This is the single table
-for radio details** — hardware, band, operational state, and the remaining observation
-for both radios are combined here, so the pair is read in one place rather than from two
-tables that have to be reconciled.
+The host uses two separate raw-LoRa/Reticulum interfaces. This is the single table for both.
 
 | Radio | Hardware | Configured band | Operational state | Remaining observation |
 |---|---|---:|---|---|
 | `PEOPLE-RADIO` | Heltec LoRa 32 V3, SX1262, RNode firmware 1.85 | 915 MHz | Functional | Characterize feedback observed on this band |
 | `DRONE-RADIO` | Heltec LoRa 32 V3, SX1262, RNode firmware 1.85 | 917 MHz | Functional | Characterize feedback observed on this band |
 
-Both RNodes are functional and initialize successfully in the active MeshChatX process.
-This confirms local device detection, serial access, and RNode configuration. RF feedback
-is observable on both configured bands, as recorded in the table above.
+Both RNodes initialize successfully in the active MeshChatX process, confirming device
+detection, serial access, and RNode configuration. RF feedback is observable on both bands.
 
-The remaining radio parameters — bandwidth, spreading factor, coding rate,
-transmit power, and mode — are recorded only in the version-controlled
-US915 radio profiles in §9.4, not in this README.
+Bandwidth, spreading factor, coding rate, transmit power, and mode are recorded only in the
+version-controlled US915 radio profiles in §9.4, not in this README. The two frequencies and
+airtimes intentionally separate the public radio from the private drone radio; they must not be
+treated as interchangeable or combined into one RF channel without an approved frequency plan.
 
-The different frequencies and airtimes intentionally separate the public
-people-facing radio from the private drone/IoT radio. They must not be treated as
-interchangeable interfaces or combined into one RF channel without an approved
-frequency plan.
+Host configuration lives under `/home/scottw/.reticulum/`; MeshChatX runs headlessly at
+`127.0.0.1:18000` with its Reticulum runtime initialized from `/home/scottw/.reticulum/config`,
+and MeshChatX identity, repository, and application state under
+`/home/scottw/.reticulum-meshchatx/`.
 
-The live host configuration is under `/home/scottw/.reticulum/`. MeshChatX runs
-headlessly at `127.0.0.1:18000`. Its embedded Reticulum runtime is initialized
-from `/home/scottw/.reticulum/config`, while MeshChatX identity, repository, and
-application state are stored under `/home/scottw/.reticulum-meshchatx/`.
-
-“Feedback” is an operator observation, not a diagnosed fault. Potential
-categories include self-feedback, nearby RF activity, interference, harmonics,
-spurious transmission, antenna coupling, or reflected energy. Do not change
-power, frequency, bandwidth, spreading factor, coding rate, antenna, or
-transmit mode until the source and severity are measured.
+“Feedback” is an operator observation, not a diagnosed fault. Candidate categories are
+self-feedback, nearby RF activity, interference, harmonics, spurious transmission, antenna
+coupling, and reflected energy. Do not change power, frequency, bandwidth, spreading factor,
+coding rate, antenna, or transmit mode until the source and severity are measured.
 
 Both CP2102 bridges expose the same USB serial descriptor
-`Silicon_Labs_CP2102_USB_to_UART_Bridge_Controller_0001`. Device identity must
-therefore be resolved through the stable PCI/USB `by-path` location and the
-recorded SX1262 MAC address. The USB serial descriptor alone is not a unique
-radio identity.
+`Silicon_Labs_CP2102_USB_to_UART_Bridge_Controller_0001`, so device identity must be resolved
+through the stable PCI/USB `by-path` location and the recorded SX1262 MAC address. The USB
+serial descriptor alone is not a unique radio identity.
 
 ## 9.3 Operational Security
 
@@ -1995,13 +1979,12 @@ pictorial — a pose is verified against the boning frame instead of being eyeba
 a model that has drifted out of tolerance is detectable programmatically. The boning data
 must be exported alongside the world so the same checks run against recorded evidence.
 
-**Reinforcement learning objects.** The world supplies reinforcement learning objects as
-the trainable entities for scenario and policy work: marked, individually addressable
-objects with observable state, reward-relevant properties, and defined reset behaviour.
-They must be separable from the static world geometry so that a training run can vary
-object count and placement without rebuilding the world. The optional Stable-Baselines3
-evaluation noted above consumes these objects; the objects themselves are required even
-where no trainer is attached yet.
+**Reinforcement learning objects.** The trainable entities for scenario and policy work:
+marked, individually addressable objects with observable state, reward-relevant properties,
+and defined reset behaviour. They must be separable from the static world geometry so a
+training run can vary object count and placement without rebuilding the world. The optional
+Stable-Baselines3 evaluation consumes these objects; the objects are required even where no
+trainer is attached yet.
 
 **HTML portal.** The whole environment is exposed through a browser-served HTML portal:
 view the live model and sensor state and read back boning and tolerance measurements. The
@@ -2127,12 +2110,11 @@ definitions with their tolerances. The boning data is what lets a simulated reac
 checked against the real machine envelope rather than assumed, and it is exported with the
 world so the same check runs against recorded evidence.
 
-**Reinforcement learning objects.** The world supplies reinforcement learning objects as
-the trainable entities for cell and kitchen work: marked parts, stock items, and task
-targets that are individually addressable, observable, and resettable, kept separate from
-the static world geometry so a training run can vary object count and placement without
-rebuilding the world. Robot arms and shuttles are the controlled actors; these objects are
-what they act on and what reward is measured against.
+**Reinforcement learning objects.** The trainable entities for cell and kitchen work: marked
+parts, stock items, and task targets that are individually addressable, observable, and
+resettable, kept separate from the static world geometry so a training run can vary object
+count and placement without rebuilding the world. Robot arms and shuttles are the controlled
+actors; these objects are what they act on and what reward is measured against.
 
 **HTML portal.** The environment is exposed through a browser-served HTML portal for
 `ao-sim-fabrication`: view live robot, machine, and stock state; read boning and
@@ -2926,153 +2908,106 @@ rather than environment variables.
 
 ### 14.1.1 KDE Wallet Secret Management
 
-KDE Wallet is the operator-side secret and credential store for this host.
-This subsection specifies the integration; the Section 14.1 policy
-above remains authoritative, and the unattended-delivery deviation is tracked
-in Section 18 (Open Decisions).
+KDE Wallet is the operator-side secret and credential store for this host. Section 14.1 is
+the policy; this subsection is the integration. The unattended-delivery deviation is recorded
+in §18.
 
-Runtime and tooling:
-
-- Wallet daemon: `kwalletd6`, reached on the `org.kde.kwalletd6` D-Bus name.
-  Wallet: `kdewallet`, auto-unlocked with the operator's Plasma login.
-
-**Access details.**
+**Runtime.** Daemon `kwalletd6` on the `org.kde.kwalletd6` D-Bus name, wallet `kdewallet`,
+auto-unlocked with the operator's Plasma login. `org.kde.kwalletd` and `org.kde.kwalletd5`
+are also live; prefer `kwalletd6` in new code.
 
 | Item | Value |
 |---|---|
-| Bus names present | `org.kde.kwalletd`, `org.kde.kwalletd5`, `org.kde.kwalletd6` |
-| Object path used | `/modules/kwalletd6` |
+| Object path | `/modules/kwalletd6` |
 | `open()` | returns a live handle against wallet `kdewallet` |
-| Methods used by `scripts/ops/wallet-read-secret.py` | `hasEntry`, `readPassword` — present |
-| Method used by `scripts/ops/wallet-write-secret.py` | `writePassword` — present |
+| Methods used by `scripts/ops/wallet-read-secret.py` | `hasEntry`, `readPassword` |
+| Method used by `scripts/ops/wallet-write-secret.py` | `writePassword` |
 
-`wallet-read-secret.py` uses `org.kde.kwalletd6` and was confirmed working;
-`fetch-kwallet-secret.sh` uses `org.kde.kwalletd5` and also works, since both
-names are live. Prefer `kwalletd6` in new code. KDE Wallet remains the secret
-authority per ES.1.
-- Management CLI: `scripts/ops/kwallet-provision.sh` (`create-folders`,
-  `put`, `get`). Run only from the interactive Plasma session while the
-  wallet is unlocked.
-- Boot-time delivery: `scripts/operations/fetch-kwallet-secret.sh` runs as a
-  Quadlet `ExecStartPre`, waits for the desktop session and kwalletd (max
-  ~60s), reads the required entries, and writes a service-specific `0600`
-  env file for the unit to consume via `--env-file`. It is used by **four**
-  units: `ao-mastodon-db`, `ao-sales-db`, `ao-webodm-db` and `ao-fabrication-db`
-  (the last was added 2026-09-30; without a branch for its key the unit was
-  restart-looping). New keys must be added as a `case` branch in that script
-  or the unit fails.
-- **Single env root, resolved 2026-09-30.** Every unit now reads
-  `%h/.local/share/ao-secrets/`, materialised by
-  `scripts/operations/ao-wallet-bridge.sh` or by the unit's own
-  `fetch-kwallet-secret.sh` `ExecStartPre`. Unit delivery uses
-  `%h/.local/share/ao-secrets/` for every service; `~/secrets/` holds unrelated material (the
-  Mastodon env symlink, operations and reporting) and is not part of the unit delivery path.
+**Tooling.**
 
-**This login-gated behaviour is intended.** Services that consume
-  Wallet secrets start after the operator's Plasma login and are not expected to
-  start unattended before a user has entered the password. The `~60s` wait is the
-  bounded startup allowance for that login, not a fallback that must survive a
-  passwordless boot. Auto-login, if ever enabled, is a convenience for the operator
-  and is not a requirement of this design.
+- Management CLI `scripts/ops/kwallet-provision.sh` (`create-folders`, `put`, `get`), run only
+  from the interactive Plasma session while the wallet is unlocked.
+- `scripts/operations/fetch-kwallet-secret.sh` runs as a Quadlet `ExecStartPre`: it waits for
+  the desktop session and kwalletd (max ~60s), reads the required entries, and writes a
+  service-specific `0600` env file the unit consumes via `--env-file`. It serves
+  `ao-mastodon-db`, `ao-sales-db`, `ao-webodm-db` and `ao-fabrication-db`. **A new key must be
+  added as a `case` branch in that script or the unit fails.**
+- Env files materialise under `%h/.local/share/ao-secrets/`, via `ao-wallet-bridge.sh` or the
+  unit's own `ExecStartPre`. `~/secrets/` holds unrelated material and is not part of the
+  delivery path.
 
-**Single service account.** All services run under the operator's own account. No service
-requires a separate service-account user, and no per-service container store is created
-(§13.2).
+**Login-gated start is intended.** Services that consume wallet secrets start after Plasma
+login and are not expected to start unattended before a password is entered. The ~60s wait is
+the bounded startup allowance for that login, not a fallback for a passwordless boot. Auto-login
+is an operator convenience, not a requirement of this design.
 
-**One folder per domain.** `mastodon-db-password` exists only in `ao-mastodon`. The role and
-the application therefore share one password, so a role created with one value while the app
-connects with another cannot occur on a fresh `mastodon-dbdata`.
+**All services run under the operator's own account.** No service requires a separate
+service-account user, and no per-service container store is created (§13.2).
 
-Wallet layout (folder: purpose).
+**One folder per domain.** Every credential lives in exactly one `ao-*` folder and its service
+reads it from there, so a role and the application connecting to it always share one value.
+There is no generic or cross-domain folder.
 
 | Folder | Purpose |
 |---|---|
+| `ao-mastodon` | Mastodon application secrets (§15.3) and OpenClaw OAuth material; read by `fetch-mastodon-env.sh` and the wallet bridge |
 | `ao-sales` | `sales-db-password` |
 | `ao-fabrication` | `fabrication-db-password` |
-| `ao-mastodon` | Mastodon application secrets (§15.3) and OpenClaw OAuth material; read by `fetch-mastodon-env.sh` and the wallet bridge |
-| `ao-admin` | `grafana-db-password`, `grafana-admin-password`, `metabase-db-password`, `metaread-password`, `sales-reporting-password`, `restic-repository-password` (presence verified 2026-10-01; `grafana-admin-password` added by the Grafana migration) |
 | `ao-mapping` | WebODM postgres password |
-| `ao-sales`, `ao-mapping`, `ao-admin`, `ao-sim-vehicle`, `ao-sim-fabrication` | Per-domain credential folders matching the Section 14.1 authorized-domain table. **Verified present 2026-10-01 by enumerating `folderList`**, which returns 18 unique folders; these five are all present |
-| `ao-payment`, `ao-field`, `ao-ledger`, `ao-archive` | **Do not exist and must not be created speculatively.** `folderList` returns only `ao-sales`, `ao-mapping`, `ao-admin`, `ao-sim-vehicle` and `ao-sim-fabrication`. A folder is created when its consumer exists and the credential is provisioned (§14.1.2); it is not created in advance. `ao-payment` is provisioned as part of ST-12. |
+| `ao-admin` | `grafana-db-password`, `grafana-admin-password`, `metabase-db-password`, `metaread-password`, `sales-reporting-password`, `restic-repository-password` |
+| `ao-sim-vehicle`, `ao-sim-fabrication` | Per-domain credential folders matching the §14.1 authorized-domain table |
+| `ao-payment`, `ao-field`, `ao-ledger`, `ao-archive` | Created only when the consumer exists and the credential is provisioned (§14.1.2), never speculatively. `ao-payment` is provisioned as part of ST-12 |
 
-Current entry inventory (names only; values never in Git, logs, or docs). Every
-key lives in the `ao-` folder for the domain that owns it; the legacy
-`ALWAYSON` folder was retired 2026-09-30 and no code references it.
+Entries are listed by name only — values are never in Git, logs, or docs. Every key lives in
+the `ao-` folder for the domain that owns it.
 
 | Folder | Entries |
 |---|---|
 | `ao-mastodon` | `mastodon-secret-key-base`, `mastodon-otp-secret`, `mastodon-db-password`, `mastodon-ar-deterministic-key`, `mastodon-ar-primary-key`, `mastodon-ar-derivation-salt`, `mastodon-admin-password`, `openclaw-bot-client-id`, `openclaw-bot-client-secret`, `openclaw-bot-access-token`, `openclaw-bot-password`, `roundtrip`/`roundtrip2` (test artifacts) |
+| `ao-sales` | `sales-db-password` |
+| `ao-fabrication` | `fabrication-db-password` |
+| `ao-mapping` | WebODM postgres password |
+| `ao-admin` | `grafana-db-password`, `grafana-admin-password`, `metabase-db-password`, `metaread-password`, `sales-reporting-password`, `restic-repository-password` |
 
-Rules:
+**Rules.**
 
-- Never print, copy, export, or log entry values; confirm presence only.
-  Presence checks use the D-Bus `hasEntry` method on `org.kde.kwalletd6`
-  (verified present 2026-09-30; `entryList` takes a further argument and is not
-  used by the tooling).
-- Entries are named per service and per purpose; domain folders enforce the
-  Section 14.1 authorized-domain boundaries.
-- Rotation, revocation, expiration, and recovery procedures must be
-  documented before production use (Section 14.1 requirement).
+- Never print, copy, export, or log entry values; confirm presence only, using the D-Bus
+  `hasEntry` method on `org.kde.kwalletd6`. (`entryList` takes a further argument and is not
+  used by the tooling.)
+- Entries are named per service and per purpose; domain folders enforce the §14.1
+  authorized-domain boundaries.
+- Rotation, revocation, expiration, and recovery procedures must be documented before
+  production use.
+- **No plaintext duplicate of a wallet entry exists.** Credential material lives in the wallet
+  and nowhere else. No file under `secrets/` or `config/` may hold a credential the wallet also
+  holds.
 
-**Resolved 2026-10-01: Grafana is wallet-backed like everything else.** The
-Grafana *web admin* password was the last secret on this host that lived only in
-a plaintext file. `config/platform/monitoring/grafana.env` held a cleartext
-`GF_SECURITY_ADMIN_PASSWORD` at mode `0664` and there was no corresponding
-wallet entry, so the wallet could not be treated as the authority. That file has
-been split:
+**Grafana is wallet-backed like everything else.** Its web admin password is
+`ao-admin/grafana-admin-password`; `fetch-kwallet-secret.sh` maps it through `wallet_folder_for`
+and emits a `grafana-admin-password` case branch, and `ao-grafana.container` reads two files:
+`config/platform/monitoring/grafana-admin.env` for non-secret settings
+(`GF_SECURITY_ADMIN_USER`, `GF_USERS_ALLOW_SIGN_UP`, `GF_AUTH_ANONYMOUS_ENABLED`) and
+`%h/.local/share/ao-secrets/reporting-grafana-admin.env` for `GF_SECURITY_ADMIN_PASSWORD`,
+materialised `0600` by the unit's `ExecStartPre` and never tracked. `/api/health` returns 200
+with database ok, and an admin login using the wallet value returns HTTP 200.
 
-| File | Contents | Tracking |
-|---|---|---|
-| `config/platform/monitoring/grafana-admin.env` | Non-secret settings only (`GF_SECURITY_ADMIN_USER`, `GF_USERS_ALLOW_SIGN_UP`, `GF_AUTH_ANONYMOUS_ENABLED`) | Tracked |
-| `%h/.local/share/ao-secrets/reporting-grafana-admin.env` | `GF_SECURITY_ADMIN_PASSWORD`, materialized `0600` by the unit's `ExecStartPre` | Never tracked |
+**Scripts that need these credentials read them from the wallet at start-up, never from a
+plaintext file.**
 
-The password now lives in KDE Wallet as `ao-admin/grafana-admin-password`.
-`fetch-kwallet-secret.sh` maps it via `wallet_folder_for` and emits a
-`grafana-admin-password` case branch, and `ao-grafana.container` reads the two
-files separately. Verified after the change: `/api/health` 200, database ok,
-and an admin login using the wallet value returns HTTP 200.
+- `scripts/operations/fetch-kwallet-secret.sh` — carries the `ao-admin` keys in
+  `wallet_folder_for`.
+- `scripts/ops/provision-metaread.sh`, `provision-sales-reporting.sh` — read the password from
+  the wallet and mirror it back instead of seeding it from a file.
+- `scripts/ops/provision-reporting-postgres.sh` — reads `metabase-db-password` and
+  `grafana-db-password` from `ao-admin`.
+- `scripts/mastodon/post.sh` — materialises the bot credential from the wallet into a `0600`
+  temp file and shreds it on exit.
+- `scripts/mastodon/provision-openclaw-bot.sh` — stores the generated password in the wallet
+  only and writes no env file.
 
-**No plaintext duplicate of a wallet entry exists.** Credential material lives in the wallet
-and nowhere else. The rule for every service:
-
-| Service | Authoritative wallet folder |
-|---|---|
-| Grafana, Metabase, reporting identities | `ao-admin` |
-| Mastodon, OpenClaw bridge | `ao-mastodon` |
-| Sales database | `ao-sales` |
-| Mapping / WebODM | `ao-mapping` |
-| Payment adapters | `ao-payment` |
-| Simulation services | `ao-sim-vehicle`, `ao-sim-fabrication` |
-
-No file under `secrets/` or `config/` may hold a credential the wallet also holds. When a
-credential moves to the wallet, every duplicate file is removed rather than left to drift.
-Presence checks only: never print, copy, or export a value.
-
-
-Scripts that need these credentials read them from the wallet at start-up, never from a
-plaintext file:
-
-- `scripts/operations/fetch-kwallet-secret.sh` — added `grafana-admin-password`
-  and the other `ao-admin` keys to `wallet_folder_for`.
-- `scripts/ops/provision-metaread.sh`, `provision-sales-reporting.sh` —
-  now read the password from the wallet and mirror it back instead of
-  seeding it from a file.
-- `scripts/ops/provision-reporting-postgres.sh` — reads
-  `metabase-db-password` / `grafana-db-password` from `ao-admin`.
-- `scripts/mastodon/post.sh` — materializes the bot credential from the wallet
-  into a `0600` temp file and shreds it on exit.
-- `scripts/mastodon/provision-openclaw-bot.sh` — stores the generated password
-  in the wallet only and writes no env file.
-
-`check-secrets-exposure.sh` was extended with three rule-7 checks: a tracked
-`.env` must not carry a credential, a Quadlet `EnvironmentFile` pointing into
-`config/` or `secrets/` must not be secret-bearing, and any secret-bearing env
-file on disk must not be accessible by other users. Both new file checks were
-confirmed to fail on deliberately planted regressions before being left in
-place.
-
-`ao-payment` remains intentionally empty (ST-12); the adapter is not enabled
-against live traffic, so there is no credential to migrate yet.
+`check-secrets-exposure.sh` carries three rule-7 checks: a tracked `.env` must not carry a
+credential, a Quadlet `EnvironmentFile` pointing into `config/` or `secrets/` must not be
+secret-bearing, and any secret-bearing env file on disk must not be readable by other users.
 
 ### 14.1.2 Secret-delivery rules
 
