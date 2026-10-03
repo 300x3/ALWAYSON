@@ -299,104 +299,62 @@ ES.2** and must not contradict it. For the whole project, read ES.2.
 
 ![Zoom of the controlled adapter column of the ES.2 master topology, at readable scale. The adapters are the only processes permitted to cross the host boundary.](assets/topology-detail-adapters.png)
 
-*Figure 3.1 — A **zoom** of the controlled adapter column of the same master topology
-graphic used in ES.2, enlarged so the labels are readable. It is a zoom of that one
-graphic, not a separate diagram: the
-adapter column is the only place a controlled ingress or egress process may exist, and
-every route into or out of the host passes through it.*
+*Figure 3.1 — The controlled adapter column of the ES.2 master topology, enlarged. It is a
+zoom of that one graphic, not a separate diagram: the adapter column is the only place a
+controlled ingress or egress process may exist, and every route into or out of the host passes
+through it.*
 
-The public storefront has no direct route to the Kubuntu host’s field,
-mapping, simulation, database, AI, Podman, or Corda-core services.
+The public storefront has no direct route to the host's field, mapping, simulation, database,
+AI, Podman or Corda-core services.
 
 ## 3.2 Where Status Lives
 
-This section holds no status. **Implementation status is §19.1** — the only place a component
-is given one — and **outstanding work is §19.2**. §20 records verification evidence. Nothing
-in sections 1–16 states whether something is built, and this subsection does not repeat it.
+Sections 1–16 hold no status. **Implementation status is §19.1**, the only place a component
+is given one. **Outstanding work is §19.2.** **Verification evidence is §20.**
 
-## 3.3 DATABASES AND DATA STORES
+## 3.3 Databases and Data Stores
 
-PostgreSQL 18 is the system-wide relational database platform: one host-managed installation
-with separate logical databases and separate application roles. The database name and role
-boundary per application are fixed.
+PostgreSQL 18 is the system-wide relational platform: one host-managed installation with a
+separate logical database and a separate application role per consumer.
 
-Target logical databases:
+| Database | Holds |
+|---|---|
+| `salesdb` | Authoritative sales and payment records |
+| `mastodon` | Mastodon application state |
+| `webodm` | WebODM/PostGIS mapping data |
+| `cordadb` | Corda 5, with its own roles and backup scope (§18.2) |
+| `a_fab` | Real-machine production data for `ao-fabrication` (§3.3.0) |
+| `postgres` | Administration and maintenance |
 
-```text
-salesdb       # Authoritative sales/payment records
-mastodon      # Mastodon application state
-webodm        # WebODM/PostGIS mapping data
-cordadb       # Corda 5 with a dedicated Corda PostgreSQL database
-a_fab         # ao-fabrication: real-machine production data (see 3.3.1)
-postgres      # Administrative/maintenance database
-```
+**Reporting and coordination stores.** Three stores sit alongside PostgreSQL. **All three are read-only over the databases above;
+none is a system of record, and none ever writes to a source database.**
 
-**Grafana and Metabase each keep their own application database.**
-**Grafana is for stable, long-lived dashboards and metrics. Metabase is for ad-hoc
-reporting by users.**
+| Store | Purpose | Boundary |
+|---|---|---|
+| **Grafana** | Stable, curated, long-lived dashboards and metrics — a number that must stay on a wall or in a briefing | Reads Prometheus and approved PostgreSQL datasources read-only. Keeps its own PostgreSQL application database for users, dashboards and datasource configuration |
+| **Metabase** | Ad-hoc reporting: a question asked in the browser, saved, filtered, exported. The saved question, not the dashboard, is the unit of work | Reads the other PostgreSQL and MySQL databases **and** local SQLite files over per-source read-only roles — one read-only role per source, so a badly written query cannot modify a source. Keeps its own PostgreSQL application database for its schema, saved questions, dashboards, filters and subscriptions. That database is not a system of record and is never written to by a reporting source |
+| **Prometheus** | Security instrumentation only — time-series store, rule evaluation, alerting | Acts alone and independently. Not replaced by PostgreSQL, Grafana or Metabase, and does not depend on any of them |
 
-The two tools differ in *kind*, not merely in label:
+A recurring ad-hoc Metabase report that proves its worth is **promoted into a Grafana
+dashboard**, where it becomes stable and curated.
 
-- **Grafana** holds **stable dashboards** — curated, versioned, reviewable views that
-  are built once and kept. It is the tool for a number that must stay on a wall or in a
-  briefing. It reads its approved datasources (Prometheus, and approved existing
-  PostgreSQL databases) **read-only** and renders them as dashboards and metrics. Grafana
-  does not write into any database it reads.
-- **Metabase** holds **ad-hoc reports** produced by users exploring data — a question
-  asked in the browser, saved, filtered, and exported. A saved Metabase question is the
-  unit of work, not a dashboard.
-- **The progression is intentional.** A recurring ad-hoc Metabase report that proves its
-  worth is expected to be **promoted into a Grafana dashboard**, where it becomes stable
-  and curated. Ad-hoc first; promote to a stable dashboard once it is worth keeping.
+**Redis** is a low-latency speed and coordination layer — caching, queues, locks, task
+brokering, transient coordination. It is not the authoritative system of record; business,
+payment, user and application metadata stay in PostgreSQL.
 
-Metabase also develops ad-hoc reports over **SQLite** databases belonging to desktop
-applications (MeshChatX, QGroundControl, Akonadi/KDE PIM, and browser profile stores),
-read-only and local to the host. SQLite is handled here the same way as PostgreSQL:
-Metabase is the reporting surface over it, and it is the only SQL reporting surface.
+**SQLite and H2** are not approved application databases for Grafana or Metabase. They may
+exist only where an individual application requires embedded local storage — the browser,
+Akonadi, Podman, MeshChatX, QGroundControl — or in retained migration backups.
 
-Both Grafana and Metabase keep their own application database. This is the requirement; it
-is not a change from anything else stated here.
+**Database and ledger authority.**
 
-- **Metabase** performs ad-hoc read-only reporting across the other PostgreSQL and MySQL
-  databases. To do that it must persist its own state — the Metabase application schema,
-  saved questions, dashboards, filters, subscriptions, and the report cache — so it is
-  given a **dedicated PostgreSQL application database** of its own. That database holds
-  Metabase's configuration and saved work only. It is **not** a system of record for any
-  business data, it holds no sales, payment, or ledger record, and it must never be
-  written to by the reporting sources. Metabase reaches the business databases through
-  **read-only** database users, one per source, so that a reporting query cannot modify a
-  source even if a query is written badly.
-- **Grafana** likewise keeps its own PostgreSQL-backed application database for users,
-  dashboards, and datasource configuration, as is already recorded in §20.
-- Neither tool is a database of record. The authoritative operational data stays in the
-  business databases and in Corda, and the tools read it. Their own databases hold
-  configuration and saved work, not business data owned by them.
+| Authority | Owns |
+|---|---|
+| **PostgreSQL** | Detailed operational data, searchable business records, and reporting projections |
+| **Corda** | The complete ledger of debits and credits, final sale and contract state, receipt association, entitlement, and approved ledger state transitions |
 
-Redis is a low-latency speed and coordination layer, not the authoritative
-system of record. It is used for caching, queues, locks, task brokering, and
-transient operational coordination. Important business, payment, user, and
-application metadata remain in PostgreSQL.
-
-Prometheus is for security only. It operates independently of the other systems
-to ensure security and to address any problems, and keeps its own time-series
-store. It is not replaced by PostgreSQL, Grafana, or Metabase, and it does not
-depend on either of them.
-
-SQLite and H2 are not approved application databases for Grafana or Metabase; both use
-PostgreSQL for their application state.
-They may exist only where an individual application requires embedded local
-storage — the browser, Akonadi, Podman, MeshChatX, QGroundControl — or in
-retained migration backups.
-
-## Database/ledger authority
-
-- **AUTHORITATIVE RELATIONAL:** PostgreSQL owns detailed operational data,
-  searchable business records, and reporting projections.
-- **AUTHORITATIVE LEDGER:** Corda owns the complete ledger of debits and credits,
-  together with final sale/contract state, receipt association, entitlement, and
-  approved ledger state transitions. Where PostgreSQL holds the detailed operational
-  and searchable business record, Corda holds the authoritative debit and credit
-  position itself.
+Where PostgreSQL holds the detailed operational and searchable business record, Corda holds
+the authoritative debit and credit position itself.
 
 ### 3.3.0 `a_fab` — the real-fabrication database
 
