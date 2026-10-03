@@ -1,14 +1,26 @@
 #!/usr/bin/env bash
-# ALWAYS ON - second restic repository on pCloud (off-site copy, README 17.1).
+# ALWAYS ON - off-site restic repository (README 17.1, OPS-30).
 #
-# WHY: the local repository shares a filesystem with the data it protects, so it
-# cannot survive loss of this host. This sets up the off-site copy that closes
-# OPS-30 and OPS-32 together.
+# NOTE: the operator selected
+#   /media/scottw/1TBSAMSUNGDATA/PCLOUD_STORAGE/ALWAYSON-BACKUPS
+# on 2026-10-03. That directory is inside the running pCloud sync root, so a
+# plain local restic repository there replicates to pCloud with no rclone remote
+# and no WebDAV credential. The repository is initialised and verified, and is
+# deliberately NOT scheduled.
 #
-# The pCloud password is NEVER written to disk, to a file, or to Git. It is read
-# from the KDE Wallet entry below, used to build the rclone remote in a
-# root-owned 0600 file, and the rclone config is removed immediately after.
-# restic encrypts client-side, so pCloud only ever holds ciphertext.
+# This script is retained only as the rclone/WebDAV fallback, for the case where
+# pCloud replication at the path above is not wanted and the copy must be pushed
+# to the account over WebDAV instead. For the chosen location, plain commands
+# suffice and are what was actually used:
+#
+#   set -a; . /run/user/1000/ao-restic.env; set +a
+#   export RESTIC_REPOSITORY=/media/scottw/1TBSAMSUNGDATA/PCLOUD_STORAGE/ALWAYSON-BACKUPS
+#   restic init                       # once
+#   restic backup /ALWAYSON/config --tag alwayson-offsite
+#
+# The password is NEVER written to a file that persists, never passed as an
+# rclone argument (visible in /proc), and never displayed. restic encrypts
+# client-side, so pCloud only ever holds ciphertext.
 set -Eeuo pipefail
 IFS=$'\n\t'
 
