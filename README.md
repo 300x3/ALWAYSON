@@ -2760,17 +2760,16 @@ and `podman-connections.json` declares no separate connections.
 - `ao-podman-bridge.service` is not part of this design and is disabled.
 - `/run/ao-podman/` holds no sockets. The directory is `tmpfs`-backed and clears on reboot.
 
-**Compensating controls for rootless operation:**
+**Compensating controls.** Running every workload as an unprivileged user is the primary
+control. The controls that make it sufficient are stated once, in §4.1 — no `--privileged`,
+no added capabilities, pinned digests, no direct public listener — and are not repeated
+here. Two are specific to this model:
 
-- No `--privileged` containers, and no added capabilities on any container.
-- Internal workload networks only, with `ao-sales` and `ao-reporting-egress`
-  non-internal by recorded decision (§18).
-- Explicit bind mounts limited to approved mapping paths.
-- Pinned image digests — every running image is digest-pinned.
-- systemd resource limits and restart policy.
-- Validated NVIDIA CDI access only where required.
-- No direct public listener.
-- Backup and restore evidence retained (§17.1).
+- Explicit bind mounts are limited to approved mapping paths (§5.3).
+- systemd resource limits and a restart policy are set on every unit.
+
+`ao-sales` and `ao-reporting-egress` are non-internal by recorded decision in §18; that
+exception belongs to §5.1, not to the store model.
 
 ## 13.3 `/ALWAYSON` Layout
 
@@ -2817,8 +2816,6 @@ or archived material:
 | `LOGS-JOURNALS/` | pointer only — the logs live in `logs/` (§16.3, §18.7) |
 | `GAZEBO/`, `SIMULATION.png`, `WEBSITEMAIN.png` | simulation and storefront imagery |
 | `README - ARCHIVE/` | archived README versions and review comments |
-| `docs/` | supporting documentation, including `docs/readme-change-log.md` |
-| `scripts/` | install, validation, operations and journal scripts |
 
 The storefront is served from filedn and has no local `storefront/` directory. Validation
 lives in `scripts/validation/`, not `tests/`. Mastodon Quadlet definitions live in
