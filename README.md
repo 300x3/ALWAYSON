@@ -168,8 +168,8 @@ of the operator console, and of Domoticz.
   Moonraker, Klipper, the individual additive-manufacturing machines (3D printers and
   CNC), and the BigTreeTech CB1 are therefore not drawn as `ao-sim-fabrication`
   children. `ao-sim-fabrication` coordinates all industrial engineering and production
-  related details for the rehearsal, receiving specific production data from each
-  machine, and it runs the kitchen. Real production data is handled by the separate
+  related details for the rehearsal, and it runs the kitchen. It receives no production
+  data: that is handled by the separate
   `ao-fabrication` domain. See ES.1 and §10.2.
 - **Post-sale transfer is authorized-recipient only**, with no Corda or archive
   dependency: an approved map/imagery or telemetry package is transferred as
@@ -1037,8 +1037,8 @@ operator-access implementations must comply with this subsection and Sections
 - Every host desktop GUI and provider dashboard must be recorded as having no
   Podman network attachment unless it is actually containerized.
 - Reporting identities must enforce read-only access to source databases or
-  services. Grafana and Metabase each keep their own application database and read the business databases over per-source read-only roles, writing to none of
-  them; they need no application database of their own.
+  services. Grafana and Metabase each keep their own application database and read the
+  business databases over per-source read-only roles, writing to none of them.
 - `ao-admin` receives approved PostgreSQL reporting, exporter, status,
   projection, API, relay, tunnel, or push paths. It must not join every
   workload network.
@@ -4202,14 +4202,6 @@ The migration is only **half done in practice**:
 - `quadlet/sales/ao-egress-community.network` is **retired, not restored**.
   `scripts/mastodon/federate-local.sh` no longer installs it; it now installs
   `ao-sales.network` alone. Nothing recreates the network.
-  load-bearing file while the dual-homing lasts, not a leftover.**
-
-**Remaining work (not done here — it changes live federation):** disconnect
-`mastodon-web` and `mastodon-sidekiq` from `ao-egress-community`, confirm federation
-delivers over `ao-sales` alone, then retire the network and its CIDR, and update
-`instance-policy.yaml`, the Grafana topology dashboard, the Mastodon runbook and
-`check-network-isolation.sh` together. This needs an explicit operator decision because it
-touches a live external service.
 
 ---
 
@@ -4327,6 +4319,23 @@ detail lives here and only here. Completed work is not listed — it is evidence
 | 47 | **Rebuild and verify the Gazebo GUI client** | ST-08 | §10.2.1 | Rebuild the image with `qt6-svg-plugins` and `GZ_RENDERING_RESOURCE_PATH=/usr/share/gz/gz-rendering`, then start it and confirm it renders factory geometry with no OGRE or null-string errors and a stable `NRestarts`. Until then "rendering works" is not established. The unit stays masked so it cannot seize keyboard and pointer focus |
 | 48 | **Working ROS 2 package source** | ST-08 | §10.2.1 | `packages.ros.org` fails TLS verification from this host because its certificate is issued for `*.osuosl.org`. Certificate verification must not be disabled to work around it. The installed ROS 2 Lyrical stack and `ros_gz` bridge are unaffected; installing or updating packages is not. Use a reachable mirror or the pinned base-image digest |
 | 49 | **`foxglove_bridge` unavailable** | ST-08 | §10.2.1 | `foxglove_bridge` was never installed and cannot be fetched while the package source is unreachable, so Foxglove views depend on resolving that first. The Gazebo GUI does not: it attaches over gz-transport using `GZ_PARTITION` |
+| 50 | **Single authoritative network inventory** | ST-01, ST-02 | §2.2, §5.1, §18.6 | One list of every `ao-*` network with its CIDR, `Internal` flag and owning component, generated from `config/platform/network-cidrs.yaml`, which both §2.2 and §5.1 cite. It must account for `ao-html-window` (10.89.14) and `ao-build-update` (10.89.13), which appear in the topology but in no table. §2.2 says twelve, §13.3 says twelve, §18.6 says thirteen — all three become one asserted count. `check-network-isolation.sh` must not regenerate the CIDR file from a hardcoded list, or the named source of truth is not authoritative. |
+| 51 | **Reconcile the payment-provider decision** | ST-12, ST-27 | §18.4, §7.2, §7.3 | §18.4 records PayPal, Zelle and Coinbase as decided; ST-27 and ES.2 still treat the provider as undecided. State once which providers are in scope now and make every other reference match, so the sales pipeline is not gated on a decision that already exists. |
+| 52 | **Reconcile secret-delivery policy with the implementation** | ST-24, ST-30 | §14.1, §14.1.1 | §14.1 mandates Podman secrets or systemd credentials; every implemented path is a wallet-materialised `0600` env file, which the same subsection calls a plaintext duplicate. Either move to Podman/systemd credentials or record the deviation in §18 with env-file lifetime and shred-on-exit behaviour, and close the `~/secrets/fabrication-db.env` recorded in ST-30. §14.1.1 points at a §18 subsection that does not exist. |
+| 53 | **One canonical journal root** | ST-01 | §16.3, §12.1, §13.3.1 | Four different roots are named: `/ALWAYSON/LOGS-JOURNALS/`, `LOGOS-JOURNALS/`, `logs/`, and the paths §20 cites. Declare one root and make the others symlinks or aliases, put it in the restic path set, and state a retention policy — none of the ~20 artifacts in §16.3 has one. Rule-11 compliance is not auditable until this exists. |
+| 54 | **Documented credential rotation, revocation and recovery** | ST-24 | §14.1.1 | §14.1.1 requires rotation, revocation, expiration and recovery to be documented before production use. None exists in §14, §16, §17 or §18. Include a wallet backup and restore procedure that is itself inside the backup set, and a break-glass order for the operator. |
+| 55 | **Executable restore runbook with RPO and RTO** | ST-18 | §17.1 | §17.1 is policy only: no restic command sequence, no restore ordering between filesystem and PostgreSQL dumps, no `pg_restore` or role-recreation step, no ownership handling, and no RPO or RTO stated per data class. Write the preflight, snapshot selection, filesystem restore, database restore in dependency order, credential re-provision and hash re-verification steps. |
+| 56 | **Restic path set covers every data class** | ST-18, ST-03 | §17.1, §3.3.1, §8.4 | The path set covers `config`, `artifacts`, `backups/postgres` and manifests. `data/` is excluded and the photogrammetry drive is on neither list, so the drive the whole §8.5 mount-validation regime exists to protect is not backed up. Enumerate include/exclude against §3.3.1 and §8.4 and rewrite the §17.1 schedule to match what is actually captured. |
+| 57 | **Named backup and restore executors** | ST-18 | §16.1, §17.1 | §16.1 lists `scripts/backup/` and `scripts/restore/` as empty directories while ST-18 claims active `ao-restic-backup`, `ao-restic-verify` and dump timers. Name the script paths and the systemd unit and timer names that implement §17.1, and give the seven-step restore test a named executor and cadence. |
+| 58 | **Alerting mechanism and thresholds** | ST-19 | §17.2 | §17.2 requires alerts for disk pressure, backup failure, restart loops, unexpected listeners, radio loss, certificate expiry and cross-domain denials, but no alertmanager or notification target is specified anywhere, and ST-19 records no rules or dashboards built. Name the alerting component, the routing target per severity, and a threshold per rule. |
+| 59 | **Authoritative mapping database name and location** | ST-03 | §8.1, §8.4, §8.5, §3.3.1 | §8.4 places the mapping PostgreSQL at `~/webodm/dbdata` and §3.3.1 names the logical database `webodm` on the host cluster, while ST-03 says the app reads `webodm_dev` in `ao-webodm-db`. §8.1 and §8.5 require all mapping storage on the validated photogrammetry drive, which as written contains neither. State one name and one location and confirm it is inside the backup scope. |
+| 60 | **One canonical radio device-name table** | ST-04 | §2.1, §9.2.1, §9.4 | Three different device paths are given for the same two radios, and §9.2.1 states both CP2102 bridges expose an identical USB serial descriptor so identity must come from by-path plus the SX1262 MAC. Publish one table mapping radio to device path, by-path and MAC. |
+| 61 | **Rule on LoRaWAN naming** | ST-04 | ES.1, §9.4, §19.2 | ES.1 calls PEOPLE-RADIO a LoRaWAN path while §9.4 says not to describe the system as LoRaWAN unless it implements a true device, gateway and network-server architecture. Decide whether RNode-over-Reticulum is ever called LoRaWAN in any artefact and apply it everywhere. |
+| 62 | **End-to-end install procedure with rollback** | ST-01 | §12.1, §12.3, §13.3, §16.1 | §12 stops after host dependencies: no ordered steps for the `/ALWAYSON` layout, networks, Quadlet units or secrets, and no gate between §12.3 and deployment. §12.3 also runs an inline `sudo apt install` that does not reference the `scripts/bootstrap/00..04` chain in §16.1. One ordered procedure that names the scripts, gates each phase on §17.3 evidence, and documents how to undo each phase non-destructively. |
+| 63 | **Enable and verify linger** | ST-01, ST-24 | §12.3, §13.2 | §12.3 checks `loginctl show-user -p Linger` read-only but nothing enables it, while §13.2 requires user-level Quadlet units and wallet-gated services start only after Plasma login. After a reboot every Quadlet unit and every wallet-backed service stays down. Add the enable step, or record an approved §18 deviation stating the host is login-gated by design with the recovery procedure. |
+| 64 | **Reconcile the Podman store model** | ST-01 | §13.2, §19.2 item 5, §20 | §13.2 states the system store is unused by any workload while §20 records a mixed-store deviation and §19.2 item 5 still has the runtime designation open. Record the deviation in §18 or remove the §20 claim; the isolation evidence cannot be trusted while the store model disagrees with itself. |
+| 65 | **Accounting model for the authoritative ledger** | ST-09, ST-10 | §11.1, §11.3, §4.4, §7.2 | Corda is declared the authoritative ledger of debits and credits and §4.4 requires an accounting report, but §11.3 defines no accounts, no debit/credit entry semantics, no posting rule, no currency handling, and no reconciliation between Corda state and `salesdb`. §7.2 calls Corda the source of truth for financial ledger information while §11.1 makes PostgreSQL authoritative for source data. Define the model or state that the ledger records references only and accounting is computed in reporting. |
+| 66 | **Re-runnable evidence entries in section 20** | ST-01 | §20 | Most rows carry an outcome but no date, no command and no criterion for deciding when to re-run, so §20 cannot be re-verified. One row claims the backup schedule was automated 2026-08-31 while ST-18 records the renamed timers have not yet fired. Add the command and the date to each check, and re-run the evidence before relying on it. |
 
 ## 19.3 Completed items
 
