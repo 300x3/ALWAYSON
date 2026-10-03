@@ -2067,12 +2067,11 @@ the Quadlet unit, not by maintaining a second GUI image.
 
 ## 11.1 Ledger Authority Policy
 
-Corda is the authoritative ledger for approved business provenance, receipt,
-entitlement, fulfillment-approval, and release-approval records.
+Corda is the authoritative ledger for approved business provenance, receipt, entitlement,
+fulfillment-approval and release-approval records. It is **not** the authoritative store for
+domain-operational source data — that stays in the related PostgreSQL database (§3.3.b).
 
-Corda is not the authoritative store for domain-operational source data; that data is stored in the related PostgreSQL database.
-
-| Area | Authoritative operational data | Actual network |
+| Area | Authoritative operational data | Network |
 |---|---|---|
 | Sales | Sales PostgreSQL order, fulfillment, and customer-service records | `ao-sales` |
 | Payment | Verified provider event record and normalized payment state | `ao-payment` (ingress via `ao-ingress-payment`) |
@@ -2083,15 +2082,13 @@ Corda is not the authoritative store for domain-operational source data; that da
 | Archive | Encrypted archive objects and retention records | `ao-egress-archive` |
 | Ledger | Corda state, PKI, and the complete ledger of debits and credits | `ao-ledger-core` |
 
-The **Area** column above uses plain English names. The `ao-*` names in the far-right
-**Actual network** column are the real Podman network names and are the ones used
-everywhere else in this document, in the Quadlet definitions, and in
-`/ALWAYSON/config/platform/network-cidrs.yaml`. Where an area is served by a controlled
-adapter rather than a workload network, the adapter is named in the same cell.
+Network names are the real Podman names used throughout this document, in the Quadlet
+definitions, and in `config/platform/network-cidrs.yaml`. Where an area is served by a
+controlled adapter rather than a workload network, the adapter is named in the same cell.
 
-Corda records signed references, hashes, approved transitions, and
-entitlement/provenance data that permit verification without duplicating
-sensitive or high-volume data.
+Corda records signed references, hashes, approved transitions, and entitlement and
+provenance data sufficient to verify a claim without duplicating sensitive or high-volume
+data.
 
 ## 11.2 Ledger Flow
 
@@ -2424,8 +2421,8 @@ it on a dashboard; neither creates or waives payment verification.
 
 ## 11.4 Corda Does Not Store
 
-Corda may store approved encrypted private transaction data as described in
-Section 11.3. It must never store plaintext secrets or unencrypted credentials.
+Corda may store approved encrypted private transaction data as described in §11.3. It must
+never store plaintext secrets or unencrypted credentials.
 
 Never store:
 
