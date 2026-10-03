@@ -918,49 +918,48 @@ authorization boundary for database access.
 
 ## 6.1 Component Boundary Matrix
 
-**Combined into the single matrix in §5.1, group C.** What each component may accept as
-input, emit as output, persist, and reach externally is recorded there, on the same row as
-its owning domain and its implementation status.
+**Combined into the single matrix in §5.1, group C** — what each component may accept as
+input, emit as output, persist and reach externally, on the same row as its owning domain and
+its §19.1 status.
 
 ## 6.A GUI Reporting Tools and Podman Network Mapping
 
-This subsection is an **architecture requirement**: the required relationship between operator
-GUIs, reporting tools, dashboards, desktop clients, external provider dashboards, workload
-domains, and Podman networks. Work remaining against it is recorded in §19.2.
+An **architecture requirement**: the required relationship between operator GUIs, reporting
+tools, dashboards, desktop clients, external provider dashboards, workload domains, and Podman
+networks. Work remaining against it is in §19.2.
 
 ### 6.A.1 GUI ↔ Podman Network Mapping
 
-**Combined into the single matrix in §5.1, group D.** All eighteen GUI and workflow rows,
-each with its one owning network, its approved access path, and its §19.1 status ID, are in
-that table. The attachment rule that governs them is stated in §5.1 and applies to every
-group D row.
+**Combined into the single matrix in §5.1, group D** — eighteen GUI and workflow rows, each
+with its one owning network, its approved access path and its §19.1 status. The attachment
+rule in §5.1 governs every one of them.
 
 ### 6.A.2 Reporting Tool Roles
 
-| Tool | Primary purpose | Mandatory boundary |
-|---|---|---|
-| **Grafana** | **Stable dashboards and metrics.** Long-lived, curated, reviewable views. A recurring ad-hoc Metabase report that proves its worth is promoted here. It reads Prometheus and approved existing PostgreSQL databases **read-only** as datasources and never writes into them. Covers operational monitoring and visualization: metrics, service health, alerts, queue depth, latency, resource use, storage, GPU state, backup age, restore-test status, certificate expiry, ingest failures, and approved PostgreSQL business/database metrics | Runs in `ao-admin`; reads Prometheus for metrics and approved existing PostgreSQL datasources for business/database dashboards. It keeps its own PostgreSQL-backed application database for users, dashboards, and datasource configuration. It does not write into the databases it reads, and never becomes a shell, container-management, or control path. |
-| **Metabase** | **Ad-hoc reporting by users.** A recurring report that proves its worth is promoted into a stable Grafana dashboard. Also develops ad-hoc reports over desktop-application SQLite files, read-only. FOSS relational reporting: sales, orders, receipts, fulfillment, entitlements, returns, approved support summaries, ledger/provenance projections, saved questions, filters, exports, and standard PDF reports/receipts | It runs in `ao-admin`; reads the existing source databases over **per-source read-only roles** — one read-only role per PostgreSQL and MySQL source, with no write, DDL, or owner privilege. It keeps a **dedicated PostgreSQL application database of its own** for the Metabase schema, saved questions, dashboards, filters, and subscriptions, because it performs ad-hoc read-only reporting and must persist that work. It does not write into the databases it reports on, and its application database is not a system of record. It never receives superuser, database-owner, migration, backup, payment-provider, or Corda-key credentials. |
-| **Corda management/API/CLI** | Corda lifecycle, configuration, certificate-aware administration, and controlled maintenance | Uses a documented narrow management path after the required ceremony; it is not replaced by Metabase or Grafana. |
-| **Payment-provider dashboard** | Provider-authoritative charges, refunds, disputes, payouts, exports, and reconciliation | External provider service; no Podman network attachment and no replacement of local verified-event controls. |
+Each tool has one purpose and one hard boundary. Grafana and Metabase are specified in
+detail in §3.3; this table records only what is unique to each tool's role here.
 
-Metabase may report on approved Corda-derived business and provenance data only
-through a deliberate read-only reporting projection, approved views, supported
-status interface, or ledger-ingestion audit/status records. Metabase must not
-become the primary interface to Corda internal persistence tables, administer
-Corda, receive Corda private keys/keystores, or create a broad route into
-`ao-ledger-core`.
+| Tool | Role | Hard boundary |
+|---|---|---|
+| **Grafana** | Stable, curated dashboards and metrics | Never becomes a shell, container-management or control path |
+| **Metabase** | Ad-hoc reporting by users | Never receives superuser, database-owner, migration, backup, payment-provider or Corda-key credentials |
+| **Corda management / API / CLI** | Corda lifecycle, configuration, certificate-aware administration, controlled maintenance | Uses a documented narrow management path after the required ceremony (§18.3); not replaced by Metabase or Grafana |
+| **Payment-provider dashboard** | Provider-authoritative charges, refunds, disputes, payouts, exports, reconciliation | External provider service with no Podman network attachment, and no replacement of local verified-event controls |
+
+**Metabase and Corda.** Metabase may report on approved Corda-derived business and
+provenance data only through a deliberate read-only reporting projection, approved views, a
+supported status interface, or ledger-ingestion audit and status records. It must not become
+the primary interface to Corda's internal persistence tables, administer Corda, hold Corda
+private keys or keystores, or create a broad route into `ao-ledger-core`.
 
 ### 6.A.3 Conformance Requirements
 
-All current and future GUI, dashboard, reporting, database-administration, and
-operator-access implementations must comply with this subsection and Sections
-4, 5, 14, and 17.
+Every current and future GUI, dashboard, reporting, database-administration and
+operator-access implementation must comply with this subsection and §§4, 5, 14 and 17.
 
-- Every tool must have a named operator purpose, actual runtime placement,
-  approved data/status source, documented access path, and explicit
-  implementation status.
-- Every containerized GUI must have documented Podman-network membership,
+- Every tool must have a named operator purpose, runtime placement, approved
+  data/status source, documented access path, and a §19.1 status.
+- Every containerized GUI must have a documented Podman-network membership,
   listener policy, service owner, image digest, authentication method, and
   least-privilege identity.
 - Every host desktop GUI and provider dashboard must be recorded as having no
@@ -976,14 +975,11 @@ operator-access implementations must comply with this subsection and Sections
 - No GUI may add a public listener, broad host networking, unrestricted Podman
   socket access, `--privileged`, shared writable storage, or unrelated-domain
   secret merely to simplify deployment or troubleshooting.
-- Any material deviation requires an approved deviation record under Section
-  18 before production declaration.
+- Any material deviation requires an approved record in §18 before a production
+  declaration.
 
-The machine-readable implementation inventory for this requirement is:
-
-```text
-/ALWAYSON/config/platform/gui-boundary-matrix.yaml
-```
+The machine-readable inventory that implements this requirement is
+`/ALWAYSON/config/platform/gui-boundary-matrix.yaml`.
 
 ---
 
