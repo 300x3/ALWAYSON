@@ -31,7 +31,9 @@
   four links is ../models/factory_assets/model.sdf (+ model.config).
 
   SOURCE DATA (all inch, Z_UP, shared aligned frame; scale 0.0254):
-    building_massing  <- "\n09-SIMULATIONMASSING-ADUDOORS_FABRICATIONAREA.dae"
+    building_massing  <- "09-SIMULATIONMASSING-ADUDOORS_FABRICATIONAREA.dae"
+        (source export was committed under a filename containing a literal
+         newline and could never be tracked; renamed 2026-10-03)
     conveyor_system   <- 09-SIMULATIONCONVEYOR.dae
     robot_arms        <- 09-SIMULATIONARMS.dae
     vehicles_overlay  <- 09-SIMULATIONVEHICLES-ARMS.dae, LIFTED +2.5 m
