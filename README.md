@@ -1371,16 +1371,17 @@ Mapping-result exporter
 
 ## 8.4 Persistent Locations
 
+The directory tree in §8.2 fixes the layout of imagery, projects, deliverables and manifests.
+These are the locations the tree does not show.
+
 | Data | Location |
 |---|---|
-| Raw images | `/media/scottw/500GBPHOTOGRAM/incoming/` |
-| Validated images | `/media/scottw/500GBPHOTOGRAM/validated/` |
-| WebODM media/projects | `/media/scottw/500GBPHOTOGRAM/webodm/` |
-| Intermediate work | `/media/scottw/500GBPHOTOGRAM/webodm/nodeodm/` and `tmp/` |
-| Deliverables | `/media/scottw/500GBPHOTOGRAM/deliverables/` |
-| Mapping PostgreSQL | `~/webodm/dbdata` (bind mount on `ao-webodm-db`, verified 2026-09-30). `/ALWAYSON/data/mapping/postgres/` is **not** in use and is empty. |
-| Redis persistence | named Podman volume on `ao-webodm-broker`; the directory path `/ALWAYSON/data/mapping/redis/` is **not** in use |
+| Mapping PostgreSQL | `~/webodm/dbdata`, bind-mounted on `ao-webodm-db` |
+| Redis persistence | A named Podman volume on `ao-webodm-broker` |
 | Signed manifests | `/ALWAYSON/artifacts/mapping-manifests/` |
+
+`/ALWAYSON/data/mapping/postgres/` and `/ALWAYSON/data/mapping/redis/` are not part of the
+design and must stay empty; neither is a bind mount for the running services.
 
 ## 8.5 Mapping Mount Validation
 
