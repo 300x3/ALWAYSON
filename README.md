@@ -1075,75 +1075,83 @@ Source: HTML-300X3 repo (React + TanStack Router; static export in
 with modal previews, pCloud folder links, and SketchUp/Trimble model links).
 The pCloud Public Folder mirrors the static export layout.
 
-The site is a single-page-per-section storefront. The hierarchy below is the
-actual navigation tree: each top-level page, its subsections, and what each
-contains. Indentation is the site hierarchy.
+The site is a single-page-per-section storefront: one index per section, one page per item.
+It is published from the pCloud Public Folder. The tree below is the single source for both the
+site navigation and the published file layout; a section's path and its folder are the same
+thing.
 
 ```text
-www.300x3.com
+www.300x3.com                                 pCloud Public Folder
 │
-├── /  Home
-│   ├── Hero and project introduction
-│   ├── Current status highlights
-│   ├── Site navigation (links to every section below)
-│   └── Follow-up · Support · Chat links, in that order (§7.1.1, *Order of follow-up, support, and chat links*)
+├── /                Home            index.html
+│                                       Hero and project introduction; current status
+│                                       highlights; navigation to every section below;
+│                                       follow-up, support and chat links (§7.1.1)
 │
-├── /equipment  Equipment — catalog modals
-│   ├── Adapter ................ soda threads to 0.5" NPT ("TUBER")
-│   ├── Boiler ................. water boiler, power production, chemistry set
-│   ├── Pneumatic Speargun Ulu .. Damascus ulu + forearm pneumatic speargun
-│   ├── Structural Battery ...... "power sandwich" gas/liquid tank + battery case
-│   ├── Appliances .............. 12oz micro-appliances ("app cans")
-│   ├── Computer ................ 12oz-can Raspberry Pi case + wireless
-│   │                            HDMI / video-glasses kit
-│   └── Camping ................. shopping-list discussion, pricing, where-to-buy
+├── /equipment       Equipment       equipment/index.html
+│   ├── adapter ...................... soda threads to 0.5" NPT ("TUBER")
+│   ├── boiler ...................... water boiler, power production, chemistry set
+│   ├── speargun-ulu ................ Damascus ulu + forearm pneumatic speargun
+│   ├── structural-battery ........... "power sandwich" gas/liquid tank + battery case
+│   ├── appliances ................... 12oz micro-appliances ("app cans")
+│   ├── computer ..................... 12oz-can Raspberry Pi case + wireless
+│   │                                 HDMI / video-glasses kit
+│   └── camping ...................... shopping-list discussion, pricing, where-to-buy
 │
-├── /buildings  Buildings — catalog modals
-│   ├── Furniture
-│   ├── ADU ..................... 80sf and up
-│   ├── Mall
-│   ├── Tower
-│   └── Concrete Island
+├── /buildings       Buildings       buildings/index.html
+│   ├── furniture
+│   ├── adu .......................... 80sf and up
+│   ├── mall
+│   ├── tower
+│   └── concrete-island
 │
-├── /vehicles  Vehicles — catalog modals
-│   ├── Drone ................... air / land / sea
-│   ├── Boat .................... micro modular aircraft carrier
-│   ├── Personal Vehicle
-│   ├── Electric Car Wheel
-│   └── Balloon
+├── /vehicles        Vehicles        vehicles/index.html
+│   ├── drone ....................... air / land / sea
+│   ├── boat ........................ micro modular aircraft carrier
+│   ├── personal-vehicle
+│   ├── electric-car-wheel
+│   └── balloon
 │
-├── /maps  Maps
-│   └── Photogrammetry deliverables and map products
+├── /maps            Maps            maps/
+│                                   Photogrammetry deliverables and map products
 │
-├── Digital
-│   ├── Images
-│   ├── Topography and 3D points
-│   ├── "Where's My ___?" locator series
-│   └── Route-around-your-county
+├── /digital         Digital         digital/
+│                                   Images; topography and 3D points;
+│                                   "Where's My ___?" locator series;
+│                                   route-around-your-county
 │
-├── Discussion
-│   ├── Mastodon forum
-│   └── 300X3@POSTEO.NET
+├── /discussion      Discussion      discussion/
+│                                   Mastodon forum; 300X3@POSTEO.NET
 │
-├── /documentation  Documentation
-│   ├── Intro video
-│   ├── Working project-plan PDF
-│   ├── Server coding
-│   ├── 3D models
-│   ├── HUD app
-│   ├── Simulations
-│   ├── AI links
-│   ├── Hardware links
-│   ├── Software links
-│   ├── Fabrication links
-│   └── Raw-material links
+├── /documentation   Documentation   documentation/index.html
+│   ├── intro-video
+│   ├── project-plan ................ working project-plan PDF
+│   ├── server-coding
+│   ├── 3d-models
+│   ├── hud-app
+│   ├── simulations
+│   ├── ai .......................... AI links
+│   ├── hardware .................... hardware links
+│   ├── software .................... software links
+│   ├── fabrication ................. fabrication links
+│   └── raw-materials ............... raw-material links
 │
-└── /donate  Donate
-    ├── PayPal hosted button (also accepts all major credit cards)
-    ├── Zelle
-    ├── Coinbase / Stablecoin
-    └── Other — customization and coordination, at 300X3@POSTEO.NET
+├── /donate          Donate          donate/
+│                                   PayPal hosted button (also accepts all major
+│                                   credit cards); Zelle; Coinbase / Stablecoin;
+│                                   other — customisation and coordination at
+│                                   300X3@POSTEO.NET
+│
+├── /support         Support         support/
+├── /community       Community       community/
+│
+├── /legal           Legal           legal/{privacy,terms,returns,shipping}.html
+│
+└── /assets          Assets          assets/{css,js,images,downloads}/
 ```
+
+Every Equipment, Buildings, and Vehicles entry is a catalog modal and carries the sales action
+described in the sales-link integration plan below.
 
 Catalog modals under Equipment, Buildings, and Vehicles each carry the sales
 action described in the sales-link integration plan below.
@@ -1179,62 +1187,7 @@ internal hosts — see Section 7.1 prohibitions):
 4. No payment-card data, webhook secrets, OAuth tokens, or ledger keys ever
    appear in the static HTML, pCloud folder, or Git history.
 
-```text
-pCloud Public Folder
-├── index.html
-├── equipment/
-│   ├── index.html
-│   ├── adapter/
-│   ├── boiler/
-│   ├── speargun-ulu/
-│   ├── structural-battery/
-│   ├── appliances/
-│   ├── computer/
-│   └── camping/
-├── buildings/
-│   ├── index.html
-│   ├── furniture/
-│   ├── adu/
-│   ├── mall/
-│   ├── tower/
-│   └── concrete-island/
-├── vehicles/
-│   ├── index.html
-│   ├── drone/
-│   ├── boat/
-│   ├── personal-vehicle/
-│   ├── electric-car-wheel/
-│   └── balloon/
-├── maps/
-├── digital/
-├── discussion/
-├── documentation/
-│   ├── index.html
-│   ├── intro-video/
-│   ├── project-plan/
-│   ├── server-coding/
-│   ├── 3d-models/
-│   ├── hud-app/
-│   ├── simulations/
-│   ├── ai/
-│   ├── hardware/
-│   ├── software/
-│   ├── fabrication/
-│   └── raw-materials/
-├── donate/
-├── support/
-├── community/
-├── legal/
-│   ├── privacy.html
-│   ├── terms.html
-│   ├── returns.html
-│   └── shipping.html
-└── assets/
-    ├── css/
-    ├── js/
-    ├── images/
-    └── downloads/
-```
+
 
 The public site may include:
 
@@ -2126,6 +2079,52 @@ an operator. The portal is reachable only by the approved local path on
 `ROS_DOMAIN_ID=22` / `GZ_PARTITION=alwayson_fabrication_sim`. It must never become a
 control path to the real machines: the separation from live machinery recorded in §10.2
 applies to it exactly as it applies to everything else in this domain.
+
+**Files.** The baseline deliverables live under `GAZEBO/sim/` and are read by the portal:
+
+| File | Contents |
+|---|---|
+| `boning.yaml` | A datum frame per cell, mounting and reference surfaces, joints and axes with tolerances, and the machine beds and storage planes |
+| `objects.yaml` | Reinforcement learning objects in groups, plus actors, each with a stable id, a home pose, and reset semantics |
+
+Every boning frame is derived from the AABB of the corresponding collision box in
+`factory.world` and is labelled `source: derived-from-mesh-aabb`. A machine absent from the
+source exports carries a `declared-by-operator` null, and the portal then reports
+`reach_verified_against_machine: false`. **A simulated reach may not be called verified
+against a real machine envelope until that machine has been surveyed.**
+
+The portal is `scripts/simulation/ao-sim-portal.py` and exposes `/api/status`,
+`/api/{start,stop,reset,inspect}`, `/api/boning`, `/api/objects` and `/api/health`, restricted
+to a single permitted unit.
+
+**Platform.** ROS 2 Lyrical at `/opt/ros/lyrical` and Gazebo Sim 10.5.0 (collection "Jetty") on
+Ubuntu 26.04. This is the vendor-supported pairing, not a locally chosen mix: Gazebo Sim 10.5.0
+is the ceiling of what the vendor publishes for this platform, and upstream lists ROS 2 Lyrical
+(LTS) + Gazebo Jetty (LTS) as the recommended combination for 26.04. Gazebo Classic 11 is
+end-of-life and is not a target here; the modern integration is `ros_gz`, not `gazebo_ros_pkgs`.
+Simulation images are built from a pinned base-image digest rather than from an apt repository.
+
+**Three environment traps.**
+
+1. `GZ_RENDERING_RESOURCE_PATH` **replaces** Gazebo's packaged Ogre2 media root; it is not a
+   search list, and a colon-separated value is treated as one directory name. Point it at the
+   stock media root `/usr/share/gz/gz-rendering`. Project models are found through
+   `GZ_SIM_RESOURCE_PATH` / `GZ_SIM_SYSTEM_PLUGIN_PATH`. Getting this wrong raises
+   `OGRE EXCEPTION(6:FileNotFoundException)` and leaves the render engine uninitialised, so the
+   viewport shows background colour and no geometry.
+2. gz-gui's EntityTree icons require `qt6-svg-plugins`. Without it the image-format plugin
+   fails to decode and the client aborts with
+   `basic_string: construction from null is not valid`.
+3. GPU rendering requires CDI passthrough (`nvidia.com/gpu=0` plus `/dev/dri`) with the EGL
+   vendor pinned via `__EGL_VENDOR_LIBRARY_FILENAMES`. Without the pin, Mesa's dri2 platform
+   claims the NVIDIA render node, logs `egl: failed to create dri2 screen` and never defers to
+   the NVIDIA vendor. Software fallback is refused: `LIBGL_ALWAYS_SOFTWARE` is rejected once a
+   hardware device is selected, and `QT_QUICK_BACKEND=software` renders the Qt interface but
+   segfaults in `QOpenGLContext::done` before the 3D scene.
+
+gz-transport discovery does not cross Podman's per-container bridge, so a GUI client sharing a
+server must share its network namespace. A GUI client is selected by overriding `ENTRYPOINT` in
+the Quadlet unit, not by maintaining a second GUI image.
 
 
 ---
@@ -4082,220 +4081,6 @@ last value and no `PAYMENT_DSN`. One call composes the complete file.
 **Still outstanding.** No public route is configured, no credential exists, and
 the website email → PDF → Corda intake path is not built.
 
-### 10.2.2 Fabrication simulation: baseline data and GUI status (2026-10-01)
-
-Session took over the `ao-sim-fabrication` work from `/ALWAYSON/GAZEBO/handoff.md`.
-Section 10.2.1 requires four baseline deliverables for this domain: 3D world
-setup, boning, reinforcement learning objects, and an HTML portal to operation.
-The world existed. The other three did not.
-
-**Now present** (`GAZEBO/sim/`, read by the portal):
-
-- `boning.yaml` — a datum frame per cell, mounting and reference surfaces, the
-  joints and axes with their tolerances, and the machine beds and storage planes.
-  Every frame is derived from the AABB of the corresponding collision box in
-  `factory.world`, and is labelled `source: derived-from-mesh-aabb`. The 3D
-  printer and the CNC bed are **not in the SketchUp exports**, so they carry
-  `declared-by-operator` nulls. The portal therefore reports
-  `reach_verified_against_machine: false`; a simulated reach may not be called
-  verified against a real machine envelope until those are surveyed.
-- `objects.yaml` — 9 reinforcement learning objects in 3 groups plus 2 actors,
-  each with a stable id, a home pose and reset semantics, held in their own
-  non-static model so placement can vary without rebuilding the world.
-- `scripts/simulation/ao-sim-portal.py` — the control surface. The previous
-  portal was a static nginx page whose start/stop/reset buttons called `/api/*`
-  routes that did not exist. It now implements `/api/status`,
-  `/api/{start,stop,reset,inspect}`, `/api/boning`, `/api/objects` and
-  `/api/health`, and is restricted to a single permitted unit.
-
-**Platform.** Rebuilt on Ubuntu 26.04 "resolute" to match the host, with Gazebo
-Sim 10.5.0 and ROS 2 Lyrical, per operator authorisation to move the versions to
-whatever suits Kubuntu 26 LTS. `gz-sim-gui-client` is present in the new image
-and was not present in the old one.
-
-**`packages.ros.org` is unreachable, but this blocks updates, not the currently
-installed ROS 2 stack.** This needs stating precisely, because "ROS packages
-cannot be installed" would be wrong and has previously been overclaimed.
-
-The repository hostname fails TLS verification from this host and from
-containers. Verified directly:
-
-```text
-$ curl -sSI https://packages.ros.org/ros2/ubuntu/dists/resolute/InRelease
-curl: (60) SSL: no alternative certificate subject name matches target hostname
-       'packages.ros.org'
-$ openssl s_client -connect packages.ros.org:443 -servername packages.ros.org
-subject=... O=Oregon State University, CN=*.osuosl.org
-X509v3 Subject Alternative Name: DNS:osuosl.org, DNS:*.osuosl.org
-```
-
-The certificate is valid and unexpired but is issued for `*.osuosl.org`, whose
-subjectAltName does not cover `packages.ros.org`. This is an upstream
-server-side name mismatch, not a local CA problem, and **certificate
-verification was not disabled to work around it** — doing so would weaken
-transport security for every package on the host.
-
-Consequences, which are *not* the same thing:
-
-- **Already installed and working: ROS 2 Lyrical itself, and the `ros_gz`
-  bridge.** The host has `/opt/ros/lyrical` (`ROS_DISTRO=lyrical`) with 313
-  `ros-lyrical-*` packages, including the bridge binaries:
-  `ros-lyrical-ros-gz-bridge 3.0.10-1resolute.20260915.142616`, providing
-  `/opt/ros/lyrical/lib/ros_gz_bridge/{bridge_node,parameter_bridge,static_bridge}`,
-  plus `ros-lyrical-ros-gz-image` and `ros-lyrical-ros-gz-interfaces`.
-  These were installed before the repository broke, so the ROS 2 and ROS↔Gazebo
-  bridge capability on this host is real and is what the "ROS-Gazebo bridge
-  tests passed" evidence elsewhere in this document refers to.
-- **Not possible: installing *new* or *updating* ROS 2 packages**, because that
-  requires the unreachable repository. This is why the simulation images are
-  built from a pinned `docker.io/library/ros` digest rather than from an apt
-  repository, and why the image must be rebuilt to gain packages.
-- **`foxglove_bridge` remains blocked**, so **Foxglove stays blocked**. It was
-  never installed and cannot be fetched.
-- **The Gazebo GUI does not need the bridge at all.** It attaches to the world
-  over gz-transport using `GZ_PARTITION`, which is why the GUI is unaffected by
-  the repository failure.
-
-### Gazebo and ROS 2 versions on Ubuntu 26.04, and why they are the newest
-
-**Gazebo Sim 10.5.0 (collection "Jetty") is the latest Gazebo available for
-Ubuntu 26.04 "resolute", and it is what is installed.** This is not a pin chosen
-for convenience; it is the ceiling of what the vendor publishes for this
-platform.
-
-**ROS 2 Lyrical is likewise the correct and current distribution for Ubuntu
-26.04**, and it is installed at `/opt/ros/lyrical`. Upstream Gazebo's own
-compatibility table lists **ROS 2 Lyrical (LTS) + Gazebo Jetty (LTS)** as the
-✅ recommended combination, so the OS / ROS 2 / Gazebo triple recorded
-throughout this document is the vendor-supported stack, not a locally invented
-mix. The full supported matrix upstream is:
-
-| ROS 2 distribution | Ubuntu target | Gazebo |
-|---|---|---|
-| Humble Hawksbill (LTS) | 22.04 | Fortress (LTS) |
-| Jazzy Jalisco (LTS) | 24.04 | Harmonic (LTS) |
-| Kilted Kaiju | 24.04 | Ionic |
-| **Lyrical Luth (LTS)** | **26.04** | **Jetty (LTS)** ✅ |
-| Rolling | development | Jetty (moving target) |
-
-Gazebo Classic 11 is end-of-life and is **not** a supported target here; the
-modern integration is `ros_gz`, not `gazebo_ros_pkgs`.
-
-Verified against the live OSRF apt index
-(`packages.osrfoundation.org/gazebo/ubuntu-stable`, suite `resolute`) on
-2026-10-01, by reading candidate versions inside the image rather than by
-inference:
-
-| Package | resolute candidate |
-|---|---|
-| `gz-sim10-server` | `10.5.0-2~resolute` |
-| `gz-sim10-cli` | `10.5.0-2~resolute` |
-| `libgz-sim10-gui` | `10.5.0-2~resolute` |
-| `libgz-rendering10-ogre2` | `10.0.2-3~resolute` |
-| `gz-jetty` (metapackage) | `1.0.0-2~resolute` |
-
-`gz-sim11-server`, `gz-sim11-gui`, `gz-sim9-gui` and every other `gz-sim`
-major return **no candidate** on this suite, and `apt-cache search '^gz-sim[0-9]+-server$'`
-returns exactly one result, `gz-sim10-server`. So 10.5.0 is the newest Gazebo for
-Ubuntu 26.04, not an older Gazebo left behind on a 26.04 host.
-
-Supporting facts that align with this:
-
-- **Jetty is an LTS collection**, supported September 2025 to May 2031, so
-  10.5.0 is the supported branch for the life of this platform, not a stepping
-  stone to a nearer successor.
-- **The `resolute` suite is actively published.** The OSRF suite directory shows
-  `resolute` last updated 2026-09-29, newer than `noble` (2026-09-18) and
-  `jammy` (2026-09-15). Gazebo publishes for resolute natively; nothing is being
-  back-ported or held back for this platform.
-- **The image is at the candidate version.** Installed `gz-sim10-server` is
-  `10.5.0-2~resolute`, equal to the candidate, so the image is current and no
-  `apt upgrade` would move Gazebo.
-- **The rendering engine is versioned separately and is not stale.**
-  `libgz-rendering10-ogre2` is `10.0.2`; its major is 10 to match the Sim major
-  release, and its lower minor is normal, not an older Gazebo.
-
-**If a future Gazebo 11 or 12 appears for resolute**, the upgrade path is to
-change the `gz-sim10-*` package names in
-`GAZEBO/containers/gz-sim/Containerfile.resolute` to the new major, rebuild, and
-re-verify the GUI. This document must then be updated in the same commit. Gazebo
-does not support two Sim majors side by side in one image.
-
-**One genuine image defect, unrelated to versions, is recorded here because it
-affects this same GUI.** Every `apt-get` in the Containerfile uses
-`--no-install-recommends`, and `libqt6gui6` only *Recommends* `qt6-svg-plugins`.
-The Qt SVG image-format plugin was therefore silently absent
-(`imageformats/` held only gif/ico/jpeg). gz-gui's EntityTree QML loads its tree
-icons from the compiled `qrc:/Gazebo/images/chevron-right.svg` resource, which
-failed to decode on every expand with `QQuickImage: Error decoding ...:
-Unsupported image format`; the client then aborted about a second later with
-`basic_string: construction from null is not valid` thrown from a Qt event
-handler, and systemd restarted it repeatedly (`NRestarts=39`), each restart
-seizing keyboard and pointer focus. `qt6-svg-plugins` is now installed
-explicitly; verified in-image that it ships exactly the two missing files,
-`qt6/plugins/imageformats/libqsvg.so` and `qt6/plugins/iconengines/libqsvgicon.so`.
-
-**Image provenance note.** `GAZEBO/containers/gz-sim-gui/Containerfile` is the
-superseded Ubuntu 24.04 "noble" image and must not be built; it is retained only
-as a record of the failed noble attempt. The operative image is built from
-`GAZEBO/containers/gz-sim/Containerfile.resolute`, `FROM` the pinned
-`docker.io/library/ros` resolute digest, tagged `gz-sim10-resolute`. The GUI
-client is selected by overriding `ENTRYPOINT` in the Quadlet unit rather than by
-maintaining a second, separate GUI image — which is also why that stale 24.04
-file never affected the running deployment.
-
-**Gazebo GUI: two faults diagnosed, fix awaiting verification.** The client
-starts, resolves its Xauthority cookie, attaches to
-`GZ_PARTITION=alwayson_fabrication_sim`, loads the QML interface and binds to
-`/world/factory/control` and `/world/factory/stats`. The transport arrangement
-is settled and verified: gz-transport discovery does not cross Podman's
-per-container bridge, so the client shares the server's network namespace; with
-that, `gz model --list` returns the world's models.
-
-Two separate faults were found:
-
-1. **Blank viewport (render engine uninitialised).** `GZ_RENDERING_RESOURCE_PATH`
-   had been pointed at the project models directory, which *replaced* Gazebo's
-   packaged Ogre2 media root instead of adding to it. gz-rendering raises
-   `OGRE EXCEPTION(6:FileNotFoundException): Data folder provided contains no
-   valid template shader files`, the render engine stays uninitialised, and the
-   viewport clears to the background colour with no geometry. Corrected to the
-   stock media root `/usr/share/gz/gz-rendering`; project models are found
-   through `GZ_SIM_RESOURCE_PATH` / `GZ_SIM_SYSTEM_PLUGIN_PATH`, which are the
-   correct variables for them. Note this variable is **not** a search list: a
-   colon-separated value is treated as one directory name.
-2. **Client abort ~1s after start (the focus-stealing crash loop).** The Qt SVG
-   image-format plugin was missing from the image, so gz-gui's EntityTree icons
-   failed to decode and the client died with `basic_string: construction from
-   null is not valid`. Fixed by installing `qt6-svg-plugins` explicitly in
-   `Containerfile.resolute`. See the Qt SVG plugin defect recorded above.
-
-**Verification status — do not read this section as a passing result yet.**
-Fault 1's fix is verified in the live GPU-backed service: `/usr/share/gz/gz-rendering`
-eliminated every OGRE exception and the GUI bound `/world/factory/control` and
-`/world/factory/stats`. Fault 2's fix is verified only at the package level so
-far — the plugin file is confirmed present and is confirmed to be the one that
-supplies the failing resource — and **the rebuilt image had not finished
-building at the time of writing**. Until a rebuilt GUI is started and observed
-rendering factory geometry with no OGRE or null-string errors and a stable
-`NRestarts`, the claim "rendering works" is not established, and earlier notes in
-this repository that described full GUI stability were premature: the scene
-attached but rendering was not healthy.
-
-GPU rendering uses CDI passthrough (`nvidia.com/gpu=0`, plus `/dev/dri`) with the
-EGL vendor pinned via `__EGL_VENDOR_LIBRARY_FILENAMES`. The pin is required:
-without it Mesa's dri2 platform claims the NVIDIA render node, logs
-`pci id for fd 85: 10de:1b80, driver (null)` and `egl: failed to create dri2
-screen`, and never defers to the NVIDIA vendor. Software fallbacks are
-deliberately not used — `LIBGL_ALWAYS_SOFTWARE` is refused once the API has
-selected a hardware device, and `QT_QUICK_BACKEND=software` renders the Qt
-interface but not the 3D scene, which segfaults in `QOpenGLContext::done`.
-
-`ao-sim-fabrication-gui-gz` is currently **stopped and masked** so that it
-cannot restart and seize keyboard and pointer focus while this is being
-verified. The mask is a temporary containment during bring-up, not the intended
-steady state.
-
 ## 18.4 Payment Provider Decision
 
 **Status:** Decided 2026-08-28.
@@ -4539,6 +4324,9 @@ detail lives here and only here. Completed work is not listed — it is evidence
 | 44 | WebODM folder validation | ST-03 | §8.5 | Tree, ownership, sentinel, and checks validated; WebODM starts only with required validated storage. |
 | 45 | GPU scheduling and admission policy | ST-01, ST-25 | ES.1 | LM Studio, SketchUp, Gazebo, and WebODM batch scheduling matches the documented priority order. |
 | 46 | ALWAYS ON operator console has no unit | ST-01 | ES.2 | `scripts/operations/web-console-server.py` on `127.0.0.1:8099` is part of ALWAYS ON and verified 200 when run by hand, but no systemd unit or timer starts it. Give it a unit or record an approved deviation stating it is operator-run only. |
+| 47 | **Rebuild and verify the Gazebo GUI client** | ST-08 | §10.2.1 | Rebuild the image with `qt6-svg-plugins` and `GZ_RENDERING_RESOURCE_PATH=/usr/share/gz/gz-rendering`, then start it and confirm it renders factory geometry with no OGRE or null-string errors and a stable `NRestarts`. Until then "rendering works" is not established. The unit stays masked so it cannot seize keyboard and pointer focus |
+| 48 | **Working ROS 2 package source** | ST-08 | §10.2.1 | `packages.ros.org` fails TLS verification from this host because its certificate is issued for `*.osuosl.org`. Certificate verification must not be disabled to work around it. The installed ROS 2 Lyrical stack and `ros_gz` bridge are unaffected; installing or updating packages is not. Use a reachable mirror or the pinned base-image digest |
+| 49 | **`foxglove_bridge` unavailable** | ST-08 | §10.2.1 | `foxglove_bridge` was never installed and cannot be fetched while the package source is unreachable, so Foxglove views depend on resolving that first. The Gazebo GUI does not: it attaches over gz-transport using `GZ_PARTITION` |
 
 ## 19.3 Completed items
 
