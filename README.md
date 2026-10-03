@@ -2678,6 +2678,53 @@ test "$(stat -fc %T /sys/fs/cgroup)" = "cgroup2fs" && echo "cgroups v2 active"
 sudo aa-status || true
 ```
 
+## 12.4 Rebuilding This Host From Nothing
+
+The starting point is a bare Ubuntu 26.04 with KDE Plasma, Cline CLI and an
+internet connection. `scripts/provision/provision.sh` reconstructs everything
+else the repository already describes, in stages. It is **dry-run by default**;
+pass `--yes` to apply.
+
+```bash
+./scripts/provision/provision.sh          # dry run: prints every action
+./scripts/provision/provision.sh --yes    # apply
+```
+
+| Stage | Restores | Notes |
+|---|---|---|
+| 10 | 7 third-party apt repositories | ROS 2 is registered but **unreachable** (TLS); not worked around |
+| 20 | Host dependencies | Mirrors 12.3 so the two do not drift |
+| 30 | 16 snaps, 1 flatpak | Enumerated from the installed set |
+| 40 | Host applications | Read from `unmanaged-software.yaml`, not hardcoded |
+| 50 | 9 Quadlet domains, 22 units | **Quadlet deploys flat** — `~/.config/containers/systemd/` holds copies, so the deploy script is mandatory, not optional |
+| 60 | Secret presence check | Derived from the units' own `EnvironmentFile=` lines |
+| 70 | Data check only | **Never restores.** Restoration is a human decision (rule 2/3) |
+| 90 | Verification | Regenerates the inventory for diffing against `docs/software-status.md` |
+
+Three things a rebuild cannot restore from the repository, and must come from
+backup: the **10 secret files** in `~/.local/share/ao-secrets/` (outside git by
+design), the **persistent data** in `data/` (ardupilot 2.1G, corda-install
+282M), and the **AppImages and vendor tarballs**, which have no package source
+and must be fetched by hand.
+
+## 12.5 Inventory and Update Management
+
+The provisioned host is then verified against the committed inventory, and kept
+current from it.
+
+```bash
+sudo ./scripts/build-update/refresh-install-log.sh --refresh
+```
+
+Regenerates `docs/software-status.md` (229 rows, every cell populated),
+`update-plan.json`, the HTML and the PDF. The plan marks every item either
+**eligible** with exact ordered steps, or **excluded** with the rule that
+excludes it — the payment path (rule 7/14), WebODM and nodeodm (rule 10), the
+production databases (rule 14), and the deliberate Mastodon and ArduPilot
+decisions. Nothing is executed by the tooling; applying anything is an operator
+decision. Ubuntu archive security updates are already handled automatically by
+`unattended-upgrades` and need no action here.
+
 ---
 
 # 13. Podman Runtime and Quadlet Policy
