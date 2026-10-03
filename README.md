@@ -3672,67 +3672,19 @@ Logs are classified per §4.2 and are never a place to record secrets.
 **Target policy: 3-2-1** — three copies, two media types, and one off-host or
 off-site copy.
 
-**Current state, corrected 2026-10-03: the local backup ran daily until 2026-09-24,
-failed for eight days, and is now working again — but those eight days were the whole of
-the operational data, and none of it was ever covered.**
+What is actually backed up, and what is outstanding, is status and lives in §19.1 and
+§19.2 (OPS). This section is the policy only.
 
-* **History:** the repository holds **23 consecutive daily snapshots from 2026-08-25 to
-  2026-09-24**. It was not empty, and an earlier correction in this section that said "no
-  snapshot has ever been created" was **wrong** — it came from reading a `du` result of
-  4 KB on a root-owned 0700 directory, which was a permission denial, not an empty repo.
-* **The break:** backups failed for eight days, 2026-09-25 to 2026-10-02. The service
-  journal shows `status=3/NOTIMPLEMENTED` with `root restic execution requires
-  RESTIC_ENV_FILE from the operator wallet session` on 30 Sep, 1 Oct and 2 Oct.
-  `systemctl list-timers` showed the timer as healthy throughout, which is how an eight-day
-  outage stayed invisible: a timer that fires is not a timer that succeeds.
-* **Cause:** the backup is a *system* unit and runs as root, but the restic repository
-  password lives in the KDE Wallet, which only exists in the user session. Root cannot
-  reach it, and nothing was prefetching the secret.
-* **Fix, working as of 2026-10-02:** the wallet has already authorised this backup, so it
-  should not ask again. `ao-restic-prefetch.service`/`.timer` now runs **in the user
-  session**, reads the authorised entry `ao-admin/restic-repository-password` once per boot
-  and every 12 hours, and caches it to `/run/user/1000/ao-restic.env` (tmpfs, root-readable,
-  0600, never in Git). The root backup then runs **fully unattended with no authorisation
-  prompt**, and the wallet can be closed. Verified end to end: snapshot `fb52984b`,
-  30,191 files, 2.32 GiB.
-* **Coverage — the more serious finding:** every one of those 23 snapshots contains only
-  `config`, `artifacts` and `backups/postgres`. **Not one contains `data/`.** So the entire
-  backup history would have restored configuration and **zero operational data**.
-  `data/` is now included — `data/ardupilot` (2.1 GB, ~30k files), `data/corda-install`
-  (282 MB), plus `sim-fabrication`, `sales`, `mapping`, `field`, `payment`, `ledger`. The
-  photogrammetry drive stays excluded: it is the media, not a backup target.
-* **Now scheduled:** `ao-restic-prefetch.timer` (user), `ao-restic-backup.timer` and
-  `ao-restic-verify.timer` (system) are installed and enabled. The units are version-
-  controlled under `systemd/backup/` and deployed by provisioner stage 55; they previously
-  existed only in `/etc/systemd/system`, so a rebuild silently lost the backup schedule.
-* **Still outstanding:** only **one** snapshot includes `data/`, and no restore has been
-  tested. A backup that has never been restored is an assumption, not a fact — see
-  §19.2 item 81. The repository also shares a filesystem with the data it protects, so it
-  still cannot survive loss of the host.
-
-| Copy | Where | State |
+| Copy | Where | Requirement |
 |---|---|---|
-| Primary | live system | yes |
-| Backup | restic repository `/var/backups/alwayson-restic` (1.7 GB) | **yes — 23 daily snapshots 2026-08-25 to 09-24, an 8-day outage, then snapshot `fb52984b`. `data/` covered only from 2026-10-02.** |
-| Off-site | pCloud | folder `ALWAYSON-RESTIC2PCLOUD` at the pCloud account root; restic is configured to write to it (§19.2) |
+| Primary | Live system | — |
+| Backup | Encrypted restic repository outside the data path | A successful snapshot, verified by hash |
+| Off-site | pCloud, as the restic destination | A second repository, disjoint from the host |
 
 Two consequences to be aware of. First, the restic repository is on the same
 machine as the data it protects, so it does not survive loss of this host. Second,
 `ao-egress-archive` is not a substitute: per §11.6 it is a sale-transfer store
 with no restore duty. Nothing outside this host currently holds a copy.
-
-**Off-site target, folder created but not in use.** The pCloud folder
-`ALWAYSON-RESTIC2PCLOUD` was created at the pCloud account root on 2026-09-30
-(empty; nothing has been uploaded). It is the intended restic destination. To
-close this gap, point the restic repository at it (rclone WebDAV or SFTP). The
-repository is encrypted client-side, so pCloud would hold ciphertext and never
-see plaintext — which keeps it inside the §11.6 boundary, since that governs
-sale-transfer staging and explicitly not the backup set.
-
-The name is the operator's choice rather than the `ao-` infrastructure prefix, and
-is deliberately self-describing: a transfer destination for restic, not an `ao-*`
-network, unit, container or database. Anything referencing it from configuration or
-documentation should use the full name, not a shortened `ao-` form.
 
 | Frequency | Required activity |
 |---|---|
@@ -4378,10 +4330,13 @@ collide and a new item never renumbers an existing one.
 | OPS-23 | ****Roll-ups cannot be drilled into**** | ST-01 | §12.5 | `KDE Plasma Desktop` is one row for 191 components, the Ubuntu archive one row for 3,863 packages, ROS one row for 351. "Is the desktop behind" is answerable; "update ROS 2 rviz" is not. Each roll-up needs a drill-down to its members with their own versions, not a prose count. |
 | OPS-24 | **Restore drill for the restic backup** | ST-18 | §17.1, §20 | Backups ran **daily 2026-08-25 to 2026-09-24** (23 snapshots), failed for eight days, and resumed 2026-10-02 with snapshot `fb52984b` after the wallet-prefetch fix. An earlier version of this item said the repository had never run; that was wrong and came from reading a permission-denied `du` as an empty directory. **The live risk is coverage, not uptime: not one of those 23 snapshots contains `data/`,** so the whole backup history would restore configuration and zero operational data. Prove two things: (1) restore a snapshot to a scratch location and diff against the live tree; (2) accumulate several consecutive `data/`-inclusive snapshots so a single bad night is survivable. Also confirm whether the repository should stay on the same filesystem as the data — §17.1 records that it does, which cannot survive loss of the host. |
 | OPS-25 | **Install the logrotate policy** | ST-01 | §16.3 | `config/host/logrotate-alwayson.conf` is staged and syntax-checked but **not installed**: `/etc/logrotate.d/` needs root and `pkexec` would raise a GUI prompt unattended. Install it, then confirm one rotation actually occurs. Overhead is not the obstacle — a full system pass measured 0.008s and `logrotate.timer` runs once daily. Compression is deliberately omitted because it is the only step that reads whole files. Until installed, nothing in `logs/` is rotated and `sim-gz-server.log` grows continuously. |
-| OPS-26 | **Retention for the log subdirectories and for journald** | ST-01 | §16.3, §17.2 | Item 84 covers the top-level `*.log` files only. The subdirectories (`operations/`, `gpu-runtime/`, `backup/`, `installation/`) hold per-operation audit records that must not simply be truncated, and have no retention at all. Separately, `journalctl --disk-usage` reports 4 GB with no explicit `SystemMaxUse`, so journald is on its built-in default while carrying 32 of 33 units. State a retention period per subdirectory and an explicit journald cap. |
+| OPS-26 | **Retention for the log subdirectories and for journald** | ST-01 | §16.3, §17.2 | OPS-25 covers the top-level `*.log` files only. The subdirectories (`operations/`, `gpu-runtime/`, `backup/`, `installation/`) hold per-operation audit records that must not simply be truncated, and have no retention at all. Separately, `journalctl --disk-usage` reports 4 GB with no explicit `SystemMaxUse`, so journald is on its built-in default while carrying 32 of 33 units. State a retention period per subdirectory and an explicit journald cap. |
 | OPS-27 | **Prometheus collects host metrics only; §17.2 requires eleven domains** | ST-19 | §17.2 | Measured 2026-10-02 against the live API: two scrape targets (`node-host`, `prometheus`), 547 metric names, **zero alert rules and zero recording rules**, and no metric outside node_exporter and Prometheus's own internals. `ao-admin` collects host telemetry and stores it without evaluating any of it. §17.2 requires metrics for Host, Podman/systemd, Mapping, Field, Sales, AI/community, Vehicle simulation, Fabrication simulation, Ledger and Backup, plus alerts for disk pressure, backup failure, failed restore tests, restart loops, unexpected listeners, failed payment verification, radio loss, WebODM backlog, GPU contention, expired certificates and denied cross-domain traffic. **Available now at no new exposure:** `node_filesystem_avail_bytes`, `node_filesystem_size_bytes` and `node_memory_MemAvailable_bytes` are already scraped, so disk-pressure and memory alerts are writable today on the existing `ao-admin` job. `node_systemd_unit_state` is absent, so the systemd collector is off and restart-loop alerting needs it enabled on `ao-node-exporter`. GPU, Corda, radio, WebODM and payment metrics have no exporter deployed; each needs one named, internal-only. `--storage.tsdb.retention` is unset, so retention is the implicit default. Alertmanager is still unspecified. |
 | OPS-28 | **Grafana was wired to Prometheus as its only datasource, against §17.2** | ST-19 | §17.2, §3.3, §19.1 | Six lines stated Prometheus acts alone and independently (§1, §3.3 twice, §3.3.1, §4.3, §17.2) while five stated the opposite: Grafana "Reads Prometheus" (§3.3), reads "and to Prometheus" (§5.3), "reads salesdb + Prometheus" (§11 tree), "Prometheus is Grafana's only datasource" (§19.1), and "its only registered datasource" (§20). The deployment followed the wrong five, so `grafana/provisioning/datasources/prometheus.yml` set `url: http://ao-prometheus:9090` with `isDefault: true`, and `ao-grafana.container` carried `Requires=ao-prometheus.service`. **The worst cases were §19.1 and §20, which recorded the coupling as evidence of correctness.** Corrected 2026-10-02: those lines now state Grafana reads approved PostgreSQL only, §3.3 states the isolation requirement explicitly, and §19.1/§20 record the datasource as a removed defect. **Lesson:** where a document states a rule in six places and its opposite in five, the five are wrong and the six are the specification. |
 | OPS-29 | **Prometheus is published on a loopback port, so any local process can query it** | ST-19 | §17.2 | `ao-prometheus.container` carries `PublishPort=127.0.0.1:9090:9090`, and §5.2 lists `http://127.0.0.1:9090/` as a documented listener. Loopback is not isolation: every process on the host, including any container with a host network, can query Prometheus and read its security evidence, which §17.2 forbids. `ao-admin` is `Internal=true` so there is no egress path; the boundary to close is lateral and local. Removing the publish also removes browser-based inspection, so name the replacement inspection path first — `podman exec` into the container is the obvious candidate. Needs an explicit operator decision; do not remove the port without one. |
+| OPS-30 | **Off-site restic repository does not exist** | ST-18 | §17.1, §11.6 | The pCloud folder `ALWAYSON-RESTIC2PCLOUD` exists at the account root but is empty and nothing has been uploaded. Point the restic repository at it (rclone WebDAV or SFTP) so a second, host-disjoint copy exists. The repository is encrypted client-side, so pCloud holds ciphertext only, which stays inside the §11.6 boundary |
+| OPS-31 | **Restore has never been proven** | ST-18 | §17.1 | Only one snapshot includes `data/`. A backup that has never been restored is an assumption, not a fact. Run the §17.1 restore test against a snapshot that includes `data/`, to an isolated path, validate database integrity, and record the result in the restore-test log |
+| OPS-32 | **The backup shares a filesystem with the data it protects** | ST-18 | §17.1 | The restic repository is on the same machine as the live data, so no copy survives loss of this host. `ao-egress-archive` is not a substitute: it is a sale-transfer store with no restore duty (§11.6). Closes only when OPS-27 delivers a host-disjoint repository |
 
 ## 19.3 Completed items
 
