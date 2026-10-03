@@ -39,7 +39,7 @@
 | 11 | Ledger, Provenance, Archive, and IPFS | 48 |
 | 12 | Host Installation and Configuration | 54 |
 | 13 | Podman Runtime and Quadlet Policy | 57 |
-| 14 | Secrets, Service Identity, and Version Controls | 60 |
+| 14 | Secrets and Service Identity | 60 |
 | 15 | Sales, Mastodon, OpenClaw, and Local AI | 63 |
 | 16 | Scripts, Operational Standards, and Logs-Journals | 68 |
 | 17 | Backup, Restore, Monitoring, and Completion Criteria | 70 |
@@ -599,7 +599,11 @@ requirements.
    Corda payloads, shell history, or documentation examples. Only use KDE Wallet
    for passwords, tokens, keys, and other secret material.
 8. Never use `--privileged` as a default.
-9. Use pinned image digests for operational services.
+9. Use pinned image digests for operational services. The authoritative record of every pinned
+   image and package version is `/ALWAYSON/config/platform/version-matrix.yaml`, which is
+   version-controlled, refreshed by `scripts/validation/capture-version-matrix.sh`, and
+   regenerated from the deployed units rather than typed by hand. A digest recorded anywhere
+   else is not authoritative.
 10. Verify the photogrammetry drive before deploying or operating WebODM.
 11. Record commands, versions, significant output, and failures in the
     installation or operational journal.
@@ -1795,42 +1799,35 @@ Pi5. PEOPLE-RADIO has no relationship to the drone.
 
 ## 9.4 Radio Profile Requirements
 
-Both radio ends must be verified as compatible US915 hardware variants.
-Matching SX1262-family radio chips do not guarantee protocol compatibility.
+Each radio is defined by exactly one version-controlled profile. **The profile is the
+specification** — this section states how a profile is accepted, not what fields it contains.
 
-Version-controlled profiles:
+| Profile | Radio |
+|---|---|
+| `config/field/heltec-v3/radio-profile-us915.yaml` | `PEOPLE-RADIO` (Heltec V3) |
+| `config/drone/waveshare-lora/radio-profile-us915.yaml` | `DRONE-RADIO` (Waveshare SX1262) |
 
-```text
-/ALWAYSON/config/field/heltec-v3/radio-profile-us915.yaml
-/ALWAYSON/config/drone/waveshare-lora/radio-profile-us915.yaml
-```
+**A profile is accepted only when all of the following hold.** These are testable conditions;
+any one failing rejects the profile rather than falling back to a default.
 
-The profiles must define identical or explicitly interoperable values for:
+| Condition | Test |
+|---|---|
+| Region and frequency plan are US915 | `region: US915`; the plan matches an approved entry in `config/platform/listener-allowlist.yaml` |
+| The two radios cannot be confused on air | Different frequency, different sync word, different encryption key ID, different device identity |
+| Radio parameters interoperate | Bandwidth, spreading factor, coding rate and preamble match across both profiles, or the difference is recorded in the profile as intentional |
+| Transmit power is legal | At or below the US915 ceiling for the band |
+| Packet fits one airtime window | `max_packet_bytes` is deliverable at the profile's bandwidth and spreading factor within `airtime_limit_pct` |
+| Device identity is unique | Not derived from the USB serial descriptor, which both CP2102 bridges share (§9.2.1) |
+| Retry and replay are bounded | Retry count and backoff are both set; the sequence window is stated |
 
-- Frequency or channel plan.
-- Bandwidth.
-- Spreading factor.
-- Coding rate.
-- Preamble length.
-- Transmit power.
-- Sync word or network identifier.
-- Packet framing.
-- Maximum packet size.
-- Encryption key identifier.
-- Device public identity.
-- Sequence number and replay-protection policy.
-- Acknowledgement policy.
-- Retry and backoff policy.
-- Airtime limits.
+Matching SX1262-family chips do not guarantee protocol compatibility, so acceptance is by these
+conditions and not by chip family. Both radio ends must be verified as US915 hardware variants
+before use.
 
-Do not describe this system as LoRaWAN unless it implements a true LoRaWAN
-device, gateway, and network-server architecture. The field implementation is
-primarily an RNode-based Reticulum mesh. The Heltec V3 and Raspberry Pi/Waveshare
-radios must use matched, approved US915 channel plans. Any separate LoRaWAN or
-public-discussion service must use different radio bands and settings and remain
-isolated from the field telemetry mesh.
-
----
+**This system is not LoRaWAN.** The field implementation is an RNode-based Reticulum mesh, and
+it must not be described as LoRaWAN anywhere unless it implements a true LoRaWAN device, gateway
+and network-server architecture. Any separate LoRaWAN or public-discussion service must use
+different bands and settings and remain isolated from the field telemetry mesh.
 
 # 10. Simulation Architecture
 
@@ -2897,7 +2894,7 @@ and approved WebODM version.
 
 ---
 
-# 14. Secrets, Service Identity, and Version Controls
+# 14. Secrets and Service Identity
 
 ## 14.1 Secret Delivery
 
@@ -3169,90 +3166,6 @@ File.write('/tmp/bot_token', tok.token)
 Three traps: there is no `accounts.local` column;
 `owner_id` and `resource_owner_id` reference the **`users`** table, not
 `accounts`; and `expires_in: 0` produces an already-expired token.
-
-## 14.2 Version Matrix
-
-Maintain:
-
-```text
-/ALWAYSON/config/platform/version-matrix.yaml
-```
-
-```yaml
-host:
-  os_release: ""
-  kernel: ""
-  systemd: ""
-  podman: ""
-  quadlet_capability: ""
-  netplan: ""
-  nftables: ""
-  ufw: ""
-
-gpu:
-  model: "EVGA NVIDIA GTX 1080"
-  nvidia_driver: ""
-  container_runtime_integration: ""
-  cuda_runtime_image_digest: ""
-
-mapping:
-  webodm_image_digest: ""
-  nodeodm_image_digest: ""
-  postgresql_version: ""
-  redis_version: ""
-  processing_profiles_commit: ""
-
-simulation:
-  ros2_distribution: "lyrical"
-  gazebo_release: "10.5.0"
-  ardupilot_commit: ""
-  qgroundcontrol_version: ""
-  sb3_version: ""
-field_chat:
-  standalone_rnsd_version: "1.4.2"
-  standalone_rnsd_executable: "/home/scottw/.local/bin/rnsd"
-  standalone_rnsd_running: false
-  active_reticulum_runtime: "embedded in MeshChatX native backend"
-  active_embedded_rns_version: "unverified"
-  reticulum_config: "/home/scottw/.reticulum/config"
-  reticulum_config_sha256: "2df6a8d9fc2037d9e316ac910ec1721c3b5b6af5e301a50b0e92656226cc4098"
-  meshchatx_launcher_metadata_version: "4.9.1"
-  meshchatx_running_version: "unverified"
-  meshchatx_executable: "/home/scottw/Applications/meshchatx-native/ReticulumMeshChatX"
-  meshchatx_executable_sha256: "4f403e52b0a5722a49d433f23660b14b43a779fb3cc9a5a90b8f150d77f18890"
-  meshchatx_manifest_sha256_match: true
-  meshchatx_storage: "/home/scottw/.reticulum-meshchatx"
-  meshchatx_local_ui: "127.0.0.1:18000"
-  reticulum_public_listener: "0.0.0.0:4242"
-  repository_cached_artifact: "reticulum_meshchatx-4.8.4-py3-none-any.whl"
-  repository_cached_artifact_running: false
-  people_radio:
-    hardware: "Heltec WiFi LoRa 32 V3 / SX1262"
-    rnode_firmware: "1.85"
-    frequency_hz: 915000000
-    bandwidth_hz: 125000
-    spreading_factor: 7
-    coding_rate: 5
-    txpower_dbm: 17
-  drone_radio:
-    hardware: "Heltec WiFi LoRa 32 V3 / SX1262"
-    rnode_firmware: "1.85"
-    frequency_hz: 917000000
-    bandwidth_hz: 250000
-    spreading_factor: 7
-    coding_rate: 5
-    txpower_dbm: 17
-    mode: "internal"
-    discoverable: false
-
-ledger:
-  corda_version: ""
-  cordapp_hashes: ""
-  postgres_version: ""
-  certificate_profile_version: ""
-```
-
----
 
 # 15. Sales, Mastodon, OpenClaw, and Local AI
 
@@ -4229,38 +4142,38 @@ which are not status and are not repeated here.
 One row per component. This is the only place in the document where a component is
 given a status, and the only place its current state is stated.
 
-| ID | Component | Status | Current state | Outstanding work |
-|---|---|---|---|---|
-| ST-01 | Host platform — Kubuntu, Podman, Quadlet, protected administration | Implemented | Host inventory and base platform verified. **Measured baseline:** kernel `7.0.0-34-generic`; Podman `5.7.0`; twelve `ao-*` networks (10 `Internal=true` + `ao-sales`, `ao-reporting-egress`); NVIDIA GTX 1080 on driver `580.178.04` with CDI devices registered and `/var/run/cdi/nvidia.yaml` authoritative; ROS 2 Lyrical + Gazebo Sim `10.5.0`; PostgreSQL `18.6` and Redis `8.0.5`, both loopback-only. The `/etc/cdi/nvidia.yaml` copy is not authoritative and is regenerated or removed at each driver change | Maintain the version matrix (§14.2) |
-| ST-02 | Domain isolation — ten internal workload networks | Implemented | Isolation test verified; all workload networks `Internal=true` except `ao-sales`, which is non-internal for ActivityPub delivery only | Add narrow adapters only as required |
-| ST-03 | Mapping — WebODM and the photogrammetry drive | Implemented with deviation | GPU-enabled smoke test completed, orthophoto produced. Five `ao-` Quadlet units on `ao-mapping` (`Internal=true`): `ao-webodm-{webapp,worker,db,broker}` and `ao-nodeodm`. No published port; images enter and leave via local folders on `/media/scottw/500GBPHOTOGRAM` (`incoming/` -> `webodm/` -> `exports/`,`deliverables/`). The app reads database `webodm_dev` in `ao-webodm-db`; the 10 projects/10 tasks that lived in a duplicate host-cluster `webodm` database were migrated in and the duplicates dropped 2026-09-30, backups in `backups/duplicate-db-20260930/` | Re-verify a task end to end against the migrated metadata |
-| ST-04 | Field, Reticulum, and LoRa — RPi5, Waveshare LoRa, Heltec V3, MeshChatX | In progress | Both Heltec LoRa 32 V3/SX1262 RNodes functional and initialized by MeshChatX; `PEOPLE-RADIO` 915 MHz/125 kHz, `DRONE-RADIO` 917 MHz/250 kHz; 32 interfaces configured, none explicitly disabled; RF feedback observable on both bands | Outstanding: measure and classify the RF feedback — §19.2 item 20 |
-| ST-05 | Reticulum runtime and connectivity | Partial | Auto-connections, peering, and announces work; timeouts, network-unreachable errors, and refusals also appear. 29 TCP clients enabled. Evidence in §20 | Characterize the connection failures; confirm the public-gateway exposure posture |
-| ST-06 | MeshChatX version provenance | Complete with verification pending | Declared 4.9.1; hash matches the local manifest. Evidence in §20 | Confirm the running-version check against the declared version |
-| ST-07 | Vehicle simulation — `ao-sim-vehicle` | Implemented (headless runtime) | Headless Gazebo 300-iteration and ROS-Gazebo bridge tests passed; ArduPilot SITL HEARTBEAT validated over MAVLink. `ao-ardupilot-sitl` is **enabled=false and stopped by design** — the simulator is started on demand, so `inactive` here is the expected state, not a fault. The four baseline capabilities required by ES.1 — 3D world setup, boning, reinforcement learning objects, and an HTML portal to operation — are outstanding | Outstanding: those four capabilities — §19.2 item 28 |
-| ST-08 | Fabrication and facility simulation — `ao-sim-fabrication` | Implemented (headless runtime) | Headless Gazebo 300-iteration and bridge test passed; model views rendered in §10.2 | Outstanding: the same four baseline capabilities as ST-07 — §19.2 item 29 |
-| ST-09 | Ledger core — Corda on `cordadb` | Blocked | Corda 5.2.2 **CLI installed** 2026-09-30, SHA-256 verified; **no node** — `cordadb` holds 0 tables and its owner role has no working password, so `preinstall check-postgres` cannot pass. Details in §18.3.1. Corda 4 and its H2 database were removed 2026-09-28 with no data migrated | **Deferred by operator 2026-09-30 until the rest of the system is complete**, so the ledger opens with real entries rather than test data. Then complete the key and certificate ceremony (§18.3) and create the node |
-| ST-10 | Ledger ingestion gateway — `ao-ledger-ingest` | Planned | mTLS validation, authorization, audit, and idempotency specified; not deployed | Deploy behind the adapter boundary once the ceremony is complete |
-| ST-11 | Sales and orders — `ao-sales` database | Implemented | Sales DB deployed; order, receipt, and fulfillment records supported | Confirm the reporting projection |
-| ST-12 | Payment adapters — `ao-ingress-payment` | In progress | **Deployed 2026-10-01** on `ao-payment` (its own domain, §5.1 one-network rule respected). Adapter, host relay, and reconciliation CLI written; PayPal signature verification, replay guard, and Zelle manual-only refusal tested and passing. Schema: Zelle casing normalised to `Zelle` across DB and JSON schema; reconciliation columns added to `payment_references`. **Not enabled against live traffic** — the four `ao-payment` wallet entries do not exist yet, so it runs with no DSN and no webhook secret and cannot accept a payment | Create the four `ao-payment` wallet entries, then approve enabling the Cloudflare Tunnel route to `127.0.0.1:8900` (§18.4 operator approval) |
-| ST-13 | Mastodon local stack | Implemented (live on `scottw`) | **2026-10-01 load test: 100 signed mentions from `300x3@mastodon.social` -> local instance, all delivered, processed and answered by the bot with zero container restarts, zero OOM kills and all six sidekiq queues draining to 0. Timeline then wiped by operator instruction: keep only 2026-09-03..09-11, delete everything else. Local: 124 statuses/mentions destroyed via `Status#destroy` (federated Deletes sent), accounts and follow relationships preserved. mastodon.social: originals deleted through the operator's authenticated session in three rate-limited windows (~40 deletions per 30-minute window). Verified after the final pass: the profile retains only 3 Sept, 4 Sept and 11 Sept posts, with **no posts outside the 09-03..09-11 keep range**. Backup: `backups/mastodon-status-wipe-2026-10-01/`. All 5 containers active under `scottw` in the single `ao-sales` store; `ao-sales` is `Internal=false` so Sidekiq can deliver ActivityPub. Database migrated (100 tables). `LOCAL_DOMAIN=mastodon.300x3.com` (300x3.com is the filedn storefront and is not routed here). Env wallet-backed via `%h/.local/share/ao-secrets/`, `RAILS_FORCE_SSL=false` (inert — upstream hardcodes `config.force_ssl = true`; see §9.2.1 for why the local UI is served over TLS by the loopback proxy instead). v4.3.7; WebFinger resolves; Sidekiq 6.5.12 processing; outbound 443 open. Accounts `@admin` (Owner, renamed from `aoadmin` on 2026-10-01) and `@bot` verified authenticating with KDE Wallet passwords — the email stays `admin@300x3.com`. `admin` is a reserved username only via this instance's `reserved_usernames` **setting**, which was edited to free the name; the old `.../users/aoadmin` URI is retained as `alsoKnownAs` so remote servers follow the rename. **Rename trap:** a Mastodon rename does **not** rewrite `inbox_url`/`outbox_url` either — the first attempt left the account advertising a dead `.../users/aoadmin/inbox` (404), so inbound follows were silently dropped with no error on either side. Always cross-check `inbox_url` against `uri` after any rename | Confirm remote-to-remote delivery and a reverse follow |
-| ST-14 | Mastodon federation edge — Cloudflare Tunnel | Implemented (bidirectional) | Tunnel active; HTTP/2 connector up; WebFinger 200 for `acct:admin@mastodon.300x3.com`. **Inbound proven**: signed `POST /inbox` from `mastodon.social` and `avision-it.social` return 202. **Outbound proven**: `@bot` follows `@Gargron@mastodon.social` and the remote returned a signed activity recorded as a reverse follow. The earlier silent outbound failure was an instance actor with empty `uri`/`inbox`, now repaired on every web start | Sustained delivery monitoring |
-| ST-15 | OpenClaw and LM Studio support chat | In progress | Local stack in progress; OAuth/client issues recorded | Complete OpenClaw and local LLM validation |
-| ST-16 | Konqueror — dedicated automation browser | Implemented | Designated as the automation browser in ES.1 | Retain as the only browser role for automation |
-| ST-30 | Real fabrication — `ao-fabrication` | Implemented — network, database and collector operational; machines are on only while in use | Network `Internal=true` on the pinned `10.89.12.0/24`, registered (§18.6). Host-side pull-only collector writes into `a_fab` (loopback 127.0.0.1:15433, role `fabrication_role`); `ao-fabrication-db` and the collector timer are active. Machines are powered on only while in use, so an unreachable machine is expected: the collector reports it as `offline` and exits 0 rather than as a failure. Credential created 2026-09-30 in KDE Wallet (`fabrication-db-password`); `~/secrets/fabrication-db.env` is 0600. Note `pg_hba` trusts 127.0.0.1, so the role password must be set explicitly or TCP auth fails while the socket appears to work | Resolve the Moonraker API-key open item; add a second machine to `fabrication-machines.json` |
-| ST-17 | Sale-transfer egress — `ao-egress-archive` | Partially implemented | Local **restic backup and restore validation complete** (§17.1 — this is the backup). IPFS/pCloud **sale transfer** not yet exercised. **Not a backup by design** (§11.6). | Provision pCloud/transfer credentials; implement and test the **`ao-sales` authorisation** gate before any transfer |
-| ST-18 | Backup and restore | Implemented | Restic repository `/var/backups/alwayson-restic` holds **24 snapshots**; cited IDs `548d9910` and `32be2a1c` both verified present. Hash validated; database 14/14 tables restored. Schedule automated: `ao-restic-backup` nightly 03:30, `ao-restic-verify` weekly Sun 04:30, DB dumps 03:00. **Timers renamed today and have not yet fired**, so the newest snapshot is still 2026-09-24. The 03:00 dump path was rebuilt the same day after dropping duplicate host databases broke it | Confirm the first scheduled `ao-restic-backup` run, then schedule recurring restore tests |
-| ST-19 | Monitoring — Prometheus, node_exporter, Grafana | Implemented (data collection) | All three run as `scottw` Quadlet units on `ao-admin`; Prometheus is Grafana's only datasource and all targets scrape `up`. Evidence in §20 | Build the dashboards and alert rules; Prometheus acts alone and independently per ES.1 |
-| ST-20 | Metabase ad-hoc reporting | Implemented (login surface); application database outstanding | Runs on the host and serves its login page in the browser, which is the expected operator surface. It reports ad-hoc and read-only over the PostgreSQL and MySQL databases and local SQLite files, so it needs **its own PostgreSQL application database** for its schema, saved questions, dashboards, and subscriptions (§3.3). Evidence in §20 | Outstanding: provision the application database and read-only roles — §19.2 item 36 |
-| ST-21 | QGroundControl mission planning | Planned | Desktop primary planning with a KaliOS RPi5 fallback; headless simulation and the ROS-Gazebo bridge verified | Add scenario and QGroundControl validation as needed |
-| ST-22 | Field gateway and link-quality display | In progress | Heltec V3 connection and a stable serial path verified 2026-08-31; gateway service deployment pending | Deploy the `ao-field` gateway service (§19.2 item 20 evidence) |
-| ST-23 | Reporting and database administration identities | Planned | PostgreSQL is loopback-only. Metabase needs one read-only role per reporting source; Grafana reads approved existing datasources; both keep their own application databases separate from every source database | Define the Metabase application database, the per-source least-privilege read-only roles, and the Grafana/Metabase administration roles and views |
-| ST-24 | KDE Wallet secret delivery to Quadlet services | Implemented | Services consuming Wallet secrets start after Plasma login; the ~60s wait is the bounded startup allowance | Confirm the `org.kde.kwalletd6` bus and method names on the running host (§14.1.1) |
-| ST-25 | GPU scheduling and admission | Planned | Driver and CDI verified; CPU baseline and GPU smoke completed. Evidence in §20 | Test scheduling and admission against the ES.1 priority policy |
-| ST-26 | Ledger/Corda operator console | Blocked | Narrow operator-management path specified; no public access | Open after the key/certificate ceremony (§18.3) |
-| ST-27 | Payment-provider dashboard | Blocked | Provider-hosted, provider-authenticated workflow | Open on payment-provider selection (ST-12) |
-| ST-28 | Home automation — Domoticz on RPi | Planned | Specified in ES.1 as the usual Domoticz feature set including cameras and weather | Provision and enumerate the device classes |
-| ST-29 | GUI-less controlled data services (`ao-data`) | Implemented as intentional design | Host services remain loopback-only; administration uses dedicated host or `ao-admin` identities | None; retain as designed |
+| ID | Component | Current state, status and outstanding work |
+|---|---|---|
+| ST-01 | Host platform — Kubuntu, Podman, Quadlet, protected administration | **Implemented.** Host inventory and base platform verified. **Measured baseline:** kernel `7.0.0-34-generic`; Podman `5.7.0`; twelve `ao-*` networks (10 `Internal=true` + `ao-sales`, `ao-reporting-egress`); NVIDIA GTX 1080 on driver `580.178.04` with CDI devices registered and `/var/run/cdi/nvidia.yaml` authoritative; ROS 2 Lyrical + Gazebo Sim `10.5.0`; PostgreSQL `18.6` and Redis `8.0.5`, both loopback-only. The `/etc/cdi/nvidia.yaml` copy is not authoritative and is regenerated or removed at each driver change |
+| ST-02 | Domain isolation — ten internal workload networks | **Implemented.** Isolation test verified; all workload networks `Internal=true` except `ao-sales`, which is non-internal for ActivityPub delivery only |
+| ST-03 | Mapping — WebODM and the photogrammetry drive | **Implemented with deviation.** GPU-enabled smoke test completed, orthophoto produced. Five `ao-` Quadlet units on `ao-mapping` (`Internal=true`): `ao-webodm-{webapp,worker,db,broker}` and `ao-nodeodm`. No published port; images enter and leave via local folders on `/media/scottw/500GBPHOTOGRAM` (`incoming/` -> `webodm/` -> `exports/`,`deliverables/`). The app reads database `webodm_dev` in `ao-webodm-db`; the 10 projects/10 tasks that lived in a duplicate host-cluster `webodm` database were migrated in and the duplicates dropped 2026-09-30, backups in `backups/duplicate-db-20260930/` |
+| ST-04 | Field, Reticulum, and LoRa — RPi5, Waveshare LoRa, Heltec V3, MeshChatX | **In progress.** Both Heltec LoRa 32 V3/SX1262 RNodes functional and initialized by MeshChatX; `PEOPLE-RADIO` 915 MHz/125 kHz, `DRONE-RADIO` 917 MHz/250 kHz; 32 interfaces configured, none explicitly disabled; RF feedback observable on both bands |
+| ST-05 | Reticulum runtime and connectivity | **Partial.** Auto-connections, peering, and announces work; timeouts, network-unreachable errors, and refusals also appear. 29 TCP clients enabled. Evidence in §20 |
+| ST-06 | MeshChatX version provenance | **Complete with verification pending.** Declared 4.9.1; hash matches the local manifest. Evidence in §20 |
+| ST-07 | Vehicle simulation — `ao-sim-vehicle` | **Implemented (headless runtime).** Headless Gazebo 300-iteration and ROS-Gazebo bridge tests passed; ArduPilot SITL HEARTBEAT validated over MAVLink. `ao-ardupilot-sitl` is **enabled=false and stopped by design** — the simulator is started on demand, so `inactive` here is the expected state, not a fault. The four baseline capabilities required by ES.1 — 3D world setup, boning, reinforcement learning objects, and an HTML portal to operation — are outstanding |
+| ST-08 | Fabrication and facility simulation — `ao-sim-fabrication` | **Implemented (headless runtime).** Headless Gazebo 300-iteration and bridge test passed; model views rendered in §10.2 |
+| ST-09 | Ledger core — Corda on `cordadb` | **Blocked.** Corda 5.2.2 **CLI installed** 2026-09-30, SHA-256 verified; **no node** — `cordadb` holds 0 tables and its owner role has no working password, so `preinstall check-postgres` cannot pass. Details in §18.3.1. Corda 4 and its H2 database were removed 2026-09-28 with no data migrated Outstanding: **Deferred by operator 2026-09-30 until the rest of the system is complete**, so the ledger opens with real entries rather than test data. Then complete the key and certificate ceremony (§18.3) and create the node |
+| ST-10 | Ledger ingestion gateway — `ao-ledger-ingest` | **Planned.** mTLS validation, authorization, audit, and idempotency specified; not deployed |
+| ST-11 | Sales and orders — `ao-sales` database | **Implemented.** Sales DB deployed; order, receipt, and fulfillment records supported |
+| ST-12 | Payment adapters — `ao-ingress-payment` | **In progress.** **Deployed 2026-10-01** on `ao-payment` (its own domain, §5.1 one-network rule respected). Adapter, host relay, and reconciliation CLI written; PayPal signature verification, replay guard, and Zelle manual-only refusal tested and passing. Schema: Zelle casing normalised to `Zelle` across DB and JSON schema; reconciliation columns added to `payment_references`. **Not enabled against live traffic** — the four `ao-payment` wallet entries do not exist yet, so it runs with no DSN and no webhook secret and cannot accept a payment Outstanding: Create the four `ao-payment` wallet entries, then approve enabling the Cloudflare Tunnel route to `127.0.0.1:8900` (§18.4 operator approval) |
+| ST-13 | Mastodon local stack | **Implemented (live on `scottw`).** **2026-10-01 load test: 100 signed mentions from `300x3@mastodon.social` -> local instance, all delivered, processed and answered by the bot with zero container restarts, zero OOM kills and all six sidekiq queues draining to 0. Timeline then wiped by operator instruction: keep only 2026-09-03..09-11, delete everything else. Local: 124 statuses/mentions destroyed via `Status#destroy` (federated Deletes sent), accounts and follow relationships preserved. mastodon.social: originals deleted through the operator's authenticated session in three rate-limited windows (~40 deletions per 30-minute window). Verified after the final pass: the profile retains only 3 Sept, 4 Sept and 11 Sept posts, with **no posts outside the 09-03..09-11 keep range**. Backup: `backups/mastodon-status-wipe-2026-10-01/`. All 5 containers active under `scottw` in the single `ao-sales` store; `ao-sales` is `Internal=false` so Sidekiq can deliver ActivityPub. Database migrated (100 tables). `LOCAL_DOMAIN=mastodon.300x3.com` (300x3.com is the filedn storefront and is not routed here). Env wallet-backed via `%h/.local/share/ao-secrets/`, `RAILS_FORCE_SSL=false` (inert — upstream hardcodes `config.force_ssl = true`; see §9.2.1 for why the local UI is served over TLS by the loopback proxy instead). v4.3.7; WebFinger resolves; Sidekiq 6.5.12 processing; outbound 443 open. Accounts `@admin` (Owner, renamed from `aoadmin` on 2026-10-01) and `@bot` verified authenticating with KDE Wallet passwords — the email stays `admin@300x3.com`. `admin` is a reserved username only via this instance's `reserved_usernames` **setting**, which was edited to free the name; the old `.../users/aoadmin` URI is retained as `alsoKnownAs` so remote servers follow the rename. **Rename trap:** a Mastodon rename does **not** rewrite `inbox_url`/`outbox_url` either — the first attempt left the account advertising a dead `.../users/aoadmin/inbox` (404), so inbound follows were silently dropped with no error on either side. Always cross-check `inbox_url` against `uri` after any rename Outstanding: Confirm remote-to-remote delivery and a reverse follow |
+| ST-14 | Mastodon federation edge — Cloudflare Tunnel | **Implemented (bidirectional).** Tunnel active; HTTP/2 connector up; WebFinger 200 for `acct:admin@mastodon.300x3.com`. **Inbound proven**: signed `POST /inbox` from `mastodon.social` and `avision-it.social` return 202. **Outbound proven**: `@bot` follows `@Gargron@mastodon.social` and the remote returned a signed activity recorded as a reverse follow. The earlier silent outbound failure was an instance actor with empty `uri`/`inbox`, now repaired on every web start |
+| ST-15 | OpenClaw and LM Studio support chat | **In progress.** Local stack in progress; OAuth/client issues recorded |
+| ST-16 | Konqueror — dedicated automation browser | **Implemented.** Designated as the automation browser in ES.1 |
+| ST-30 | Real fabrication — `ao-fabrication` | **Implemented — network, database and collector operational; machines are on only while in use.** Network `Internal=true` on the pinned `10.89.12.0/24`, registered (§18.6). Host-side pull-only collector writes into `a_fab` (loopback 127.0.0.1:15433, role `fabrication_role`); `ao-fabrication-db` and the collector timer are active. Machines are powered on only while in use, so an unreachable machine is expected: the collector reports it as `offline` and exits 0 rather than as a failure. Credential created 2026-09-30 in KDE Wallet (`fabrication-db-password`); `~/secrets/fabrication-db.env` is 0600. Note `pg_hba` trusts 127.0.0.1, so the role password must be set explicitly or TCP auth fails while the socket appears to work |
+| ST-17 | Sale-transfer egress — `ao-egress-archive` | **Partially implemented.** Local **restic backup and restore validation complete** (§17.1 — this is the backup). IPFS/pCloud **sale transfer** not yet exercised. **Not a backup by design** (§11.6). |
+| ST-18 | Backup and restore | **Implemented.** Restic repository `/var/backups/alwayson-restic` holds **24 snapshots**; cited IDs `548d9910` and `32be2a1c` both verified present. Hash validated; database 14/14 tables restored. Schedule automated: `ao-restic-backup` nightly 03:30, `ao-restic-verify` weekly Sun 04:30, DB dumps 03:00. **Timers renamed today and have not yet fired**, so the newest snapshot is still 2026-09-24. The 03:00 dump path was rebuilt the same day after dropping duplicate host databases broke it |
+| ST-19 | Monitoring — Prometheus, node_exporter, Grafana | **Implemented (data collection).** All three run as `scottw` Quadlet units on `ao-admin`; Prometheus is Grafana's only datasource and all targets scrape `up`. Evidence in §20 |
+| ST-20 | Metabase ad-hoc reporting | **Implemented (login surface); application database outstanding.** Runs on the host and serves its login page in the browser, which is the expected operator surface. It reports ad-hoc and read-only over the PostgreSQL and MySQL databases and local SQLite files, so it needs **its own PostgreSQL application database** for its schema, saved questions, dashboards, and subscriptions (§3.3). Evidence in §20 |
+| ST-21 | QGroundControl mission planning | **Planned.** Desktop primary planning with a KaliOS RPi5 fallback; headless simulation and the ROS-Gazebo bridge verified |
+| ST-22 | Field gateway and link-quality display | **In progress.** Heltec V3 connection and a stable serial path verified 2026-08-31; gateway service deployment pending |
+| ST-23 | Reporting and database administration identities | **Planned.** PostgreSQL is loopback-only. Metabase needs one read-only role per reporting source; Grafana reads approved existing datasources; both keep their own application databases separate from every source database Outstanding: Define the Metabase application database, the per-source least-privilege read-only roles, and the Grafana/Metabase administration roles and views |
+| ST-24 | KDE Wallet secret delivery to Quadlet services | **Implemented.** Services consuming Wallet secrets start after Plasma login; the ~60s wait is the bounded startup allowance |
+| ST-25 | GPU scheduling and admission | **Planned.** Driver and CDI verified; CPU baseline and GPU smoke completed. Evidence in §20 |
+| ST-26 | Ledger/Corda operator console | **Blocked.** Narrow operator-management path specified; no public access |
+| ST-27 | Payment-provider dashboard | **Blocked.** Provider-hosted, provider-authenticated workflow Outstanding: Open on payment-provider selection (ST-12) |
+| ST-28 | Home automation — Domoticz on RPi | **Planned.** Specified in ES.1 as the usual Domoticz feature set including cameras and weather |
+| ST-29 | GUI-less controlled data services (`ao-data`) | **Implemented as intentional design.** Host services remain loopback-only; administration uses dedicated host or `ao-admin` identities |
 
 ## 19.2 Outstanding work
 
@@ -4306,8 +4219,8 @@ detail lives here and only here. Completed work is not listed — it is evidence
 | 34 | **Customer-facing PDF email path proven** | — | §4.3, §4.4 | Purchase-request confirmation, receipt, and work-order status (including expected delivery) each demonstrably sent from `ao-sales` to a customer **as PDF by email**. |
 | 35 | **QGC over LoRa to the RPi5** | ST-21 | §9.2.2 | **Deferred by the operator 2026-09-30 — outstanding, not started.** The desktop `DRONE-RADIO` is already configured as a Reticulum `RNodeInterface` (917 MHz / 250 kHz / SF7 / 17 dBm, `discoverable = no`, `/dev/ttyUSB0`) so the air link is RNS-encrypted and needs no further radio work. What is missing is the MAVLink handoff, and the **RPi5 Waveshare end is the agreed place for the bridge**. Three constraints found on 2026-09-30 and worth not re-deriving: (1) QGroundControl v5.1.0 cannot speak RNS — it is MAVLink-only, with UDP/TCP/serial/SiK links, so something must translate; (2) Reticulum ships no MAVLink transport, so the bridge is code to be written; (3) the desktop's Reticulum stack runs **inside** `ReticulumMeshChatX`, which holds `/dev/ttyUSB0` open, and a second RNS instance would contend for the same port. Terminating on the RPi5 avoids all three and matches §9.2.2, which already describes a QGC session on the RPi5 for out-of-range operation. Blocked on: RPi5 address and SSH access (absent from dnsmasq leases, the ARP cache, and every config). |
 | 36 | Metabase persistence and first read-only query | ST-20 | §15.1, §17.2 | **Provision the Metabase application database** (dedicated PostgreSQL database for the Metabase schema, saved questions, dashboards, and subscriptions) and the per-source **read-only** reporting roles, one per PostgreSQL and MySQL source with no write, DDL, or owner privilege. Then confirm state survives restart and a protected ad-hoc read-only reporting query succeeds with no source writes. The application database must never be written to by a reporting source. |
-| 37 | Version matrix refresh | ST-01, ST-25 | §14.2 | **Partly done 2026-10-01.** The `mastodon` rows now record the digests actually in use (they recorded tags, understating the pinning), `local_domain` corrected to `mastodon.300x3.com`, and the `RAILS_FORCE_SSL=true` note replaced — those switches are inert, and the local UI is served over TLS by the loopback proxy at `https://127.0.0.1:3300`. A new `operations` section records the Grafana/Metabase/Prometheus/node-exporter digests. **Remaining:** still hand-edited rather than captured, and the Gazebo `nginx:alpine` row is knowingly unpinned. |
-| 38 | Version-matrix capture automation | — | §14.2, §16 | `scripts/validation/capture-version-matrix.sh` documented as the producer, with a stated refresh requirement. **Now the more urgent half of item 34:** six services were digest-pinned and five rows corrected by hand, so the next hand edit can equally re-introduce a stale row. Capture digests from the deployed units instead of typing them. |
+| 37 | Version matrix refresh | ST-01, ST-25 | §4.1 rule 9 | **Partly done 2026-10-01.** The `mastodon` rows now record the digests actually in use (they recorded tags, understating the pinning), `local_domain` corrected to `mastodon.300x3.com`, and the `RAILS_FORCE_SSL=true` note replaced — those switches are inert, and the local UI is served over TLS by the loopback proxy at `https://127.0.0.1:3300`. A new `operations` section records the Grafana/Metabase/Prometheus/node-exporter digests. **Remaining:** still hand-edited rather than captured, and the Gazebo `nginx:alpine` row is knowingly unpinned. |
+| 38 | Version-matrix capture automation | — | §4.1 rule 9, §16 | `scripts/validation/capture-version-matrix.sh` documented as the producer, with a stated refresh requirement. **Now the more urgent half of item 34:** six services were digest-pinned and five rows corrected by hand, so the next hand edit can equally re-introduce a stale row. Capture digests from the deployed units instead of typing them. |
 | 39 | `apparmor-utils` and GPU toolkit packages | ST-01, ST-25 | §12.3 | Install list omits packages that later verification blocks assume exist (`aa-status` check, CDI/GPU access). Reconcile the install list with the verification steps. |
 | 40 | Asserting install verification | ST-01, ST-25 | §12.3 | The §12.3 verify block prints values without asserting them, and the cgroup check is silent on failure. Add real assertions. |
 | 41 | Ledger socket-bridge diagnosis | ST-09, ST-10 | §17.1 | `scripts/validation/check-ledger-ingest.sh` resolved, or the pending operator-run privileged command executed. |
@@ -4336,6 +4249,7 @@ detail lives here and only here. Completed work is not listed — it is evidence
 | 64 | **Reconcile the Podman store model** | ST-01 | §13.2, §19.2 item 5, §20 | §13.2 states the system store is unused by any workload while §20 records a mixed-store deviation and §19.2 item 5 still has the runtime designation open. Record the deviation in §18 or remove the §20 claim; the isolation evidence cannot be trusted while the store model disagrees with itself. |
 | 65 | **Accounting model for the authoritative ledger** | ST-09, ST-10 | §11.1, §11.3, §4.4, §7.2 | Corda is declared the authoritative ledger of debits and credits and §4.4 requires an accounting report, but §11.3 defines no accounts, no debit/credit entry semantics, no posting rule, no currency handling, and no reconciliation between Corda state and `salesdb`. §7.2 calls Corda the source of truth for financial ledger information while §11.1 makes PostgreSQL authoritative for source data. Define the model or state that the ledger records references only and accounting is computed in reporting. |
 | 66 | **Re-runnable evidence entries in section 20** | ST-01 | §20 | Most rows carry an outcome but no date, no command and no criterion for deciding when to re-run, so §20 cannot be re-verified. One row claims the backup schedule was automated 2026-08-31 while ST-18 records the renamed timers have not yet fired. Add the command and the date to each check, and re-run the evidence before relying on it. |
+| 67 | **The two radio profiles are identical** | ST-04 | §9.4 | `config/field/heltec-v3/radio-profile-us915.yaml` and `config/drone/waveshare-lora/radio-profile-us915.yaml` are byte-identical: same sync word `0x12`, same encryption key ID, same device identity placeholder, and neither declares a frequency. The two radios therefore cannot be told apart on air, which contradicts §9.2.1 and the 915/917 MHz split in §9.1. The profiles also disagree with `version-matrix.yaml`: profiles say 125 kHz and spreading factor 10, the matrix and §9.2.1 say 250 kHz and spreading factor 7 for `DRONE-RADIO`. Give each profile its own frequency, sync word, key ID and device identity, reconcile the bandwidth and spreading factor against the matrix, and confirm on air that `DRONE-RADIO` carries missions only |
 
 ## 19.3 Completed items
 
