@@ -15,7 +15,7 @@
 | Current main host | ATX desktop - running Linux Kubuntu |
 | Peripheral host | Drone — Raspberry Pi 5 and Autopilot Module, running KaliOS |
 | Format rule | Tables and topology diagrams are primary; original detailed commands/evidence are retained in-place below for operational completeness |
-| Reading order | **ES.1** is the specification of intended architecture and **ES.2** is the master topology. **Sections 1–16 are specification**: the planned future state, stated once, with no status, history, revision, or decision in them. **Sections 17–19 carry everything current**: §17 backup/restore/monitoring, §18 approved deviations, and §19 the single status log of components, outstanding work and verification evidence. §19.2 also carries verification evidence, and §20 is status references. Where §1–16 and §17–19 differ, §17–19 is the current fact and §1–16 is the requirement. Revision history for this document is in `docs/readme-change-log.md`, never in the body. |
+| Reading order | **ES.1** is the specification of intended architecture and **ES.2** is the master topology. **Sections 1–16 are specification**: the planned future state, stated once, with no status, history, revision, or decision in them. **Sections 17–19 carry everything current**: §17 backup/restore/monitoring, this document approved deviations, and §19 the single status log of components, outstanding work and verification evidence. §19.2 also carries verification evidence, and §20 is status references. Where §1–16 and §17–19 differ, §17–19 is the current fact and §1–16 is the requirement. Revision history for this document is in `docs/readme-change-log.md`, never in the body. |
 
 ## Contents
 
@@ -42,10 +42,10 @@
 | 15 | Sales, Mastodon, OpenClaw, and Local AI | 63 |
 | 16 | Scripts and Operational Standards | 68 |
 | 17 | Backup, Restore, Monitoring, and Completion Criteria | 70 |
-| 18 | Approved Deviations and Open Decisions | 72 |
-| 19 | Current Status and Outstanding Work | 74 |
-| 19.2 | Completed items and verification evidence | 77 |
-| 20 | Status References | 80 |
+| 19 | Current Status and Outstanding Work | 72 |
+| 19.2 | Completed items and verification evidence | 74 |
+| 19.3 | Operator setup priorities | 77 |
+| 20 | Status References | 78 |
 
 ## Executive Summary
 
@@ -65,7 +65,7 @@
 | Prometheus | Prometheus is for security only. It acts alone and independently, operating on the other systems to ensure security and to address any problems: time-series store, rule evaluation, alerting, and security evidence — **continuously hardened over the life of the system via ad-hoc security AI review** |
 | Grafana | Dashboards and metrics only; it reads the databases that already exist and does not write to them |
 | Metabase | Reporting only, and it does ad-hoc read-only reporting, so it requires **its own dedicated PostgreSQL application database** to hold its Metabase schema, saved questions, dashboards, and subscriptions. That application database holds Metabase's own state only — it is not a system of record for business data, and it never receives data from the reporting sources. Metabase connects to the other PostgreSQL and MySQL databases, and to local desktop-application SQLite files, as a **read-only** user in order to report on them, and it never writes to them. Ad-hoc reports that become recurring are promoted into stable Grafana dashboards |
-| Corda | Blockchain-enabled accounting, ledger, receipt, entitlement, fulfillment, provenance, and approved state-transition system. Built on **Corda 5.2.2** against `cordadb` — one database within the regular host PostgreSQL 18 cluster, with its own roles and backup scope (§18.2) |
+| Corda | Blockchain-enabled accounting, ledger, receipt, entitlement, fulfillment, provenance, and approved state-transition system. Built on **Corda 5.2.2** against `cordadb` — one database within the regular host PostgreSQL 18 cluster, with its own roles and backup scope (§11.1) |
 | IPFS | **File-transfer verification and, potentially, sales listing on a blockchain** for approved map/imagery and telemetry/product-operational packages. **It is not a backup.** No Corda/ledger/accounting dependency |
 | Backup/restore | Local authority + **encrypted restic** (§17.1). Independent of IPFS and Corda. This is the *only* backup |
 | Sale transfer | `ao-egress-archive` holds packages **"archived for data transfer and sale"** — a transfer copy, **not** a backup. IPFS first (transfer verification + possible blockchain listing), then encrypted pCloud. **Requires `ao-sales` authorisation** first (§11.6) |
@@ -117,7 +117,7 @@ separate diagram.
 |---|---|---|---|
 | **Storefront** — `300x3.com` / `www.300x3.com`, static HTML in the pCloud Public Folder | pCloud (not a Podman network) | Products, docs, legal, downloads. Also the hosted-checkout origin and the public PDF intake forms. | Outbound publication; static asset delivery |
 | **Federation and chat** — `mastodon.300x3.com`, and `chat.300x3.com` (OpenClaw relay / sitebot) | `ao-sales` via the Cloudflare Tunnel | `ao-sales` coordinates social media, email, and Mastodon; the AI bot and chat; and the order-request and receipt workflows. Mastodon web/streaming and OpenClaw chat. Origin stays loopback (`127.0.0.1:3000`, `:4000`, `:18790`). It is the only domain that touches customers directly. | Inbound via `cloudflared-alwayson.service`; outbound federation via Sidekiq on `ao-sales` |
-| **`ao-ingress-payment`** | adapter | **Zelle, PayPal, and Coinbase payment verification.** Receives provider webhook/relay events, verifies the signature, and emits a normalized payment event. | Inbound. Deployable once the provider decision is recorded (§18.4) |
+| **`ao-ingress-payment`** | adapter | **Zelle, PayPal, and Coinbase payment verification.** Receives provider webhook/relay events, verifies the signature, and emits a normalized payment event. | Inbound. Deployable once the provider decision is recorded (§7.2) |
 | **`ao-egress-archive`** | adapter | **Moving large data and the image/map/telemetry files into IPFS for transfer after sale**, plus encrypted pCloud replication. Destination allowlist, separate credentials, transfer audit. | Outbound. Deployable once archive credentials are provisioned |
 | **`ao-html-window`** | adapter | **A public-facing (egress) window for viewing HTML content on the 300x3.com website.** It behaves like the locally hosted iframes in §7.1.2, but it only ever needs to publish to 300x3.com — not to the local loopback readers. It is view-only: it displays HTML and takes no input. Network `10.89.14.0/24`. | Outbound publication to 300x3.com only. Deployable |
 | **`ao-build-update`** | adapter | **Software updates.** Image and package acquisition before controlled promotion, with digest capture and update audit. Never attaches to a workload. | Outbound. **Scaffolded — not enabled** (§5.2.1) |
@@ -128,7 +128,7 @@ separate diagram.
 |---|---|
 | Where does money move? | Hosted checkout at the provider → `ao-ingress-payment` → verified event → `ao-payment`/`salesdb` → signed manifest → `ao-ledger-ingest` → Corda. Cards are never handled locally. |
 | Where else does a transaction enter? | From the website: email → PDF → Corda processing. A customer email produces a standardized PDF request which is processed into the ledger workflow. |
-| Where is the ledger (the only copy)? | `ao-ledger-core` on `cordadb` in PostgreSQL 18, a separate database with its own roles and backup scope. PostgreSQL is authoritative (§18.2). |
+| Where is the ledger (the only copy)? | `ao-ledger-core` on `cordadb` in PostgreSQL 18, a separate database with its own roles and backup scope. PostgreSQL is authoritative (§11.1). |
 | What can the internet never reach? | The internal `ao-*` workload networks. All are `Internal=true` with no public listener. `ao-sales` is non-internal for ActivityPub delivery only, and still publishes no listener of its own. |
 | What crosses a domain boundary? | Only a signed, minimized manifest through `ao-ledger-ingest`, under mTLS with authorization, replay defence, idempotency, and audit. |
 | Where do secrets come from? | KDE Wallet, after Plasma login, by design. See §14.1.1. |
@@ -188,7 +188,7 @@ of the operator console, and of Domoticz.
 - **Prometheus is isolated, and the isolation is a requirement.** Nothing queries
   Prometheus — no dashboard, service or query may read it. Nothing acts
   on it either: no rule, job or component may reconfigure, reload or silence it.
-  Configuration is operator action through §16 and §18 only. `ao-admin` is
+  Configuration is operator action through §16 only. `ao-admin` is
   `Internal=true`, so there is no egress path, and the boundary to hold is
   lateral and local: anything sharing `ao-admin`, and anything able to reach a
   published Prometheus port (OPS-29).
@@ -341,7 +341,7 @@ separate logical database and a separate application role per consumer.
 | `salesdb` | Authoritative sales and payment records |
 | `mastodon` | Mastodon application state |
 | `webodm` | WebODM/PostGIS mapping data |
-| `cordadb` | Corda 5, with its own roles and backup scope (§18.2) |
+| `cordadb` | Corda 5, with its own roles and backup scope (§11.1) |
 | `a_fab` | Real-machine production data for `ao-fabrication` (§3.3.0) |
 | `postgres` | Administration and maintenance |
 
@@ -469,7 +469,7 @@ the simulation domain does.
 **Network:** `ao-fabrication`, `Internal=true`, `10.89.12.0/24`, created and registered in
 `/ALWAYSON/config/platform/network-cidrs.yaml` (2026-09-30). The subnet is **pinned** in
 `/ALWAYSON/quadlet/networks/ao-fabrication.network` because every other network there lets
-Podman auto-assign. See §18.6 for the reconciliation of the adjacent
+Podman auto-assign. See §2.2 for the reconciliation of the adjacent
 unregistered `10.89.10.0/24` and `10.89.11.0/24`.
 
 ### 3.3.1 Program-to-Database Map (single consolidated table)
@@ -485,7 +485,7 @@ installed package or desktop settings module.
 | **PostgreSQL 18** | Mastodon web/background workers | `mastodon` in `mastodon-db` | Accounts, posts, media metadata, federation state, and background-job application data |
 | **PostgreSQL/PostGIS** | WebODM web/worker | Container `ao-webodm-db`, database `webodm` (host-side data dir `~/webodm/dbdata`) | Mapping projects, processing state, users, and geospatial data. The app reads database `webodm_dev` in that container. |
 | **PostgreSQL/PostGIS** | NodeODM | WebODM PostgreSQL plus filesystem processing data | Processing-node state and coordination; large image/output artifacts remain filesystem data |
-| **PostgreSQL 18** | Corda 5 node | `cordadb` (dedicated Corda PostgreSQL database in the host cluster, per ES.1) | Receipt, entitlement, and provenance state. Built on Corda 5 against `cordadb`. |
+| **PostgreSQL 18** | Corda 5 node | `cordadb` (dedicated Corda PostgreSQL database in the host cluster, per §11.1) | Receipt, entitlement, and provenance state. Built on Corda 5 against `cordadb`. |
 | **Redis 8** | Host Redis service | Host Redis database 0 | General low-latency cache/coordination layer; no current application data confirmed |
 | **Redis 8** | Mastodon cache/queue service | `mastodon-redis` database 0 | Cache, queues, and background-job coordination; not authoritative business data |
 | **Redis 8** | WebODM broker | `broker` database 0 | Celery/task broker and worker coordination; not authoritative mapping data |
@@ -522,7 +522,7 @@ through `ao-ingress-payment` and into `ao-sales`; the reporting projections
 every label is readable.*
 
 **Where the blockchain entry is recorded.** The entry itself is created by
-Corda 5 in `cordadb` (§3.3, §18.2). The approved projection of that state is
+Corda 5 in `cordadb` (§3.3, §11.1). The approved projection of that state is
 recorded in the corresponding PostgreSQL database, keyed by the same
 transaction/receipt reference, and the PDF receipts and reports that describe it
 are written to the transaction folder under
@@ -760,8 +760,7 @@ network.
 Every `ao-*` network in one place: what §5.1 says belongs to it, and what is attached.
 The CIDR registry is `config/platform/network-cidrs.yaml`, which is the only authority, and
 `scripts/validation/check-network-isolation.sh` asserts the subnets and `Internal` flags.
-**Eleven of fourteen are `Internal=true`**; the three exceptions are recorded decisions
-(§18), not drift.
+**Eleven of fourteen are `Internal=true`**; the three exceptions are deliberate, not drift.
 
 | Network | Subnet | Internal | Belongs to (§5.1) | Attached now |
 |---|---|---|---|---|
@@ -780,7 +779,7 @@ The CIDR registry is `config/platform/network-cidrs.yaml`, which is the only aut
 | `ao-build-update` | 10.89.13.0/24 | **false** | Controlled software-update acquisition (§5.2.1) | none — scaffolded, not enabled |
 | `ao-html-window` | 10.89.14.0/24 | true | View-only HTML window for the 300x3.com storefront (ES.2) | none |
 
-`10.89.11.0/24` is deliberately unallocated: it is folded into `ao-sales` (§18.6).
+`10.89.11.0/24` is deliberately unallocated: it is folded into `ao-sales` (§2.2).
 `ao-data` carries no containers by design. Which of the remaining networks are populated is
 status and is recorded in §19.1.
 
@@ -962,7 +961,7 @@ detail in §3.3; this table records only what is unique to each tool's role here
 |---|---|---|
 | **Grafana** | Stable, curated dashboards and metrics | Never becomes a shell, container-management or control path |
 | **Metabase** | Ad-hoc reporting by users | Never receives superuser, database-owner, migration, backup, payment-provider or Corda-key credentials |
-| **Corda management / API / CLI** | Corda lifecycle, configuration, certificate-aware administration, controlled maintenance | Uses a documented narrow management path after the required ceremony (§18.3); not replaced by Metabase or Grafana |
+| **Corda management / API / CLI** | Corda lifecycle, configuration, certificate-aware administration, controlled maintenance | Uses a documented narrow management path after the required ceremony (§11.1); not replaced by Metabase or Grafana |
 | **Payment-provider dashboard** | Provider-authoritative charges, refunds, disputes, payouts, exports, reconciliation | External provider service with no Podman network attachment, and no replacement of local verified-event controls |
 
 **Metabase and Corda.** Metabase may report on approved Corda-derived business and
@@ -994,7 +993,7 @@ operator-access implementation must comply with this subsection and §§4, 5, 14
 - No GUI may add a public listener, broad host networking, unrestricted Podman
   socket access, `--privileged`, shared writable storage, or unrelated-domain
   secret merely to simplify deployment or troubleshooting.
-- Any material deviation requires an approved record in §18 before a production
+- Any material deviation requires an approved record before a production
   declaration.
 
 The machine-readable inventory that implements this requirement is
@@ -1156,9 +1155,15 @@ There are three forms of payment processing:
 | 2 | **Wire transfer / Zelle** | Wire transfer and Zelle | Approved high-value and direct-to-bank transactions | Manual reconciliation, operator approval, auditable reference record |
 | 3 | **Coinbase / stablecoin (USDC)** | Coinbase or similar | Crypto/stablecoin settlement | Documented provider terms, accounting treatment, refund process, and explicit operator approval |
 
-The default payment model is provider-hosted checkout. The provider is responsible for
-card capture and authorization. The local payment verifier accepts only provider-signed
-webhook events and stores normalized business state.
+**In scope: PayPal, Zelle and Coinbase/USDC.** The default payment model is provider-hosted
+checkout; the provider is responsible for card capture and authorization. The local payment
+verifier accepts only provider-signed webhook events and stores normalized business state.
+
+`ao-ingress-payment` accepts only PayPal provider-signed events. Zelle publishes no webhook
+and returns 501 on any inbound POST, so Zelle is verified by operator reconciliation against
+the provider record. Coinbase is verified against the on-chain settlement record. Bodies are
+capped at 256 KiB, only a SHA-256 hash and an opaque reference are stored, and a raw payload
+is never persisted.
 
 **How each form is verified.**
 
@@ -2052,6 +2057,11 @@ Corda is the authoritative ledger for approved business provenance, receipt, ent
 fulfillment-approval and release-approval records. It is **not** the authoritative store for
 domain-operational source data — that stays in the related PostgreSQL database (§3.3.b).
 
+**Corda runs on Corda 5 against `cordadb`**, a separate logical database on the host
+PostgreSQL 18 cluster with its own roles and backup scope. H2 is not an acceptable backing
+store for this node. Roles, host-loopback binding, backup scope, restore procedure, and
+separation from the sales and mapping databases are specified in §17.1 and §3.3.1.
+
 | Area | Authoritative operational data | Network |
 |---|---|---|
 | Sales | Sales PostgreSQL order, fulfillment, and customer-service records | `ao-sales` |
@@ -2751,7 +2761,7 @@ here. Two are specific to this model:
 - Explicit bind mounts are limited to approved mapping paths (§5.3).
 - systemd resource limits and a restart policy are set on every unit.
 
-`ao-sales` and `ao-reporting-egress` are non-internal by recorded decision in §18; that
+`ao-sales` and `ao-reporting-egress` are non-internal by recorded decision; that
 exception belongs to §5.1, not to the store model.
 
 ## 13.3 `/ALWAYSON` Layout
@@ -2796,7 +2806,7 @@ or archived material:
 | Path | What it is |
 |---|---|
 | `TOPOLOGY/` | topology graphic source and review material |
-| `LOGS-JOURNALS/` | pointer only — the logs live in `logs/` (§16.3, §18.7) |
+| `LOGS-JOURNALS/` | pointer only — the logs live in `logs/` (§16.3, §16.3) |
 | `GAZEBO/`, `SIMULATION.png`, `WEBSITEMAIN.png` | simulation and storefront imagery |
 | `README - ARCHIVE/` | archived README versions and review comments |
 
@@ -2865,7 +2875,7 @@ rather than environment variables.
 
 KDE Wallet is the operator-side secret and credential store for this host. Section 14.1 is
 the policy; this subsection is the integration. The unattended-delivery deviation is recorded
-in §18.
+in this document.
 
 **Runtime.** Daemon `kwalletd6` on the `org.kde.kwalletd6` D-Bus name, wallet `kdewallet`,
 auto-unlocked with the operator's Plasma login. `org.kde.kwalletd` and `org.kde.kwalletd5`
@@ -3392,6 +3402,10 @@ the loopback proxy (§9.2.1), not by relaxing Mastodon.
 
 ### 15.4.3 Edge, TLS, and Network Path
 
+The edge is **Cloudflare Tunnel**, not workstation nginx with Let's Encrypt. Edge TLS is
+terminated by Cloudflare and the origin stays loopback-only; there is no second TLS variant
+to maintain.
+
 The federation edge path:
 
 ```text
@@ -3598,7 +3612,7 @@ never matched the implementation. Every writer uses `/ALWAYSON/logs/`:
 `common.sh` sets `AO_LOG_DIR`, the deployed Gazebo quadlet sets
 `--log-opt path=…/logs/sim-gz-server.log`, `ao-build-update` bind-mounts
 `logs/operations`, and the §12.1 install step writes
-`logs/installation/agent-install.log`. History and the reasoning are in §18.7.
+`logs/installation/agent-install.log`. The earlier `LOGS-JOURNALS/` name was never implemented; §16.3 is the single statement.
 
 Rotation: `/etc/logrotate.d/` policy staged at
 `config/host/logrotate-alwayson.conf` (daily, 14 kept, no compression — see
@@ -3619,7 +3633,7 @@ and is within its staleness budget: exit 0 pass, 1 missing, 2 stale.
 | `gpu-runtime-check.log` | On each GPU runtime validation | Driver/CDI state and whether GPU access was granted to the workload. Writer: `scripts/validation/check-gpu-runtime.sh`. |
 | `script-runs.log` | On every script invocation | Which script ran, its arguments, exit code, and dry-run status. Writer: `ao_log`. |
 | `mastodon-local-proxy.log` | While the local proxy runs | Local Mastodon proxy activity and errors. |
-| `meshchatx.log` | Continuously while MeshChatX runs | Pointer to the MeshChatX application log, which the application writes into its own storage dir. Not a second writer. See §18.7. |
+| `meshchatx.log` | Continuously while MeshChatX runs | Pointer to the MeshChatX application log, which the application writes into its own storage dir. Not a second writer. See this document. |
 | `sim-gz-server.log` | While the Gazebo server runs | Headless Gazebo simulation output. Written by the deployed quadlet. |
 | `sim-foxglove-bridge.log` | While the bridge runs | Foxglove bridge output and connection state. |
 | `sim-clock-bridge.log` | While the clock bridge runs | Simulation clock bridge output. |
@@ -3728,404 +3742,6 @@ No installation or deployment agent may claim completion until it produces:
 
 ---
 
-# 18. Approved Deviations and Open Decisions
-
-## 18.1 Simulation Baseline Deviation
-
-**Decision:** ROS 2 Lyrical and Gazebo Sim 10.5.0 are the installed baseline.
-
-**Status:** Approved on 2026-08-24.
-
-**Rationale:** The installed and smoke-tested environment differs from an
-earlier Jazzy/Harmonic draft, and is pinned to what the vendor actually publishes
-for Ubuntu 26.04 "resolute".
-
-**Compatibility evidence.** Gazebo Sim **10.5.0** (Jetty) is the newest Gazebo
-available for Ubuntu 26.04; `gz-sim11-*` and `gz-sim9-*` have no candidate on the
-`resolute` suite, and the OSRF `resolute` suite is actively maintained. The
-installed `gz-sim10-server` equals the candidate version, so the image is at the
-newest available and is not running a superseded Gazebo on a 26.04 host. Full
-verification, including per-package candidate versions, is recorded in §10.2.1
-under "Platform".
-
-**Required control:** Record versions, image digests, compatibility test
-results, and any future migration plan in the version matrix.
-
-## 18.2 Corda Version and Database Placement (CORRECTED)
-
-**Decision (ES.1, authoritative):** Corda is built on **Corda 5 with PostgreSQL**.
-The previous **V4 test installation and its database are removed**, and **no data
-needs to be migrated** from them.
-
-**Current implementation:** the retired V4 node and its H2 database were removed on
-2026-09-28 (recorded as `retired` in
-`/ALWAYSON/config/platform/version-matrix.yaml`). `cordadb` is provisioned on the
-host PostgreSQL 18 cluster as a separate logical database with separate roles and
-backup scope, which is the correct placement.
-
-**Root cause of the earlier deviation record:** the Corda node was **set up with
-H2 instead of PostgreSQL**. That was the error. The H2 scaffold is the defect, not
-the PostgreSQL placement, and the earlier text in this section that described
-PostgreSQL as the deviation has been corrected accordingly.
-
-**Status:** Corrected and closed as a placement question. Because no data is being
-migrated, the remaining work is a clean rebuild of the node on Corda 5 against
-`cordadb`, not a data migration. Until that is done the node is not
-production-ready and the operator key/certificate ceremony in section 18.3 still
-applies.
-
-**Required control:** Document database roles, host-loopback binding, backup
-scope, restore procedure, and separation from sales/mapping databases.
-
-
-## 18.3 Corda Deployment Blocker
-
-**Status:** Blocked. MUST BE ADDRESSED BEFORE ADDITIONAL CORDA DEVELOPMENT
-
-**Deferred by operator, 2026-09-30.** The ceremony is deliberately not performed
-until the rest of the system is complete: the ledger must open with real entries,
-not test transactions from an initial deployment. The blocker itself is unchanged
-— it is the ceremony and nothing else.
-
-**Condition:** Corda node deployment requires the operator key and certificate
-ceremony.
-
-**Rule:** Do not generate, replace, export, or activate production ledger keys
-without explicit operator approval and recorded ceremony output.
-
-### 18.3.1 Software installed; node not created (2026-09-30)
-
-The blocker is now the *ceremony only* — the software half is done.
-
-| Step | State |
-|---|---|
-| Locate the release | `corda/corda-runtime-os`, tag `release-5.2.2.0` ("Corda 5.2.2", 2024-11-28) |
-| Download artefacts | installer 210.9 MB, combined-worker 84.3 MB, notary plugin 62 KB |
-| Integrity check | all three SHA-256 verified against the vendor-published sidecar digests |
-| Install | `~/.corda/cli` — `corda-cli.jar` plus 10 plugins, 222 MB |
-| Verify runs | `corda-cli --version` → 5.2.2, commit `efff866b` |
-| Create node | **not done** |
-| Key ceremony | **not done** — operator only |
-
-**Artefact recovery (no local backup needed).** These are immutable vendor
-releases published as public GitHub assets, so the durable record is the source
-and digest rather than a stored copy. Re-download and verify with:
-
-```text
-base=https://github.com/corda/corda-runtime-os/releases/download/release-5.2.2.0
-corda-cli-installer-5.2.2.0.zip
-  sha256 131fa2f06bb2f5f0aafbebf38033911caa7b5505f50510ee015754645bd687c2
-corda-combined-worker-5.2.2.0.jar
-  sha256 34607be9a917c29328e9c9713b3f7230dd2c35f9073ddbef9171e62d1ccae311
-notary-plugin-non-validating-server-5.2.2.0-package.cpb
-  sha256 a7956b8b0773aeed7ae30cea593f4174e01ea3f1b9f06b8921e6964a05ce783f
-```
-
-The local copies in `data/corda-install/` (~295 MB) are a convenience only.
-`data/` is **not** in the restic path set, which covers `config`, `artifacts`,
-`backups/postgres` and the manifests directory. The `.sha256sum` sidecars are
-small and were copied into `artifacts/` so the expected digests themselves are
-backed up; a rebuild is therefore reproducible without storing 295 MB.
-
-**Java version.** `~/.corda/cli/corda-cli.sh` pins `JAVA_HOME` to
-`/usr/lib/jvm/java-17-openjdk-amd64`. Corda 5.2.2 supports Java 17–21 and the
-host default is Java 25, which is outside that range, so the pin prevents the
-CLI from silently running on an unsupported JVM. The wrapper exits non-zero if
-the pinned JDK is missing rather than falling back.
-
-**Why the node cannot be created yet.** `cordadb` exists on the host cluster but
-holds 0 tables, and its owner role `corda` has `rolcanlogin = true` with no
-working password:
-
-```
-FATAL:  password authentication failed for user "corda"
-```
-
-`corda-cli preinstall check-postgres` therefore cannot pass. Supplying that
-credential is the key and certificate ceremony, so it is deliberately not
-automated.
-
-**JDK for the ceremony (resolved 2026-09-30):** the host default is **Java
-25**, outside Corda 5's supported 17–21 range. JDK 17 is already installed and
-`~/.corda/cli/corda-cli.sh` is pinned to it via `JAVA_HOME`, so the CLI cannot
-silently fall back to 25. Any combined worker must start under the same JDK.
-
-**Correction of an earlier record.** This section previously implied Corda 5
-could not be obtained. That was wrong: `corda/corda` is the legacy 4.x
-repository, and Corda 5 ships from `corda/corda-runtime-os` as public GitHub
-release assets needing no vendor credentials. `software.r3.com` does return 403
-anonymously, but that is not the distribution path.
-
-### 18.4.1 ao-ingress-payment implementation (2026-10-01)
-
-The adapter is deployed on `ao-payment` as its own domain. `ao-payment` is
-`Internal=true`, so the adapter has no route to the public internet and cannot
-be reached from outside the domain. Public provider webhooks therefore
-terminate at the host and a host-side relay forwards them in. This is the
-`ao-fabrication-collect` pattern (§3.3.0) in reverse: the host performs the hop
-the internal domain cannot, and the container joins no second network, so the
-§5.1 one-network attachment rule holds.
-
-| Component | Location | Role |
-|---|---|---|
-| `ao-ingress-payment` | `quadlet/payment/ao-ingress-payment.container` | Webhook receiver, signature verification, event normalization |
-| `ao-payment-relay` | `quadlet/payment/ao-payment-relay.service` | Host-side relay, `127.0.0.1:8900` → adapter |
-| `ao-payment-adapter.py` | `scripts/payment/` | The adapter itself |
-| `ao-payment-relay.py` | `scripts/payment/` | The relay |
-| `ao-payment-reconcile.sh` | `scripts/payment/` | Manual reconciliation CLI (Zelle, Coinbase, wires) |
-
-Rootless Podman gives the host no route into an `Internal=true` network, so the
-adapter publishes `127.0.0.1:8899`, matching `ao-sales-db` (`15432`) and
-`ao-fabrication-db` (`15433`). Verified: `10.42.0.1` and `192.168.87.135` refuse
-both ports.
-
-| Port | Listener | Owner | Exposure |
-|---|---|---|---|
-| `127.0.0.1:8899` | `ao-ingress-payment` | `ao-payment` | Loopback only |
-| `127.0.0.1:8900` | `ao-payment-relay` | host service | Loopback only; **no public route exists** to this port |
-
-Both are recorded in `config/platform/loopback-services.yaml`.
-
-**Controls implemented and tested.** PayPal events are rejected with 401 unless
-the transmission signature verifies, and the signature is checked before any row
-is written. A transmission older than five minutes is rejected as a replay. Zelle
-returns 501 on any inbound POST, because §18.4 forbids automated Zelle
-verification and Zelle publishes no webhook. Bodies are capped at 256 KiB. Only a
-SHA-256 hash and an opaque reference are stored; raw payloads are never persisted.
-
-### 18.4.2 Deployment conformance validation (2026-10-01)
-
-An audit comparing every deployed unit against the repository found that
-`ao-grafana` and `ao-metabase` were still reading `EnvironmentFile` from
-`~/.local/share/alwayson-secrets/`. The repository definitions said
-`ao-secrets`. Both services were healthy only because the earlier secrets
-rename had created a copy of the directory rather than moving it, so both were
-one rename away from failing to start while every existing validator passed.
-`check-secrets-exposure.sh` cannot catch this: it inspects tracked content, not
-what is actually deployed.
-
-`scripts/validation/check-deployment-conformance.sh` closes that gap. It checks:
-
-1. every deployed `ao-*` unit has a source file in `quadlet/`;
-2. every deployed unit is byte-identical to that source;
-3. no deployed unit references a retired `300x3-` or `alwayson-` path;
-4. every enabled `ao-*` unit is active — judging `oneshot` units by their last
-   `Result` and their timer or path, since they are idle between runs;
-5. every network in the CIDR registry exists in Podman;
-6. no container carries an unaccepted name prefix.
-
-Generated units (the `podman-user-generator` output) are excluded, since they
-are derived from the `.container` files the check already covers. Two
-deliberate exceptions are recorded in the script: `mastodon-*` containers, which
-are a naming exception pending an operator decision, and the two `ao-font-*`
-incident-diagnostic units from 2026-09-30, which are not project
-infrastructure.
-
-Running it also surfaced two problems that had gone unnoticed: a duplicate
-stale copy of `ao-postgres-reporting-bridge.service` in `containers/systemd/`
-shadowing the real one in `systemd/user/`, and two orphaned `.volume` unit
-files for volumes no container mounts.
-
-**Not enabled.** The four `ao-payment` wallet entries do not exist yet, so the
-adapter runs with no DSN and no webhook secret: it records nothing and rejects
-every event. The Cloudflare Tunnel route to `127.0.0.1:8900` is **not** created;
-adding it changes the public surface and needs separate operator approval.
-
-**Schema changes** (`config/sales/migrate/`, applied 2026-10-01):
-
-- `01-normalise-zelle-provider.sql` — the provider CHECK constraint spelled
-  `zelle` while `sale-receipt.schema.json` spelled it `Zelle`, so any receipt
-  validated against the schema would have failed to insert. Both are now
-  `Zelle`, per operator confirmation.
-- `02-payment-reconciliation.sql` — adds `amount_cents`, `currency`,
-  `settlement_ref`, `approved_by`, `authorization_ref`, `note` and `updated_at`
-  to `payment_references`, plus constraints: a manual-provider payment cannot
-  reach `verified` without an `approved_by`, and the provider spelling is
-  constrained to match the receipt schema.
-
-The four `ao-payment` wallet entries are fetched by a single
-`payment-credentials` case rather than one `ExecStartPre` per key. Every call to
-`fetch-kwallet-secret.sh` rewrites the whole output file, so four separate calls
-would each erase the previous one's output and leave the adapter with only the
-last value and no `PAYMENT_DSN`. One call composes the complete file.
-
-**Still outstanding.** No public route is configured, no credential exists, and
-the website email → PDF → Corda intake path is not built.
-
-## 18.4 Payment Provider Decision
-
-**Status:** Decided 2026-08-28.
-
-**Decision:** PayPal (hosted checkout, provider-signed webhooks) plus **Zelle**
-for direct US payments PLUS COINBASE STABLECOIN (USDC), used from an operator-built custom HTML storefront.
-The storefront HTML will be developed externally (lovable.dev) and linked into
-this project; it remains static and is served from the pCloud Public Folder.
-
-**Controls required before enabling:**
-
-- PayPal: hosted checkout only; signature-verified webhook via
-  `ao-ingress-payment` -> `ao-payment` verifier; credentials via §14.1 secret
-  delivery; no PayPal secret material in the repo, logs, or pCloud.
-- Zelle: manual reconciliation path only (equivalent to the wire-transfer
-  policy in §7.2): operator-verified receipt, auditable reference record,
-  explicit operator approval per §7.2. Zelle provides no public webhooks/API,
-  so no automated verification is permitted until a documented control exists.
-- Storefront: static HTML only; no server-side code in the pCloud Public
-  Folder; all dynamic behavior goes through the payment and community
-  adapters. Evaluate the lovable.dev-produced HTML against §4 data policy and
-  the prohibited-paths list before linking.
-
-The prior provider-evaluation draft is retained at
-`docs/compliance/payment-provider-evaluation.md` for record.
-
-## 18.5 Mastodon Federation Edge and Identity Decision
-
-**Status:** Decided and applied 2026-09-24 (closed). Remaining federation work is
-tracked in section 19.3.
-
-**Decision (operator):**
-
-- Serve Mastodon publicly at the dedicated hostname
-  **`mastodon.300x3.com`** through Cloudflare Tunnel.
-- Keep `300x3.com` and `www.300x3.com` on the existing static-site redirect;
-  do not route the main website hostname to Mastodon.
-- Edge transport is **HTTP/2** because QUIC stream timeouts were observed on
-  this host. The tunnel service is `cloudflared-alwayson.service`.
-- Mastodon identity is `LOCAL_DOMAIN=mastodon.300x3.com`, with accounts as specified in
-  §15.4.2.
-- Community publication is carried inside `ao-sales`, attached to the Mastodon
-  web and background-worker containers only; database, Redis, and streaming
-  remain on internal `ao-sales`.
-- Origin ports remain loopback-only. TLS terminates at Cloudflare.
-
-**Verified state:**
-
-- Public actor and WebFinger endpoints return HTTP 200.
-- The local web and health endpoints return HTTP 200.
-- The remote account `@300x3@mastodon.social` lists both local accounts as
-  followers, confirming local-to-remote follows. Its `following` collection is
-  empty; reverse remote-to-local follows are not yet recorded.
-- A public remote post was fetched and its local mention records were created;
-  notification delivery was repaired through Mastodon’s native notification
-  service after the asynchronous worker failed to materialize the rows.
-
-**Resolution condition:** verify reverse follows using the remote account’s
-`following` collection and the local incoming relationship tables. Do not mark
-the reverse direction complete based only on a local outgoing request.
-
-## 18.6 CIDR Allocation Reconciliation (`10.89.10`, `10.89.11`, `10.89.12`)
-
-**Status:** Applied 2026-09-30. Recorded here so the allocation is deliberate rather
-than incidental.
-
-`/ALWAYSON/config/platform/network-cidrs.yaml` had recorded only `10.89.0.0/24` through
-`10.89.9.0/24`, while three further networks were already in use or newly required:
-
-| Network | Used by | Registered in `network-cidrs.yaml`? |
-|---|---|---|
-| `10.89.10.0/24` | `ao-reporting-egress` (`ao-grafana`, `ao-metabase`) | **Yes** |
-| `10.89.11.0/24` | Mastodon sidekiq / web egress path (`ao-egress-community`, since folded into `ao-sales`) | **Yes** |
-| `10.89.12.0/24` | **`ao-fabrication`** (new, §3.3.0) | **Yes** |
-
-**Decision (operator, 2026-09-30):** `10.89.12.0/24` is assigned to `ao-fabrication`. It is
-the next unallocated block in sequence and does not collide with any network observed in
-use.
-
-**Compensating control — applied.** All three are registered in
-`/ALWAYSON/config/platform/network-cidrs.yaml`, so that file is again the single authority
-for workload CIDRs as §5.1 requires. `scripts/validation/check-network-isolation.sh`
-regenerates that file and now passes with all fourteen networks present:
-
-```
-OK: all domain networks present; isolation domains internal-only
-```
-
-**`network-cidrs.yaml` is generated, not hand-maintained.** The validation script overwrites
-it from a hardcoded list, so the list inside that script is the real source of truth and an
-entry added by hand would be silently lost on the next run. Both lists were updated.
-
-**Egress networks are checked separately.** A network that must reach a provider is
-deliberately `Internal=false`, so it is asserted against `Internal=false` in a
-separate `egress` list rather than the `Internal=true` `expected` list.
-
-That list now holds **`ao-reporting-egress` and `ao-sales` only**.
-`ao-egress-community` was retired and removed from this host on 2026-09-30;
-`ao-sales` replaced it for ActivityPub delivery. The `ALWAYSON` wallet folder is
-likewise retired (see §14.1.1). Adding them to the `Internal=true` `expected` list would have made
-validation report correct configuration as a violation.
-
-**`ao-fabrication` subnet is pinned.** `/ALWAYSON/quadlet/networks/ao-fabrication.network`
-sets `Subnet=10.89.12.0/24` explicitly. Every other network in that directory lets Podman
-auto-assign the next free `10.89.x.0/24`, so without the pin this allocation would not be
-held. It is `Internal=true` and a container on it has no route off the subnet.
-
-**Note on `10.89.11.0/24` — OPEN, operator decision required.** §5.1 records
-`ao-egress-community` as removed, with community publication carried inside `ao-sales`.
-The migration is only **half done in practice**:
-
-- `ao-sales` is `Internal=false`, expressly so Sidekiq can deliver activities to
-  remote instances directly. `ao-sales.network` carries the note that it replaced
-  `ao-egress-community`.
-- `mastodon-web`, `mastodon-sidekiq`, `mastodon-streaming`, `mastodon-db` and
-  `mastodon-redis` are attached to `ao-sales` **only**. The dual-homing to
-  `ao-egress-community` is gone, and the old network has been removed from the
-  host and from the validation allowlist.
-- `quadlet/sales/ao-egress-community.network` is **retired, not restored**.
-  `scripts/mastodon/federate-local.sh` no longer installs it; it now installs
-  `ao-sales.network` alone. Nothing recreates the network.
-
-## 18.7 Logs-Journals Location Correction (`LOGS-JOURNALS/` → `logs/`)
-
-**Decision:** The canonical log and journal location is `/ALWAYSON/logs/`.
-`/ALWAYSON/LOGS-JOURNALS/` is a pointer directory, not the store.
-
-**Status:** Corrected and closed on 2026-10-02. Any physical consolidation of
-the two trees needs operator approval first.
-
-**The fault and the fix.** §16.3 named `/ALWAYSON/LOGS-JOURNALS/` as the
-location. It never was: on audit that directory held exactly one file while
-every other log lived in `/ALWAYSON/logs/`, and five documented entries
-existed nowhere. Every writer already pointed at `logs/`, including two live
-deployed units, so the tree was left alone and the README was corrected
-instead (§16.3 now names the location; §19.1 OPS-07 tracks the remainder).
-The 2 766-line journal history was copied across and verified identical
-before the duplicate was removed. `agent-install.log` was not renamed.
-
-**"Updated regularly" was not met either.** `operations-journal.log` had no
-writer anywhere in the repository. Four helpers were added to
-`scripts/lib/common.sh` (`ao_operation`, `ao_install`, `ao_backup_run`,
-`ao_restore_test`) and `check-logs-journals.sh` now asserts all entries exist
-and are fresh.
-
-**Log destinations were inventoried; 32 of 33 units stay on journald.** A
-request to relocate every ALWAYS ON software's log into `logs/` was measured
-and declined. Only `ao-sim-fabrication-gz.container` writes a file there; the
-other 20 containers and all 12 `ao-*` services use journald, which is not an
-unset default — it self-caps, and holds 4 GB. Flat files without a rotation
-policy would grow unbounded, and the change would mean restarting 20+
-containers including the payment ingress. A rotation policy is now staged
-(§19.1 OPS-25); retention for the rest is OPS-26.
-
-**RETRACTED — MeshChatX is installed and running.** This section originally
-stated MeshChatX was not installed and that its log was empty. **That was
-wrong**; the operator corrected it on 2026-10-02. It runs as
-`reticulum-meshchatx.service`, 17 processes, up since 2026-10-01. The wrong
-conclusion came from searching for an `ao-field` unit, finding none, and
-inferring the software was absent — an invalid inference, because MeshChatX
-runs under its own `reticulum-*` namespace. **Absence of a
-conventionally-named unit is not evidence of absence of software**; confirm
-with a process list, a binary path, and an open file handle. Its own log
-cannot be moved without moving 907 MB of application state that shares the
-same directory, so `logs/meshchatx.log` is a pointer, not a second writer.
-
-**One log is legitimately empty.** `restore-test.log` holds no entries because
-every script under `scripts/restore/` exits 3 as PENDING. That is an open
-state, not a fault to be papered over: fabricating entries would destroy the
-audit, since an empty log with a stated reason is evidence and a log full of
-invented events is not.
-
----
-
 # 19. Current Status and Outstanding Work
 
 The single status log. Every component and every item of outstanding work, with nothing
@@ -4160,7 +3776,7 @@ collide and a new item never renumbers an existing one.
 | ID | Item | Component | Status | Standard served | Current state or acceptance criteria |
 |---|---|---|---|---|---|
 | **COMPONENTS** | The state of each component. Source of truth for what is built. | | | | |
-| ST-01 | Host platform — Kubuntu, Podman, Quadlet, protected administration | — | **Implemented** | — | Host inventory and base platform verified. **Measured baseline:** kernel `7.0.0-34-generic`; Podman `5.7.0`; **fourteen** `ao-*` networks — eleven `Internal=true` and three `Internal=false` (`ao-sales`, `ao-reporting-egress`, `ao-build-update`) — matching `config/platform/network-cidrs.yaml` (§2.2); NVIDIA GTX 1080 on driver `580.178.04` with CDI devices registered and `/var/run/cdi/nvidia.yaml` authoritative; ROS 2 Lyrical + Gazebo Sim `10.5.0`; PostgreSQL `18.6` and Redis `8.0.5`, both loopback-only. The `/etc/cdi/nvidia.yaml` copy is not authoritative and is regenerated or removed at each driver change |
+| ST-01 | Host platform — Kubuntu, Podman, Quadlet, protected administration | — | **Implemented** | — | Host inventory and base platform verified. **Measured baseline:** kernel `7.0.0-34-generic`; Podman `5.7.0`; **fourteen** `ao-*` networks — eleven `Internal=true` and three `Internal=false` (`ao-sales`, `ao-reporting-egress`, `ao-build-update`) — matching `config/platform/network-cidrs.yaml` (§2.2); NVIDIA GTX 1080 on driver `580.178.04` with CDI devices registered and `/var/run/cdi/nvidia.yaml` authoritative; ROS 2 Lyrical + Gazebo Sim `10.5.0`; PostgreSQL `` and Redis `8.0.5`, both loopback-only. The `/etc/cdi/nvidia.yaml` copy is not authoritative and is regenerated or removed at each driver change |
 | ST-02 | Domain isolation — eleven internal workload networks | — | **Implemented** | — | Isolation test verified; all workload networks `Internal=true` except `ao-sales`, which is non-internal for ActivityPub delivery only |
 | ST-03 | Mapping — WebODM and the photogrammetry drive | — | **Implemented with deviation** | — | GPU-enabled smoke test completed, orthophoto produced. Five `ao-` Quadlet units on `ao-mapping` (`Internal=true`): `ao-webodm-{webapp,worker,db,broker}` and `ao-nodeodm`. No published port; images enter and leave via local folders on `/media/scottw/500GBPHOTOGRAM` (`incoming/` -> `webodm/` -> `exports/`,`deliverables/`). The app reads database `webodm_dev` in `ao-webodm-db`; the 10 projects/10 tasks that lived in a duplicate host-cluster `webodm` database were migrated in and the duplicates dropped 2026-09-30, backups in `backups/duplicate-db-20260930/` |
 | ST-04 | Field, Reticulum, and LoRa — RPi5, Waveshare LoRa, Heltec V3, MeshChatX | — | **In progress** | — | Both Heltec LoRa 32 V3/SX1262 RNodes functional and initialized by MeshChatX; `PEOPLE-RADIO` 915 MHz/125 kHz, `DRONE-RADIO` 917 MHz/250 kHz; 32 interfaces configured, none explicitly disabled; RF feedback observable on both bands |
@@ -4168,15 +3784,15 @@ collide and a new item never renumbers an existing one.
 | ST-06 | MeshChatX version provenance | — | **Complete with verification pending** | — | Declared 4.9.1; hash matches the local manifest. Evidence in §19.2 |
 | ST-07 | Vehicle simulation — `ao-sim-vehicle` | — | **Implemented (headless runtime)** | — | Headless Gazebo 300-iteration and ROS-Gazebo bridge tests passed; ArduPilot SITL HEARTBEAT validated over MAVLink. `ao-ardupilot-sitl` is **enabled=false and stopped by design** — the simulator is started on demand, so `inactive` here is the expected state, not a fault. The four baseline capabilities required by ES.1 — 3D world setup, boning, reinforcement learning objects, and an HTML portal to operation — are outstanding |
 | ST-08 | Fabrication and facility simulation — `ao-sim-fabrication` | — | **Partly implemented** | — | Delivered: the 3D world and its boned cell datums, eight cameras derived from those datums, the view-only HTML portal, and the local Foxglove 3D viewer. Headless Gazebo 300-iteration and bridge test passed; model views rendered in §10.2. **Not delivered**, though named in the §10.2 component tree: the facility scheduler (item 81), the safety-zone and interlock model (item 82), and RL objects as world entities rather than a catalogue (item 83) |
-| ST-09 | Ledger core — Corda on `cordadb` | — | **Blocked** | — | Corda 5.2.2 **CLI installed** 2026-09-30, SHA-256 verified; **no node** — `cordadb` holds 0 tables and its owner role has no working password, so `preinstall check-postgres` cannot pass. Details in §18.3.1. Corda 4 and its H2 database were removed 2026-09-28 with no data migrated Outstanding: **Deferred by operator 2026-09-30 until the rest of the system is complete**, so the ledger opens with real entries rather than test data. Then complete the key and certificate ceremony (§18.3) and create the node |
+| ST-09 | Ledger core — Corda on `cordadb` | — | **Blocked** | — | Corda 5.2.2 **CLI installed** 2026-09-30, SHA-256 verified; **no node** — `cordadb` holds 0 tables and its owner role has no working password, so `preinstall check-postgres` cannot pass. Details in this document.1. Corda 4 and its H2 database were removed 2026-09-28 with no data migrated Outstanding: **Deferred by operator 2026-09-30 until the rest of the system is complete**, so the ledger opens with real entries rather than test data. Then complete the key and certificate ceremony (§11.1) and create the node |
 | ST-10 | Ledger ingestion gateway — `ao-ledger-ingest` | — | **Planned** | — | mTLS validation, authorization, audit, and idempotency specified; not deployed |
 | ST-11 | Sales and orders — `ao-sales` database | — | **Implemented** | — | Sales DB deployed; order, receipt, and fulfillment records supported |
-| ST-12 | Payment adapters — `ao-ingress-payment` | — | **In progress** | — | **Deployed 2026-10-01** on `ao-payment` (its own domain, §5.1 one-network rule respected). Adapter, host relay, and reconciliation CLI written; PayPal signature verification, replay guard, and Zelle manual-only refusal tested and passing. Schema: Zelle casing normalised to `Zelle` across DB and JSON schema; reconciliation columns added to `payment_references`. **Not enabled against live traffic** — the four `ao-payment` wallet entries do not exist yet, so it runs with no DSN and no webhook secret and cannot accept a payment Outstanding: Create the four `ao-payment` wallet entries, then approve enabling the Cloudflare Tunnel route to `127.0.0.1:8900` (§18.4 operator approval) |
+| ST-12 | Payment adapters — `ao-ingress-payment` | — | **In progress** | — | **Deployed 2026-10-01** on `ao-payment` (its own domain, §5.1 one-network rule respected). Adapter, host relay, and reconciliation CLI written; PayPal signature verification, replay guard, and Zelle manual-only refusal tested and passing. Schema: Zelle casing normalised to `Zelle` across DB and JSON schema; reconciliation columns added to `payment_references`. **Not enabled against live traffic** — the four `ao-payment` wallet entries do not exist yet, so it runs with no DSN and no webhook secret and cannot accept a payment Outstanding: Create the four `ao-payment` wallet entries, then approve enabling the Cloudflare Tunnel route to `127.0.0.1:8900` (§7.2) |
 | ST-13 | Mastodon local stack | — | **Implemented (live on `scottw`)** | — | **2026-10-01 load test: 100 signed mentions from `300x3@mastodon.social` -> local instance, all delivered, processed and answered by the bot with zero container restarts, zero OOM kills and all six sidekiq queues draining to 0. Timeline then wiped by operator instruction: keep only 2026-09-03..09-11, delete everything else. Local: 124 statuses/mentions destroyed via `Status#destroy` (federated Deletes sent), accounts and follow relationships preserved. mastodon.social: originals deleted through the operator's authenticated session in three rate-limited windows (~40 deletions per 30-minute window). Verified after the final pass: the profile retains only 3 Sept, 4 Sept and 11 Sept posts, with **no posts outside the 09-03..09-11 keep range**. Backup: `backups/mastodon-status-wipe-2026-10-01/`. All 5 containers active under `scottw` in the single `ao-sales` store; `ao-sales` is `Internal=false` so Sidekiq can deliver ActivityPub. Database migrated (100 tables). `LOCAL_DOMAIN=mastodon.300x3.com` (300x3.com is the filedn storefront and is not routed here). Env wallet-backed via `%h/.local/share/ao-secrets/`, `RAILS_FORCE_SSL=false` (inert — upstream hardcodes `config.force_ssl = true`; see §9.2.1 for why the local UI is served over TLS by the loopback proxy instead). v4.3.7; WebFinger resolves; Sidekiq 6.5.12 processing; outbound 443 open. Accounts `@admin` (Owner, renamed from `aoadmin` on 2026-10-01) and `@bot` verified authenticating with KDE Wallet passwords — the email stays `admin@300x3.com`. `admin` is a reserved username only via this instance's `reserved_usernames` **setting**, which was edited to free the name; the old `.../users/aoadmin` URI is retained as `alsoKnownAs` so remote servers follow the rename. **Rename trap:** a Mastodon rename does **not** rewrite `inbox_url`/`outbox_url` either — the first attempt left the account advertising a dead `.../users/aoadmin/inbox` (404), so inbound follows were silently dropped with no error on either side. Always cross-check `inbox_url` against `uri` after any rename Outstanding: Confirm remote-to-remote delivery and a reverse follow |
 | ST-14 | Mastodon federation edge — Cloudflare Tunnel | — | **Implemented (bidirectional)** | — | Tunnel active; HTTP/2 connector up; WebFinger 200 for `acct:admin@mastodon.300x3.com`. **Inbound proven**: signed `POST /inbox` from `mastodon.social` and `avision-it.social` return 202. **Outbound proven**: `@bot` follows `@Gargron@mastodon.social` and the remote returned a signed activity recorded as a reverse follow. The earlier silent outbound failure was an instance actor with empty `uri`/`inbox`, now repaired on every web start |
 | ST-15 | OpenClaw and LM Studio support chat | — | **In progress** | — | Local stack in progress; OAuth/client issues recorded |
 | ST-16 | Konqueror — dedicated automation browser | — | **Implemented** | — | Designated as the automation browser in ES.1 |
-| ST-30 | Real fabrication — `ao-fabrication` | — | **Implemented — network, database and collector operational; machines are on only while in use** | — | Network `Internal=true` on the pinned `10.89.12.0/24`, registered (§18.6). Host-side pull-only collector writes into `a_fab` (loopback 127.0.0.1:15433, role `fabrication_role`); `ao-fabrication-db` and the collector timer are active. Machines are powered on only while in use, so an unreachable machine is expected: the collector reports it as `offline` and exits 0 rather than as a failure. Credential created 2026-09-30 in KDE Wallet (`fabrication-db-password`); `~/secrets/fabrication-db.env` is 0600. Note `pg_hba` trusts 127.0.0.1, so the role password must be set explicitly or TCP auth fails while the socket appears to work |
+| ST-30 | Real fabrication — `ao-fabrication` | — | **Implemented — network, database and collector operational; machines are on only while in use** | — | Network `Internal=true` on the pinned `10.89.12.0/24`, registered (§2.2). Host-side pull-only collector writes into `a_fab` (loopback 127.0.0.1:15433, role `fabrication_role`); `ao-fabrication-db` and the collector timer are active. Machines are powered on only while in use, so an unreachable machine is expected: the collector reports it as `offline` and exits 0 rather than as a failure. Credential created 2026-09-30 in KDE Wallet (`fabrication-db-password`); `~/secrets/fabrication-db.env` is 0600. Note `pg_hba` trusts 127.0.0.1, so the role password must be set explicitly or TCP auth fails while the socket appears to work |
 | ST-17 | Sale-transfer egress — `ao-egress-archive` | — | **Partially implemented** | — | Local **restic backup and restore validation complete** (§17.1 — this is the backup). IPFS/pCloud **sale transfer** not yet exercised. **Not a backup by design** (§11.6). |
 | ST-18 | Backup and restore | — | **Implemented** | — | Restic repository `/var/backups/alwayson-restic` holds **24 snapshots**; cited IDs `548d9910` and `32be2a1c` both verified present. Hash validated; database 14/14 tables restored. Schedule automated: `ao-restic-backup` nightly 03:30, `ao-restic-verify` weekly Sun 04:30, DB dumps 03:00. **Timers renamed today and have not yet fired**, so the newest snapshot is still 2026-09-24. The 03:00 dump path was rebuilt the same day after dropping duplicate host databases broke it |
 | ST-19 | Monitoring — Prometheus, node_exporter, Grafana | — | **Implemented (data collection)** | — | All three run as `scottw` Quadlet units on `ao-admin`; all targets scrape `up`. **Prometheus is isolated: nothing queries it and nothing acts on it** (§17.2). It now holds 13 `alwayson_db_*` series covering PostgreSQL and SQLite, collected read-only on the host every 60s. Evidence in §19.2 |
@@ -4198,16 +3814,17 @@ collide and a new item never renumbers an existing one.
 | PLAT-04 | Asserting install verification | ST-01, ST-25 | **Open** | §12.3 | The §12.3 verify block prints values without asserting them, and the cgroup check is silent on failure. Add real assertions. |
 | **NET** | Networks, adapters and isolation | | **Open** | | |
 | NET-01 | **Controlled ingress/egress adapters** | ST-12, ST-17 | **Open** | §5.2 | `ao-build-update` **scaffolded and deployed, not enabled** (§5.2.1): its own `Internal=false` egress network at `10.89.13.0/24`, digest-pinned unit, read-only registry allowlist, and acquisition script that resolves candidates, captures digests, and writes an update audit record with no promotion authority. **Remaining:** operator decision on enabling it, and the `build`/`update` scope question. `ao-ingress-payment` and `ao-egress-archive` still require implementation with destination allowlists, validated TLS, separate credentials, and connection logging. Community publication is carried inside `ao-sales`. |
-| NET-02 | **CIDR reconciliation in `network-cidrs.yaml`** | ST-02 | **Open** | §18.6 | **Partly done 2026-09-30:** all three CIDRs registered and validation green (`OK: all domain networks present; isolation domains internal-only`); the generated-registry list in `check-network-isolation.sh` updated so the entries persist. **Remaining:** the `ao-egress-community` name/CIDR reconciliation against `instance-policy.yaml`, the Grafana topology dashboard, and the Mastodon runbook — the network is live on `10.89.11.0/24` while the name is recorded as folded into `ao-sales`, which is a rename decision, not a registry edit. |
-| NET-03 | **Single authoritative network inventory** | ST-01, ST-02 | **Open** | §2.2, §5.1, §18.6 | One list of every `ao-*` network with its CIDR, `Internal` flag and owning component, generated from `config/platform/network-cidrs.yaml`, which both §2.2 and §5.1 cite. It must account for `ao-html-window` (10.89.14) and `ao-build-update` (10.89.13), which appear in the topology but in no table. §2.2 says twelve, §13.3 says twelve, §18.6 says thirteen — all three become one asserted count. `check-network-isolation.sh` must not regenerate the CIDR file from a hardcoded list, or the named source of truth is not authoritative. |
+| NET-02 | **CIDR reconciliation in `network-cidrs.yaml`** | ST-02 | **Open** | §2.2 | **Partly done 2026-09-30:** all three CIDRs registered and validation green (`OK: all domain networks present; isolation domains internal-only`); the generated-registry list in `check-network-isolation.sh` updated so the entries persist. **Remaining:** the `ao-egress-community` name/CIDR reconciliation against `instance-policy.yaml`, the Grafana topology dashboard, and the Mastodon runbook — the network is live on `10.89.11.0/24` while the name is recorded as folded into `ao-sales`, which is a rename decision, not a registry edit. |
+| NET-03 | **Single authoritative network inventory** | ST-01, ST-02 | **Open** | §2.2, §5.1.2 | One list of every `ao-*` network with its CIDR, `Internal` flag and owning component, generated from `config/platform/network-cidrs.yaml`, which both §2.2 and §5.1 cite. It must account for `ao-html-window` (10.89.14) and `ao-build-update` (10.89.13), which appear in the topology but in no table. §2.2 says twelve, §13.3 says twelve, this document says thirteen — all three become one asserted count. `check-network-isolation.sh` must not regenerate the CIDR file from a hardcoded list, or the named source of truth is not authoritative. |
 | NET-04 | **Confirm the 4.3 prohibited-paths list** | ST-01, ST-02 | **Open** | §4.3 | §4.3 was titled "Prohibited Paths" and is cited elsewhere as the prohibition on simulation-to-live paths and as a pair with §4.4, but its body had been replaced by a duplicate of the sale-chain diagram. The list now in §4.3 was rebuilt from prohibitions stated elsewhere in this document and is **not** the operator-approved original. Confirm it is complete and correct, and supply anything that was lost with the misplaced content |
 | **SEC** | Secrets, credentials and identity | | **Open** | | |
-| SEC-01 | **Unattended secret delivery decision** | ST-24 | **Open** | §14.1, §18 | Either migrate mastodon-db, sales-db, and webodm-db to Podman secrets or systemd credentials, or record an approved deviation with compensating controls, before any production declaration. |
-| SEC-02 | **Reconcile secret-delivery policy with the implementation** | ST-24, ST-30 | **Open** | §14.1, §14.1.1 | §14.1 mandates Podman secrets or systemd credentials; every implemented path is a wallet-materialised `0600` env file, which the same subsection calls a plaintext duplicate. Either move to Podman/systemd credentials or record the deviation in §18 with env-file lifetime and shred-on-exit behaviour, and close the `~/secrets/fabrication-db.env` recorded in ST-30. §14.1.1 points at a §18 subsection that does not exist. |
-| SEC-03 | **Documented credential rotation, revocation and recovery** | ST-24 | **Open** | §14.1.1 | §14.1.1 requires rotation, revocation, expiration and recovery to be documented before production use. None exists in §14, §16, §17 or §18. Include a wallet backup and restore procedure that is itself inside the backup set, and a break-glass order for the operator. |
+| SEC-01 | **Unattended secret delivery decision** | ST-24 | **Open** | §14.1 | Either migrate mastodon-db, sales-db, and webodm-db to Podman secrets or systemd credentials, or record an approved deviation with compensating controls, before any production declaration. |
+| SEC-02 | **Reconcile secret-delivery policy with the implementation** | ST-24, ST-30 | **Open** | §14.1, §14.1.1 | §14.1 mandates Podman secrets or systemd credentials; every implemented path is a wallet-materialised `0600` env file, which the same subsection calls a plaintext duplicate. Either move to Podman/systemd credentials or record the deviation in this document with env-file lifetime and shred-on-exit behaviour, and close the `~/secrets/fabrication-db.env` recorded in ST-30. §14.1.1 points at a this document subsection that does not exist. |
+| SEC-03 | **Documented credential rotation, revocation and recovery** | ST-24 | **Open** | §14.1.1 | §14.1.1 requires rotation, revocation, expiration and recovery to be documented before production use. None exists in §14, §16, §17 or this document. Include a wallet backup and restore procedure that is itself inside the backup set, and a break-glass order for the operator. |
 | **LEDGER** | Ledger, accounting and provenance | | **Open** | | |
-| LEDGER-01 | **Corda key/certificate ceremony** | ST-09, ST-10 | **Open** | §18.3, §11 | Operator ceremony performed and output recorded. No production ledger keys generated, replaced, exported, or activated without explicit operator approval. |
-| LEDGER-02 | **Corda 5 build on PostgreSQL** | ST-09, ST-10 | **Open** | ES.1, §18.2 | Node built on Corda 5 against `cordadb` in PostgreSQL 18, with the previous V4 installation and database removed and no data migrated; correlation join by receipt number, serial number, and UTC timestamp proven. |
+| LEDGER-07 | **Corda node must be built on Corda 5 against `cordadb`** | ST-09 | **Open** | §11.1, §17.1 | The Corda CLI is installed but no node exists: `cordadb` holds 0 tables and its owner role has no working password, so `preinstall check-postgres` cannot pass. Build the node on Corda 5 against `cordadb` — no data migration is required — after the operator key/certificate ceremony. Until then the ledger is not production-ready |
+| LEDGER-01 | **Corda key/certificate ceremony** | ST-09, ST-10 | **Open** | §11.1 | Operator ceremony performed and output recorded. No production ledger keys generated, replaced, exported, or activated without explicit operator approval. |
+| LEDGER-02 | **Corda 5 build on PostgreSQL** | ST-09, ST-10 | **Open** | §11.1 | Node built on Corda 5 against `cordadb` in PostgreSQL 18, with the previous V4 installation and database removed and no data migrated; correlation join by receipt number, serial number, and UTC timestamp proven. |
 | LEDGER-03 | Corda ingest accepts only approved signed data | ST-09, ST-10 | **Open** | §4.4, §11.2 | Ledger-ingest receives signed, minimized manifests only, with authorization, idempotency, replay defence, and audit. |
 | LEDGER-04 | pCloud archive credentials | ST-12, ST-17 | **Open** | §11.6, §17.1 | Credentials provisioned into `ao-archive`; non-destructive encrypted replication test approved and run. **Presence-only checks — never print, copy, or export values.** |
 | LEDGER-05 | Ledger socket-bridge diagnosis | ST-09, ST-10 | **Open** | §17.1 | `scripts/validation/check-ledger-ingest.sh` resolved, or the pending operator-run privileged command executed. |
@@ -4219,7 +3836,7 @@ collide and a new item never renumbers an existing one.
 | PAY-04 | `salesdb` schema initialization | ST-11, ST-12 | **Open** | §3.3.1, §15.1 | Live application schema initialized; read-only reporting views defined. |
 | PAY-05 | **Live HTML views for product modals** | ST-11 | **Open** | §7.1.2 | The nine operator-requested views (Instructables robot link; MeshChatX visualizer/messaging; IPFS-pCloud route orthotiff with times and telemetry; Trimble San Vicente point clouds; LocusMap; Mapbox; Mastodon live forum; Gazebo/Foxglove kitchen, storage/CNC, and vehicle; Trimble SketchUp grid) are built and reachable from the modals, **each published as a static export, an approved published view, or an external service** — never by exposing a loopback address. **Recorded 2026-10-01; nothing is built.** Three preconditions are open and need operator decisions: the Instructables robot image asset does not exist, the Mastodon and MeshChatX iframes have no publishable origin, and the three simulation views are gated on §19.1 SIM-04 and SIM-05. Publishing any live view is a new public entry requiring explicit operator approval under §4.1 rule 6. |
 | PAY-06 | **Customer-facing PDF email path proven** | — | **Open** | §4.3, §4.4 | Purchase-request confirmation, receipt, and work-order status (including expected delivery) each demonstrably sent from `ao-sales` to a customer **as PDF by email**. |
-| PAY-07 | **Reconcile the payment-provider decision** | ST-12, ST-27 | **Open** | §18.4, §7.2, §7.3 | §18.4 records PayPal, Zelle and Coinbase as decided; ST-27 and ES.2 still treat the provider as undecided. State once which providers are in scope now and make every other reference match, so the sales pipeline is not gated on a decision that already exists. |
+| PAY-07 | **Reconcile the payment-provider decision** | ST-12, ST-27 | **Open** | §7.2, §7.3 | §7.2 records PayPal, Zelle and Coinbase as decided; ST-27 and ES.2 still treat the provider as undecided. State once which providers are in scope now and make every other reference match, so the sales pipeline is not gated on a decision that already exists. |
 | **COMM** | Community, federation and local AI | | **Open** | | |
 | COMM-01 | Mastodon configuration drift reconciliation | ST-13, ST-14 | **Open** | §15.4 | `config/mastodon/instance-policy.yaml`, `mastodon.env.example`, `version-matrix.yaml`, `secrets/mastodon/mastodon.env`, and `fetch-mastodon-env.sh` all reconciled to `mastodon.300x3.com`. **Do this before the next Mastodon restart** — the helper emits the superseded apex value unconditionally. |
 | COMM-02 | Reverse-follow validation | — | **Open** | §15.4.4 | Confirmed from the remote `following` collection and local incoming relationship tables, never inferred from local outgoing state. |
@@ -4265,14 +3882,14 @@ collide and a new item never renumbers an existing one.
 | OPS-04 | Restore-test script contract | ST-18 | **Open** | §17.1 | The seven-step restore test is unowned; state that the `check-*.sh` scripts implement it, or the requirement has no executor. |
 | OPS-05 | GPU scheduling and admission policy | ST-01, ST-25 | **Open** | ES.1 | LM Studio, SketchUp, Gazebo, and WebODM batch scheduling matches the documented priority order. |
 | OPS-06 | ALWAYS ON operator console has no unit | ST-01 | **Open** | ES.2 | `scripts/operations/web-console-server.py` on `127.0.0.1:8099` is part of ALWAYS ON and verified 200 when run by hand, but no systemd unit or timer starts it. Give it a unit or record an approved deviation stating it is operator-run only. |
-| OPS-07 | **One canonical journal root** | ST-01 | **Open** | §16.3, §12.1, §13.3.1 | **Root decided 2026-10-02: `/ALWAYSON/logs/`** (§18.7). §16.3 and §13.3.1 corrected and the `LOGOS-JOURNALS` typo fixed; the 2 766-line operational journal merged and verified identical; five entries that existed nowhere created and given writers; `check-logs-journals.sh` asserts existence and freshness for all 18. **Remaining:** add `logs/` to the restic path set; physically merging the two trees would mean redeploying the *flat* deployed unit copies (§16.1.1) and restarting Gazebo and `ao-build-update`, so it was not done. Retention is item 85; the missing backup timer is item 57. |
+| OPS-07 | **One canonical journal root** | ST-01 | **Open** | §16.3, §12.1, §13.3.1 | **Root decided 2026-10-02: `/ALWAYSON/logs/`** (§16.3). §16.3 and §13.3.1 corrected and the `LOGOS-JOURNALS` typo fixed; the 2 766-line operational journal merged and verified identical; five entries that existed nowhere created and given writers; `check-logs-journals.sh` asserts existence and freshness for all 18. **Remaining:** add `logs/` to the restic path set; physically merging the two trees would mean redeploying the *flat* deployed unit copies (§16.1.1) and restarting Gazebo and `ao-build-update`, so it was not done. Retention is item 85; the missing backup timer is item 57. |
 | OPS-08 | **Executable restore runbook with RPO and RTO** | ST-18 | **Open** | §17.1 | §17.1 is policy only: no restic command sequence, no restore ordering between filesystem and PostgreSQL dumps, no `pg_restore` or role-recreation step, no ownership handling, and no RPO or RTO stated per data class. Write the preflight, snapshot selection, filesystem restore, database restore in dependency order, credential re-provision and hash re-verification steps. |
 | OPS-09 | **Restic path set covers every data class** | ST-18, ST-03 | **Open** | §17.1, §3.3.1, §8.4 | **Done 2026-10-02.** `data/` was excluded and is now in the path set: `data/ardupilot` (2.1 GB), `data/corda-install` (282 MB), plus `sim-fabrication`, `sales`, `mapping`, `field`, `payment`, `ledger`. Snapshot `fb52984b` is the first to include it. Photogrammetry drive still deliberately excluded. **Remaining:** `data/build-update/cache` is excluded as regenerable, and the set should be re-checked whenever a new `data/` class appears. |
 | OPS-10 | **Named backup and restore executors** | ST-18 | **Open** | §16.1, §17.1 | §16.1 lists `scripts/backup/` and `scripts/restore/` as empty directories while ST-18 claims active `ao-restic-backup`, `ao-restic-verify` and dump timers. Name the script paths and the systemd unit and timer names that implement §17.1, and give the seven-step restore test a named executor and cadence. |
 | OPS-11 | **Alerting mechanism and thresholds** | ST-19 | **Open** | §17.2 | §17.2 requires alerts for disk pressure, backup failure, restart loops, unexpected listeners, radio loss, certificate expiry and cross-domain denials, but no alertmanager or notification target is specified anywhere, and ST-19 records no rules or dashboards built. Name the alerting component, the routing target per severity, and a threshold per rule. |
 | OPS-12 | **End-to-end install procedure with rollback** | ST-01 | **Open** | §12.1, §12.3, §12.4, §13.3, §16.1 | **Partly done 2026-10-03:** §12.4 now gives an ordered, staged procedure from a bare Ubuntu 26.04 + KDE + Cline CLI + internet, implemented by `scripts/provision/provision.sh` (dry-run by default). It **delegates** to `scripts/bootstrap/00`, `02`, `03`, `04` rather than repeating them, so the two chains no longer duplicate a package list. **Remaining:** the rollback half is not written - no stage documents how to undo itself non-destructively; `bootstrap/01` photogrammetry verification is not yet gated on §17.3 evidence as §16.1 requires; and a clean-room rebuild has **never been executed**, so the procedure is unproven. |
-| OPS-13 | **Enable and verify linger** | ST-01, ST-24 | **Open** | §12.3, §13.2 | §12.3 checks `loginctl show-user -p Linger` read-only but nothing enables it, while §13.2 requires user-level Quadlet units and wallet-gated services start only after Plasma login. After a reboot every Quadlet unit and every wallet-backed service stays down. Add the enable step, or record an approved §18 deviation stating the host is login-gated by design with the recovery procedure. |
-| OPS-14 | **Reconcile the Podman store model** | ST-01 | **Open** | §13.2, §18 | §13.2 states the system store is unused by any workload while a mixed-store deviation is recorded in §19.2 and §19.1 PLAT-01 still has the runtime designation open. Record the deviation in §18 or remove the claim; the isolation evidence cannot be trusted while the store model disagrees with itself. |
+| OPS-13 | **Enable and verify linger** | ST-01, ST-24 | **Open** | §12.3, §13.2 | §12.3 checks `loginctl show-user -p Linger` read-only but nothing enables it, while §13.2 requires user-level Quadlet units and wallet-gated services start only after Plasma login. After a reboot every Quadlet unit and every wallet-backed service stays down. Add the enable step, or record an approved this document deviation stating the host is login-gated by design with the recovery procedure. |
+| OPS-14 | **Reconcile the Podman store model** | ST-01 | **Open** | §13.2 | §13.2 states the system store is unused by any workload while a mixed-store deviation is recorded in §19.2 and §19.1 PLAT-01 still has the runtime designation open. Record the deviation in this document or remove the claim; the isolation evidence cannot be trusted while the store model disagrees with itself. |
 | OPS-15 | **Re-runnable verification entries** | ST-01 | **Open** | §19.2 | Most rows carry an outcome but no date, no command and no criterion for deciding when to re-run, so the evidence cannot be re-verified. One row claims the backup schedule was automated 2026-08-31 while ST-18 records the renamed timers have not yet fired. Add the command and the date to each check, and re-run the evidence before relying on it. |
 | OPS-16 | **Simulation work leaves stray containers and world backups in the tree** | ST-08 | **Open** | §16.1 | Two debug containers from 2026-10-01 (`vigorous_shannon`, `dreamy_rosalind`, both `--help` probes) still run with no restart policy, and eight `GAZEBO/worlds/factory.world.bak.*` files plus a `topology-v2-viewer.png` sit untracked. Removal is a delete and needs operator approval per README §4.1 rule 3 |
 | OPS-17 | **AppImages and vendor binaries are not installable by the provisioner** | ST-01 | **Open** | §12.4 | `provision.sh` can restore repositories, packages, snaps, flatpak and Quadlet units, but 5 AppImages and several vendor tools (LM Studio, pCloud, nPerf, QGroundControl, Reticulum MeshChatX, cline, bun, pymavlink) have no package source and are listed as manual fetches. A rebuild cannot complete unattended until their download-and-verify steps exist, or the manual list is explicitly accepted as an operator phase. |
@@ -4366,7 +3983,7 @@ requires — it is the order the operator intends to work in.
 
 Read before changing the platform. The repository README, the local working folder, the
 verification evidence, the version matrix, and the issue log are the current state; a change
-that contradicts any of them is either wrong or needs a recorded deviation (§18).
+that contradicts any of them is either wrong or needs a recorded deviation stated beside the requirement it departs from.
 
 ```text
 README.md
