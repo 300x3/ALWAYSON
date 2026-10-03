@@ -299,14 +299,7 @@ collide and a new item never renumbers an existing one.
 <td valign="top"></td>
 <td valign="top"></td>
 </tr>
-<tr>
-<td valign="top"><strong>PLAT</strong></td>
-<td valign="top">Platform, install and runtime</td>
-<td valign="top"></td>
-<td valign="top"><strong>Open</strong></td>
-<td valign="top"></td>
-<td valign="top"></td>
-</tr>
+<tr><td colspan="6" style="background-color:#c9ccd1; border-top:2px solid #8a8f98; border-bottom:1px solid #8a8f98; padding:5px 8px; font-weight:bold; letter-spacing:0.04em;">PLAT · Platform, install and runtime — 4 items, all Open</td></tr>
 <tr>
 <td valign="top">PLAT-01</td>
 <td valign="top"><strong>Mapping runtime designation</strong></td>
@@ -339,14 +332,7 @@ collide and a new item never renumbers an existing one.
 <td valign="top">§12.3</td>
 <td valign="top">The §12.3 verify block prints values without asserting them, and the cgroup check is silent on failure. Add real assertions.</td>
 </tr>
-<tr>
-<td valign="top"><strong>NET</strong></td>
-<td valign="top">Networks, adapters and isolation</td>
-<td valign="top"></td>
-<td valign="top"><strong>Open</strong></td>
-<td valign="top"></td>
-<td valign="top"></td>
-</tr>
+<tr><td colspan="6" style="background-color:#c9ccd1; border-top:2px solid #8a8f98; border-bottom:1px solid #8a8f98; padding:5px 8px; font-weight:bold; letter-spacing:0.04em;">NET · Networks, adapters and isolation — 4 items, all Open</td></tr>
 <tr>
 <td valign="top">NET-01</td>
 <td valign="top"><strong>Controlled ingress/egress adapters</strong></td>
@@ -379,14 +365,7 @@ collide and a new item never renumbers an existing one.
 <td valign="top">§4.3</td>
 <td valign="top">§4.3 was titled "Prohibited Paths" and is cited elsewhere as the prohibition on simulation-to-live paths and as a pair with §4.4, but its body had been replaced by a duplicate of the sale-chain diagram. The list now in §4.3 was rebuilt from prohibitions stated elsewhere in this document and is <strong>not</strong> the operator-approved original. Confirm it is complete and correct, and supply anything that was lost with the misplaced content</td>
 </tr>
-<tr>
-<td valign="top"><strong>SEC</strong></td>
-<td valign="top">Secrets, credentials and identity</td>
-<td valign="top"></td>
-<td valign="top"><strong>Open</strong></td>
-<td valign="top"></td>
-<td valign="top"></td>
-</tr>
+<tr><td colspan="6" style="background-color:#c9ccd1; border-top:2px solid #8a8f98; border-bottom:1px solid #8a8f98; padding:5px 8px; font-weight:bold; letter-spacing:0.04em;">SEC · Secrets, credentials and identity — 3 items, all Open</td></tr>
 <tr>
 <td valign="top">SEC-01</td>
 <td valign="top"><strong>Unattended secret delivery decision</strong></td>
@@ -411,14 +390,7 @@ collide and a new item never renumbers an existing one.
 <td valign="top">§14.1.1</td>
 <td valign="top">§14.1.1 requires rotation, revocation, expiration and recovery to be documented before production use. None exists in §14, §16, §17 or this document. Include a wallet backup and restore procedure that is itself inside the backup set, and a break-glass order for the operator.</td>
 </tr>
-<tr>
-<td valign="top"><strong>LEDGER</strong></td>
-<td valign="top">Ledger, accounting and provenance</td>
-<td valign="top"></td>
-<td valign="top"><strong>Open</strong></td>
-<td valign="top"></td>
-<td valign="top"></td>
-</tr>
+<tr><td colspan="6" style="background-color:#c9ccd1; border-top:2px solid #8a8f98; border-bottom:1px solid #8a8f98; padding:5px 8px; font-weight:bold; letter-spacing:0.04em;">LEDGER · Ledger, accounting and provenance — 7 items, all Open</td></tr>
 <tr>
 <td valign="top">LEDGER-07</td>
 <td valign="top"><strong>Corda node must be built on Corda 5 against <code>cordadb</code></strong></td>
@@ -475,14 +447,7 @@ collide and a new item never renumbers an existing one.
 <td valign="top">§11.1, §11.3, §4.4, §7.2</td>
 <td valign="top">Corda is declared the authoritative ledger of debits and credits and §4.4 requires an accounting report, but §11.3 defines no accounts, no debit/credit entry semantics, no posting rule, no currency handling, and no reconciliation between Corda state and <code>salesdb</code>. §7.2 calls Corda the source of truth for financial ledger information while §11.1 makes PostgreSQL authoritative for source data. Define the model or state that the ledger records references only and accounting is computed in reporting.</td>
 </tr>
-<tr>
-<td valign="top"><strong>PAY</strong></td>
-<td valign="top">Payments, sales and storefront</td>
-<td valign="top"></td>
-<td valign="top"><strong>Open</strong></td>
-<td valign="top"></td>
-<td valign="top"></td>
-</tr>
+<tr><td colspan="6" style="background-color:#c9ccd1; border-top:2px solid #8a8f98; border-bottom:1px solid #8a8f98; padding:5px 8px; font-weight:bold; letter-spacing:0.04em;">PAY · Payments, sales and storefront — 7 items, all Open</td></tr>
 <tr>
 <td valign="top">PAY-01</td>
 <td valign="top">Payment credentials into KDE Wallet <code>ao-payment</code></td>
@@ -539,14 +504,7 @@ collide and a new item never renumbers an existing one.
 <td valign="top">§7.2, §7.3</td>
 <td valign="top">§7.2 records PayPal, Zelle and Coinbase as decided; ST-27 and ES.2 still treat the provider as undecided. State once which providers are in scope now and make every other reference match, so the sales pipeline is not gated on a decision that already exists.</td>
 </tr>
-<tr>
-<td valign="top"><strong>COMM</strong></td>
-<td valign="top">Community, federation and local AI</td>
-<td valign="top"></td>
-<td valign="top"><strong>Open</strong></td>
-<td valign="top"></td>
-<td valign="top"></td>
-</tr>
+<tr><td colspan="6" style="background-color:#c9ccd1; border-top:2px solid #8a8f98; border-bottom:1px solid #8a8f98; padding:5px 8px; font-weight:bold; letter-spacing:0.04em;">COMM · Community, federation and local AI — 7 items, all Open</td></tr>
 <tr>
 <td valign="top">COMM-01</td>
 <td valign="top">Mastodon configuration drift reconciliation</td>
@@ -603,14 +561,7 @@ collide and a new item never renumbers an existing one.
 <td valign="top">§15.4.4 step 10</td>
 <td valign="top">Public-post delivery to <code>mastodon.social</code> and reply/boost round-trips back to the local instance are validated; then <code>300x3.com</code> is submitted to the joinmastodon.org directory. Directory submission is an external publication and requires explicit operator approval.</td>
 </tr>
-<tr>
-<td valign="top"><strong>FIELD</strong></td>
-<td valign="top">Field, radio and drones</td>
-<td valign="top"></td>
-<td valign="top"><strong>Open</strong></td>
-<td valign="top"></td>
-<td valign="top"></td>
-</tr>
+<tr><td colspan="6" style="background-color:#c9ccd1; border-top:2px solid #8a8f98; border-bottom:1px solid #8a8f98; padding:5px 8px; font-weight:bold; letter-spacing:0.04em;">FIELD · Field, radio and drones — 14 items, all Open</td></tr>
 <tr>
 <td valign="top">FIELD-01</td>
 <td valign="top">RF characterization on both bands</td>
@@ -723,14 +674,7 @@ collide and a new item never renumbers an existing one.
 <td valign="top">§9.4</td>
 <td valign="top"><code>config/field/heltec-v3/radio-profile-us915.yaml</code> and <code>config/drone/waveshare-lora/radio-profile-us915.yaml</code> are byte-identical: same sync word <code>0x12</code>, same encryption key ID, same device identity placeholder, and neither declares a frequency. The two radios therefore cannot be told apart on air, which contradicts §9.2.1 and the 915/917 MHz split in §9.1. The profiles also disagree with <code>version-matrix.yaml</code>: profiles say 125 kHz and spreading factor 10, the matrix and §9.2.1 say 250 kHz and spreading factor 7 for <code>DRONE-RADIO</code>. Give each profile its own frequency, sync word, key ID and device identity, reconcile the bandwidth and spreading factor against the matrix, and confirm on air that <code>DRONE-RADIO</code> carries missions only</td>
 </tr>
-<tr>
-<td valign="top"><strong>SIM</strong></td>
-<td valign="top">Simulation and fabrication</td>
-<td valign="top"></td>
-<td valign="top"><strong>Open</strong></td>
-<td valign="top"></td>
-<td valign="top"></td>
-</tr>
+<tr><td colspan="6" style="background-color:#c9ccd1; border-top:2px solid #8a8f98; border-bottom:1px solid #8a8f98; padding:5px 8px; font-weight:bold; letter-spacing:0.04em;">SIM · Simulation and fabrication — 14 items, all Open</td></tr>
 <tr>
 <td valign="top">SIM-01</td>
 <td valign="top">Gazebo GUI clients and DDS policy</td>
@@ -843,14 +787,7 @@ collide and a new item never renumbers an existing one.
 <td valign="top">§10.2.1, §19.1 SIM-05</td>
 <td valign="top"><code>GAZEBO/sim/objects.yaml</code> is a 104-line catalogue that declares the objects live in a non-static <code>rl_objects</code> model, written to for spawn, pose and delete so placement varies without rebuilding the world. <strong>That model does not exist</strong> — <code>factory.world</code> defines no <code>rl_objects</code> model, and <code>/api/objects</code> therefore serves objects Gazebo has never instantiated. §10.2.1 requires them individually addressable, observable and resettable; today they are addressable only in YAML. Closing it means adding the model to the world, which changes <code>factory.world</code> and therefore the signed manifest for <code>factory.world</code></td>
 </tr>
-<tr>
-<td valign="top"><strong>OPS</strong></td>
-<td valign="top">Backup, monitoring, logs and scripts</td>
-<td valign="top"></td>
-<td valign="top"><strong>Open</strong></td>
-<td valign="top"></td>
-<td valign="top"></td>
-</tr>
+<tr><td colspan="6" style="background-color:#c9ccd1; border-top:2px solid #8a8f98; border-bottom:1px solid #8a8f98; padding:5px 8px; font-weight:bold; letter-spacing:0.04em;">OPS · Backup, monitoring, logs and scripts — 34 items, all Open</td></tr>
 <tr>
 <td valign="top">OPS-01</td>
 <td valign="top">Metabase persistence and first read-only query</td>
