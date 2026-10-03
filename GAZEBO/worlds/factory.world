@@ -804,5 +804,153 @@
       </link>
     </model>
 
+    <!-- BEGIN GENERATED: rl_objects (scripts/simulation/build-rl-objects.py) -->
+    <!-- Source of truth: GAZEBO/sim/objects.yaml (schema 1.0).
+         9 objects in 3 groups, plus 2 actors.
+         Non-static so placement varies without touching factory_assets. -->
+    <model name="rl_objects">
+      <static>false</static>
+      <pose>0 0 0 0 0 0</pose>
+      <!-- group: marked-parts - Marked parts (inspection tasks) -->
+      <link name="part_a1">
+        <pose>6.2 2.1 0.8 0 0 0</pose>
+        <!-- id=part-a1 class=marked_part home_pose=6.2 2.1 0.8 0 0 0 -->
+        <visual name="visual">
+          <geometry><box><size>0.12 0.12 0.06</size></box></geometry>
+          <material><ambient>0.850 0.150 0.150 1.000</ambient><diffuse>0.850 0.150 0.150 1.000</diffuse></material>
+        </visual>
+        <collision name="collision">
+          <geometry><box><size>0.12 0.12 0.06</size></box></geometry>
+        </collision>
+        <inertial>
+          <mass>1.2</mass>
+          <inertia><ixx>0.001800</ixx><iyy>0.001800</iyy><izz>0.002880</izz><ixy>0</ixy><ixz>0</ixz><iyz>0</iyz></inertia>
+        </inertial>
+      </link>
+      <link name="part_a2">
+        <pose>6.55 2.1 0.8 0 0 0</pose>
+        <!-- id=part-a2 class=marked_part home_pose=6.55 2.1 0.8 0 0 0 -->
+        <visual name="visual">
+          <geometry><box><size>0.12 0.12 0.06</size></box></geometry>
+          <material><ambient>0.850 0.150 0.150 1.000</ambient><diffuse>0.850 0.150 0.150 1.000</diffuse></material>
+        </visual>
+        <collision name="collision">
+          <geometry><box><size>0.12 0.12 0.06</size></box></geometry>
+        </collision>
+        <inertial>
+          <mass>1.2</mass>
+          <inertia><ixx>0.001800</ixx><iyy>0.001800</iyy><izz>0.002880</izz><ixy>0</ixy><ixz>0</ixz><iyz>0</iyz></inertia>
+        </inertial>
+      </link>
+      <link name="part_a3">
+        <pose>6.2 2.5 0.8 0 0 0</pose>
+        <!-- id=part-a3 class=marked_part home_pose=6.2 2.5 0.8 0 0 0 -->
+        <visual name="visual">
+          <geometry><box><size>0.12 0.12 0.06</size></box></geometry>
+          <material><ambient>0.850 0.150 0.150 1.000</ambient><diffuse>0.850 0.150 0.150 1.000</diffuse></material>
+        </visual>
+        <collision name="collision">
+          <geometry><box><size>0.12 0.12 0.06</size></box></geometry>
+        </collision>
+        <inertial>
+          <mass>1.2</mass>
+          <inertia><ixx>0.001800</ixx><iyy>0.001800</iyy><izz>0.002880</izz><ixy>0</ixy><ixz>0</ixz><iyz>0</iyz></inertia>
+        </inertial>
+      </link>
+      <!-- group: stock-items - Stock items (kitchen / storage) -->
+      <link name="stock_s1">
+        <pose>2.4 0.6 0.35 0 0 0</pose>
+        <!-- id=stock-s1 class=stock_item home_pose=2.4 0.6 0.35 0 0 0 -->
+        <visual name="visual">
+          <geometry><box><size>0.4 0.3 0.25</size></box></geometry>
+          <material><ambient>0.200 0.450 0.800 1.000</ambient><diffuse>0.200 0.450 0.800 1.000</diffuse></material>
+        </visual>
+        <collision name="collision">
+          <geometry><box><size>0.4 0.3 0.25</size></box></geometry>
+        </collision>
+        <inertial>
+          <mass>4.0</mass>
+          <inertia><ixx>0.050833</ixx><iyy>0.074167</iyy><izz>0.083333</izz><ixy>0</ixy><ixz>0</ixz><iyz>0</iyz></inertia>
+        </inertial>
+      </link>
+      <link name="stock_s2">
+        <pose>3.2 0.6 0.35 0 0 0</pose>
+        <!-- id=stock-s2 class=stock_item home_pose=3.2 0.6 0.35 0 0 0 -->
+        <visual name="visual">
+          <geometry><box><size>0.4 0.3 0.25</size></box></geometry>
+          <material><ambient>0.200 0.450 0.800 1.000</ambient><diffuse>0.200 0.450 0.800 1.000</diffuse></material>
+        </visual>
+        <collision name="collision">
+          <geometry><box><size>0.4 0.3 0.25</size></box></geometry>
+        </collision>
+        <inertial>
+          <mass>4.0</mass>
+          <inertia><ixx>0.050833</ixx><iyy>0.074167</iyy><izz>0.083333</izz><ixy>0</ixy><ixz>0</ixz><iyz>0</iyz></inertia>
+        </inertial>
+      </link>
+      <link name="stock_s3">
+        <pose>4 0.6 0.35 0 0 0</pose>
+        <!-- id=stock-s3 class=stock_item home_pose=4 0.6 0.35 0 0 0 -->
+        <visual name="visual">
+          <geometry><box><size>0.4 0.3 0.25</size></box></geometry>
+          <material><ambient>0.200 0.450 0.800 1.000</ambient><diffuse>0.200 0.450 0.800 1.000</diffuse></material>
+        </visual>
+        <collision name="collision">
+          <geometry><box><size>0.4 0.3 0.25</size></box></geometry>
+        </collision>
+        <inertial>
+          <mass>4.0</mass>
+          <inertia><ixx>0.050833</ixx><iyy>0.074167</iyy><izz>0.083333</izz><ixy>0</ixy><ixz>0</ixz><iyz>0</iyz></inertia>
+        </inertial>
+      </link>
+      <!-- group: task-targets - Task targets (goal markers) -->
+      <link name="target_bin_a">
+        <pose>1.8 1.2 0.25 0 0 0</pose>
+        <!-- id=target-bin-a class=task_target home_pose=1.8 1.2 0.25 0 0 0 -->
+        <visual name="visual">
+          <geometry><box><size>0.3 0.3 0.4</size></box></geometry>
+          <material><ambient>0.100 0.700 0.350 1.000</ambient><diffuse>0.100 0.700 0.350 1.000</diffuse></material>
+        </visual>
+        <collision name="collision">
+          <geometry><box><size>0.3 0.3 0.4</size></box></geometry>
+        </collision>
+        <inertial>
+          <mass>1.0</mass>
+          <inertia><ixx>0.020833</ixx><iyy>0.020833</iyy><izz>0.015000</izz><ixy>0</ixy><ixz>0</ixz><iyz>0</iyz></inertia>
+        </inertial>
+      </link>
+      <link name="target_bin_b">
+        <pose>1.8 1.9 0.25 0 0 0</pose>
+        <!-- id=target-bin-b class=task_target home_pose=1.8 1.9 0.25 0 0 0 -->
+        <visual name="visual">
+          <geometry><box><size>0.3 0.3 0.4</size></box></geometry>
+          <material><ambient>0.100 0.700 0.350 1.000</ambient><diffuse>0.100 0.700 0.350 1.000</diffuse></material>
+        </visual>
+        <collision name="collision">
+          <geometry><box><size>0.3 0.3 0.4</size></box></geometry>
+        </collision>
+        <inertial>
+          <mass>1.0</mass>
+          <inertia><ixx>0.020833</ixx><iyy>0.020833</iyy><izz>0.015000</izz><ixy>0</ixy><ixz>0</ixz><iyz>0</iyz></inertia>
+        </inertial>
+      </link>
+      <link name="target_shelf">
+        <pose>5 0.6 0.6 0 0 0</pose>
+        <!-- id=target-shelf class=task_target home_pose=5 0.6 0.6 0 0 0 -->
+        <visual name="visual">
+          <geometry><box><size>0.5 0.4 0.1</size></box></geometry>
+          <material><ambient>0.100 0.700 0.350 1.000</ambient><diffuse>0.100 0.700 0.350 1.000</diffuse></material>
+        </visual>
+        <collision name="collision">
+          <geometry><box><size>0.5 0.4 0.1</size></box></geometry>
+        </collision>
+        <inertial>
+          <mass>1.0</mass>
+          <inertia><ixx>0.014167</ixx><iyy>0.021667</iyy><izz>0.034167</izz><ixy>0</ixy><ixz>0</ixz><iyz>0</iyz></inertia>
+        </inertial>
+      </link>
+    </model>
+    <!-- END GENERATED: rl_objects -->
+
 </world>
 </sdf>

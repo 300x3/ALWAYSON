@@ -128,15 +128,39 @@ def boning_summary() -> dict:
     }
 
 
+def present_in_world(ids) -> dict:
+    """Which catalogued object ids actually exist as links in the world.
+
+    objects.yaml is a catalogue; factory.world is what Gazebo loaded. Until the
+    rl_objects model was generated from the catalogue the two disagreed, and
+    /api/objects reported objects that had never been instantiated. This
+    reports the truth so a consumer can tell catalogue from simulation.
+    """
+    present = set()
+    try:
+        with open(WORLD) as fh:
+            for line in fh:
+                t = line.strip()
+                if t.startswith('<link name="') and 'id=' not in t:
+                    present.add(t.split('"')[1])
+    except OSError:
+        return {"known": False}
+    return {"known": True,
+            "present": sum(1 for i in ids if i.replace("-", "_") in present),
+            "missing": [i for i in ids if i.replace("-", "_") not in present]}
+
+
 def objects_summary() -> dict:
     d = load_yaml(OBJECTS)
     if "error" in d:
         return d
     groups = []
     total = 0
+    all_ids = []
     for g in d.get("groups", []):
         objs = g.get("objects", [])
         total += len(objs)
+        all_ids.extend(o.get("id") for o in objs)
         groups.append({
             "id": g.get("id"),
             "name": g.get("name"),
@@ -161,6 +185,7 @@ def objects_summary() -> dict:
         "groups": groups,
         "actors": d.get("actors", []),
         "observable_from": (d.get("defaults") or {}).get("observable_from", []),
+        "in_world": present_in_world(all_ids),
     }
 
 
