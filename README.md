@@ -636,52 +636,38 @@ controls and should be used together for provenance-bearing artifacts.
 
 ## 5.1 Combined Domain, Adapter, Component, and GUI Matrix
 
-**This is the single table for network domains, controlled ingress and egress adapters,
-component boundaries, and GUI/workflow attachment.** A component's domain, its inputs, its
-outputs, its data, and its exposure are read from one row. The gray bars separate the four
-groups: **A** workload domains, **B** controlled ingress and egress adapters, **C** the
-component boundary matrix, and **D** the GUI and workflow attachment map. Status is not
+The single table for network domains, controlled adapters, component boundaries, and GUI
+attachment. A component's domain, inputs, outputs, data and exposure are read from one row.
+Gray bars separate the four groups: **A** workload domains, **B** controlled ingress and
+egress adapters, **C** component boundaries, **D** GUI and workflow attachment. Status is not
 stated here — it is in §19.1.
 
-**Attachment rule (applies to every row in group D).** Each GUI or workflow is attached to
-exactly **one** owning `ao-*` network and is denied attachment to all the others. The
-denied set is always the complement of the owning network, so it is not repeated per row.
-Read-only access to a second network is permitted **only** where the approved access path
-says so explicitly, and never as a broad membership.
+**Rules that govern every row.**
 
-An **associated domain** identifies the operator workflow a tool serves. It does not grant
-broad Podman-network membership, database access, host access, shared storage, shared
-credentials, or cross-domain control. A host desktop application, host browser, or
-external provider dashboard has no Podman network attachment unless it is itself containerized
-on that network.
+- **One network per component.** Each service and each GUI or workflow is attached to exactly
+  one owning `ao-*` network and is denied all the others. The denied set is the complement of
+  the owning network, so it is not repeated per row. A second network is permitted only where
+  the approved access path says so explicitly, never as a broad membership.
+- **An associated domain is not a grant.** Naming the workflow a tool serves confers no
+  Podman-network membership, database access, host access, shared storage, shared
+  credentials, or cross-domain control.
+- **Host applications have no attachment.** A desktop application, browser or external
+  provider dashboard has no Podman network attachment unless it is itself containerized on
+  that network.
+- **`ao-admin` is the administration plane.** It hosts Grafana, Metabase and narrowly
+  authorised administration tools. It is not a shared universal network. `ao-data` is narrow
+  controlled data plumbing, not a default GUI, shared-database or reporting network.
+- **External connectivity exists only through group B.** These adapters are architecture-
+  controlled exceptions, not general-purpose internet access. No sales, mapping, field,
+  simulation, database, AI or ledger-core container may attach to an internet-capable network.
+  An adapter must use separate credentials, a destination allowlist, validated DNS/TLS,
+  firewall policy, minimal permissions and connection logging.
+- **No workload service gets unrestricted internet by joining its application network.**
 
-`ao-admin` is the protected administration, monitoring, and reporting plane. It may host
-Grafana for stable dashboards and metrics, Metabase for ad-hoc reporting, and narrowly authorized
-administration tools. It must not become a shared universal network. `ao-data` remains
-narrow controlled data plumbing, not a default GUI, shared-database, or reporting network.
-
-All workload-domain networks are `Internal=true` except `ao-sales`, which is non-internal so Sidekiq can deliver ActivityPub. CIDRs are recorded in:
-
-```text
-/ALWAYSON/config/platform/network-cidrs.yaml
-```
-
-No workload service may receive unrestricted Internet access simply by joining its
-application-domain network.
-
-External connectivity is allowed only through the narrowly scoped, independently reviewed
-adapters in group B. These adapters are architecture-controlled exceptions, not
-general-purpose Internet access. No sales, mapping, field, simulation, database, AI, or
-ledger-core container may attach directly to an Internet-capable network. An external
-adapter must use separate credentials, destination allowlists, validated DNS/TLS,
-firewall policy, minimal permissions, and connection logging.
-
-**There is no separate community egress network.** The Mastodon/community publication and
-federation work is located inside `ao-sales`, which keeps the Mastodon web,
-Sidekiq, and streaming containers together on the sales network and gives Sidekiq
-the outbound route it needs for ActivityPub delivery. A separate community
-adapter network is therefore not required and is not part of the design. This is
-recorded as group C row "Community publication".
+CIDRs and the `Internal` flag for every network are in
+`/ALWAYSON/config/platform/network-cidrs.yaml`, which is the only authority (§2.2). Community
+publication and federation are carried inside `ao-sales`; there is no separate community egress
+network.
 
 <table>
 <thead>
@@ -712,7 +698,7 @@ recorded as group C row "Community publication".
 
 <tr><td colspan="7" style="background-color:#c9ccd1; border-top:2px solid #8a8f98; border-bottom:1px solid #8a8f98; padding:5px 8px; font-weight:bold; letter-spacing:0.04em;">B · CONTROLLED INGRESS AND EGRESS ADAPTERS — architecture-controlled exceptions, not general-purpose Internet access</td></tr>
 <tr><td><code>ao-ingress-payment</code></td><td><code>ao-payment</code></td><td><strong>Payment verification for Zelle, PayPal, and Coinbase.</strong> Receives the provider webhook or approved relay event, verifies the signature, normalizes it, and emits the verified payment event. Also carries the website path: email &gt; PDF &gt; Corda processing. <strong>Deployable</strong></td><td>Verified normalized payment event</td><td>Minimal event and audit record</td><td>Inbound only. Minimal listener, provider-signature verification, rate limits, audit log, normalized event output</td><td>ST-12</td></tr>
-<tr><td><code>ao-egress-archive</code></td><td><code>ao-sales</code> (sale-transfer duty)</td><td><strong>ARCHIVED FOR DATA TRANSFER AND SALE &mdash; this is not a backup.</strong> Holds a sold package so it can be <em>transferred</em> to the authorised recipient. IPFS provides file-transfer verification and, where applicable, a blockchain sales listing; encrypted pCloud replication is the second copy. <strong>Requires <code>ao-sales</code> authorisation first</strong> — it is not reached directly from the internet. "Data sales": maps and telemetry/IoT products, not application databases. No restore, no recovery, no retention duty: <strong>restic (§17.1) is the backup</strong>. <strong>Deployable</strong></td><td>Approved encrypted transfer bundle; post-sale IPFS transfer; encrypted pCloud transfer copy</td><td>Staging and transfer log; no backup set, no retention record</td><td>Outbound only, and only after <code>ao-sales</code> authorisation. Destination allowlist, TLS validation, encrypted payloads, separate credentials, transfer audit</td></tr>
+<tr><td><code>ao-egress-archive</code></td><td><code>ao-sales</code> (sale-transfer duty)</td><td><strong>ARCHIVED FOR DATA TRANSFER AND SALE &mdash; this is not a backup.</strong> Holds a sold package so it can be <em>transferred</em> to the authorised recipient. IPFS provides file-transfer verification and, where applicable, a blockchain sales listing; encrypted pCloud replication is the second copy. <strong>Requires <code>ao-sales</code> authorisation first</strong> — it is not reached directly from the internet. "Data sales": maps and telemetry/IoT products, not application databases. No restore, no recovery, no retention duty: <strong>restic (§17.1) is the backup</strong>. <strong>Deployable</strong></td><td>Approved encrypted transfer bundle; post-sale IPFS transfer; encrypted pCloud transfer copy</td><td>Staging and transfer log; no backup set, no retention record</td><td>Outbound only, and only after <code>ao-sales</code> authorisation. Destination allowlist, TLS validation, encrypted payloads, separate credentials, transfer audit</td><td>ST-17</td></tr>
 <tr><td><code>ao-build-update</code></td><td><code>ao-build-update</code> (10.89.13.0/24, <code>Internal=false</code>)</td><td><strong>Software updates only — all host software.</strong> Image and package acquisition from the upstream software source (package and container registries) before controlled promotion. <strong>It does not touch WebODM or imagery</strong>: all photo processing and verification belongs to <code>ao-mapping</code>. <strong>Scaffolded and deployed, not enabled</strong> (§5.2.1)</td><td>Verified image and package set</td><td>Update audit log</td><td>Outbound only, on its own dedicated egress network. Verified source, digest capture, update audit, no direct workload attachment, and no promotion authority</td><td>ST-01</td></tr>
 
 <tr><td colspan="7" style="background-color:#c9ccd1; border-top:2px solid #8a8f98; border-bottom:1px solid #8a8f98; padding:5px 8px; font-weight:bold; letter-spacing:0.04em;">C · COMPONENT BOUNDARY MATRIX — what each component may accept, emit, store, and reach</td></tr>
@@ -723,7 +709,7 @@ recorded as group C row "Community publication".
 <tr><td>Field gateway</td><td><code>ao-field</code></td><td>USB serial LoRa frames</td><td>Normalized telemetry manifest</td><td>Raw packet store and telemetry spool</td><td>USB serial and radio only</td><td>ST-04, ST-22</td></tr>
 <tr><td>Vehicle simulator</td><td><code>ao-sim-vehicle</code></td><td>Approved scenario/model artifact</td><td>Signed simulation manifest</td><td>Vehicle simulation data path</td><td>None directly</td><td>ST-07</td></tr>
 <tr><td>Fabrication simulator</td><td><code>ao-sim-fabrication</code></td><td>Approved facility/task model</td><td>Signed simulation manifest</td><td>Fabrication simulation data path</td><td>None directly</td><td>ST-08</td></tr>
-<tr><td>Real fabrication collector</td><td><code>ao-fabrication</code></td>Per-machine production data polled from each machine's own MainsailOS / Moonraker / Klipper</td><td>Signed fabrication manifest; fabrication optimisation reports</td><td>Per-machine production data in <code>a_fab</code></td>None directly. Reaches machines only over the local equipment switch, never as a simulator.</td>
+<tr><td>Real fabrication collector</td><td><code>ao-fabrication</code></td><td>Per-machine production data polled from each machine's own MainsailOS / Moonraker / Klipper</td><td>Signed fabrication manifest; fabrication optimisation reports</td><td>Per-machine production data in <code>a_fab</code></td><td>None directly. Reaches machines only over the local equipment switch, never as a simulator.</td><td>ST-30</td></tr>
 <tr><td>Ledger ingestion</td><td><code>ao-ledger-ingest</code></td><td>Signed mTLS manifests</td><td>Receipt/status response</td><td>Audit and idempotency state</td><td>Only to ledger core</td><td>ST-10</td></tr>
 <tr><td>Ledger core</td><td><code>ao-ledger-core</code></td><td>Ledger-ingestion gateway requests only</td><td>No direct public output</td><td>Corda state and PKI</td><td>None directly</td><td>ST-09</td></tr>
 <tr><td>Archive adapter</td><td><code>ao-egress-archive</code></td><td>Approved encrypted archive bundle</td><td>Replication result/status</td><td>Staging and transfer log</td><td>Outbound only</td><td>ST-17</td></tr>
