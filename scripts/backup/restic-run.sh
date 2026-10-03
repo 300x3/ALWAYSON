@@ -22,7 +22,12 @@ if [[ ! -f "$envfile" ]]; then
   # in the backup journal.
   trap 'rc=$?; if (( rc != 0 )); then ao_backup_run none FAILED "restic backup aborted with exit code $rc"; fi; rm -f "$cleanup_envfile"' EXIT
 fi
-ao_run bash -c "set -a && source '$envfile' && restic backup '$AO_ROOT/config' '$AO_ROOT/artifacts' '$AO_ROOT/backups/postgres' '/media/scottw/500GBPHOTOGRAM/manifests' --tag alwayson"
+# data/ was NOT covered here. That is where the bulk of the persistent state
+# lives: data/ardupilot is 2.1G across ~30k files and data/corda-install is
+# 282M. A restore from this set would bring back configuration but no
+# operational data. The photogrammetry drive is excluded deliberately - it is
+# the physical media, not a backup target.
+ao_run bash -c "set -a && source '$envfile' && restic backup '$AO_ROOT/config' '$AO_ROOT/artifacts' '$AO_ROOT/backups/postgres' '$AO_ROOT/data/ardupilot' '$AO_ROOT/data/corda-install' '$AO_ROOT/data/sim-fabrication' '$AO_ROOT/data/sales' '$AO_ROOT/data/mapping' '$AO_ROOT/data/field' '$AO_ROOT/data/payment' '$AO_ROOT/data/ledger' --tag alwayson"
 if (( AO_DRY_RUN )); then
   # A dry run backs nothing up, so it is not a backup run and must not be
   # recorded as one in the README 16.3 backup journal.

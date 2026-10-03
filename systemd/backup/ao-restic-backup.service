@@ -1,0 +1,10 @@
+[Unit]
+Description=ALWAYS ON nightly restic backup of approved paths
+[Service]
+Type=oneshot
+# The wallet-authorised secret is cached by ao-restic-prefetch.service, which
+# runs in the user session because KWallet lives there. The backup itself needs
+# no wallet session and no authorisation prompt: it reads this cached file.
+Environment=RESTIC_ENV_FILE=/run/user/1000/ao-restic.env
+ExecStart=/ALWAYSON/scripts/backup/restic-run.sh
+TimeoutStartSec=7200

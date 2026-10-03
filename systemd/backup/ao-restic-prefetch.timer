@@ -1,0 +1,13 @@
+# Re-cache at every login so the nightly root timer always finds a fresh file.
+[Unit]
+Description=ALWAYS ON re-cache restic credential at login and nightly
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=12h
+# Re-run after the machine was off at the time a cache would have expired.
+Persistent=true
+Unit=ao-restic-prefetch.service
+
+[Install]
+WantedBy=timers.target

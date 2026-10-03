@@ -1,0 +1,36 @@
+# ALWAYS ON - materialise the restic repository secret from the KDE Wallet.
+#
+# WHY: ao-restic-backup.service is a SYSTEM unit and runs as root, but KWallet
+# lives in the user session, so root cannot reach it. restic-run.sh refuses root
+# and exits 3 without a prefetched env file. The nightly backup therefore failed
+# on 30 Sep, 1 Oct and 2 Oct with "requires RESTIC_ENV_FILE from the operator
+# wallet session", and the repository stayed empty.
+#
+# WHAT THIS DOES: the operator has already authorised the backup in the wallet.
+# This unit reads the authorised secret ONCE per boot or login and caches it as
+# a root-readable file, after which the backup is fully unattended and the
+# wallet can be closed. No authorisation prompt is presented at backup time,
+# because none is needed: the authorisation is the act of running this unit.
+#
+# This is the same login-gating the wallet-backed payment services already have
+# (README 19.2 item 63). It is inherent to KWallet, not a choice.
+[Unit]
+Description=ALWAYS ON cache restic credential from the authorised KDE Wallet
+Documentation=man:kwallet-query(1)
+After=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+Type=oneshot
+# This unit runs as the USER, because that is the only context where the KWallet
+# daemon exists. It therefore cannot write root-owned /run/alwayson. It writes to
+# the user runtime dir, which root can still read, and the backup unit is told
+# where to look via Environment=RESTIC_ENV_FILE.
+#
+# The path names uid 1000 explicitly because %t does NOT work here: this is a
+# system unit for the backup, where %t expands to /run, not /run/user/1000. If
+# the operator account's uid ever changes, both units must change together.
+ExecStart=/ALWAYSON/scripts/operations/fetch-restic-env.sh /run/user/1000/ao-restic.env
+# This file IS a secret. Root-owned 0600, in tmpfs so it never touches disk and
+# never reaches Git.
+UMask=0077

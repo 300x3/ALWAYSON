@@ -3661,15 +3661,38 @@ Logs are classified per §4.2 and are never a place to record secrets.
 **Target policy: 3-2-1** — three copies, two media types, and one off-host or
 off-site copy.
 
-**Current state, stated plainly (2026-09-30): the off-site copy does not exist
-yet.** The operator has decided backups stay local via restic for now, with a
-dedicated pCloud folder to follow once off-site backup is set up. Until then the
-strategy in force is local-only, not 3-2-1:
+**Current state, corrected 2026-10-03: the local backup had never run at all, and the
+off-site copy still does not exist.** Until this was measured, section 17 and section 20
+both implied a working backup. It was not working:
+
+* `ao-restic-backup.timer` fired on schedule but **failed every night** — 30 Sep, 1 Oct and
+  2 Oct all exited `status=3/NOTIMPLEMENTED` with `root restic execution requires
+  RESTIC_ENV_FILE from the operator wallet session`. The repository
+  `/var/backups/alwayson-restic` is 4 KB: **no snapshot has ever been created.**
+* **Cause:** the backup is a *system* unit and runs as root, but the restic repository
+  password lives in the KDE Wallet, which only exists in the user session. Root cannot
+  reach it, and nothing was ever prefetching the secret. A timer that fires is not a
+  timer that succeeds — `systemctl list-timers` showed it as healthy throughout.
+* **Fix (2026-10-03):** `ao-restic-prefetch.service`/`.timer` now runs **in the user
+  session**, reads the already-authorised wallet entry `ao-admin/restic-repository-password`
+  once per boot and every 12 hours, and caches it to `/run/user/1000/ao-restic.env`
+  (tmpfs, root-readable, 0600, never in Git). The root backup then runs **fully unattended
+  with no authorisation prompt** — the authorisation *is* running the prefetch. The wallet
+  can be closed afterwards.
+* **Coverage fixed:** `data/` was not backed up at all. It is now included —
+  `data/ardupilot` (2.1 GB, ~30k files), `data/corda-install` (282 MB), plus
+  `sim-fabrication`, `sales`, `mapping`, `field`, `payment`, `ledger`. The photogrammetry
+  drive remains excluded: it is the physical media, not a backup target.
+* **Still outstanding:** the units were previously untracked in `/etc/systemd/system`, so a
+  rebuild silently lost the backup schedule. They are now version-controlled under
+  `systemd/backup/` and deployed by provisioner stage 55, which is the one stage requiring
+  sudo. **No snapshot has yet been taken or restore-tested** — until a restore drill passes,
+  "backups configured" is still an unverified claim (see §19.2 item 66).
 
 | Copy | Where | State |
 |---|---|---|
 | Primary | live system | yes |
-| Backup | restic repository `/var/backups/alwayson-restic` | yes, **on this same host** |
+| Backup | restic repository `/var/backups/alwayson-restic` | **was never populated; fix in place, first snapshot still pending** |
 | Off-site | pCloud | folder `ALWAYSON-RESTIC2PCLOUD` at the pCloud account root; restic is configured to write to it (§19.2) |
 
 Two consequences to be aware of. First, the restic repository is on the same
@@ -4313,6 +4336,8 @@ detail lives here and only here. Completed work is not listed — it is evidence
 
 | 84 | **Install the logrotate policy** | ST-01 | §16.3 | `config/host/logrotate-alwayson.conf` is staged and syntax-checked but **not installed**: `/etc/logrotate.d/` needs root and `pkexec` would raise a GUI prompt unattended. Install it, then confirm one rotation actually occurs. Overhead is not the obstacle — a full system pass measured 0.008s and `logrotate.timer` runs once daily. Compression is deliberately omitted because it is the only step that reads whole files. Until installed, nothing in `logs/` is rotated and `sim-gz-server.log` grows continuously. |
 | 85 | **Retention for the log subdirectories and for journald** | ST-01 | §16.3, §17.2 | Item 84 covers the top-level `*.log` files only. The subdirectories (`operations/`, `gpu-runtime/`, `backup/`, `installation/`) hold per-operation audit records that must not simply be truncated, and have no retention at all. Separately, `journalctl --disk-usage` reports 4 GB with no explicit `SystemMaxUse`, so journald is on its built-in default while carrying 32 of 33 units. State a retention period per subdirectory and an explicit journald cap. |
+
+| 81 | **Restore drill for the restic backup** | ST-18 | §17.1, §20 | The local backup was found on 2026-10-03 to have never run: the timer fired but exited 3 every night since at least 30 Sep and the repository was empty. The wallet-cache fix and `data/` coverage are now in place, but **nothing has been snapshotted or restore-tested**. Prove it: take a snapshot, restore it to a scratch location, and diff against the live tree. Until a restore drill passes, "backups configured" is an unverified claim. Also confirm whether the repo should stay on the same filesystem as the data - §17.1 records that it is, which cannot survive loss of the host. |
 
 ## 19.3 Completed items
 

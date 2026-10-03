@@ -127,6 +127,25 @@ stage_quadlet() {
   done
 }
 
+# ---- 55: backup schedule -----------------------------------------------
+# The restic units used to live ONLY in /etc/systemd/system, untracked by the
+# repository, so a rebuild silently lost the backup schedule. They are now
+# version-controlled under systemd/backup/ and deployed from here.
+stage_backup() {
+  say "--- stage 55: restic backup units (from systemd/backup/)"
+  n=0
+  for f in "$AO_ROOT"/systemd/backup/*.service "$AO_ROOT"/systemd/backup/*.timer; do
+    [ -f "$f" ] || continue
+    n=$((n+1))
+    run 55 "sudo install -m 0644 -o root -g root '$f' /etc/systemd/system/$(basename "$f")"
+  done
+  say "  $n unit files. Requires sudo: this stage is the one part of the"
+  say "  provisioner that cannot run unprivileged."
+  run 55 "sudo systemctl --user daemon-reload && sudo systemctl --user enable --now ao-restic-prefetch.timer ao-restic-backup.timer ao-restic-verify.timer"
+  say "  ao-restic-prefetch caches the wallet-authorised secret to"
+  say "  /run/alwayson/restic.env so the ROOT backup needs no wallet session."
+}
+
 # ---- 60: secrets --------------------------------------------------------
 # Refuses to continue. Never prints or writes a value.
 required_secrets() {
@@ -181,6 +200,7 @@ stage_verify() {
 main() {
   say ""; stage_repos; stage_deps; stage_snaps; stage_host_apps
   stage_quadlet
+  stage_backup
   say ""; stage_secrets || say "  WARNING: secrets missing - services will not start."
   stage_data; stage_verify
   say ""; say "provision complete. log: $LOG"

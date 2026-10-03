@@ -1,0 +1,6 @@
+[Unit]
+Description=ALWAYS ON weekly restic repository integrity check
+[Service]
+Type=oneshot
+ExecStart=/ALWAYSON/scripts/backup/verify-backup.sh
+TimeoutStartSec=7200
