@@ -1,0 +1,280 @@
+# 5. Network Domains and Controlled External Access
+
+## 5.1 Combined Domain, Adapter, Component, and GUI Matrix
+
+The single table for network domains, controlled adapters, component boundaries, and GUI
+attachment. A component's domain, inputs, outputs, data and exposure are read from one row.
+Gray bars separate the four groups: **A** workload domains, **B** controlled ingress and
+egress adapters, **C** component boundaries, **D** GUI and workflow attachment. Status is not
+stated here — it is in §19.1.
+
+**Rules that govern every row.**
+
+- **One network per component.** Each service and each GUI or workflow is attached to exactly
+  one owning `ao-*` network and is denied all the others. The denied set is the complement of
+  the owning network, so it is not repeated per row. A second network is permitted only where
+  the approved access path says so explicitly, never as a broad membership.
+- **An associated domain is not a grant.** Naming the workflow a tool serves confers no
+  Podman-network membership, database access, host access, shared storage, shared
+  credentials, or cross-domain control.
+- **Host applications have no attachment.** A desktop application, browser or external
+  provider dashboard has no Podman network attachment unless it is itself containerized on
+  that network.
+- **`ao-admin` is the administration plane.** It hosts Grafana, Metabase and narrowly
+  authorised administration tools. It is not a shared universal network. `ao-data` is narrow
+  controlled data plumbing, not a default GUI, shared-database or reporting network.
+- **External connectivity exists only through group B.** These adapters are architecture-
+  controlled exceptions, not general-purpose internet access. No sales, mapping, field,
+  simulation, database, AI or ledger-core container may attach to an internet-capable network.
+  An adapter must use separate credentials, a destination allowlist, validated DNS/TLS,
+  firewall policy, minimal permissions and connection logging.
+- **No workload service gets unrestricted internet by joining its application network.**
+
+CIDRs and the `Internal` flag for every network are in
+`/ALWAYSON/config/platform/network-cidrs.yaml`, which is the only authority (§2.2). Community
+publication and federation are carried inside `ao-sales`; there is no separate community egress
+network.
+
+<table>
+<thead>
+<tr>
+<th align="left">Item</th>
+<th align="left">Owning domain / network</th>
+<th align="left">Purpose, inputs accepted, or approved access path</th>
+<th align="left">Outputs allowed / permitted output</th>
+<th align="left">Persistent data</th>
+<th align="left">External connectivity / public exposure</th>
+</tr>
+</thead>
+<tbody>
+
+<tr><td colspan="6" style="background-color:#c9ccd1; border-top:2px solid #8a8f98; border-bottom:1px solid #8a8f98; padding:5px 8px; font-weight:bold; letter-spacing:0.04em;">A · WORKLOAD DOMAINS — every row is an <code>Internal=true</code> Podman network except <code>ao-sales</code>; CIDRs in <code>/ALWAYSON/config/platform/network-cidrs.yaml</code></td></tr>
+<tr><td><code>ao-sales</code></td><td><code>ao-sales</code></td><td>Coordinates social media, email, and Mastodon; the AI bot and chat (OpenClaw/LM Studio); and the order-request and receipt workflows, including the public PDF intake forms and PDF output. The only domain that touches customers directly.</td><td>Signed order, receipt, and entitlement manifests; standardized PDF intake and PDF output; published federation and chat posts</td><td>Sales PostgreSQL</td><td>The public PDF intake forms are the exposure point; Mastodon/chat arrive via the Cloudflare Tunnel to loopback origins</td></tr>
+<tr><td><code>ao-payment</code></td><td><code>ao-payment</code></td><td>Provider webhook verifier and payment adapter</td><td>Verified normalized payment state</td><td>Minimal event and audit record</td><td>No direct public exposure</td></tr>
+<tr><td><code>ao-field</code></td><td><code>ao-field</code></td><td>Heltec gateway, RNS/MeshChatX, telemetry spool, mission-release service</td><td>Signed telemetry and mission manifests</td><td>Raw packet store and telemetry spool</td><td>No direct public exposure; USB serial and radio only</td></tr>
+<tr><td><code>ao-mapping</code></td><td><code>ao-mapping</code></td><td>WebODM, NodeODM, Redis, mapping DB, imagery intake/exporter</td><td>Signed mapping deliverable manifests</td><td>Dedicated photogrammetry volume</td><td><strong>No direct operator/VPN access.</strong> Input is 100% by drone and automated WebODM processing</td></tr>
+<tr><td><code>ao-sim-vehicle</code></td><td><code>ao-sim-vehicle</code></td><td>ROS 2, Gazebo, ArduPilot SITL, MAVLink, QGroundControl simulation</td><td>Signed vehicle-simulation manifests</td><td>Vehicle simulation data path</td><td>No direct public exposure</td></tr>
+<tr><td><code>ao-sim-fabrication</code></td><td><code>ao-sim-fabrication</code></td><td>ROS 2, Gazebo; <strong>rehearses</strong> the industrial engineering and production flow and runs the kitchen. <strong>Holds no production data and never commands live machinery</strong> — real machines belong to <code>ao-fabrication</code> (§3.3.0)</td><td>Signed fabrication-simulation manifests</td><td>Fabrication simulation data path</td><td>No direct public exposure</td></tr>
+<tr><td><code>ao-fabrication</code></td><td><code>ao-fabrication</code> (<code>10.89.12.0/24</code>)</td><td><strong>Real (non-simulated) fabrication.</strong> Pulls per-machine production data from each individual 3D printer and CNC machine &mdash; each running its own MainsailOS / Moonraker / Klipper on its own BigTreeTech CB1 / Raspberry Pi &mdash; <strong>into its own database</strong> (<code>a_fab</code>, §3.3.0) for industrial engineering and fabrication optimisation work. Local switch connects the equipment; the desktop manages all DHCP. Does not command machines through the simulator.</td><td>Signed fabrication manifest toward <code>ao-ledger-ingest</code>; fabrication optimisation reports</td><td>Per-machine production data in <code>a_fab</code></td><td>No direct public exposure. Real machines are reached only over the local equipment switch; they are peers, not children of <code>ao-sim-fabrication</code>.</td></tr>
+<tr><td><code>ao-ledger-ingest</code></td><td><code>ao-ledger-ingest</code></td><td>mTLS validation gateway, authorization, audit, idempotency</td><td>Corda receipt IDs and status</td><td>Audit and idempotency state</td><td>No direct public exposure</td></tr>
+<tr><td><code>ao-ledger-core</code></td><td><code>ao-ledger-core</code></td><td>Corda node, Corda database, certificate/keystore material</td><td>No direct output</td><td>Corda state and PKI</td><td>No direct public exposure</td></tr>
+<tr><td><code>ao-data</code></td><td><code>ao-data</code></td><td>Narrow controlled data plumbing where unavoidable</td><td>Controlled references only</td><td>Host services, loopback-only</td><td>No direct public exposure</td></tr>
+<tr><td><code>ao-admin</code></td><td><code>ao-admin</code></td><td>Prometheus security monitoring, Grafana dashboards, Metabase reporting, backup, restore validation, administration</td><td>Metabase reports and the Grafana dashboard only</td><td>Prometheus TSDB; Grafana application database; Metabase application database</td><td><strong>No VPN, no explicit allowlist, no public exposure</strong></td></tr>
+
+<tr><td colspan="6" style="background-color:#c9ccd1; border-top:2px solid #8a8f98; border-bottom:1px solid #8a8f98; padding:5px 8px; font-weight:bold; letter-spacing:0.04em;">B · CONTROLLED INGRESS AND EGRESS ADAPTERS — architecture-controlled exceptions, not general-purpose Internet access</td></tr>
+<tr><td><code>ao-ingress-payment</code></td><td><code>ao-payment</code></td><td><strong>Payment verification for Zelle, PayPal, and Coinbase.</strong> Receives the provider webhook or approved relay event, verifies the signature, normalizes it, and emits the verified payment event. Also carries the website path: email &gt; PDF &gt; Corda processing. <strong>Deployable</strong></td><td>Verified normalized payment event</td><td>Minimal event and audit record</td><td>Inbound only. Minimal listener, provider-signature verification, rate limits, audit log, normalized event output</td></tr>
+<tr><td><code>ao-egress-archive</code></td><td><code>ao-sales</code> (sale-transfer duty)</td><td><strong>ARCHIVED FOR DATA TRANSFER AND SALE &mdash; this is not a backup.</strong> Holds a sold package so it can be <em>transferred</em> to the authorised recipient. IPFS provides file-transfer verification and, where applicable, a blockchain sales listing; encrypted pCloud replication is the second copy. <strong>Requires <code>ao-sales</code> authorisation first</strong> — it is not reached directly from the internet. "Data sales": maps and telemetry/IoT products, not application databases. No restore, no recovery, no retention duty: <strong>restic (§17.1) is the backup</strong>. <strong>Deployable</strong></td><td>Approved encrypted transfer bundle; post-sale IPFS transfer; encrypted pCloud transfer copy</td><td>Staging and transfer log; no backup set, no retention record</td><td>Outbound only, and only after <code>ao-sales</code> authorisation. Destination allowlist, TLS validation, encrypted payloads, separate credentials, transfer audit</td></tr>
+<tr><td><code>ao-build-update</code></td><td><code>ao-build-update</code> (10.89.13.0/24, <code>Internal=false</code>)</td><td><strong>Software updates only — all host software.</strong> Image and package acquisition from the upstream software source (package and container registries) before controlled promotion. <strong>It does not touch WebODM or imagery</strong>: all photo processing and verification belongs to <code>ao-mapping</code>. <strong>Scaffolded and deployed, not enabled</strong> (§5.2.1)</td><td>Verified image and package set</td><td>Update audit log</td><td>Outbound only, on its own dedicated egress network. Verified source, digest capture, update audit, no direct workload attachment, and no promotion authority</td></tr>
+
+<tr><td colspan="6" style="background-color:#c9ccd1; border-top:2px solid #8a8f98; border-bottom:1px solid #8a8f98; padding:5px 8px; font-weight:bold; letter-spacing:0.04em;">C · COMPONENT BOUNDARY MATRIX — what each component may accept, emit, store, and reach</td></tr>
+<tr><td>Sales API</td><td><code>ao-sales</code></td><td>Verified payment state and approved support requests</td><td>Signed receipt/entitlement manifests</td><td>Sales PostgreSQL</td><td>None directly</td></tr>
+<tr><td>Payment verifier</td><td><code>ao-payment</code></td><td>Provider webhook or approved relay event</td><td>Verified normalized payment event</td><td>Minimal event and audit record</td><td>Through <code>ao-ingress-payment</code> only</td></tr>
+<tr><td>Mapping intake</td><td><code>ao-mapping</code></td><td>Authenticated imagery upload</td><td>Validated image-set reference</td><td>Intake, validation, quarantine record</td><td>None directly</td></tr>
+<tr><td>WebODM/NodeODM</td><td><code>ao-mapping</code></td><td>Validated mapping task input</td><td>Processing output to mapping exporter</td><td>Dedicated photogrammetry volume</td><td>None directly</td></tr>
+<tr><td>Field gateway</td><td><code>ao-field</code></td><td>USB serial LoRa frames</td><td>Normalized telemetry manifest</td><td>Raw packet store and telemetry spool</td><td>USB serial and radio only</td></tr>
+<tr><td>Vehicle simulator</td><td><code>ao-sim-vehicle</code></td><td>Approved scenario/model artifact</td><td>Signed simulation manifest</td><td>Vehicle simulation data path</td><td>None directly</td></tr>
+<tr><td>Fabrication simulator</td><td><code>ao-sim-fabrication</code></td><td>Approved facility/task model</td><td>Signed simulation manifest</td><td>Fabrication simulation data path</td><td>None directly</td></tr>
+<tr><td>Real fabrication collector</td><td><code>ao-fabrication</code></td><td>Per-machine production data polled from each machine's own MainsailOS / Moonraker / Klipper</td><td>Signed fabrication manifest; fabrication optimisation reports</td><td>Per-machine production data in <code>a_fab</code></td><td>None directly. Reaches machines only over the local equipment switch, never as a simulator.</td></tr>
+<tr><td>Ledger ingestion</td><td><code>ao-ledger-ingest</code></td><td>Signed mTLS manifests</td><td>Receipt/status response</td><td>Audit and idempotency state</td><td>Only to ledger core</td></tr>
+<tr><td>Ledger core</td><td><code>ao-ledger-core</code></td><td>Ledger-ingestion gateway requests only</td><td>No direct public output</td><td>Corda state and PKI</td><td>None directly</td></tr>
+<tr><td>Archive adapter</td><td><code>ao-egress-archive</code></td><td>Approved encrypted archive bundle</td><td>Replication result/status</td><td>Staging and transfer log</td><td>Outbound only</td></tr>
+<tr><td>Community publication</td><td><code>ao-sales</code></td><td>Approved publication or support request</td><td>Remote delivery/status response</td><td>Publication audit log</td><td>Outbound only, via Sidekiq on `ao-sales` (HTTPS/443)</td></tr>
+
+<tr><td colspan="6" style="background-color:#c9ccd1; border-top:2px solid #8a8f98; border-bottom:1px solid #8a8f98; padding:5px 8px; font-weight:bold; letter-spacing:0.04em;">D · GUI AND WORKFLOW ATTACHMENT MAP — each row is attached to exactly <em>one</em> owning network and denied all the others</td></tr>
+<tr><td>1 · Mastodon web / Konqueror client</td><td><code>ao-sales</code></td><td>Approved <code>localhost</code> Mastodon web/streaming origin; loopback-only publication when enabled.</td><td>—</td><td>—</td><td>Loopback origin only</td></tr>
+<tr><td>2 · WebODM browser UI</td><td><code>ao-mapping</code></td><td><code>ao-webodm-web</code> sets <code>PublishPort=127.0.0.1:8000:8000</code>, so podman reports <code>127.0.0.1:8000-&gt;8000/tcp</code> and the UI opens at <code>http://127.0.0.1:8000/</code> with no SSH tunnel. It is loopback-only: LAN addresses refuse, and <code>ao-mapping</code> stays <code>Internal=true</code>.</td><td>—</td><td>—</td><td>None; internal to <code>ao-mapping</code> only</td></tr>
+<tr><td>3 · QGroundControl simulation client</td><td><code>ao-sim-vehicle</code></td><td>Approved local SITL/MAVLink-router endpoint; <code>ROS_DOMAIN_ID=21</code>; <code>GZ_PARTITION=alwayson_vehicle_sim</code>.</td><td>—</td><td>—</td><td>None</td></tr>
+<tr><td>4 · Gazebo visualization — vehicle</td><td><code>ao-sim-vehicle</code></td><td>Approved vehicle ROS/Gazebo visualization path; separate DDS/interface policy remains required.</td><td>—</td><td>—</td><td>None</td></tr>
+<tr><td>5 · Gazebo visualization — fabrication</td><td><code>ao-sim-fabrication</code></td><td>Approved fabrication ROS/Gazebo visualization path; <code>ROS_DOMAIN_ID=22</code>; <code>GZ_PARTITION=alwayson_fabrication_sim</code>.</td><td>—</td><td>—</td><td>None</td></tr>
+<tr><td>6 · LM Studio / OpenClaw support chat</td><td><code>ao-sales</code> (host-local LM Studio) / <code>ao-sales</code> (containerized OpenClaw)</td><td>Host desktop use; approved loopback inference endpoint or narrow authenticated bridge only.</td><td>—</td><td>—</td><td>None</td></tr>
+<tr><td>7 · Grafana dashboards and metrics</td><td><code>ao-admin</code></td><td>No VPN, no explicit allowlist, no public exposure. Grafana presents the dashboards and metrics.</td><td>—</td><td>—</td><td>None</td></tr>
+<tr><td>8 · Metabase reporting GUI</td><td><code>ao-admin</code></td><td>No VPN, no explicit allowlist, no public exposure. Metabase produces the reports by reading the existing PostgreSQL and MySQL databases over per-source read-only roles, and keeps its own PostgreSQL application database for its saved questions and dashboards.</td><td>—</td><td>—</td><td>None</td></tr>
+<tr><td>9 · Sales, receipt, fulfillment, entitlement, return, and approved support reporting</td><td><code>ao-admin</code></td><td>Metabase is for reports, reads the existing PostgreSQL and MySQL databases over per-source read-only roles, and keeps its own application database. PostgreSQL inspection uses pgAdmin over an explicit purpose-limited loopback or approved tunneled connection.</td><td>—</td><td>—</td><td>None</td></tr>
+<tr><td>10 · Ledger provenance, receipt, entitlement, approval, release, and ingestion reporting</td><td><code>ao-admin</code></td><td>No VPN. Grafana presents the dashboards and metrics from its own application database plus the approved datasources; Metabase produces the reports by ad-hoc read-only queries against the existing databases.</td><td>—</td><td>—</td><td>None</td></tr>
+<tr><td>11 · Backup/restore status display</td><td><code>ao-admin</code></td><td>Shown on the Grafana dashboard; no VPN, no public exposure.</td><td>—</td><td>—</td><td>None</td></tr>
+<tr><td>12 · Field gateway / link-quality display</td><td><code>ao-field</code></td><td>Approved USB serial/local diagnostic display or protected Grafana dashboard.</td><td>—</td><td>—</td><td>None</td></tr>
+<tr><td>13 · Ledger/Corda console and maintenance</td><td><code>ao-ledger-ingest</code></td><td>Narrow approved operator-management path after key/certificate ceremony; no public access.</td><td>—</td><td>—</td><td>None</td></tr>
+<tr><td>14 · PostgreSQL reporting, schema inspection, and controlled administration</td><td>host loopback</td><td>Explicit loopback or approved narrow tunnel/bridge using a dedicated least-privilege database identity.</td><td>—</td><td>—</td><td>None</td></tr>
+<tr><td>15 · Redis diagnostic client</td><td><code>ao-data</code> (optional)</td><td>Explicit loopback or approved narrow diagnostic path using a scoped Redis ACL identity.</td><td>—</td><td>—</td><td>None</td></tr>
+<tr><td>16 · Payment-provider dashboard</td><td>provider-hosted</td><td>Provider-authenticated browser workflow.</td><td>—</td><td>—</td><td>Provider-hosted only</td></tr>
+<tr><td>17 · No GUI — controlled data services</td><td><code>ao-data</code> (narrow only)</td><td>Host services remain loopback-only; administration/reporting uses dedicated host or <code>ao-admin</code> identities and paths.</td><td>—</td><td>—</td><td>None</td></tr>
+<tr><td>18 · No GUI — payment verifier</td><td><code>ao-payment</code></td><td>Provider-hosted checkout and provider dashboard; local verifier has no GUI.</td><td>—</td><td>—</td><td>None</td></tr>
+</tbody>
+</table>
+
+### 5.1.1 Domain Networks
+
+Every `ao-*` network in one place: what §5.1 says belongs to it, and what is attached.
+The CIDR registry is `config/platform/network-cidrs.yaml`, which is the only authority, and
+`scripts/validation/check-network-isolation.sh` asserts the subnets and `Internal` flags.
+**Eleven of fourteen are `Internal=true`**; the three exceptions are deliberate, not drift.
+
+| Network | Subnet | Internal | Belongs to (§5.1) | Attached now |
+|---|---|---|---|---|
+| `ao-sales` | 10.89.0.0/24 | **false** | Mastodon stack, `ao-sales-db`, orders and AI chat | `mastodon-web` `-sidekiq` `-db` `-redis` `-streaming`, `ao-sales-db` (6) |
+| `ao-payment` | 10.89.1.0/24 | true | Provider webhook verifier, payment adapter | `ao-ingress-payment` (1) |
+| `ao-field` | 10.89.2.0/24 | true | Heltec gateway, RNS/MeshChatX, telemetry spool, mission-release | **none** — gateway runs on host USB serial (ST-22) |
+| `ao-mapping` | 10.89.3.0/24 | true | WebODM, NodeODM, Redis, mapping DB, imagery intake/exporter | `ao-webodm-webapp` `-worker` `-db` `-broker`, `ao-nodeodm` (5) |
+| `ao-sim-vehicle` | 10.89.4.0/24 | true | ROS 2, Gazebo, ArduPilot SITL, MAVLink, QGC | **none** — Gazebo is host-installed; `ao-ardupilot-sitl.container` never deployed |
+| `ao-sim-fabrication` | 10.89.5.0/24 | true | ROS 2, Gazebo; rehearses the engineering/production flow | `ao-sim-fabrication-gz` (1) |
+| `ao-ledger-ingest` | 10.89.6.0/24 | true | mTLS validation gateway, authorization, audit, idempotency | **none** |
+| `ao-ledger-core` | 10.89.7.0/24 | true | Corda node, Corda database, certificate/keystore | **none** |
+| `ao-data` | 10.89.8.0/24 | true | Narrow controlled data plumbing **where unavoidable** | **none — correct by design.** ST-29: host services stay loopback-only; §5.1 forbids it becoming a universal shared network |
+| `ao-admin` | 10.89.9.0/24 | true | Prometheus, node_exporter, Grafana, Metabase, backup/restore | `ao-grafana`, `ao-metabase`, `ao-prometheus`, `ao-node-exporter` (4) |
+| `ao-reporting-egress` | 10.89.10.0/24 | **false** | Egress for reporting sources only | `ao-grafana`, `ao-metabase` (also on `ao-admin`) |
+| `ao-fabrication` | 10.89.12.0/24 | true | Real (non-simulated) fabrication; per-machine production data | `ao-fabrication-db` (1) |
+| `ao-build-update` | 10.89.13.0/24 | **false** | Controlled software-update acquisition (§5.2.1) | none — scaffolded, not enabled |
+| `ao-html-window` | 10.89.14.0/24 | true | View-only HTML window for the 300x3.com storefront (ES.2) | none |
+
+`10.89.11.0/24` is deliberately unallocated: it is folded into `ao-sales` (§2.2).
+`ao-data` carries no containers by design. Which of the remaining networks are populated is
+status and is recorded in §19.1.
+
+### 5.1.2 Local Browser Addresses
+
+The loopback address for each GUI above, so the operator does not have to
+derive it from the Quadlet units. All are `127.0.0.1`-bound only; the LAN
+addresses refuse, and none is published through Podman, nginx, Cloudflare, or a
+router. Verified 2026-10-01 by `scripts/validation/check-local-services.js`
+(15 pass, 0 fail) and mirrored in the Firefox bookmarks folder
+`SERVERS → SERVERS (THIS MACHINE)`.
+
+| Software / GUI | Address | Notes |
+|---|---|---|
+| ALWAYS ON operator console | `http://127.0.0.1:8099/` | Not a deployed service; started on demand |
+| ALWAYS ON sim console (Foxglove + ROS 2) | `http://127.0.0.1:8099/sim` | Same process; the only thing presenting Foxglove |
+| Podman / systemd status view | `http://127.0.0.1:8099/podman` | Same process |
+| Gazebo factory.world portal | `http://127.0.0.1:8765/` | View-only HTML portal: boning, RL-object and world state |
+| Gazebo 3D viewer | `http://127.0.0.1:8765/viewer` | Served by the same portal process; selects any of the eight read-only camera feeds and resizes the 3D view. It connects to the bridge on `ws://127.0.0.1:8081` |
+| Mastodon local UI | `https://127.0.0.1:3300/` | **Self-signed cert — accept once.** Terminates TLS because upstream hardcodes `config.force_ssl = true`; `http://127.0.0.1:3000/` 301s to a TLS port that does not exist and hangs the browser |
+| Mastodon web origin (transport) | `http://127.0.0.1:3000/` | Answers `301` only; not usable as a browser entry point |
+| WebODM | `http://127.0.0.1:8000/` | Redirects to `/login/`. Loopback published 2026-10-01; no SSH tunnel needed |
+| Grafana | `http://127.0.0.1:3001/` | Redirects to `/login` |
+| Metabase | `http://127.0.0.1:3002/` | |
+| Prometheus | `http://127.0.0.1:9090/` | Redirects to `/query` |
+| OpenClaw control | `http://127.0.0.1:18789/` | |
+| MeshChatX | `https://127.0.0.1:18000/` | **Self-signed cert.** Reticulum; not a public ingress |
+| Domoticz | `http://127.0.0.1:8080/` | Host service, not an `ao-*` container |
+| CUPS (printers) | `http://127.0.0.1:631/` | Host service |
+| LM Studio | `http://127.0.0.1:1234/` | Bearer-token API only — no browsable UI, so not bookmarked |
+| Mastodon streaming / OpenClaw chat relay | `http://127.0.0.1:4000/`, `http://127.0.0.1:18790/` | APIs, not UIs; a bare `/` returns `400`/`404` by design |
+
+## 5.2 Controlled Ingress and Egress Adapters
+
+**Combined into the single matrix in §5.1, group B.** The three controlled adapters
+(`ao-ingress-payment`, `ao-egress-archive`, `ao-build-update`) are rows in that table along
+with their purpose, direction, and mandatory controls.
+
+### 5.2.1 `ao-build-update` — Controlled Software-Update Acquisition
+
+**The authoritative record of every pinned image and package version is
+`/ALWAYSON/config/platform/version-matrix.yaml`.** It is version-controlled, refreshed by
+`scripts/validation/capture-version-matrix.sh`, and regenerated from the deployed units
+rather than typed by hand. A digest recorded anywhere else is not authoritative (§4.1 rule 9).
+
+**Status: scaffolded and deployed, not enabled.** The unit, its network, its
+allowlist, and its acquisition script all exist and are verified. The service is
+deliberately left disabled, because running it reaches the public internet and
+that requires explicit operator authorisation and is never automatic.
+
+**What it is.** `ao-build-update` is the controlled acquisition stage of the
+software-update path. It resolves candidate container images and host package
+metadata from allowlisted upstream sources, captures the digest of every
+candidate, and writes an append-only update audit record, producing a *verified
+image and package set* that an operator can review. It is the formalisation of
+the manual chain this system has always used — pull, capture the digest, edit the
+`Image=` line, redeploy, restart, verify — with the first two steps automated and
+the last three deliberately left alone.
+
+**What it is not, by design.** It has no promotion authority. It never installs a
+package, never runs `apt`, `dpkg`, or `unattended-upgrades`, never edits a
+Quadlet, never restarts a unit, and never redeploys a container. No workload
+container is ever attached to its network.
+A fetched image is a **candidate**: promotion to a running service is a separate,
+human action, and digest pinning (§4.1 rule 9) is what makes that decision
+reviewable. This is the same posture the rest of the platform already takes — no
+automatic deployment, no `podman auto-update` policy, no Watchtower — expressed as
+a component instead of as an absence.
+
+**Network.** The adapter runs on its own egress network, `ao-build-update` at
+`10.89.13.0/24`, `Internal=false`, following the `ao-reporting-egress` precedent.
+It requires a non-internal network: `Internal=true` provides no external resolver
+and no outbound route, so a container on such a network cannot reach a registry
+and could not perform acquisition. `ao-admin` is `Internal=true` and is
+additionally the monitoring and reporting plane, so an update audit record does
+not belong on it. No workload container is attached to this network.
+
+**Containment.** Acquisition over HTTPS/443 to the registry hosts named in
+`config/build-update/registry-allowlist.yaml` is the *only* sanctioned outbound.
+The allowlist is mounted read-only, so the adapter cannot widen its own boundary.
+`packages.ros.org` is on an explicit deny list rather than merely absent, because
+it fails TLS verification from this host and that verification is deliberately
+not disabled. The adapter publishes no port and serves no listener; it runs as a
+oneshot and the host reads its exit status and the audit record. Any reference
+that is not both allowlisted and digest-pinned is a finding, not a pass, and the
+run exits non-zero.
+
+**Scope boundary: builds.** This adapter's role is *updates*, not image builds.
+Builds belong to the domain that consumes the image. The Gazebo Containerfiles
+under `GAZEBO/containers/` are owned by `ao-sim-fabrication`, which mounts
+`/ALWAYSON/GAZEBO` read-only and runs the world from it; this adapter does not
+acquire, rebuild, or promote them. `ao-sim-fabrication-gz` is digest-pinned to a
+local build, so a Containerfile rebuild changes the digest and fails the unit
+until `ao-sim-fabrication` re-pins it. That fail-safe is intended.
+
+**Files.** `quadlet/build-update/ao-build-update.network`,
+`quadlet/build-update/ao-build-update.container`,
+`config/build-update/registry-allowlist.yaml`, and
+`scripts/build-update/ao-build-update.py`. The CIDR is registered in
+`config/platform/network-cidrs.yaml`, and `check-network-isolation.sh` asserts it
+as an egress network.
+
+**Reporting: pinned vs stable.** `scripts/build-update/drift-report.py` resolves every
+pinned image against its upstream registry and compares apt, snap, and flatpak, then
+writes `docs/drift.md`. It is read-only — it never pulls, installs, or restarts — and
+distinguishes a real DRIFT from a BEHIND-LATEST condition, which for an image held at
+an older major on purpose is information rather than a defect.
+
+**Recommendations: advisory only.** `scripts/build-update/recommend.py` turns the
+drift report and the inventory into a ranked, explained recommendation — what needs
+a decision, why, the risk, and the command to run *if you choose to*. It applies
+nothing: it cannot install, promote, deploy, or restart. **Automatic updates are
+the last thing this system does and require review and explicit authorization;
+they are not built, and the reporting tools are not to be extended to perform
+them.**
+
+**The update procedure.** The full operator path — inventory, acquire, promote,
+deploy, verify, record, and roll back — is in
+`docs/runbooks/software-update.md`. Promotion is done with
+`scripts/build-update/promote-image-digest.sh`, which edits exactly one `Image=`
+line and refuses an unqualified, unpinned, or cross-registry reference.
+
+**Enabling it.** `systemctl --user start ao-build-update` runs one acquisition
+pass. The unit carries no `WantedBy=`, so it will not start on its own. Enabling
+it permanently, and any decision to automate acquisition, requires operator
+approval.
+
+
+### 5.3 Approved Local Data Paths
+
+The following local paths are normal integration paths and do not require a
+new architecture decision:
+
+- Application containers to their approved PostgreSQL database endpoint.
+- Metabase to its own application database on PostgreSQL, and from there to the PostgreSQL
+  and MySQL reporting sources over per-source read-only roles, where Metabase is for
+  reports. The read-only role is what enforces that a report cannot modify a source.
+- Grafana to the existing PostgreSQL databases, where Grafana is
+  for dashboards and metrics. Grafana does not read Prometheus; Prometheus is
+  the isolated security layer (§17.2).
+- Host administration and backup jobs to PostgreSQL through loopback or an
+  explicitly documented local bridge.
+- Application workers to their required Redis queue or broker.
+
+These paths must not become public listeners, must use separate credentials,
+and must not grant unrelated applications access to each other's owner,
+migration, backup, payment, or ledger credentials. Network isolation remains
+a defense-in-depth control; PostgreSQL roles and grants are the primary
+authorization boundary for database access.
+
+---
