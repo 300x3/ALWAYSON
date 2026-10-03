@@ -49,20 +49,46 @@ PGHOST = os.environ.get("AO_PROM_PGHOST", "127.0.0.1")
 # never skipped silently.
 PG_TARGETS = (
     # label, port, database, role
-    # Role names are the *_app identities pg_hba.conf grants scram-sha-256.
-    # A role that does not exist or cannot authenticate reports reachable=0
-    # rather than being dropped, so a lost grant is visible instead of silent.
+    #
+    # Every database declared in README 3.3.1 is listed, including the ones this
+    # process cannot currently reach. A database that cannot be read reports
+    # reachable=0 rather than being omitted, so the gap is visible in Prometheus
+    # instead of being invisible by absence. Measured 2026-10-03:
+    #
+    #   grafana          reachable -- grafana_app has CONNECT (read 21 backends)
+    #   host-cluster     not reachable -- no CONNECT on the `postgres` database
+    #   sales            not reachable -- grafana_app has no CONNECT on salesdb
+    #   fabrication      not reachable -- grafana_app has no CONNECT on a_fab
+    #   cordadb          not reachable -- no CONNECT, and it is on the host
+    #                     cluster, not on a published port
+    #   mastodon         UNREACHABLE BY CONSTRUCTION -- mastodon-db publishes no
+    #                     host port (`podman ps` shows bare 5432/tcp), so there is
+    #                     no loopback path to it. Publishing one is a port
+    #                     exposure and needs operator approval (README 4.1).
+    #   webodm           same: ao-webodm-db publishes no host port
+    #
+    # Granting a read identity on the five reachable-by-network databases needs a
+    # superuser change on each cluster, which is an operator action; the metrics
+    # turn to 1 by themselves once the grant exists. No port is opened here.
     ("grafana", 5432, "grafana", "grafana_app"),
     ("host-cluster", 5432, "postgres", "grafana_app"),
+    ("sales", 15432, "salesdb", "grafana_app"),
+    ("fabrication", 15433, "a_fab", "grafana_app"),
+    ("cordadb", 5432, "cordadb", "grafana_app"),
+    ("mastodon", 5432, "mastodon", "grafana_app"),
+    ("webodm", 25463, "webodm", "grafana_app"),
 )
 
-# SQLite stores to inspect. Paths are resolved against a small set of candidates
-# because the location differs between the declared and the installed path; a
-# missing store is reported, never invented.
 SQLITE_TARGETS = (
-    # Measured on this host: the MeshChatX store is
-    # identities/<id>/database.db, not a file at the top of the storage dir.
-    # The identity segment is a hash, so it is globbed rather than hardcoded.
+    # Operator instruction 2026-10-03: collect the application SQLite stores,
+    # and explicitly NOT the mail or browser ones.
+    #
+    # EXCLUDED BY INSTRUCTION -- do not add these, even though README 3.3.1
+    # lists them as declared stores:
+    #   * Akonadi / KDE PIM  -- contacts, calendars and MAIL INDEXES
+    #   * Firefox, Brave, Chrome, Edge profile stores
+    # Both hold personal or browsing material a security metric has no business
+    # surfacing, and neither is application state worth alerting on.
     ("meshchatx", tuple(
         sorted(str(p) for p in pathlib.Path(
             os.path.expanduser("~/.reticulum-meshchatx/identities")
@@ -71,6 +97,23 @@ SQLITE_TARGETS = (
     ("meshchatx-plugins", (
         "~/.reticulum-meshchatx/plugins/plugin_state.db",
     )),
+    ("qgroundcontrol", (
+        "~/.cache/QGroundControl/QGroundControl/QGCMapCache/qgcMapCache.db",
+    )),
+)
+
+# Podman's rootless metadata store is BoltDB (storage/db.sql), not SQLite, so it
+# is not a target of this collector. Recorded because README 3.3.1 lists it and
+# a later reader should not go looking for it.
+_NOT_SQLITE = (
+    "podman rootless metadata: ~/.local/share/containers/storage/db.sql (BoltDB)",
+)
+
+# Podman's rootless metadata store is BoltDB (storage/db.sql), not SQLite, so it
+# is not a target of this collector. Recorded here because README 3.3.1 lists it
+# under SQLite-adjacent stores and a later reader should not go looking for it.
+_NOT_SQLITE = (
+    "podman rootless metadata: ~/.local/share/containers/storage/db.sql (BoltDB)",
 )
 
 
