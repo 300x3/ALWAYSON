@@ -755,36 +755,7 @@ network.
 </tbody>
 </table>
 
-### 5.1.1 Local Browser Addresses
-
-The loopback address for each GUI above, so the operator does not have to
-derive it from the Quadlet units. All are `127.0.0.1`-bound only; the LAN
-addresses refuse, and none is published through Podman, nginx, Cloudflare, or a
-router. Verified 2026-10-01 by `scripts/validation/check-local-services.js`
-(15 pass, 0 fail) and mirrored in the Firefox bookmarks folder
-`SERVERS → SERVERS (THIS MACHINE)`.
-
-| Software / GUI | Address | Notes |
-|---|---|---|
-| ALWAYS ON operator console | `http://127.0.0.1:8099/` | Not a deployed service; started on demand |
-| ALWAYS ON sim console (Foxglove + ROS 2) | `http://127.0.0.1:8099/sim` | Same process; the only thing presenting Foxglove |
-| Podman / systemd status view | `http://127.0.0.1:8099/podman` | Same process |
-| Gazebo factory.world portal | `http://127.0.0.1:8765/` | View-only HTML portal: boning, RL-object and world state |
-| Gazebo 3D viewer | `http://127.0.0.1:8765/viewer` | Served by the same portal process; selects any of the eight read-only camera feeds and resizes the 3D view. It connects to the bridge on `ws://127.0.0.1:8081` |
-| Mastodon local UI | `https://127.0.0.1:3300/` | **Self-signed cert — accept once.** Terminates TLS because upstream hardcodes `config.force_ssl = true`; `http://127.0.0.1:3000/` 301s to a TLS port that does not exist and hangs the browser |
-| Mastodon web origin (transport) | `http://127.0.0.1:3000/` | Answers `301` only; not usable as a browser entry point |
-| WebODM | `http://127.0.0.1:8000/` | Redirects to `/login/`. Loopback published 2026-10-01; no SSH tunnel needed |
-| Grafana | `http://127.0.0.1:3001/` | Redirects to `/login` |
-| Metabase | `http://127.0.0.1:3002/` | |
-| Prometheus | `http://127.0.0.1:9090/` | Redirects to `/query` |
-| OpenClaw control | `http://127.0.0.1:18789/` | |
-| MeshChatX | `https://127.0.0.1:18000/` | **Self-signed cert.** Reticulum; not a public ingress |
-| Domoticz | `http://127.0.0.1:8080/` | Host service, not an `ao-*` container |
-| CUPS (printers) | `http://127.0.0.1:631/` | Host service |
-| LM Studio | `http://127.0.0.1:1234/` | Bearer-token API only — no browsable UI, so not bookmarked |
-| Mastodon streaming / OpenClaw chat relay | `http://127.0.0.1:4000/`, `http://127.0.0.1:18790/` | APIs, not UIs; a bare `/` returns `400`/`404` by design |
-
-### 5.1.2 Domain Networks
+### 5.1.1 Domain Networks
 
 Every `ao-*` network in one place: what §5.1 says belongs to it, and what is attached.
 The CIDR registry is `config/platform/network-cidrs.yaml`, which is the only authority, and
@@ -812,6 +783,35 @@ The CIDR registry is `config/platform/network-cidrs.yaml`, which is the only aut
 `10.89.11.0/24` is deliberately unallocated: it is folded into `ao-sales` (§18.6).
 `ao-data` carries no containers by design. Which of the remaining networks are populated is
 status and is recorded in §19.1.
+
+### 5.1.2 Local Browser Addresses
+
+The loopback address for each GUI above, so the operator does not have to
+derive it from the Quadlet units. All are `127.0.0.1`-bound only; the LAN
+addresses refuse, and none is published through Podman, nginx, Cloudflare, or a
+router. Verified 2026-10-01 by `scripts/validation/check-local-services.js`
+(15 pass, 0 fail) and mirrored in the Firefox bookmarks folder
+`SERVERS → SERVERS (THIS MACHINE)`.
+
+| Software / GUI | Address | Notes |
+|---|---|---|
+| ALWAYS ON operator console | `http://127.0.0.1:8099/` | Not a deployed service; started on demand |
+| ALWAYS ON sim console (Foxglove + ROS 2) | `http://127.0.0.1:8099/sim` | Same process; the only thing presenting Foxglove |
+| Podman / systemd status view | `http://127.0.0.1:8099/podman` | Same process |
+| Gazebo factory.world portal | `http://127.0.0.1:8765/` | View-only HTML portal: boning, RL-object and world state |
+| Gazebo 3D viewer | `http://127.0.0.1:8765/viewer` | Served by the same portal process; selects any of the eight read-only camera feeds and resizes the 3D view. It connects to the bridge on `ws://127.0.0.1:8081` |
+| Mastodon local UI | `https://127.0.0.1:3300/` | **Self-signed cert — accept once.** Terminates TLS because upstream hardcodes `config.force_ssl = true`; `http://127.0.0.1:3000/` 301s to a TLS port that does not exist and hangs the browser |
+| Mastodon web origin (transport) | `http://127.0.0.1:3000/` | Answers `301` only; not usable as a browser entry point |
+| WebODM | `http://127.0.0.1:8000/` | Redirects to `/login/`. Loopback published 2026-10-01; no SSH tunnel needed |
+| Grafana | `http://127.0.0.1:3001/` | Redirects to `/login` |
+| Metabase | `http://127.0.0.1:3002/` | |
+| Prometheus | `http://127.0.0.1:9090/` | Redirects to `/query` |
+| OpenClaw control | `http://127.0.0.1:18789/` | |
+| MeshChatX | `https://127.0.0.1:18000/` | **Self-signed cert.** Reticulum; not a public ingress |
+| Domoticz | `http://127.0.0.1:8080/` | Host service, not an `ao-*` container |
+| CUPS (printers) | `http://127.0.0.1:631/` | Host service |
+| LM Studio | `http://127.0.0.1:1234/` | Bearer-token API only — no browsable UI, so not bookmarked |
+| Mastodon streaming / OpenClaw chat relay | `http://127.0.0.1:4000/`, `http://127.0.0.1:18790/` | APIs, not UIs; a bare `/` returns `400`/`404` by design |
 
 ## 5.2 Controlled Ingress and Egress Adapters
 
@@ -1012,87 +1012,43 @@ secrets, no local ports and no internal hosts. What it may and must never contai
 
 ## 7.1.1 Frontend Website Details
 
-Source is the [HTML-300X3](https://github.com/300x3/HTML-300X3) repository — React with
-TanStack Router, built by `scripts/build-html.mjs` into `public/html/` as dependency-free
-static pages. Navigation lives in `src/lib/nav.ts` (`NAV`: sections, modal previews, pCloud
-folder links, SketchUp/Trimble model links). The pCloud Public Folder mirrors that export.
-
-The site is single-page-per-section: one index per section, one page per item. The tree below
-is the single source for both the navigation and the published file layout — a section's path
-and its folder are the same thing.
+Source is the [HTML-300X3](https://github.com/300x3/HTML-300X3) repository. It publishes as
+a **single self-contained `index.html`** — one page, no build-time subpages. Sections are
+collapsed `<div class="sec">` blocks on that page, and each catalog entry is a `data-item`
+JSON payload rendered into a modal. The pCloud Public Folder holds exactly two files.
 
 ```text
-www.300x3.com                                 pCloud Public Folder
-│
-├── /                Home            index.html
-│                                       Hero and project introduction; current status
-│                                       highlights; navigation to every section below;
-│                                       follow-up, support and chat links (§7.1.1)
-│
-├── /equipment       Equipment       equipment/index.html
-│   ├── adapter ...................... soda threads to 0.5" NPT ("TUBER")
-│   ├── boiler ...................... water boiler, power production, chemistry set
-│   ├── speargun-ulu ................ Damascus ulu + forearm pneumatic speargun
-│   ├── structural-battery ........... "power sandwich" gas/liquid tank + battery case
-│   ├── appliances ................... 12oz micro-appliances ("app cans")
-│   ├── computer ..................... 12oz-can Raspberry Pi case + wireless
-│   │                                 HDMI / video-glasses kit
-│   └── camping ...................... shopping-list discussion, pricing, where-to-buy
-│
-├── /buildings       Buildings       buildings/index.html
-│   ├── furniture
-│   ├── adu .......................... 80sf and up
-│   ├── mall
-│   ├── tower
-│   └── concrete-island
-│
-├── /vehicles        Vehicles        vehicles/index.html
-│   ├── drone ....................... air / land / sea
-│   ├── boat ........................ micro modular aircraft carrier
-│   ├── personal-vehicle
-│   ├── electric-car-wheel
-│   └── balloon
-│
-├── /maps            Maps            maps/
-│                                   Photogrammetry deliverables and map products
-│
-├── /digital         Digital         digital/
-│                                   Images; topography and 3D points;
-│                                   "Where's My ___?" locator series;
-│                                   route-around-your-county
-│
-├── /discussion      Discussion      discussion/
-│                                   Mastodon forum; 300X3@POSTEO.NET
-│
-├── /documentation   Documentation   documentation/index.html
-│   ├── intro-video
-│   ├── project-plan ................ working project-plan PDF
-│   ├── server-coding
-│   ├── 3d-models
-│   ├── hud-app
-│   ├── simulations
-│   ├── ai .......................... AI links
-│   ├── hardware .................... hardware links
-│   ├── software .................... software links
-│   ├── fabrication ................. fabrication links
-│   └── raw-materials ............... raw-material links
-│
-├── /donate          Donate          donate/
-│                                   PayPal hosted button (also accepts all major
-│                                   credit cards); Zelle; Coinbase / Stablecoin;
-│                                   other — customisation and coordination at
-│                                   300X3@POSTEO.NET
-│
-├── /support         Support         support/
-├── /community       Community       community/
-│
-├── /legal           Legal           legal/{privacy,terms,returns,shipping}.html
-│
-└── /assets          Assets          assets/{css,js,images,downloads}/
+www.300x3.com
+└── index.html                     the entire site, ~85 KB, self-contained
 ```
 
-Every Equipment, Buildings and Vehicles entry is a catalog modal carrying the sales action
-below.
+**Sections and the catalog entries each one carries.** These are the accordion sections in
+the page, in order; the entries are the modal items inside them.
+
+| Section | Entries |
+|---|---|
+| **Equipment** | Camping (Walk&Car) – Essentials · Adapter · Boiler · Pneumatic Speargun Ulu · Structural Battery · Appliances · Computer |
+| **Buildings** | Furniture · ADU (80sf and up) · Mall · Tower · Concrete Island |
+| **Vehicles** | Drone (air/land/sea) · Boat (micro modular aircraft carrier) · Personal Vehicle · Electric Car Wheel · Balloon |
+| **Digital** | Images (Reality Capture) · Topography (3D points) · Route Around Your County (Turn By Turn Directions) · Where's My ______? (Telemetry) |
+| **Discussion** | Forum (Mastodon) · RNS MeshChatX (+LoRa) |
+| **Documentation** | Introductory Video · Project Plan (Working PDF) · Server Coding · 3D Models · Heads Up Display App · Simulations · AI Systems · Hardware · Software · Fabrication · Raw Material |
+
+The page also carries site furniture outside the catalog sections: a home/hero block, a
+follow-up → support → chat link order (§7.1.1), a KIT REQUEST form, an OpenClaw chat panel,
+and a PayPal donate button.
+
+**What lives on disk.** The publish folder is:
+
+```text
+PCLOUD-PUBLIC/***CURRENT***/site/
+├── index.html                     the site
+└── alwayson-single-topology.html  the topology viewer (ES.2)
+```
+
+Catalog entries are therefore modal payloads inside `index.html`, not directories. Each entry
+carries the sales action below. `§7.1.2` lists the additional live views that are specified
+for the product modals but are not in this build.
 
 ### Order of follow-up, support, and chat links
 
@@ -1172,7 +1128,7 @@ substance of the constraint column.
 | 5 | **LocusMap** | Maps / digital | Downloadable route around San Diego County in the LocusMap format | Format and licensing of the published tile set must be confirmed before any public link |
 | 6 | **Mapbox** | Maps / digital | Mapping tiles, San Vicente Reservoir | Requires a Mapbox account and an access token held **outside** the repository. A public browser token is publishable by design; a secret-classified token is not (§4.2, §7.1) |
 | 7 | **Mastodon — live forum** | Discussion | A live forum view inside the modal | `mastodon.social` refuses to be framed, and that refusal is enforced by the remote. The local instance UI is `https://127.0.0.1:3300/`, loopback-only, so it is not a substitute without a new approved public entry |
-| 8 | **Gazebo/Foxglove — simulation** | Modal, three views | Kitchen; storage/CNC; vehicle | Both origins are loopback-only (sim console `127.0.0.1:8099/sim`, Gazebo portal `127.0.0.1:8765/` and its `/viewer` 3D view, §5.1.1), as is the bridge on `127.0.0.1:8081`. A live embed is a new public entry requiring explicit operator approval under §4.1 rule 6, and depends on §19.2 items 28–29 |
+| 8 | **Gazebo/Foxglove — simulation** | Modal, three views | Kitchen; storage/CNC; vehicle | Both origins are loopback-only (sim console `127.0.0.1:8099/sim`, Gazebo portal `127.0.0.1:8765/` and its `/viewer` 3D view, §5.1.2), as is the bridge on `127.0.0.1:8081`. A live embed is a new public entry requiring explicit operator approval under §4.1 rule 6, and depends on §19.2 items 28–29 |
 | 9 | **Trimble SketchUp — grid of 3D views** | Modal grid | The SketchUp model views | SketchUp is a desktop/paid service; what may be linked or embedded publicly must be confirmed before use |
 
 **No public port is opened by this section.** Rows 2, 7 and 8 each require explicit operator
@@ -2692,10 +2648,10 @@ sudo aa-status || true
 
 ## 12.4 Rebuilding This Host From Nothing
 
-The starting point is a bare Ubuntu 26.04 with KDE Plasma, Cline CLI and an
-internet connection. `scripts/provision/provision.sh` reconstructs everything
-else the repository already describes, in stages. It is **dry-run by default**;
-pass `--yes` to apply.
+**Kubuntu 26.04 LTS is the starting point** — <https://kubuntu.org/download/>. Install it
+first, then KDE Plasma, Cline CLI and an internet connection are what the provisioner expects.
+`scripts/provision/provision.sh` reconstructs everything else the repository already
+describes, in stages. It is **dry-run by default**; pass `--yes` to apply.
 
 ```bash
 ./scripts/provision/provision.sh          # dry run: prints every action
