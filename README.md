@@ -3903,7 +3903,7 @@ collide and a new item never renumbers an existing one.
 <td valign="top">—</td>
 <td valign="top"><strong>Partly implemented</strong></td>
 <td valign="top">—</td>
-<td valign="top">Delivered: the 3D world and its boned cell datums, eight cameras derived from those datums, the view-only HTML portal, and the local Foxglove 3D viewer. Headless Gazebo 300-iteration and bridge test passed; model views rendered in §10.2. <strong>Not delivered</strong>, though named in the §10.2 component tree: the facility scheduler (item 81), the safety-zone and interlock model (item 82), and RL objects as world entities rather than a catalogue (item 83)</td>
+<td valign="top">Delivered: the 3D world and its boned cell datums, eight cameras derived from those datums, the view-only HTML portal, and the local Foxglove 3D viewer. Headless Gazebo 300-iteration and bridge test passed; model views rendered in §10.2. <strong>Not delivered</strong>, though named in the §10.2 component tree: the facility scheduler (SIM-12), the safety-zone and interlock model (SIM-13), and RL objects as world entities rather than a catalogue (SIM-14)</td>
 </tr>
 <tr>
 <td valign="top">ST-09</td>
@@ -4559,7 +4559,7 @@ collide and a new item never renumbers an existing one.
 <td valign="top">ST-08</td>
 <td valign="top"><strong>Open</strong></td>
 <td valign="top">ES.1, §10.2.1</td>
-<td valign="top">As item 28, for <code>ao-sim-fabrication</code>, with cell and machine datum frames and boning checked against the real machine envelopes.</td>
+<td valign="top">As SIM-04, for <code>ao-sim-fabrication</code>, with cell and machine datum frames and boning checked against the real machine envelopes.</td>
 </tr>
 <tr>
 <td valign="top">SIM-06</td>
@@ -4615,7 +4615,7 @@ collide and a new item never renumbers an existing one.
 <td valign="top">ST-08</td>
 <td valign="top"><strong>Open</strong></td>
 <td valign="top">§10.2</td>
-<td valign="top">The §10.2 component tree names a facility scheduler for <code>ao-sim-fabrication</code>; nothing in the repo implements one, and no §19.2 item tracked it. Closing it means a scheduler that sequences cell and kitchen work against the boned cell datums. Distinct from the RL objects (item 83), which are the entities such a scheduler would move</td>
+<td valign="top">The §10.2 component tree names a facility scheduler for <code>ao-sim-fabrication</code>; nothing in the repo implements one, and no §19.2 item tracked it. Closing it means a scheduler that sequences cell and kitchen work against the boned cell datums. Distinct from the RL objects (SIM-14), which are the entities such a scheduler would move</td>
 </tr>
 <tr>
 <td valign="top">SIM-13</td>
@@ -4631,7 +4631,7 @@ collide and a new item never renumbers an existing one.
 <td valign="top">ST-08</td>
 <td valign="top"><strong>Open</strong></td>
 <td valign="top">§10.2.1, §19.1 SIM-05</td>
-<td valign="top"><code>GAZEBO/sim/objects.yaml</code> is a 104-line catalogue that declares the objects live in a non-static <code>rl_objects</code> model, written to for spawn, pose and delete so placement varies without rebuilding the world. <strong>That model does not exist</strong> — <code>factory.world</code> defines no <code>rl_objects</code> model, and <code>/api/objects</code> therefore serves objects Gazebo has never instantiated. §10.2.1 requires them individually addressable, observable and resettable; today they are addressable only in YAML. Closing it means adding the model to the world, which changes <code>factory.world</code> and therefore the signed manifest (item 72)</td>
+<td valign="top"><code>GAZEBO/sim/objects.yaml</code> is a 104-line catalogue that declares the objects live in a non-static <code>rl_objects</code> model, written to for spawn, pose and delete so placement varies without rebuilding the world. <strong>That model does not exist</strong> — <code>factory.world</code> defines no <code>rl_objects</code> model, and <code>/api/objects</code> therefore serves objects Gazebo has never instantiated. §10.2.1 requires them individually addressable, observable and resettable; today they are addressable only in YAML. Closing it means adding the model to the world, which changes <code>factory.world</code> and therefore the signed manifest for <code>factory.world</code></td>
 </tr>
 <tr>
 <td valign="top"><strong>OPS</strong></td>
@@ -4655,7 +4655,7 @@ collide and a new item never renumbers an existing one.
 <td valign="top">—</td>
 <td valign="top"><strong>Open</strong></td>
 <td valign="top">§4.1 rule 9, §16</td>
-<td valign="top"><code>scripts/validation/capture-version-matrix.sh</code> documented as the producer, with a stated refresh requirement. <strong>Now the more urgent half of item 34:</strong> six services were digest-pinned and five rows corrected by hand, so the next hand edit can equally re-introduce a stale row. Capture digests from the deployed units instead of typing them.</td>
+<td valign="top"><code>scripts/validation/capture-version-matrix.sh</code> documented as the producer, with a stated refresh requirement. <strong>Now the more urgent half of OPS-02:</strong> six services were digest-pinned and five rows corrected by hand, so the next hand edit can equally re-introduce a stale row. Capture digests from the deployed units instead of typing them.</td>
 </tr>
 <tr>
 <td valign="top">OPS-03</td>
@@ -4695,7 +4695,7 @@ collide and a new item never renumbers an existing one.
 <td valign="top">ST-01</td>
 <td valign="top"><strong>Open</strong></td>
 <td valign="top">§16.3, §12.1, §13.3.1</td>
-<td valign="top"><strong>Root decided 2026-10-02: <code>/ALWAYSON/logs/</code></strong> (§16.3). §16.3 and §13.3.1 corrected and the <code>LOGOS-JOURNALS</code> typo fixed; the 2 766-line operational journal merged and verified identical; five entries that existed nowhere created and given writers; <code>check-logs-journals.sh</code> asserts existence and freshness for all 18. <strong>Remaining:</strong> add <code>logs/</code> to the restic path set; physically merging the two trees would mean redeploying the *flat* deployed unit copies (§16.1.1) and restarting Gazebo and <code>ao-build-update</code>, so it was not done. Retention is item 85; the missing backup timer is item 57.</td>
+<td valign="top"><strong>Root decided 2026-10-02: <code>/ALWAYSON/logs/</code></strong> (§16.3). §16.3 and §13.3.1 corrected and the <code>LOGOS-JOURNALS</code> typo fixed; the 2 766-line operational journal merged and verified identical; five entries that existed nowhere created and given writers; <code>check-logs-journals.sh</code> asserts existence and freshness for all 18. <strong>Remaining:</strong> add <code>logs/</code> to the restic path set; physically merging the two trees would mean redeploying the *flat* deployed unit copies (§16.1.1) and restarting Gazebo and <code>ao-build-update</code>, so it was not done. Retention is OPS-26; the missing backup timer is tracked by no ID and needs one.</td>
 </tr>
 <tr>
 <td valign="top">OPS-08</td>
@@ -4961,7 +4961,7 @@ verification checks against the running system. Nothing listed here is outstandi
 <td valign="top">Mastodon service-account consolidation</td>
 <td valign="top">ST-13</td>
 <td valign="top"><strong>Complete</strong></td>
-<td valign="top">§14.1.1, §19 row 17</td>
+<td valign="top">§14.1.1</td>
 <td valign="top">Complete. The <code>alwayson-sales</code> (UID 993) placement has been folded back to the operator account <code>scottw</code> and the duplicate store retired. No separate service-account user is used.</td>
 </tr>
 <tr>
@@ -4986,7 +4986,7 @@ verification checks against the running system. Nothing listed here is outstandi
 <td valign="top">ST-08</td>
 <td valign="top"><strong>Complete</strong></td>
 <td valign="top">§10.2.1</td>
-<td valign="top">Complete 2026-10-02. The bridge is built locally as <code>localhost/foxglove-bridge</code> (own Containerfile, digest-pinned) rather than installed from <code>packages.ros.org</code>, which stays unreachable per item 48 — so that blocker no longer gates Foxglove views. Two silent faults had to be cleared first. The gz→ROS hop needs the five <code>gz_*_vendor/lib</code> directories and <code>/opt/ros/lyrical/lib</code> on <code>LD_LIBRARY_PATH</code>; without them the process stayed up, accepted connections, bridged nothing, and logged no error. And the server must set <code>GZ_IP=0.0.0.0</code> — the GUI appeared to work without it only because it shares the server's network namespace, which masked a container with no route. The bridge must also be on both <code>ao-html-window</code> and <code>ao-sim-fabrication</code>: a matching <code>GZ_PARTITION</code> does not route between two internal bridges. Verified 2026-10-02: <code>Advertising new channel 4 for topic "/factory/camera/image"</code>, <code>sensor_msgs/msg/Image</code> publisher count 1, frames at the world's 10 Hz.</td>
+<td valign="top">Complete 2026-10-02. The bridge is built locally as <code>localhost/foxglove-bridge</code> (own Containerfile, digest-pinned) rather than installed from <code>packages.ros.org</code>, which stays unreachable per SIM-07 — so that blocker no longer gates Foxglove views. Two silent faults had to be cleared first. The gz→ROS hop needs the five <code>gz_*_vendor/lib</code> directories and <code>/opt/ros/lyrical/lib</code> on <code>LD_LIBRARY_PATH</code>; without them the process stayed up, accepted connections, bridged nothing, and logged no error. And the server must set <code>GZ_IP=0.0.0.0</code> — the GUI appeared to work without it only because it shares the server's network namespace, which masked a container with no route. The bridge must also be on both <code>ao-html-window</code> and <code>ao-sim-fabrication</code>: a matching <code>GZ_PARTITION</code> does not route between two internal bridges. Verified 2026-10-02: <code>Advertising new channel 4 for topic "/factory/camera/image"</code>, <code>sensor_msgs/msg/Image</code> publisher count 1, frames at the world's 10 Hz.</td>
 </tr>
 <tr>
 <td valign="top">—</td>
