@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Rebuild README.md from COORDINATION/<nn-slug>/section.md.
+"""Rebuild README.md from agents/COORDINATION/<nn-slug>/section.md.
 
 Verifies the result is byte-identical to what split.py last produced.
-Run from the repository root:  python3 COORDINATION/tools/compile.py [--check]
+Run from the repository root:  python3 agents/COORDINATION/tools/compile.py [--check]
 """
 import sys, pathlib, re
 
-OUT = pathlib.Path("COORDINATION")
+OUT = pathlib.Path("agents/COORDINATION")
 
 def main():
     check = "--check" in sys.argv

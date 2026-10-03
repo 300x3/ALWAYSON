@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""Split README.md into COORDINATION/<nn-slug>/section.md, one per section.
+"""Split README.md into agents/COORDINATION/<nn-slug>/section.md, one per section.
 
 Lossless: compiling the parts back must reproduce README.md byte for byte.
-Run from the repository root:  python3 COORDINATION/tools/split.py
+Run from the repository root:  python3 agents/COORDINATION/tools/split.py
 """
 import re, sys, pathlib
 
 SRC = pathlib.Path("README.md")
-OUT = pathlib.Path("COORDINATION")
+OUT = pathlib.Path("agents/COORDINATION")
 FRONT = "00-frontmatter"
 
 def slug(t):

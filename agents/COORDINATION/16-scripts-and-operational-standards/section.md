@@ -146,16 +146,16 @@ Logs are classified per §4.2 and are never a place to record secrets.
 
 ## 16.4 Document Coordination
 
-`README.md` is **compiled, not hand-edited**. The source of truth is `COORDINATION/`, which
+`README.md` is **compiled, not hand-edited**. The source of truth is `agents/COORDINATION/`, which
 holds one folder per section. Each session edits only its own file, so two sessions can
 never collide on the same 4,000-line document.
 
 | Path | Role |
 |---|---|
-| `COORDINATION/MANIFEST.md` | The fixed section order the compiler concatenates in |
-| `COORDINATION/<nn>-<slug>/section.md` | One README section, beginning with its own `# N. Title` heading |
-| `COORDINATION/tools/split.py` | `README.md` → the section folders |
-| `COORDINATION/tools/compile.py` | The section folders → `README.md`; `--check` verifies without writing |
+| `agents/COORDINATION/MANIFEST.md` | The fixed section order the compiler concatenates in |
+| `agents/COORDINATION/<nn>-<slug>/section.md` | One README section, beginning with its own `# N. Title` heading |
+| `agents/COORDINATION/tools/split.py` | `README.md` → the section folders |
+| `agents/COORDINATION/tools/compile.py` | The section folders → `README.md`; `--check` verifies without writing |
 
 **Rules.**
 

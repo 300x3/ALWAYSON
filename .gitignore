@@ -35,11 +35,12 @@ __pycache__/
 # files were tracked and pushed by mistake on 2026-10-01 and have been
 # untracked here; see the note in the commit message. Untracking stops future
 # exposure but does NOT remove them from git history.
-# NOTE: this directory name contains SPACES and must NOT be quoted. Verified
-# 2026-10-01 by testing three forms against `git check-ignore`: the bare form
-# matches, the double-quoted form does NOT (git treats the quote characters as
-# part of the literal pattern and never matches). A trailing slash is fine.
-COORDINATION BETWEEN AI/
+# Moved 2026-10-10 to agents/handoffs/ when this material was consolidated
+# under agents/. The old name contained SPACES, which broke `git check-ignore`
+# whenever the path was quoted (git reads the quotes as part of the pattern).
+# The new path has no spaces. The exclusion itself is unchanged and still
+# deliberate: this repository is PUBLIC and these files name the host.
+agents/handoffs/
 
 # Runtime coordination folders that must never enter the index.
 .playwright-mcp/
