@@ -89,6 +89,10 @@ wallet_folder_for() {
         webodm-postgres-password) echo "ao-mapping" ;;
           payment-db-password|payment-paypal-webhook-id|payment-paypal-webhook-secret|payment-coinbase-webhook-secret)
               echo "ao-payment" ;;
+        # pCloud WebDAV credential for the off-site restic repository
+        # (README 17.1). Added with the off-site backup work: the entry
+        # was unmapped, so nothing could provision or fetch it.
+        pcloud-webdav-password|pcloud-webdav-user) echo "ao-archive" ;;
         fabrication-db-password) echo "ao-fabrication" ;;
         grafana-admin-password|metabase-admin-password|metaread-password|sales-reporting-password|restic-repository-password)
             echo "ao-admin" ;;
