@@ -1969,40 +1969,29 @@ task plans, and launch configurations. Use Git LFS or a separate artifact
 repository for large meshes, textures, point clouds, and generated results.
 ### 10.2.1 Baseline capability: 3D world, boning, reinforcement learning objects, HTML portal
 
-Required by ES.1 for **both** simulation domains, and identical in intent to §10.1.2. For
-`ao-sim-fabrication` these four are baseline deliverables, tracked as §19.2 item 29 (ST-08).
-What differs is only what the world contains.
+The same four deliverables as §10.1.2, tracked as §19.2 item 29 (ST-08). What differs is
+what the world contains.
 
 **3D world setup.** The fabrication world covers the robot-arm cells, the vehicle and
-shelving layout, and the kitchen and storage volumes shown in Figures 10.2a–10.2c. The
-world file, models, poses, materials, physics and collision configuration, safety zones,
-and the printer/CNC and storage footprints must be scripted and repeatable from a single
-entry point, so the world rebuilds identically on any host.
+shelving layout, and the kitchen and storage volumes shown in Figures 10.2a–10.2c, with
+safety zones and the printer/CNC and storage footprints.
 
 **Boning.** This is where boning carries the most weight in this domain, because the
 modelled cells and machines must line up with the real ones. The world carries a datum
 frame per cell, declared mounting and reference surfaces for the robot arms and for the
 printer and CNC beds, the shelving and aisle reference planes, and the joint and axis
-definitions with their tolerances. The boning data is what lets a simulated reach be
-checked against the real machine envelope rather than assumed, and it is exported with the
-world so the same check runs against recorded evidence.
+definitions with their tolerances. This is what lets a simulated reach be checked against
+the real machine envelope rather than assumed, and it is exported with the world so the
+same check runs against recorded evidence.
 
-**Reinforcement learning objects.** The trainable entities for cell and kitchen work: marked
-parts, stock items, and task targets that are individually addressable, observable, and
-resettable, kept separate from the static world geometry so a training run can vary object
-count and placement without rebuilding the world. Robot arms and shuttles are the controlled
-actors; these objects are what they act on and what reward is measured against.
+**Reinforcement learning objects.** Marked parts, stock items and task targets for cell and
+kitchen work. Robot arms and shuttles are the controlled actors; these objects are what they
+act on and what reward is measured against.
 
-**HTML portal.** The environment is exposed through a browser-served HTML portal for
-`ao-sim-fabrication`: view live robot, machine, and stock state; read boning and
-tolerance measurements; and inspect the world. The portal is **view-only** — it exposes
-no route that can start, stop, reset or otherwise modify the simulation, and every write
-method is refused. World lifecycle is the operator CLI
-`scripts/operations/ao-sim-portal.sh {start|stop|reset|inspect|status}`, run locally by
-an operator. The portal is reachable only by the approved local path on
-`ROS_DOMAIN_ID=22` / `GZ_PARTITION=alwayson_fabrication_sim`. It must never become a
-control path to the real machines: the separation from live machinery recorded in §10.2
-applies to it exactly as it applies to everything else in this domain.
+**HTML portal.** A browser-served portal showing live robot, machine and stock state, the
+boning and tolerance measurements, and the world. Reachable only on the approved local path
+at `ROS_DOMAIN_ID=22` / `GZ_PARTITION=alwayson_fabrication_sim`, and never a control path to
+the real machines (§10.2).
 
 **3D viewer and camera set.** The world carries eight static cameras, all aimed from the
 cell datums in `GAZEBO/sim/boning.yaml` so that every view is derived from boned data
