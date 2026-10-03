@@ -1,0 +1,24 @@
+sku,category,name
+300X3-EQUIP-ADPT-01,Equipment,Adapter
+300X3-EQUIP-BOIL-01,Equipment,Boiler
+300X3-EQUIP-ULU-01,Equipment,Pneumatic Ulu
+300X3-EQUIP-BATT-01,Equipment,Structural Battery
+300X3-EQUIP-APPL-01,Equipment,Appliances
+300X3-EQUIP-COMP-01,Equipment,Computer
+300X3-EQUIP-CAMP-01,Equipment,Camping
+300X3-BLDG-FURN-01,Buildings,Furniture
+300X3-BLDG-ADU-01,Buildings,ADU
+300X3-BLDG-MALL-01,Buildings,Mall
+300X3-BLDG-TOWER-01,Buildings,Tower
+300X3-BLDG-ISLND-01,Buildings,Concrete Island
+300X3-VEHI-DRONE-01,Vehicles,Drone
+300X3-VEHI-BOAT-01,Vehicles,Boat
+300X3-VEHI-PVEH-01,Vehicles,Personal Vehicle
+300X3-VEHI-ECWHL-01,Vehicles,Electric Car Wheel
+300X3-VEHI-BALLN-01,Vehicles,Balloon
+300X3-DATA-MAP-01,Digital,Reality Capture
+300X3-DATA-IMG-01,Digital,Images
+300X3-DATA-TOPO-01,Digital,Topography and 3D Points
+300X3-DATA-WHERE-01,Digital,Where Is My
+300X3-DATA-ROUTE-01,Digital,Route Around Your County
+300X3-DATA-TELEM-01,Digital,Telemetry

@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>300X3 Kit Request / Work Order</title>
+<link rel="stylesheet" href="../../assets/sales-print.css">
+</head>
+<body>
+<div class="page">
+
+  <div class="masthead">
+    <div>
+      <div class="wordmark">300<span class="x">X</span>3</div>
+      <div class="tagline">Autonomous live/work buildings &amp; core products</div>
+    </div>
+    <div>
+      <div class="doc-title">Kit Request / Work Order</div>
+      <div class="doc-meta">
+        Request no. <span data-f="request_number">&mdash;</span><br>
+        Received <span data-f="received_at">&mdash;</span><br>
+        Sheet 1 of 1
+      </div>
+    </div>
+  </div>
+
+  <div class="notice">
+    This is a request for information, not a contract. &nbsp;No order exists and
+    no payment is due until a signed sale receipt is issued.
+  </div>
+
+  <div class="sheet">
+
+    <!-- 1. Requester — field order matches www.300x3.com Kit Request -->
+    <div class="section">
+      <h2>1 &nbsp;Requester</h2>
+      <div class="grid g3">
+        <div class="field"><span class="k">Name</span><span class="v" data-f="requester_name">&mdash;</span></div>
+        <div class="field"><span class="k">Email</span><span class="v" data-f="requester_email">&mdash;</span></div>
+        <div class="field"><span class="k">Phone (optional)</span><span class="v" data-f="requester_phone">&mdash;</span></div>
+      </div>
+      <div class="grid" style="margin-top:5pt">
+        <div class="field"><span class="k">Delivery address</span><span class="v" data-f="delivery_address">&mdash;</span></div>
+      </div>
+    </div>
+
+    <!-- 2. Items requested -->
+    <div class="section">
+      <h2>2 &nbsp;Kits &amp; data requested</h2>
+      <table>
+        <thead>
+          <tr>
+            <th style="width:15%">Category</th>
+            <th style="width:20%">Item</th>
+            <th style="width:20%">SKU</th>
+            <th class="num" style="width:7%">Qty</th>
+            <th style="width:23%">Customization options</th>
+            <th style="width:15%">Notes</th>
+          </tr>
+        </thead>
+        <tbody data-rows="items">
+          <tr>
+            <td data-f="item_category">&mdash;</td>
+            <td data-f="item_name">&mdash;</td>
+            <td class="mono" data-f="item_sku">&mdash;</td>
+            <td class="num" data-f="item_quantity">&mdash;</td>
+            <td data-f="item_options">&mdash;</td>
+            <td data-f="item_notes">&mdash;</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- 3. Comments -->
+    <div class="section">
+      <h2>3 &nbsp;Comments / requested terms</h2>
+      <div class="field"><span class="v" data-f="comments" style="min-height:26pt">&mdash;</span></div>
+    </div>
+
+    <!-- 4. Review -->
+    <div class="section">
+      <h2>4 &nbsp;Operator review</h2>
+      <div class="grid g2">
+        <div>
+          <div class="checks">
+            <span class="chk" data-yes="review_legible"><span class="box"></span>Request legible and complete</span>
+            <span class="chk" data-yes="review_identity"><span class="box"></span>Requester identity validated</span>
+            <span class="chk" data-yes="review_not_duplicate"><span class="box"></span>Not a duplicate</span>
+          </div>
+          <div class="checks" style="margin-top:3pt">
+            <span class="chk" data-yes="review_options_reviewed"><span class="box"></span>Customization options reviewed</span>
+          </div>
+        </div>
+        <div>
+          <div class="k" style="font-size:6.2pt;font-weight:700;letter-spacing:.7pt;text-transform:uppercase;color:var(--faint)">Classification</div>
+          <div class="checks" style="margin-top:2pt">
+            <span class="badge kit" data-on="classification">Inquiry</span>
+            <span class="badge kit">Sale logged: <span data-f="sale_logged">false</span></span>
+            <span class="badge kit">Corda: <span data-f="corda_state">NOT_SUBMITTED</span></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="signrow">
+      <div class="sign"><span>Requester signature</span></div>
+      <div class="sign"><span>300X3 operator</span></div>
+      <div class="sign"><span>Date</span></div>
+    </div>
+
+  </div>
+
+  <div class="foot">
+    <div class="lic">
+      300X3 is released as open documentation under CC BY-NC-SA 4.0.
+      This sheet carries no payment credentials or private keys.
+    </div>
+    <div class="ref">
+      request_no <span data-f="request_number">&mdash;</span><br>
+      sha256 <span data-f="source_sha256">&mdash;</span>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

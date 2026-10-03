@@ -1,0 +1,207 @@
+/* ===========================================================================
+   ALWAYS ON — sales & fabrication print design system
+   Shared by every PDF form in /ALWAYSON/forms/handoffs/.
+
+   Brand measured from the live 300x3.com stylesheet, 2026-10-03:
+     --ao-red    #e11d2e   (.logo span, .donate, menu hover, active section)
+     --ao-teal   #14b8a6   (secondary accent, lower frequency)
+     greys #374151 #4b5563 #6b7280 #9ca3af #d1d5db #e5e7eb  (Tailwind ramp)
+   The site loads no webfonts; for print we use the locally installed
+   IBM Plex Sans / IBM Plex Mono, both present system-wide (fc-list).
+
+   Every sheet is ONE landscape Letter page. Nothing may spill to page 2 —
+   verify with pdfinfo after every render.
+   =========================================================================== */
+
+@page { size: Letter landscape; margin: 0.42in 0.46in 0.40in 0.46in; }
+
+:root {
+  --ao-red: #e11d2e;
+  --ao-red-tint: #fdecee;
+  --ao-teal: #14b8a6;
+  --ao-teal-tint: #e6faf7;
+  --ink: #1f2937;
+  --ink-2: #374151;
+  --mid: #6b7280;
+  --faint: #9ca3af;
+  --rule: #d1d5db;
+  --rule-soft: #e5e7eb;
+  --wash: #f9fafb;
+  --sans: "IBM Plex Sans", "Noto Sans", "DejaVu Sans", sans-serif;
+  --mono: "IBM Plex Mono", "DejaVu Sans Mono", monospace;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0; padding: 0;
+  background: #fff; color: var(--ink);
+  font-family: var(--sans);
+  font-size: 8.3pt; line-height: 1.3;
+  -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+/* ---------- masthead ---------- */
+.masthead {
+  display: flex; align-items: flex-end; justify-content: space-between;
+  gap: 14pt; padding-bottom: 4pt; border-bottom: 1.6pt solid var(--ink);
+}
+.wordmark {
+  font-size: 19pt; font-weight: 700; letter-spacing: -0.6pt; line-height: 1;
+}
+.wordmark .x { color: var(--ao-red); }
+.tagline {
+  font-size: 6.6pt; color: var(--mid); letter-spacing: 1.5pt;
+  text-transform: uppercase; margin-top: 2.5pt;
+}
+.doc-title {
+  font-size: 11.4pt; font-weight: 700; text-align: right;
+  letter-spacing: 0.5pt; text-transform: uppercase; line-height: 1.15;
+}
+.doc-meta {
+  font-size: 6.9pt; color: var(--mid); text-align: right;
+  font-family: var(--mono); margin-top: 2pt; line-height: 1.4;
+}
+
+/* ---------- notice strip ---------- */
+.notice {
+  margin: 7pt 0 0; padding: 5.5pt 9pt;
+  border-left: 2.6pt solid var(--ao-red);
+  background: var(--ao-red-tint);
+  font-size: 7.5pt; font-weight: 600; letter-spacing: 0.25pt;
+  text-transform: uppercase;
+}
+.notice.calm { border-left-color: var(--ao-teal); background: var(--ao-teal-tint); }
+.notice.neutral { border-left-color: var(--mid); background: var(--wash); color: var(--ink-2); }
+.notice strong { font-weight: 700; }
+
+/* ---------- section blocks ---------- */
+.sheet { padding-top: 7pt; }
+.section { margin-bottom: 5pt; }
+.section > h2 {
+  font-size: 7.2pt; font-weight: 700; letter-spacing: 1.15pt;
+  text-transform: uppercase; color: var(--ink-2);
+  margin: 0 0 4pt; padding-bottom: 2.2pt;
+  border-bottom: 0.7pt solid var(--rule);
+}
+
+/* ---------- label / value grid ---------- */
+.grid { display: grid; gap: 5pt 12pt; }
+.g2 { grid-template-columns: repeat(2, 1fr); }
+.g3 { grid-template-columns: repeat(3, 1fr); }
+.g4 { grid-template-columns: repeat(4, 1fr); }
+
+.field { min-width: 0; }
+.field > .k {
+  display: block; font-size: 6.2pt; font-weight: 700; letter-spacing: 0.7pt;
+  text-transform: uppercase; color: var(--faint); margin-bottom: 1.4pt;
+}
+.field > .v {
+  display: block; font-size: 8.5pt; color: var(--ink);
+  border-bottom: 0.7pt solid var(--rule); padding-bottom: 2.2pt;
+  min-height: 13pt; word-break: break-word;
+}
+.field > .v.mono { font-family: var(--mono); font-size: 7.7pt; }
+.field > .v.blank { color: var(--faint); }
+
+/* ---------- tables ---------- */
+table { width: 100%; border-collapse: collapse; font-size: 7.6pt; }
+thead { display: table-header-group; }
+th {
+  text-align: left; font-size: 6.3pt; font-weight: 700; letter-spacing: 0.75pt;
+  text-transform: uppercase; color: var(--mid);
+  padding: 0 5pt 2.6pt 0; border-bottom: 0.9pt solid var(--ink);
+  white-space: nowrap;
+}
+td {
+  padding: 2.4pt 5pt 2.4pt 0; border-bottom: 0.5pt solid var(--rule-soft);
+  vertical-align: top;
+}
+tbody tr:last-child td { border-bottom: 0.9pt solid var(--ink); }
+td.num, th.num { text-align: right; font-family: var(--mono); font-size: 7.2pt; }
+td.mono { font-family: var(--mono); font-size: 7pt; }
+td.tight { white-space: nowrap; }
+tr.total td {
+  border-bottom: none; border-top: 0.9pt solid var(--ink);
+  font-weight: 700; background: var(--wash); padding-top: 4pt;
+}
+tr.sub td { font-size: 6.8pt; color: var(--mid); text-transform: uppercase;
+            letter-spacing: 0.6pt; border-bottom: 0.5pt solid var(--rule-soft); }
+
+/* ---------- checkboxes / signature rules ---------- */
+.checks { display: flex; flex-wrap: wrap; gap: 4pt 14pt; }
+.chk { display: inline-flex; align-items: center; gap: 4pt; font-size: 7.4pt; color: var(--ink-2); }
+.chk .box {
+  width: 9pt; height: 9pt; border: 0.9pt solid var(--ink);
+  display: block; flex: none; border-radius: 1pt; background: #fff;
+}
+.chk.on .box { background: var(--ao-red); border-color: var(--ao-red); }
+.chk.on { color: var(--ink); font-weight: 600; }
+
+.signrow { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16pt; margin-top: 2pt; }
+.signrow.two { grid-template-columns: repeat(2, 1fr); }
+.sign { border-top: 0.7pt solid var(--ink); padding-top: 2.6pt; }
+.sign span { font-size: 6.2pt; letter-spacing: 0.7pt; text-transform: uppercase; color: var(--faint); }
+
+/* ---------- callout / badge ---------- */
+.callout {
+  border: 0.9pt solid var(--rule); background: var(--wash);
+  padding: 5.5pt 8pt; font-size: 7.1pt; line-height: 1.4; color: var(--ink-2);
+}
+.callout b { color: var(--ink); }
+.badge {
+  display: inline-block; font-size: 6.1pt; font-weight: 700;
+  letter-spacing: 0.8pt; text-transform: uppercase;
+  padding: 1.4pt 4.5pt; border-radius: 1.5pt;
+  background: var(--ao-teal-tint); color: #0f766e; border: 0.6pt solid #99f6e4;
+}
+.badge.kit { background: var(--wash); color: var(--ink-2); border-color: var(--rule); }
+
+/* ---------- footer ---------- */
+.foot {
+  margin-top: auto; padding-top: 3pt; border-top: 0.9pt solid var(--ink);
+  display: flex; justify-content: space-between; align-items: flex-end;
+  gap: 12pt; font-size: 6.2pt; color: var(--mid); line-height: 1.45;
+}
+.foot .lic { max-width: 70%; }
+.foot .ref { font-family: var(--mono); white-space: nowrap; text-align: right; }
+
+/* ---------- fillable PDF fields ----------
+   A .ff element is the print footprint of a real AcroForm text field. Its
+   child .tok is an invisible, absolutely positioned sentinel that never
+   affects layout; add-pdf-form-fields.py reads the sentinel positions out of
+   the rendered PDF with pdftotext -bbox and lays a real form field over each
+   one, so the printed page and the clickable fields cannot drift apart. */
+.ff { position: relative; }
+.ff > .tok {
+  position: absolute; left: 0; top: 0;
+  font-family: var(--mono); font-size: 6pt;
+  color: transparent; white-space: nowrap;
+}
+.ff > .v { min-height: 13pt; }
+.ff.boxed > .v {
+  min-height: 15pt;
+  border: 0.7pt solid var(--rule); padding: 2pt 3pt;
+  background: #fcfcfd;
+}
+/* Table cells must stay table cells: display:block here breaks the row into
+   stacked lines. The sentinel is absolutely positioned and transparent, so it
+   stays in the text layer for pdftotext without affecting the layout. */
+td.ff > span[data-f] { display: inline; }
+/* Chrome applies the @page margins itself, so the sheet is sized to the full
+   printable box and the footer sits inside it. Measured: content must end by
+   ~583pt of the 612pt landscape page. */
+.page {
+  width: 100%; height: 7.68in; display: flex; flex-direction: column;
+  overflow: hidden;
+}
+
+/* screen preview only — never printed */
+@media screen {
+  body { background: #e9eaec; padding: 20px; }
+  .page {
+    background: #fff; width: 11in; height: 8.5in; margin: 0 auto;
+    padding: 0.42in 0.46in 0.40in; box-shadow: 0 2px 14px rgba(0,0,0,.16);
+  }
+}

@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>300X3 Kit Request Intake Record</title>
+<link rel="stylesheet" href="../../assets/sales-print.css">
+</head>
+<body>
+<div class="page">
+
+  <div class="masthead">
+    <div>
+      <div class="wordmark">300<span class="x">X</span>3</div>
+      <div class="tagline">Kit request intake reader</div>
+    </div>
+    <div>
+      <div class="doc-title">Intake Record</div>
+      <div class="doc-meta">
+        Intake no. <span data-f="intake_number">&mdash;</span><br>
+        Received <span data-f="received_at">&mdash;</span><br>
+        Sheet 1 of 1
+      </div>
+    </div>
+  </div>
+
+  <div class="notice neutral">
+    Read from the website Kit Request email. An inquiry, not an order &mdash;
+    no payment is processed and no sale is created from this sheet.
+  </div>
+
+  <div class="sheet">
+
+    <div class="section">
+      <h2>1 &nbsp;Source</h2>
+      <div class="grid g4">
+        <div class="field"><span class="k">Intake ID</span><span class="v mono" data-f="intake_number">&mdash;</span></div>
+        <div class="field"><span class="k">Source file</span><span class="v mono" data-f="source_file">&mdash;</span></div>
+        <div class="field" style="grid-column:span 2"><span class="k">SHA-256</span><span class="v mono" data-f="source_sha256">&mdash;</span></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>2 &nbsp;Requester as received</h2>
+      <div class="grid g3">
+        <div class="field ff boxed"><span class="k">Name</span><span class="tok">@@F1@@</span><span class="v" data-f="requester_name">&mdash;</span></div>
+        <div class="field ff boxed"><span class="k">Email</span><span class="tok">@@F2@@</span><span class="v" data-f="requester_email">&mdash;</span></div>
+        <div class="field ff boxed"><span class="k">Phone</span><span class="tok">@@F3@@</span><span class="v" data-f="requester_phone">&mdash;</span></div>
+      </div>
+      <div class="grid" style="margin-top:5pt">
+        <div class="field ff boxed"><span class="k">Delivery address</span><span class="tok">@@F4@@</span><span class="v" data-f="delivery_address">&mdash;</span></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>3 &nbsp;Items found in the request</h2>
+      <table>
+        <thead>
+          <tr>
+            <th style="width:16%">Category</th>
+            <th style="width:24%">Item</th>
+            <th style="width:22%">SKU</th>
+            <th class="num" style="width:8%">Qty</th>
+            <th style="width:30%">Notes</th>
+          </tr>
+        </thead>
+        <tbody data-rows="items">
+          <tr>
+            <td class="ff"><span class="tok">@@F10@@</span><span data-f="item_category">&mdash;</span></td>
+            <td class="ff"><span class="tok">@@F11@@</span><span data-f="item_name">&mdash;</span></td>
+            <td class="ff"><span class="tok">@@F12@@</span><span class="mono" data-f="item_sku">&mdash;</span></td>
+            <td class="ff"><span class="tok">@@F13@@</span><span class="mono" data-f="item_quantity">&mdash;</span></td>
+            <td class="ff"><span class="tok">@@F14@@</span><span data-f="item_notes">&mdash;</span></td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="hint" style="font-size:6.4pt;color:var(--faint);margin-top:4pt">
+        Shaded cells are clickable and typeable. One row per item; add rows as
+        needed, or print blank and write by hand.
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>4 &nbsp;Comments as received &amp;&nbsp;&middot;&nbsp; 5 &nbsp;Read result</h2>
+      <div class="grid g2">
+        <div class="field ff boxed"><span class="k">Comments</span><span class="tok">@@F20@@</span><span class="v" data-f="comments" style="min-height:40pt">&mdash;</span></div>
+        <div>
+          <div class="callout" data-f="read_result" style="min-height:26pt">&mdash;</div>
+          <div class="checks" style="margin-top:6pt;gap:4pt 10pt">
+            <span class="chk" data-yes="flag_complete"><span class="box"></span>Complete</span>
+            <span class="chk" data-yes="flag_incomplete"><span class="box"></span>Return to requester</span>
+            <span class="chk" data-yes="flag_unresolved"><span class="box"></span>Not in catalogue</span>
+            <span class="chk" data-yes="flag_duplicate"><span class="box"></span>Possible duplicate</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="signrow">
+      <div class="sign"><span>Read by</span></div>
+      <div class="sign"><span>Classification</span></div>
+      <div class="sign"><span>Date</span></div>
+    </div>
+
+  </div>
+
+  <div class="foot">
+    <div class="lic">
+      300X3 is released as open documentation under CC BY-NC-SA 4.0.
+      This sheet carries no payment credentials or private keys.
+    </div>
+    <div class="ref">
+      intake <span data-f="intake_number">&mdash;</span><br>
+      sha256 <span data-f="source_sha256">&mdash;</span>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

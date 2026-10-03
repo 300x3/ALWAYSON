@@ -1,0 +1,39 @@
+{
+  "_comment": "SYNTHETIC EXAMPLE ONLY - not a real customer, order, or payment.",
+  "request_number": "REQ-2026-000101",
+  "received_at": "2026-10-03 14:22 UTC",
+  "source_sha256": "9f2c4a7e1d0b83c5a6e4f2b8d7c1a9035e6b4d2f8a0c7e3b5d1f9a2c6e4b8d03",
+  "requester_name": "EXAMPLE REQUESTER",
+  "requester_email": "requester@example.invalid",
+  "requester_phone": "+1 555 0100",
+  "delivery_address": "100 Example Lane, Example City, ZZ 00000",
+  "comments": "EXAMPLE. Structural battery requested as a kit with two cell bays; data item requested as a split map deliverable.",
+  "sale_logged": "false",
+  "corda_state": "NOT_SUBMITTED",
+  "classification": "Inquiry",
+  "review_legible": true,
+  "review_identity": true,
+  "review_not_duplicate": true,
+  "review_options_reviewed": true,
+  "tables": {
+    "items": [
+      {
+        "item_category": "Equipment",
+        "item_name": "Structural Battery",
+        "item_sku": "300X3-EQUIP-BATT-01",
+        "item_quantity": "2",
+        "item_options": "2 cell bays; black PETG case",
+        "item_notes": "EXAMPLE"
+      },
+      {
+        "item_category": "Digital",
+        "item_name": "Reality capture - split map",
+        "item_sku": "300X3-DATA-MAP-01",
+        "item_quantity": "1",
+        "item_options": "Split into 4 tiles",
+        "item_notes": "EXAMPLE"
+      }
+    ]
+  },
+  "schema_version": "1.0"
+}

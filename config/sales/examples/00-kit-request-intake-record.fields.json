@@ -1,0 +1,8 @@
+{
+  "_comment": "AcroForm overlay spec for 00-kit-request-intake-record.pdf. Keys are the template sentinel ids (@@Fn@@). Widths are in PDF points and must match the printed slot, or fields overlap. Measured from the rendered sheet: the g3 requester columns start at x=33/279/525 with a 12pt gutter, so each column ends 9pt short of the next; comments sits in the left half of a g2 grid (33..356).",
+  "1":  {"name": "requester_name",    "width": 234, "height": 13.5},
+  "2":  {"name": "requester_email",   "width": 234, "height": 13.5},
+  "3":  {"name": "requester_phone",   "width": 234, "height": 13.5},
+  "4":  {"name": "delivery_address",  "width": 700, "height": 13.5},
+  "20": {"name": "comments", "width": 322, "height": 40, "multiline": true}
+}
