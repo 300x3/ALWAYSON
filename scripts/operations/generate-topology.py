@@ -1969,50 +1969,359 @@ def grafana_graph(inv: dict) -> tuple[list[dict], list[dict]]:
     return nodes, edges
 
 
+# --------------------------------------------------------------------------
+# Grafana system-health dashboard (README Section 6).
+#
+# Grafana's only datasource is PostgreSQL. Every live panel below is a real
+# rawSql query against schema ao_status, which
+# scripts/operations/collect-system-health.py populates on a 60s timer.
+#
+# The previous version of this dashboard declared Prometheus as its default
+# datasource and queried a metric named ALWAYSON_STATIC that nothing in the
+# repository ever wrote, so all ten stat panels rendered "No data". Both faults
+# are corrected here rather than worked around.
+# --------------------------------------------------------------------------
+
+# Datasource uid is fixed rather than templated: there is no ${DS_*} input
+# prompt any more, because there is no second datasource to choose.
+_AO_DS = {"type": "postgres", "uid": "ao-status"}
+
+# The second, read-only datasource family that queries the SQLite snapshots
+# directly (README 6.A.2 / 4.3). Grafana never opens a live store; it reads the
+# delete-mode VACUUM INTO snapshots written by collect-system-health.py and
+# bind-mounted read-only at /var/lib/ao-sqlite.
+#
+# ONE DATASOURCE PER SNAPSHOT. Measured 2026-10-03: this plugin runs every
+# query against the single jsonData.path on the datasource and reads
+# jsonData.databases only as a query-editor picker. A per-target `database` key
+# is ignored. With one shared uid all five panels silently answered from the
+# podman snapshot. Each panel therefore names the datasource of its own store.
+_SQLITE_DS_TYPE = "frser-sqlite-datasource"
+
+# store id -> provisioned datasource uid, kept in step with
+# config/platform/monitoring/grafana/provisioning/datasources/sqlite-snapshots.yml
+_SQLITE_DS_BY_SNAPSHOT = {
+    "db-elisa.db": "ao-sqlite-elisa",
+    "db-nperf-history.db": "ao-sqlite-nperf-history",
+    "db-nperf-settings.db": "ao-sqlite-nperf-settings",
+    "db-openclaw-agent-main.db": "ao-sqlite-openclaw-main",
+    "db-openclaw-agent-sitebot.db": "ao-sqlite-openclaw-sitebot",
+    "db-podman.db": "ao-sqlite-podman",
+    "db-reticulum-meshchatx-observer.db": "ao-sqlite-meshchatx-observer",
+}
+
+
+def _sqlite_table(panel_id: int, title: str, sql: str, grid: dict,
+                  database: str, description: str = "") -> dict:
+    """A table panel that queries one SQLite snapshot through Grafana's own
+    SQLite datasource, rather than through the PostgreSQL projection."""
+    uid = _SQLITE_DS_BY_SNAPSHOT.get(database)
+    if uid is None:
+        raise KeyError(
+            "no provisioned SQLite datasource for snapshot %r; add one to "
+            "sqlite-snapshots.yml and to _SQLITE_DS_BY_SNAPSHOT" % database)
+    ds = {"type": _SQLITE_DS_TYPE, "uid": uid}
+    return {
+        "id": panel_id,
+        "type": "table",
+        "title": title,
+        "description": description,
+        "datasource": ds,
+        "gridPos": grid,
+        "targets": [{
+            "refId": "A",
+            "datasource": ds,
+            "format": "table",
+            "rawQuery": True,
+            # The SQL goes in `queryText`, NOT `rawSql`. Measured 2026-10-03:
+            # with rawSql the plugin replies status=200 with an EMPTY field
+            # list and no error, so the panel silently renders blank; with
+            # queryText the same query returns its row. Both keys are set:
+            # queryText is what the backend reads, and the pair keeps the
+            # payload compatible with the query editor.
+            "queryText": sql,
+            "rawQueryText": sql,
+            "rawSql": sql,
+            # Informational only -- the plugin ignores it. Which snapshot this
+            # query runs against is decided by the datasource uid above.
+            "database": {"path": "/var/lib/ao-sqlite/%s" % database},
+        }],
+        "transformations": [
+            {"id": "organize", "options": {
+                "excludeByName": {}, "indexByName": {}, "renameByName": {}}},
+        ],
+        "options": {"showHeader": True, "cellHeight": "sm", "footer": {
+            "show": False, "reducer": ["sum"], "countRows": False, "fields": ""}},
+    }
+
+
+# Columns are aliased to human labels so the tables read well without an
+# override block per panel.
+def _pg_table(panel_id: int, title: str, sql: str, grid: dict, description: str = "",
+              overrides: list | None = None) -> dict:
+    return {
+        "id": panel_id,
+        "type": "table",
+        "title": title,
+        "description": description,
+        "datasource": _AO_DS,
+        "gridPos": grid,
+        "targets": [{
+            "refId": "A",
+            "datasource": _AO_DS,
+            "format": "table",
+            "rawQuery": True,
+            "rawSql": sql,
+        }],
+        "transformations": [
+            {"id": "organize", "options": {
+                "excludeByName": {}, "indexByName": {}, "renameByName": {}}},
+            {"id": "sortBy", "options": {"fields": {}, "sort": [{"field": "", "desc": False}]}},
+        ],
+        "options": {"showHeader": True, "cellHeight": "sm", "footer": {
+            "show": False, "reducer": ["sum"], "countRows": False, "fields": ""}},
+        "fieldConfig": {"defaults": {
+            "custom": {"align": "auto", "filterable": True, "cellOptions": {"type": "auto"}},
+            "mappings": [],
+        }, "overrides": overrides or []},
+    }
+
+
+def _pg_stat(panel_id: int, title: str, sql: str, grid: dict, description: str = "",
+             unit: str = "short", steps: list | None = None,
+             decimals: int | None = None) -> dict:
+    """A stat tile driven by a single-value scalar query."""
+    return {
+        "id": panel_id,
+        "type": "stat",
+        "title": title,
+        "description": description,
+        "datasource": _AO_DS,
+        "gridPos": grid,
+        "targets": [{
+            "refId": "A",
+            "datasource": _AO_DS,
+            "format": "table",
+            "rawQuery": True,
+            "rawSql": sql,
+        }],
+        "options": {
+            "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": False},
+            "colorMode": "background",
+            "graphMode": "area",
+            "textMode": "auto",
+            "justifyMode": "auto",
+        },
+        "fieldConfig": {"defaults": {
+            "unit": unit,
+            "decimals": decimals,
+            "color": {"mode": "thresholds"},
+            "thresholds": {"mode": "absolute", "steps": steps or [
+                {"color": "green", "value": None}]},
+            "mappings": [],
+        }},
+    }
+
+
+def _pg_row(panel_id: int, title: str, y: int, description: str = "") -> dict:
+    return {
+        "id": panel_id,
+        "type": "row",
+        "title": title,
+        "description": description,
+        "collapsed": False,
+        "gridPos": {"h": 1, "w": 24, "x": 0, "y": y},
+        "panels": [],
+    }
+
+
+def _pg_bargauge(panel_id: int, title: str, sql: str, grid: dict,
+                 description: str = "", unit: str = "short",
+                 max_value: int | None = None) -> dict:
+    return {
+        "id": panel_id,
+        "type": "bargauge",
+        "title": title,
+        "description": description,
+        "datasource": _AO_DS,
+        "gridPos": grid,
+        "targets": [{
+            "refId": "A",
+            "datasource": _AO_DS,
+            "format": "table",
+            "rawQuery": True,
+            "rawSql": sql,
+        }],
+        "options": {
+            "displayMode": "gradient",
+            "orientation": "horizontal",
+            "showUnfilled": True,
+            "valueMode": "text",
+            "minVizWidth": 8,
+            "minVizHeight": 8,
+            "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": False},
+        },
+        "fieldConfig": {"defaults": {
+            "unit": unit,
+            "min": 0,
+            "max": max_value,
+            "color": {"mode": "thresholds"},
+            "thresholds": {"mode": "absolute", "steps": [
+                {"color": "green", "value": None}]},
+            "mappings": [],
+        }},
+    }
+
+
 def grafana_dashboard(inv: dict, model: dict) -> dict:
-    """Grafana dashboard JSON embedding the same topology as a node graph."""
+    """ALWAYS ON system-health dashboard. See _grafana_system_dashboard()."""
+    return _grafana_system_dashboard(inv, model)
+
+
+def _grafana_system_dashboard(inv: dict, model: dict) -> dict:
+    """Build the system-health dashboard.
+
+    Grafana's only datasource is PostgreSQL. Live panels read schema ao_status,
+    which scripts/operations/collect-system-health.py refreshes every 60s. The
+    static node graph is built from the same inventory as the topology diagram,
+    so the dashboard and the diagram cannot drift apart.
+    """
     nodes, edges = grafana_graph(inv)
     uid = model.get("grafana_dashboard_uid", "alwayson-topology")
     slug = model.get("grafana_dashboard_slug", "alwayson-system-topology")
-    counts = inv["counts"]
-    ds = {"type": "prometheus", "uid": "${DS_PROMETHEUS}"}
     panels: list[dict] = []
-    tiles = [
-        ("networks total", counts["networks_total"]),
-        ("networks live", counts["networks_live"]),
-        ("containers declared", counts["containers_declared"]),
-        ("containers running", counts["containers_running"]),
-        ("listeners", counts["listeners"]),
-        ("loopback listeners", counts["loopback_listeners"]),
-        ("non-loopback listeners", counts["non_loopback_listeners"]),
-        ("databases &amp; stores", counts["databases"]),
-        ("authoritative stores", counts["databases_authoritative"]),
-        ("drift items", counts["drift_items"]),
+    y = 0
+
+    # -- Row 1: system health ------------------------------------------
+    panels.append(_pg_row(
+        1, "SYSTEM HEALTH — live, from PostgreSQL ao_status", y,
+        "Every value here is a real query. The previous ten tiles queried a "
+        "metric named ALWAYSON_STATIC that nothing ever wrote, so they always "
+        "rendered No data."))
+    y += 1
+    health_tiles = [
+        ("Containers running", "containers_running", "green", 80, 90),
+        ("Containers unhealthy", "containers_unhealthy", "green", 1, 2),
+        ("Units failed", "units_failed", "green", 1, 2),
+        ("Restart loops", "containers_restarting", "green", 1, 2),
+        ("Non-loopback listeners", "listeners_non_loopback", "green", 0, 1),
+        ("Disk max %", "disk_max_use_percent", "green", 80, 90),
     ]
-    for index, (title, value) in enumerate(tiles):
-        panels.append({
-            "id": index + 1,
-            "type": "stat",
-            "title": title,
-            "gridPos": {"h": 4, "w": 24 // len(tiles), "x": (index % len(tiles)) * (24 // len(tiles)),
-                        "y": 0},
-            "datasource": ds,
-            "targets": [{"refId": "A", "datasource": ds, "instant": True,
-                         "expr": "ALWAYSON_STATIC{metric=\"%s\"}" % title.replace(" ", "_")}],
-            "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": False},
-                        "colorMode": "background", "graphMode": "none"},
-            "fieldConfig": {"defaults": {"color": {"mode": "thresholds"},
-                                         "thresholds": {"mode": "absolute", "steps": [
-                                             {"color": "green", "value": None}]}}},
-        })
+    width = 24 // len(health_tiles)
+    for index, (title, column, base, warn, crit) in enumerate(health_tiles):
+        panels.append(_pg_stat(
+            100 + index, title,
+            "SELECT %s AS value FROM ao_status.v_system_health" % column,
+            {"h": 4, "w": width, "x": index * width, "y": y},
+            unit="percent" if "%" in title else "short",
+            decimals=2 if "%" in title else None,
+            steps=[{"color": base, "value": None},
+                   {"color": "yellow", "value": warn},
+                   {"color": "red", "value": crit}]))
+    y += 4
+
+    second_tiles = [
+        ("Networks live", "networks_observed", "short", None, ""),
+        ("Internal networks", "networks_internal", "short", None, ""),
+        ("Non-internal networks", "networks_non_internal", "short",
+         [{"color": "green", "value": None}, {"color": "yellow", "value": 4}],
+         "README 3.x: workload networks are Internal=true by convention."),
+        ("Listeners tracked", "listeners", "short", None, ""),
+        ("GPU max °C", "gpu_max_temperature_c", "celsius",
+         [{"color": "green", "value": None}, {"color": "yellow", "value": 75},
+          {"color": "red", "value": 85}], ""),
+        ("Fact age (s)", "fact_age_seconds", "s",
+         [{"color": "green", "value": None}, {"color": "yellow", "value": 180},
+          {"color": "red", "value": 300}],
+         "Age of the projection. A large value means ao-status-collect.timer "
+         "has stopped, so the numbers here are stale rather than healthy."),
+    ]
+    for index, (title, column, unit, steps, note) in enumerate(second_tiles):
+        panels.append(_pg_stat(
+            110 + index, title,
+            "SELECT %s AS value FROM ao_status.v_system_health" % column,
+            {"h": 4, "w": width, "x": index * width, "y": y},
+            description=note, unit=unit, steps=steps, decimals=0))
+    y += 4
+
+    panels.append(_pg_bargauge(
+        120, "Filesystem use %",
+        "SELECT mountpoint AS metric, use_percent AS value "
+        "FROM ao_status.disk ORDER BY use_percent DESC",
+        {"h": 5, "w": 12, "x": 0, "y": y},
+        description="Real filesystems only. The collector excludes pseudo mounts "
+                    "(AppImage, efivarfs) so a 0-byte mount cannot report as "
+                    "100% full.",
+        unit="percent", max_value=100))
+    panels.append(_pg_bargauge(
+        121, "GPU core temperature",
+        "SELECT name AS metric, temperature_c AS value FROM ao_status.gpu",
+        {"h": 5, "w": 12, "x": 12, "y": y},
+        description="GPU core temperature in °C.", unit="celsius"))
+    y += 5
+
+    # -- Row 2: topology coverage, live --------------------------------
+    panels.append(_pg_row(
+        2, "TOPOLOGY COVERAGE — live, every network and container", y,
+        "Covers every ao-* network and every container on the host. "
+        "Internal=true means the network has no route off this host."))
+    y += 1
+    panels.append(_pg_table(
+        130, "Networks — Internal flag, subnets, members",
+        "SELECT name AS network, "
+        "  CASE WHEN internal THEN 'true' ELSE 'false' END AS internal, "
+        "  driver, cidr AS subnets, member_count AS members "
+        "FROM ao_status.network ORDER BY name",
+        {"h": 9, "w": 12, "x": 0, "y": y},
+        description="Every ao-* network observed on the host."))
+    panels.append(_pg_table(
+        131, "Containers — state, health, restarts, image",
+        "SELECT name AS container, quadlet, state, health, "
+        "  restart_count AS restarts, image "
+        "FROM ao_status.container ORDER BY name",
+        {"h": 9, "w": 12, "x": 12, "y": y},
+        description="Every container, including exited ones, so a stopped "
+                    "service is visible rather than simply absent."))
+    y += 9
+    panels.append(_pg_table(
+        132, "Container network attachments — IP per network",
+        "SELECT cn.container, cn.network, cn.ip_address AS ip "
+        "FROM ao_status.container_network cn ORDER BY cn.container, cn.network",
+        {"h": 9, "w": 12, "x": 0, "y": y}))
+    panels.append(_pg_table(
+        133, "Systemd units — active/sub/load state, restarts",
+        "SELECT name AS unit, active_state, sub_state, load_state, kind, restarts "
+        "FROM ao_status.unit ORDER BY name",
+        {"h": 9, "w": 12, "x": 12, "y": y},
+        description="Every ao-* user unit. Quadlets deploy flat, so a unit file "
+                    "present in the deployed directory is what marks a container."))
+    y += 9
+    panels.append(_pg_table(
+        134, "Listening sockets — loopback vs published",
+        "SELECT owner, protocol, address, port, "
+        "  CASE WHEN loopback THEN 'loopback' ELSE 'PUBLISHED' END AS scope "
+        "FROM ao_status.listener ORDER BY loopback, owner, port",
+        {"h": 9, "w": 24, "x": 0, "y": y},
+        description="Sockets owned by ao-*, podman or docker. A PUBLISHED row is "
+                    "the section 6.A.3 finding that needs review: exposing an "
+                    "operator port outside loopback requires explicit approval."))
+    y += 9
+
+    # -- Row 3: topology detail, static --------------------------------
+    panels.append(_pg_row(
+        3, "TOPOLOGY DETAIL — full graph", y,
+        "Static, generated from the README-authoritative topology model plus "
+        "live inspection: networks, containers, host services, host software, "
+        "databases, field radios, edge paths and planned components."))
+    y += 1
     panels.append({
-        "id": 100,
+        "id": 200,
         "type": "nodeGraph",
-        "title": "ALWAYS ON — networks · containers · host software",
+        "title": "ALWAYS ON — networks · containers · host software · field radios · edge",
         "description": "Generated by /ALWAYSON/scripts/operations/generate-topology.py from "
                        "README-authoritative declarations plus live inspection. "
                        "Node mainStat = CIDR or container IP; edge labels = published port / IP.",
-        "gridPos": {"h": 22, "w": 24, "x": 0, "y": 4},
+        "gridPos": {"h": 22, "w": 24, "x": 0, "y": y},
         "datasource": {"type": "datasource", "uid": "grafana"},
         "nodes": nodes,
         "edges": edges,
@@ -2022,32 +2331,174 @@ def grafana_dashboard(inv: dict, model: dict) -> dict:
                     "legend": {"showLabel": True, "showType": True, "showStats": True,
                                "showPorts": True}},
     })
+    y += 22
+
+    # -- Row 4: data stores --------------------------------------------
+    panels.append(_pg_row(
+        4, "DATA STORES — PostgreSQL live, SQLite declared vs present", y,
+        "The PostgreSQL panel queries the cluster it is connected to. The SQLite "
+        "panel is the live presence check for each store named in the README "
+        "store inventory."))
+    y += 1
+    panels.append(_pg_table(
+        210, "PostgreSQL databases and roles — live from the cluster",
+        "SELECT d.datname AS database, "
+        "  pg_catalog.pg_get_userbyid(d.datdba) AS owner, "
+        "  pg_catalog.pg_encoding_to_char(d.encoding) AS encoding, "
+        "  d.datconnlimit AS conn_limit, "
+        "  COALESCE(a.active_conns, 0) AS active_conns, "
+        "  CASE WHEN pg_catalog.has_database_privilege(d.datname, 'CONNECT') "
+        "    THEN pg_catalog.pg_size_pretty("
+        "           pg_catalog.pg_database_size(d.datname)) "
+        "    ELSE 'no access' END AS size, "
+        "  CASE WHEN pg_catalog.has_database_privilege(d.datname, 'CONNECT') "
+        "    THEN 'visible' ELSE 'restricted to grafana' END AS readable "
+        "FROM pg_catalog.pg_database d "
+        "LEFT JOIN ("
+        "  SELECT datname, count(*) AS active_conns "
+        "  FROM pg_catalog.pg_stat_activity GROUP BY datname"
+        ") a ON a.datname = d.datname "
+        "WHERE NOT d.datistemplate ORDER BY d.datname",
+        {"h": 9, "w": 12, "x": 0, "y": y},
+        description="Every non-template database on the host cluster, which is "
+                    "the cluster ao-grafana and ao-metabase both authenticate to. "
+                    "Grafana holds CONNECT on its own database only, so size shows "
+                    "'no access' elsewhere -- that restriction is the point, not a "
+                    "defect. Measured 2026-10-02: the unrestricted form of this "
+                    "query failed outright with 'permission denied for database "
+                    "cordadb'."))
+    panels.append(_pg_table(
+        211, "SQLite stores — declared vs present, integrated vs excluded",
+        "SELECT id AS store, label, "
+        "  CASE WHEN present THEN 'present' ELSE 'ABSENT' END AS status, "
+        "  CASE WHEN integrated THEN 'integrated' ELSE 'excluded (not opened)' END AS coverage, "
+        "  table_count AS tables, journal_mode, "
+        "  round(size_bytes / 1048576.0, 2) AS size_mib, "
+        "  modified_utc, authority, read_error "
+        "FROM ao_status.sqlite_store ORDER BY integrated DESC, present DESC, id",
+        {"h": 9, "w": 12, "x": 12, "y": y},
+        description="A declared store showing ABSENT is a real finding for this "
+                    "host, not a collector error. Integrated stores are opened "
+                    "mode=ro and snapshotted; EXCLUDED stores are the mail and "
+                    "browser stores, excluded by operator directive -- they are "
+                    "never opened, so table_count is empty by design and that is "
+                    "not a fault."))
+    y += 9
+    panels.append(_pg_table(
+        212, "SQLite store metrics — row counts only",
+        "SELECT s.id AS store, s.label, m.metric, m.value "
+        "FROM ao_status.sqlite_metric m "
+        "JOIN ao_status.sqlite_store s ON s.id = m.store_id "
+        "ORDER BY s.id, m.metric",
+        {"h": 8, "w": 12, "x": 0, "y": y},
+        description="Counts only. Message bodies, mail and browsing history are "
+                    "never read into the projection."))
+    panels.append(_pg_table(
+        213, "Declared data stores — authority from the topology model",
+        "SELECT id AS store, label, kind, software, status, authority "
+        "FROM ao_status.declared_store ORDER BY kind, id",
+        {"h": 8, "w": 12, "x": 12, "y": y},
+        description="PostgreSQL, Redis and declared SQLite stores from "
+                    "config/platform/topology-model.yaml. Authority is the "
+                    "README classification: an authoritative store is a system "
+                    "of record and may not be deleted; a cache is not."))
+    y += 8
+
+    # -- Row 6: live SQLite via Grafana's own SQLite datasource -----------
+    # These panels bypass the PostgreSQL projection entirely: they are
+    # executed by the frser-sqlite-datasource plugin against the read-only
+    # snapshots bind-mounted at /var/lib/ao-sqlite. Grafana therefore has a
+    # genuine SQLite datasource, and still never touches a live store, a
+    # personal file, or any mail or browser database.
+    panels.append(_pg_row(6, "SQLITE DIRECT QUERY — read-only snapshots, via the "
+                              "Grafana SQLite datasource (not PostgreSQL)", y))
+    y += 1
+    panels.append(_sqlite_table(
+        220, "Elisa music library — tracks / albums / artists",
+        "SELECT (SELECT count(*) FROM Tracks) AS tracks, "
+        "       (SELECT count(*) FROM Albums) AS albums, "
+        "       (SELECT count(*) FROM Artists) AS artists, "
+        "       (SELECT count(*) FROM Genre) AS genres, "
+        "       (SELECT count(*) FROM Composer) AS composers",
+        {"h": 8, "w": 8, "x": 0, "y": y},
+        database="db-elisa.db",
+        description="Queried live through Grafana's SQLite datasource against the "
+                    "delete-mode VACUUM INTO snapshot. Grafana opens a copy, never "
+                    "the running library."))
+    panels.append(_sqlite_table(
+        221, "nPerf — run history",
+        # The real column is start_date, not date (measured 2026-10-03:
+        # PRAGMA table_info(history) -> id, result_id, type, start_date, result).
+        "SELECT count(*) AS runs, min(start_date) AS first_run, "
+        "max(start_date) AS last_run FROM history",
+        {"h": 8, "w": 8, "x": 8, "y": y},
+        database="db-nperf-history.db",
+        description="Network performance monitor run history from the snapshot."))
+    panels.append(_sqlite_table(
+        222, "Podman store — containers, pods and volumes in the snapshot",
+        "SELECT (SELECT count(*) FROM ContainerConfig) AS containers, "
+        "       (SELECT count(*) FROM ContainerState) AS container_states, "
+        "       (SELECT count(*) FROM PodConfig) AS pods, "
+        "       (SELECT count(*) FROM VolumeConfig) AS volumes",
+        {"h": 8, "w": 8, "x": 16, "y": y},
+        database="db-podman.db",
+        description="Counts only. Podman's own live metadata database is never "
+                    "opened by Grafana; the live container view is the container "
+                    "and network tables in the TOPOLOGY COVERAGE row."))
+    y += 8
+    panels.append(_sqlite_table(
+        223, "MeshChatX performance observer — reports held",
+        "SELECT (SELECT count(*) FROM declarative_performance_observer_reports) AS reports, "
+        "       (SELECT count(*) FROM declarative_performance_observer_policies) AS policies",
+        {"h": 8, "w": 12, "x": 0, "y": y},
+        database="db-reticulum-meshchatx-observer.db",
+        description="MeshChatX observer database. The main MeshChatX message store "
+                    "is not present on this host, so only the observer store has a "
+                    "snapshot."))
+    panels.append(_sqlite_table(
+        224, "OpenClaw agent memory index — main agent",
+        "SELECT (SELECT count(*) FROM memory_index_sources) AS sources, "
+        "       (SELECT count(*) FROM memory_index_chunks) AS chunks, "
+        "       (SELECT count(*) FROM cache_entries) AS cache_entries",
+        {"h": 8, "w": 12, "x": 12, "y": y},
+        database="db-openclaw-agent-main.db",
+        description="Row counts only from the main agent snapshot. No memory text, "
+                    "embedding payload or credential material is displayed."))
+    y += 8
+    # -- Row 5: operations ---------------------------------------------
+    panels.append(_pg_row(5, "OPERATIONS", y))
+    y += 1
     panels.append({
-        "id": 101,
+        "id": 300,
         "type": "text",
-        "title": "Where the artifacts live",
-        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 26},
-        "datasource": ds,
+        "title": "Where the artifacts live, and how to refresh",
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": y},
         "options": {"mode": "markdown", "content": (
-            "**Topology artifacts:** `/ALWAYSON/TOPOLOGY/` — SVG, PNG, self-contained HTML, "
-            "Graphviz DOT, `topology-inventory.json`, `TOPOLOGY.md`, `LIVE-LINKS.md`.\n\n"
-            "**Prometheus:** http://127.0.0.1:9090 · **Metabase:** http://127.0.0.1:3002 · "
+            "**Datasource:** PostgreSQL only. Schema `ao_status`, read over the "
+            "host UNIX socket that `ao-grafana` already bind-mounts read-only — "
+            "no TCP listener, no published port, no extra network. Grafana does "
+            "not read Prometheus.\n\n"
+            "**Projection:** `scripts/operations/collect-system-health.py`, run "
+            "every 60s by `ao-status-collect.timer`. It only inspects — podman, "
+            "systemctl, ss, df, nvidia-smi — and opens each declared SQLite store "
+            "read-only. It never starts, stops or reconfigures anything.\n\n"
+            "**Topology artifacts:** `/ALWAYSON/TOPOLOGY/` — SVG, PNG, "
+            "self-contained HTML, Graphviz DOT, `topology-inventory.json`, "
+            "`TOPOLOGY.md`, `LIVE-LINKS.md`.\n\n"
+            "**Metabase:** http://127.0.0.1:3002 · "
             "**Grafana:** http://127.0.0.1:3001 (loopback only, operator login).\n\n"
             "Regenerate after any Quadlet, network, or port change: "
             "`python3 /ALWAYSON/scripts/operations/generate-topology.py`")},
     })
+    y += 8
+
     return {
-        "__inputs": [{"name": "DS_PROMETHEUS", "label": "Prometheus",
-                      "description": "Prometheus datasource for the ALWAYS ON topology dashboard",
-                      "type": "datasource", "pluginId": "prometheus", "pluginName": "Prometheus"}],
+        "__inputs": [],
         "__requires": [
             {"type": "grafana", "id": "grafana", "name": "Grafana", "version": "10.0.0"},
-            {"type": "datasource", "id": "prometheus", "name": "Prometheus", "version": "1.0.0"},
+            {"type": "datasource", "id": "postgres", "name": "PostgreSQL", "version": "1.0.0"},
             {"type": "panel", "id": "nodeGraph", "name": "Node graph", "version": ""},
         ],
-        "annotations": {"list": [{"builtIn": 1, "datasource": {"type": "grafana", "uid": "-- Grafana --"},
-                                  "enable": True, "hide": True, "iconColor": "rgba(0, 211, 255, 1)",
-                                  "name": "Annotations & Alerts", "type": "dashboard"}]},
         "description": "ALWAYS ON system topology: networks, ports, IP addresses, local software "
                        "names, field radio and drone links.",
         "editable": True,
@@ -2089,9 +2540,16 @@ def grafana_provision_files(inv: dict, model: dict) -> tuple[Path, str, Path, st
         }],
     }
     dash_dir = GRAFANA_PROVISIONING / "dashboards"
-    return (dash_dir / "alwayson-topology.provider.yml",
+    # These two filenames are the ones already deployed and tracked in git. The
+    # dashboard uid is ao-topology (grafana_dashboard_uid in the model), and a
+    # provider folder is scanned whole, so writing a second file under a
+    # different name would put two dashboards with the SAME uid in one folder
+    # and Grafana would pick between them non-deterministically. Measured
+    # 2026-10-02: an accidental alwayson-topology.json alongside ao-topology.json
+    # produced exactly that collision. One file, one uid.
+    return (dash_dir / "ao-topology.provider.yml",
             yaml.safe_dump(provider, sort_keys=False),
-            dash_dir / "json" / "alwayson-topology.json", dashboard_json)
+            dash_dir / "json" / "ao-topology.json", dashboard_json)
 
 
 # ---------------------------------------------------------------------------

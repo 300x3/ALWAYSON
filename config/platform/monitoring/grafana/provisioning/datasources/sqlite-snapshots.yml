@@ -1,0 +1,112 @@
+apiVersion: 1
+# ALWAYS ON - SQLite reporting datasource (README 6.A.2, 4.3).
+#
+# Grafana's own application state is PostgreSQL (postgres-aostatus.yml). This
+# is a SECOND, separate, read-only datasource used by the SQLite panels only.
+#
+# Every database path below points into /var/lib/ao-sqlite, which is a
+# bind-mounted read-only directory of VACUUM INTO snapshots written by
+# scripts/operations/collect-system-health.py. Grafana never opens a live
+# store. Two measured reasons for the snapshot indirection (2026-10-03):
+#   * a WAL store cannot be read through a read-only mount at all, because
+#     SQLite must write the -shm index;
+#   * VACUUM INTO output is delete-mode and opens cleanly read-only.
+# A snapshot is a point-in-time copy, so panel data can lag the live store by
+# up to one collector interval. The snapshot age is shown on the dashboard.
+#
+# The databases below are the non-excluded stores. Mail (Akonadi) and browser
+# stores are excluded by operator decision on 2026-10-03: they are reported as
+# present/absent in PostgreSQL, but are never snapshotted, never mounted and
+# never readable from Grafana.
+#
+# Only the `path` is set. There is no user, password, or any other credential,
+# and none may be added: SQLite stores have no authentication mechanism, so
+# read access to a snapshot is controlled entirely by the file mode (0644) and
+# the read-only mount.
+datasources:
+  # ONE DATASOURCE PER SNAPSHOT -- deliberate, and forced by the plugin.
+  #
+  # Measured 2026-10-03: frser-sqlite-datasource executes every query against
+  # the single jsonData.path and treats jsonData.databases only as a picker for
+  # the query editor's UI. A panel cannot select a database per query. With one
+  # datasource carrying the podman snapshot as `path`, all five SQLite panels
+  # silently returned podman's tables -- elisa reported podman's ContainerConfig
+  # row count. Per-snapshot datasources are the only way for a panel to address
+  # the store it names. The databases picker is retained on each for the editor
+  # UI only.
+  - name: ALWAYS ON SQLite (podman)
+    uid: ao-sqlite-podman
+    type: frser-sqlite-datasource
+    access: proxy
+    editable: false
+    isDefault: false
+    jsonData:
+      path: /var/lib/ao-sqlite/db-podman.db
+      databases:
+        - path: /var/lib/ao-sqlite/db-podman.db
+
+  - name: ALWAYS ON SQLite (openclaw main)
+    uid: ao-sqlite-openclaw-main
+    type: frser-sqlite-datasource
+    access: proxy
+    editable: false
+    isDefault: false
+    jsonData:
+      path: /var/lib/ao-sqlite/db-openclaw-agent-main.db
+      databases:
+        - path: /var/lib/ao-sqlite/db-openclaw-agent-main.db
+
+  - name: ALWAYS ON SQLite (openclaw sitebot)
+    uid: ao-sqlite-openclaw-sitebot
+    type: frser-sqlite-datasource
+    access: proxy
+    editable: false
+    isDefault: false
+    jsonData:
+      path: /var/lib/ao-sqlite/db-openclaw-agent-sitebot.db
+      databases:
+        - path: /var/lib/ao-sqlite/db-openclaw-agent-sitebot.db
+
+  - name: ALWAYS ON SQLite (nPerf history)
+    uid: ao-sqlite-nperf-history
+    type: frser-sqlite-datasource
+    access: proxy
+    editable: false
+    isDefault: false
+    jsonData:
+      path: /var/lib/ao-sqlite/db-nperf-history.db
+      databases:
+        - path: /var/lib/ao-sqlite/db-nperf-history.db
+
+  - name: ALWAYS ON SQLite (nPerf settings)
+    uid: ao-sqlite-nperf-settings
+    type: frser-sqlite-datasource
+    access: proxy
+    editable: false
+    isDefault: false
+    jsonData:
+      path: /var/lib/ao-sqlite/db-nperf-settings.db
+      databases:
+        - path: /var/lib/ao-sqlite/db-nperf-settings.db
+
+  - name: ALWAYS ON SQLite (MeshChatX observer)
+    uid: ao-sqlite-meshchatx-observer
+    type: frser-sqlite-datasource
+    access: proxy
+    editable: false
+    isDefault: false
+    jsonData:
+      path: /var/lib/ao-sqlite/db-reticulum-meshchatx-observer.db
+      databases:
+        - path: /var/lib/ao-sqlite/db-reticulum-meshchatx-observer.db
+
+  - name: ALWAYS ON SQLite (Elisa music library)
+    uid: ao-sqlite-elisa
+    type: frser-sqlite-datasource
+    access: proxy
+    editable: false
+    isDefault: false
+    jsonData:
+      path: /var/lib/ao-sqlite/db-elisa.db
+      databases:
+        - path: /var/lib/ao-sqlite/db-elisa.db

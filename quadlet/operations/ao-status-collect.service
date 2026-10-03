@@ -1,0 +1,23 @@
+[Unit]
+Description=ALWAYS ON system-health projection into Grafana's PostgreSQL
+Documentation=file:///ALWAYSON/README.md#6-grafana
+# Grafana's datasource set is PostgreSQL (schema ao_status) plus a read-only
+# SQLite datasource over snapshots (README 6.A.2). This service feeds both: the
+# live facts go into PostgreSQL, and the VACUUM INTO snapshots it writes into
+# AO_SQLITE_SNAPSHOT_DIR are what the SQLite datasource actually reads. Grafana
+# never opens a live store.
+#
+# Reads GF_DATABASE_PASSWORD from the same 0600 KDE-Wallet env file the
+# Grafana and Metabase Quadlets use. No secret is passed on the command line
+# and none is written to the unit or the journal.
+After=postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=oneshot
+EnvironmentFile=%h/.local/share/ao-secrets/reporting-grafana-postgres.env
+Environment=AO_SQLITE_SNAPSHOT_DIR=/ALWAYSON/data/monitoring/sqlite-snapshots
+ExecStart=/usr/bin/python3 /ALWAYSON/scripts/operations/collect-system-health.py
+# Read-only inspection, one snapshot pass, one small transaction. A slow run
+# must not pile up.
+TimeoutStartSec=180

@@ -3,8 +3,11 @@
 # access requires separate approval).
 [Unit]
 Description=ALWAYS ON Grafana (ao-admin)
-After=network-online.target ao-prometheus.service
-Requires=ao-prometheus.service
+After=network-online.target
+# Grafana's only datasource is PostgreSQL (README 3.3, 6.A.2). The former
+# Requires=ao-prometheus.service is removed: nothing in Grafana connects to
+# Prometheus, and Grafana must not depend on it to start. ao-prometheus is not
+# touched by this unit.
 
 [Container]
 # Digest-pinned 2026-10-01 (README 4.1 rule 9). Tag was grafana-oss:11.6.0.
@@ -15,6 +18,22 @@ Network=ao-reporting-egress.network
 Volume=/var/run/postgresql:/var/run/postgresql:ro
 Volume=/ALWAYSON/config/platform/monitoring/grafana/provisioning:/etc/grafana/provisioning:ro,Z
 Volume=ao-grafana-postgres-data:/var/lib/grafana-postgres:Z
+# SQLite datasource support (README 6.A.2 / 4.3). Grafana OSS 11.6.0 ships no
+# SQLite datasource, so frser-sqlite-datasource is vendored under /ALWAYSON/data
+# and mounted read-only. The plugin is UNSIGNED -- its plugin.json carries no
+# signature and no signedByOrg (verified 2026-10-03) -- so the allow-list in
+# grafana-admin.env is required for it to load at all. That list names this one
+# plugin id and nothing else.
+Volume=/ALWAYSON/data/monitoring/grafana-plugins:/var/lib/grafana/plugins:ro,Z
+# Snapshots written by scripts/operations/collect-system-health.py. Grafana
+# reads only these COPIES, never a live store. Measured 2026-10-03 on this
+# host: a WAL store cannot be read through a read-only bind mount at all,
+# because SQLite must write the -shm index to read one. So the collector runs
+# VACUUM INTO from a mode=ro source, which produces a delete-mode copy that
+# opens cleanly read-only. Two consequences, both deliberate: no ACL or
+# permission change is applied to any personal store, and Grafana cannot write
+# to or corrupt one.
+Volume=/ALWAYSON/data/monitoring/sqlite-snapshots:/var/lib/ao-sqlite:ro,Z
 # Grafana is split in two on purpose (README 4.1 rule 7 / 14.1.1): this file
 # carries ONLY non-secret settings and is safe to track in Git. The admin
 # password is NOT here; it is held solely in KDE Wallet (ao-admin /
@@ -26,8 +45,10 @@ PublishPort=127.0.0.1:3001:3000
 NoNewPrivileges=true
 DropCapability=all
 
-# PostgreSQL owns all active Grafana application state. Legacy SQLite is not
-# mounted or used at runtime.
+# PostgreSQL owns all active Grafana application state (README 3.3). Grafana's
+# own backing store is NOT the legacy SQLite file -- that is Grafana metadata
+# and is not in use. The SQLite datasource below is a separate, read-only
+# reporting datasource over store snapshots; see the volume comments above.
 [Service]
 ExecStartPre=/usr/bin/bash -c 'install -d -m 0700 %h/.local/share/ao-secrets && /ALWAYSON/scripts/operations/fetch-kwallet-secret.sh %h/.local/share/ao-secrets/reporting-grafana-admin.env grafana-admin-password'
 ExecStartPre=/usr/bin/bash -c 'install -d -m 0700 %h/.local/share/ao-secrets && /ALWAYSON/scripts/operations/fetch-reporting-env.sh grafana %h/.local/share/ao-secrets/reporting-grafana-postgres.env'

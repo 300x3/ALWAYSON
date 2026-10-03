@@ -1,0 +1,55 @@
+# ALWAYS ON - Grafana's only datasource.
+#
+# README 3.3 and 6.A.2: Grafana reads approved PostgreSQL datasources
+# read-only. Nothing else. In particular there is no Prometheus datasource and
+# nothing in Grafana connects to Prometheus. Every panel on the system-health
+# dashboard is served by this datasource, over the host UNIX socket that
+# ao-grafana already bind-mounts read-only -- so there is no TCP listener, no
+# published port and no new network.
+#
+# Credentials are not in this file. $GF_DATABASE_USER and $GF_DATABASE_PASSWORD
+# are expanded by Grafana's provisioner from the container environment, which
+# systemd populates from the 0600 KDE-Wallet env file via EnvironmentFile in
+# quadlet/operations/ao-grafana.container.
+#
+# OPEN DEVIATION (2026-10-02, needs operator decision): this datasource
+# authenticates as grafana_app, the same least-privilege application role that
+# owns the Grafana database, rather than as a dedicated SELECT-only reader.
+# A dedicated role requires the postgres superuser, which is not available
+# non-interactively on this host. The role holds no superuser and no CREATEDB.
+apiVersion: 1
+datasources:
+  - name: ALWAYS ON Status
+    uid: ao-status
+    type: postgres
+    access: proxy
+    # TRAP (measured 2026-10-02): for the PostgreSQL datasource Grafana's
+    # provisioner takes the connection from the TOP-LEVEL `url` and `database`
+    # keys. A `host:`/`port:` pair is silently ignored -- provisioning
+    # succeeded, the datasource appeared, and every query then failed with
+    #   err="dial tcp :5432: connect: connection refused"
+    # because both fields had persisted empty. Verified against the Grafana
+    # database: select url, database from data_source -> both empty strings.
+    #
+    # GF_DATABASE_HOST is the host PostgreSQL UNIX socket DIRECTORY
+    # (/var/run/postgresql), not a TCP address, and pgx treats a host that
+    # begins with "/" as a socket directory. ao-grafana already bind-mounts
+    # /var/run/postgresql read-only, so there is still no TCP listener, no
+    # published port and no new network.
+    url: ${GF_DATABASE_HOST}
+    database: ${GF_DATABASE_NAME}
+    user: ${GF_DATABASE_USER}
+    isDefault: true
+    editable: false
+    jsonData:
+      sslmode: disable
+      postgresVersion: 1800
+      timescaledb: false
+      maxOpenConns: 4
+      maxIdleConns: 2
+      connMaxLifetime: 14400
+      # Every generated panel qualifies ao_status explicitly; this is a
+      # backstop so a hand-built query cannot reach Grafana's own tables.
+      schema: ao_status
+    secureJsonData:
+      password: ${GF_DATABASE_PASSWORD}
