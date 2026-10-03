@@ -236,3 +236,38 @@ boilerplate in the §5.1 combined matrix, the identical `Heltec LoRa 32 V3, SX12
 firmware 1.85` hardware cell on both radio rows, the `ROS 2 Lyrical, Gazebo Sim 10.5.0` stack
 shared by the two simulation rows in §2.1, and the §3.3.1 rows that all end with the same
 "not automatically part of SQL reporting" boundary.
+
+## 2026-10-02 — Section-by-section rewrite for succinctness, without losing information
+
+Operator instruction: go section by section and rewrite each one so it is written succinctly
+and nothing is lost. Every fact, identifier, path, number and constraint is preserved. What
+was cut is narration, restatement and duplicated framing.
+
+| Section | Before | After | What was cut, and what was verified kept |
+|---|---:|---:|---|
+| **14.1.1** KDE Wallet Secret Management | 1,295 words | 922 | Closure narrative ("Resolved 2026-10-01: Grafana is wallet-backed", the before/after of the `grafana.env` split) folded into the rule and the table. **Verified by script:** all 53 identifiers present in the old subsection still appear — including the 12 `ao-mastodon` entry names (`mastodon-ar-primary-key`, `openclaw-bot-client-secret`, `roundtrip`/`roundtrip2`, …), the D-Bus detail table, the folder layout, and all five credential-reading scripts |
+| **9.2.1** MeshChatX Local Service Port | 828 | 770 | "This is the single table for radio details… rather than from two tables that have to be reconciled" reduced to one line. RNode and CP2102 paragraphs tightened. Every constraint kept |
+| **6.A** | — | — | A paragraph appeared twice in the same subsection; the second copy removed |
+| **3.3** | — | — | "During the current migration, some applications still run container-scoped PostgreSQL instances" is current state, not specification |
+| **10.1.2 / 10.2.1** | — | — | Both opened with "**Reinforcement learning objects.** The world supplies…" and restated the geometry-separation requirement. Both shortened; each keeps its own distinct content — vehicle scenario/policy work versus fabrication cell/kitchen actors and reward targets |
+
+### Verified
+
+```
+47 tables, malformed rows 0
+168 code fences (even)
+ST ids referenced but not defined in 19.1   none
+asset + docs links                          14 referenced, 14 present
+lines                                      4,648
+duplicate paragraphs (3+ lines, identical) none outside the 5.1 HTML/CSS boilerplate
+```
+
+Sections deliberately **not** shortened, because they are already at the right length:
+§5.1 (3,202 words) is a single combined matrix where each row carries one component's domain,
+inputs, outputs, data, exposure and status; §19.1 and §19.2 are the status log the operator
+asked to consolidate into one place; §12.2 is a command block, which is already the most
+succinct form an inventory can take.
+
+Repetition that remains is structural, not prose: the HTML/CSS boilerplate in the §5.1 matrix,
+the filedn viewer URL appearing twice in ES.2, and the identical hardware cell on both radio
+rows in §9.2.1.
