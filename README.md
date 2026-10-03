@@ -3644,40 +3644,33 @@ All logs and journals are kept in one place:
 /ALWAYSON/logs/
 ```
 
-`/ALWAYSON/LOGS-JOURNALS/` is **not** the location. That name appeared in an
-earlier draft of this section and was never true of the implementation. An
-audit on 2026-10-02 found it held exactly one file while every other log
-lived in `/ALWAYSON/logs/`, which is the path every writer actually uses:
+`LOGS-JOURNALS/` is **not** the location; it was a name in an earlier draft and
+never matched the implementation. Every writer uses `/ALWAYSON/logs/`:
+`common.sh` sets `AO_LOG_DIR`, the deployed Gazebo quadlet sets
+`--log-opt path=…/logs/sim-gz-server.log`, `ao-build-update` bind-mounts
+`logs/operations`, and the §11.1 install step writes
+`logs/installation/agent-install.log`. History and the reasoning are in §18.7.
 
-| Writer | Path it uses |
-|---|---|
-| `scripts/lib/common.sh` | `AO_LOG_DIR="/ALWAYSON/logs"` |
-| `ao-sim-fabrication-gz.container` (deployed) | `--log-opt path=/ALWAYSON/logs/sim-gz-server.log` |
-| `ao-build-update.container` (deployed) | `Volume=/ALWAYSON/logs/operations:/var/log/ao-build-update` |
-| §11.1 install step | `/ALWAYSON/logs/installation/agent-install.log` |
+Rotation: `/etc/logrotate.d/` policy staged at
+`config/host/logrotate-alwayson.conf` (daily, 14 kept, no compression — see
+§19.2 item 81). Subdirectories are not rotated; their retention is item 82.
 
-Moving the tree into `LOGS-JOURNALS/` would have broken running services, so
-the tree stayed where the writers point and this section was corrected
-instead. `LOGS-JOURNALS/` now holds only
-`README-THIS-DIRECTORY.txt`, which points here. The operational journal
-history that lived there was copied into `logs/operations-journal.log`
-(2766 lines, verbatim) and verified identical before the duplicate was
-removed. See §18.6.
+Logs are classified per §4.2 and are never a place to record secrets.
 
-Every log below is created and append-only. Writers are named so a log that
-stops updating has an obvious cause.
+`scripts/validation/check-logs-journals.sh` asserts every entry below exists
+and is within its staleness budget: exit 0 pass, 1 missing, 2 stale.
 
 | Log / journal | How often it updates | Purpose |
 |---|---|---|
-| `installation-journal.log` | Appended during every install or change session | The installation journal required by §4.1 rule 11. Records commands, versions, significant output, and failures. Writer: `ao_install` in `scripts/lib/common.sh`. |
-| `operations-journal.log` | Appended on every operational change | The operational journal. Records deploys, enable/disable, restarts, and the outcome of validation scripts. Writer: `ao_operation`. Had **no writer at all** before 2026-10-02, which is why it was stale. |
-| `audit.log` | Appended on every audited operation | Immutable audit trail of operational changes and authorization decisions. Writer: `ao_audit`, with `ao_audit_secret` redacting credentials. |
-| `backup.log` | After every backup run | Records each backup run, repository used, snapshot ID, and success/failure. Writer: `ao_backup_run`, called by `scripts/backup/restic-run.sh`. Dry runs are recorded as `DRY-RUN` and are not counted as backup runs. |
-| `restore-test.log` | After every restore test | Records the isolated restore test: source backup ID, operator, result, and exceptions. Writer: `ao_restore_test`. **No entries yet** — every script under `scripts/restore/` exits 3 as PENDING, so no restore test has ever completed here. |
+| `installation-journal.log` | Appended during every install or change session | The installation journal required by §4.1 rule 11. Writer: `ao_install`. |
+| `operations-journal.log` | Appended on every operational change | Deploys, enable/disable, restarts, and validation-script outcomes. Writer: `ao_operation`. |
+| `audit.log` | Appended on every audited operation | Immutable audit trail of operational changes and authorization decisions. Writer: `ao_audit`; `ao_audit_secret` redacts credentials. |
+| `backup.log` | After every backup run | Repository, snapshot ID, and success/failure. Writer: `ao_backup_run`, called by `scripts/backup/restic-run.sh`. Dry runs are recorded as `DRY-RUN` and are not counted as backup runs. |
+| `restore-test.log` | After every restore test | Source backup ID, operator, result, exceptions. Writer: `ao_restore_test`. No entries yet — every script under `scripts/restore/` exits 3 as PENDING. |
 | `gpu-runtime-check.log` | On each GPU runtime validation | Driver/CDI state and whether GPU access was granted to the workload. Writer: `scripts/validation/check-gpu-runtime.sh`. |
 | `script-runs.log` | On every script invocation | Which script ran, its arguments, exit code, and dry-run status. Writer: `ao_log`. |
 | `mastodon-local-proxy.log` | While the local proxy runs | Local Mastodon proxy activity and errors. |
-| `meshchatx.log` | Continuously while MeshChatX runs | MeshChatX application log: interface state, connectivity, and persistence errors. **MeshChatX is not installed on this host**, so this file holds no events and must not be fabricated. Its authoritative log when installed is `$HOME/.reticulum-meshchatx/logs/meshchatx.log`. |
+| `meshchatx.log` | Continuously while MeshChatX runs | Pointer to the MeshChatX application log, which the application writes into its own storage dir. Not a second writer. See §18.7. |
 | `sim-gz-server.log` | While the Gazebo server runs | Headless Gazebo simulation output. Written by the deployed quadlet. |
 | `sim-foxglove-bridge.log` | While the bridge runs | Foxglove bridge output and connection state. |
 | `sim-clock-bridge.log` | While the clock bridge runs | Simulation clock bridge output. |
@@ -4158,47 +4151,47 @@ The migration is only **half done in practice**:
 **Status:** Corrected and closed on 2026-10-02. Any physical consolidation of
 the two trees needs operator approval first.
 
-**The fault.** §16.3 stated that all logs and journals are kept in
-`/ALWAYSON/LOGS-JOURNALS/`. That was never true. An audit on 2026-10-02 found
-the directory contained exactly **one** file (`operations-journal.log`,
-176 KB) while **every other** log lived in `/ALWAYSON/logs/`, which is what the
-writers actually use. Five of the seventeen documented logs and directories
-did not exist anywhere on the host.
+**The fault and the fix.** §16.3 named `/ALWAYSON/LOGS-JOURNALS/` as the
+location. It never was: on audit that directory held exactly one file while
+every other log lived in `/ALWAYSON/logs/`, and five documented entries
+existed nowhere. Every writer already pointed at `logs/`, including two live
+deployed units, so the tree was left alone and the README was corrected
+instead (§16.3 now names the location; §19.2 item 53 tracks the remainder).
+The 2 766-line journal history was copied across and verified identical
+before the duplicate was removed. `agent-install.log` was not renamed.
 
-**Why the implementation was believed over the README.** Measured, not assumed:
+**"Updated regularly" was not met either.** `operations-journal.log` had no
+writer anywhere in the repository. Four helpers were added to
+`scripts/lib/common.sh` (`ao_operation`, `ao_install`, `ao_backup_run`,
+`ao_restore_test`) and `check-logs-journals.sh` now asserts all entries exist
+and are fresh.
 
-| Writer | Path it uses |
-|---|---|
-| `scripts/lib/common.sh` | `AO_LOG_DIR="/ALWAYSON/logs"` |
-| `~/.config/containers/systemd/ao-sim-fabrication-gz.container` | `--log-opt path=/ALWAYSON/logs/sim-gz-server.log` |
-| `~/.config/containers/systemd/ao-build-update.container` | `Volume=/ALWAYSON/logs/operations:/var/log/ao-build-update:rw,Z` |
-| README §11.1 install step | `logs/installation/agent-install.log` |
+**Log destinations were inventoried; 32 of 33 units stay on journald.** A
+request to relocate every ALWAYS ON software's log into `logs/` was measured
+and declined. Only `ao-sim-fabrication-gz.container` writes a file there; the
+other 20 containers and all 12 `ao-*` services use journald, which is not an
+unset default — it self-caps, and holds 4 GB. Flat files without a rotation
+policy would grow unbounded, and the change would mean restarting 20+
+containers including the payment ingress. A rotation policy is now staged
+(§19.2 item 81); retention for the rest is item 82.
 
-Two of these are **live deployed units** writing to `logs/`. Moving the tree
-into `LOGS-JOURNALS/` would have silently broken the running Gazebo server's
-log and the `ao-build-update` bind mount. Per §4.1 rule 1 (inspect before
-changing) the tree was left alone and the README was corrected.
+**RETRACTED — MeshChatX is installed and running.** This section originally
+stated MeshChatX was not installed and that its log was empty. **That was
+wrong**; the operator corrected it on 2026-10-02. It runs as
+`reticulum-meshchatx.service`, 17 processes, up since 2026-10-01. The wrong
+conclusion came from searching for an `ao-field` unit, finding none, and
+inferring the software was absent — an invalid inference, because MeshChatX
+runs under its own `reticulum-*` namespace. **Absence of a
+conventionally-named unit is not evidence of absence of software**; confirm
+with a process list, a binary path, and an open file handle. Its own log
+cannot be moved without moving 907 MB of application state that shares the
+same directory, so `logs/meshchatx.log` is a pointer, not a second writer.
 
-**"Updated regularly" was not met even where logs existed.**
-`operations-journal.log` had **no writer anywhere in the repository** — a
-hand-maintained file that had gone stale, not a live journal. Four helpers were
-added to `scripts/lib/common.sh` (`ao_operation`, `ao_install`,
-`ao_backup_run`, `ao_restore_test`) and wired into the scripts that should have
-been calling them.
-
-**Nothing was deleted.** The operational journal history was copied from
-`LOGS-JOURNALS/` into `logs/operations-journal.log` and verified identical on
-the body (2766 lines, `diff` clean) before the duplicate was removed.
-`logs/installation/agent-install.log` was **not** renamed to
-`installation-journal.log`; both exist and the relationship is documented in
-each file's header.
-
-**Two logs are deliberately empty and must stay that way.** `meshchatx.log`
-holds no events because MeshChatX is not installed on this host, and
-`restore-test.log` holds none because every script under `scripts/restore/`
-exits 3 as PENDING. Both were given headers explaining why. Fabricating entries
-to make them look "regularly updated" would defeat the audit — an empty log
-with a stated reason is evidence; a log full of invented events is not.
+**One log is legitimately empty.** `restore-test.log` holds no entries because
+every script under `scripts/restore/` exits 3 as PENDING. That is an open
+state, not a fault to be papered over: fabricating entries would destroy the
+audit, since an empty log with a stated reason is evidence and a log full of
+invented events is not.
 
 ---
 
@@ -4235,7 +4228,7 @@ given a status, and the only place its current state is stated.
 | ST-05 | Reticulum runtime and connectivity | **Partial.** Auto-connections, peering, and announces work; timeouts, network-unreachable errors, and refusals also appear. 29 TCP clients enabled. Evidence in §20 |
 | ST-06 | MeshChatX version provenance | **Complete with verification pending.** Declared 4.9.1; hash matches the local manifest. Evidence in §20 |
 | ST-07 | Vehicle simulation — `ao-sim-vehicle` | **Implemented (headless runtime).** Headless Gazebo 300-iteration and ROS-Gazebo bridge tests passed; ArduPilot SITL HEARTBEAT validated over MAVLink. `ao-ardupilot-sitl` is **enabled=false and stopped by design** — the simulator is started on demand, so `inactive` here is the expected state, not a fault. The four baseline capabilities required by ES.1 — 3D world setup, boning, reinforcement learning objects, and an HTML portal to operation — are outstanding |
-| ST-08 | Fabrication and facility simulation — `ao-sim-fabrication` | **Implemented (headless runtime).** Headless Gazebo 300-iteration and bridge test passed; model views rendered in §10.2 |
+| ST-08 | Fabrication and facility simulation — `ao-sim-fabrication` | **Partly implemented.** Delivered: the 3D world and its boned cell datums, eight cameras derived from those datums, the view-only HTML portal, and the local Foxglove 3D viewer. Headless Gazebo 300-iteration and bridge test passed; model views rendered in §10.2. **Not delivered**, though named in the §10.2 component tree: the facility scheduler (item 81), the safety-zone and interlock model (item 82), and RL objects as world entities rather than a catalogue (item 83) |
 | ST-09 | Ledger core — Corda on `cordadb` | **Blocked.** Corda 5.2.2 **CLI installed** 2026-09-30, SHA-256 verified; **no node** — `cordadb` holds 0 tables and its owner role has no working password, so `preinstall check-postgres` cannot pass. Details in §18.3.1. Corda 4 and its H2 database were removed 2026-09-28 with no data migrated Outstanding: **Deferred by operator 2026-09-30 until the rest of the system is complete**, so the ledger opens with real entries rather than test data. Then complete the key and certificate ceremony (§18.3) and create the node |
 | ST-10 | Ledger ingestion gateway — `ao-ledger-ingest` | **Planned.** mTLS validation, authorization, audit, and idempotency specified; not deployed |
 | ST-11 | Sales and orders — `ao-sales` database | **Implemented.** Sales DB deployed; order, receipt, and fulfillment records supported |
@@ -4345,6 +4338,9 @@ detail lives here and only here. Completed work is not listed — it is evidence
 | 78 | ****Install dates are inferred, not recorded**** | ST-01 | §12.5 | The `Installed` column derives its date from dpkg `.list` mtimes, which cannot distinguish install from last upgrade; dpkg records no install timestamp. `/var/log/apt/history.log` holds 13 dated transactions with the exact commandline, including `unattended-upgrade` runs. Parse it so the column is ground truth and an operator can tell an unattended upgrade from a manual one. |
 | 79 | ****No regression tests for the inventory generator**** | ST-01 | §12.5 | Three defects shipped because nothing asserted them: `podman pull` steps carrying a 12-character truncated digest (every such step returned HTTP 400); steps built from the application display name, producing `apt install --only-upgrade Account` for "Account Wizard"; and a prose error string used as a digest. Two assertions would have caught all three - every pull step carries a 64-character digest, and no step embeds a not-a-value marker. |
 | 80 | ****Roll-ups cannot be drilled into**** | ST-01 | §12.5 | `KDE Plasma Desktop` is one row for 191 components, the Ubuntu archive one row for 3,863 packages, ROS one row for 351. "Is the desktop behind" is answerable; "update ROS 2 rviz" is not. Each roll-up needs a drill-down to its members with their own versions, not a prose count. |
+| 81 | **Facility scheduler absent** | ST-08 | §10.2 | The §10.2 component tree names a facility scheduler for `ao-sim-fabrication`; nothing in the repo implements one, and no §19.2 item tracked it. Closing it means a scheduler that sequences cell and kitchen work against the boned cell datums. Distinct from the RL objects (item 83), which are the entities such a scheduler would move |
+| 82 | **Safety-zone and interlock model absent** | ST-08 | §10.2 | The §10.2 component tree names a safety-zone and interlock model; nothing in the repo implements one — `factory.world` contains no safety-zone or interlock entity, and no §19.2 item tracked it. This is the safety-relevant component of the domain, so it is recorded separately from the other absent ones. The simulation is rehearsal only and holds no production data (§10.2), which is the current mitigation; the model itself remains undelivered |
+| 83 | **RL objects are a catalogue, not world entities** | ST-08 | §10.2.1, §19.2 item 29 | `GAZEBO/sim/objects.yaml` is a 104-line catalogue that declares the objects live in a non-static `rl_objects` model, written to for spawn, pose and delete so placement varies without rebuilding the world. **That model does not exist** — `factory.world` defines no `rl_objects` model, and `/api/objects` therefore serves objects Gazebo has never instantiated. §10.2.1 requires them individually addressable, observable and resettable; today they are addressable only in YAML. Closing it means adding the model to the world, which changes `factory.world` and therefore the signed manifest (item 72) |
 
 ## 19.3 Completed items
 

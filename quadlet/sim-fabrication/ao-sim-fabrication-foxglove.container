@@ -83,6 +83,14 @@ Environment=ROS_DOMAIN_ID=22
 PublishPort=127.0.0.1:8081:8081
 # View-only: no control/input paths are bridged. See the header note.
 NoNewPrivileges=true
+# §16.3 requires sim-foxglove-bridge.log while the bridge runs, and that file
+# had gone stale on 2026-09-28 because this unit set no log driver at all —
+# bridge diagnostics were being written only to the journal, so a fault after
+# a reboot left nothing on disk. Podman's journald driver (the systemd default)
+# ignores --log-opt path, so the k8s-file driver is selected explicitly, the
+# same way ao-sim-fabrication-gz.container does it.
+LogDriver=k8s-file
+PodmanArgs=--log-opt path=/ALWAYSON/logs/sim-foxglove-bridge.log
 
 [Service]
 Restart=on-failure
