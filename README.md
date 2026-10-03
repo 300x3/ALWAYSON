@@ -3731,15 +3731,12 @@ Restore testing must:
 
 ## 17.2 Monitoring
 
-Monitoring runs in `ao-admin`, which has no VPN, no explicit allowlist, and no
-public exposure. Its only permitted output is the Grafana dashboard and the
-Metabase reports.
+Monitoring runs in `ao-admin`, which has no VPN, no explicit allowlist and no public
+exposure. Its only permitted output is the Grafana dashboard and the Metabase reports.
 
-Prometheus is for security only, and it is independent of Grafana and Metabase
-in both directions: it does not depend on them, and they do not depend on it
-for the data they read from the business databases. Grafana presents the
-dashboards and metrics; Metabase produces the reports. See §3.3 for why
-monitoring is split by purpose.
+The split of purpose between Prometheus, Grafana and Metabase is specified in §3.3.
+Prometheus is the security instrument and is independent of the other two in both
+directions; Grafana presents dashboards and metrics; Metabase produces reports.
 
 Monitor at minimum:
 
