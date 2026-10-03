@@ -3658,38 +3658,48 @@ Logs are classified per §4.2 and are never a place to record secrets.
 **Target policy: 3-2-1** — three copies, two media types, and one off-host or
 off-site copy.
 
-**Current state, corrected 2026-10-03: the local backup had never run at all, and the
-off-site copy still does not exist.** Until this was measured, section 17 and section 20
-both implied a working backup. It was not working:
+**Current state, corrected 2026-10-03: the local backup ran daily until 2026-09-24,
+failed for eight days, and is now working again — but those eight days were the whole of
+the operational data, and none of it was ever covered.**
 
-* `ao-restic-backup.timer` fired on schedule but **failed every night** — 30 Sep, 1 Oct and
-  2 Oct all exited `status=3/NOTIMPLEMENTED` with `root restic execution requires
-  RESTIC_ENV_FILE from the operator wallet session`. The repository
-  `/var/backups/alwayson-restic` is 4 KB: **no snapshot has ever been created.**
+* **History:** the repository holds **23 consecutive daily snapshots from 2026-08-25 to
+  2026-09-24**. It was not empty, and an earlier correction in this section that said "no
+  snapshot has ever been created" was **wrong** — it came from reading a `du` result of
+  4 KB on a root-owned 0700 directory, which was a permission denial, not an empty repo.
+* **The break:** backups failed for eight days, 2026-09-25 to 2026-10-02. The service
+  journal shows `status=3/NOTIMPLEMENTED` with `root restic execution requires
+  RESTIC_ENV_FILE from the operator wallet session` on 30 Sep, 1 Oct and 2 Oct.
+  `systemctl list-timers` showed the timer as healthy throughout, which is how an eight-day
+  outage stayed invisible: a timer that fires is not a timer that succeeds.
 * **Cause:** the backup is a *system* unit and runs as root, but the restic repository
   password lives in the KDE Wallet, which only exists in the user session. Root cannot
-  reach it, and nothing was ever prefetching the secret. A timer that fires is not a
-  timer that succeeds — `systemctl list-timers` showed it as healthy throughout.
-* **Fix (2026-10-03):** `ao-restic-prefetch.service`/`.timer` now runs **in the user
-  session**, reads the already-authorised wallet entry `ao-admin/restic-repository-password`
-  once per boot and every 12 hours, and caches it to `/run/user/1000/ao-restic.env`
-  (tmpfs, root-readable, 0600, never in Git). The root backup then runs **fully unattended
-  with no authorisation prompt** — the authorisation *is* running the prefetch. The wallet
-  can be closed afterwards.
-* **Coverage fixed:** `data/` was not backed up at all. It is now included —
-  `data/ardupilot` (2.1 GB, ~30k files), `data/corda-install` (282 MB), plus
-  `sim-fabrication`, `sales`, `mapping`, `field`, `payment`, `ledger`. The photogrammetry
-  drive remains excluded: it is the physical media, not a backup target.
-* **Still outstanding:** the units were previously untracked in `/etc/systemd/system`, so a
-  rebuild silently lost the backup schedule. They are now version-controlled under
-  `systemd/backup/` and deployed by provisioner stage 55, which is the one stage requiring
-  sudo. **No snapshot has yet been taken or restore-tested** — until a restore drill passes,
-  "backups configured" is still an unverified claim (see §19.2 OPS-15).
+  reach it, and nothing was prefetching the secret.
+* **Fix, working as of 2026-10-02:** the wallet has already authorised this backup, so it
+  should not ask again. `ao-restic-prefetch.service`/`.timer` now runs **in the user
+  session**, reads the authorised entry `ao-admin/restic-repository-password` once per boot
+  and every 12 hours, and caches it to `/run/user/1000/ao-restic.env` (tmpfs, root-readable,
+  0600, never in Git). The root backup then runs **fully unattended with no authorisation
+  prompt**, and the wallet can be closed. Verified end to end: snapshot `fb52984b`,
+  30,191 files, 2.32 GiB.
+* **Coverage — the more serious finding:** every one of those 23 snapshots contains only
+  `config`, `artifacts` and `backups/postgres`. **Not one contains `data/`.** So the entire
+  backup history would have restored configuration and **zero operational data**.
+  `data/` is now included — `data/ardupilot` (2.1 GB, ~30k files), `data/corda-install`
+  (282 MB), plus `sim-fabrication`, `sales`, `mapping`, `field`, `payment`, `ledger`. The
+  photogrammetry drive stays excluded: it is the media, not a backup target.
+* **Now scheduled:** `ao-restic-prefetch.timer` (user), `ao-restic-backup.timer` and
+  `ao-restic-verify.timer` (system) are installed and enabled. The units are version-
+  controlled under `systemd/backup/` and deployed by provisioner stage 55; they previously
+  existed only in `/etc/systemd/system`, so a rebuild silently lost the backup schedule.
+* **Still outstanding:** only **one** snapshot includes `data/`, and no restore has been
+  tested. A backup that has never been restored is an assumption, not a fact — see
+  §19.2 item 81. The repository also shares a filesystem with the data it protects, so it
+  still cannot survive loss of the host.
 
 | Copy | Where | State |
 |---|---|---|
 | Primary | live system | yes |
-| Backup | restic repository `/var/backups/alwayson-restic` | **was never populated; fix in place, first snapshot still pending** |
+| Backup | restic repository `/var/backups/alwayson-restic` (1.7 GB) | **yes — 23 daily snapshots 2026-08-25 to 09-24, an 8-day outage, then snapshot `fb52984b`. `data/` covered only from 2026-10-02.** |
 | Off-site | pCloud | folder `ALWAYSON-RESTIC2PCLOUD` at the pCloud account root; restic is configured to write to it (§19.2) |
 
 Two consequences to be aware of. First, the restic repository is on the same
