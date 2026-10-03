@@ -1610,22 +1610,22 @@ separate from the ALWAYS ON mapping service listener on `127.0.0.1:8000`.
 | Reticulum transport | Field / Reticulum | Reticulum-configured interfaces | No HTTP listener | Embedded MeshChatX backend |
 | Mastodon local UI proxy | Sales / local operator access | `https://127.0.0.1:3300` — **loopback only, self-signed TLS** | Loopback only; LAN addresses refuse | `scottw` user service (`mastodon-local-proxy.service`) |
 
-MeshChatX uses its self-signed local certificate; clients must use HTTPS and accept the local certificate. The MeshChatX port is not a public ingress and must not be published through
-Podman, nginx, Cloudflare, or a router. WebODM and MeshChatX must not share a
-listener. The desktop launcher and watchdog must use port `18000`; changing one
-without the others is a configuration error.
+MeshChatX uses its self-signed local certificate; clients must use HTTPS and accept it. The
+MeshChatX port is not a public ingress and must not be published through Podman, nginx,
+Cloudflare or a router. WebODM and MeshChatX must not share a listener, and the desktop
+launcher and watchdog must both use port `18000` — changing one without the others is a
+configuration error.
 
-The Mastodon local UI proxy on `https://127.0.0.1:3300` also uses a self-signed
-certificate, and the same acceptance applies. It is loopback-only and is not a
-public ingress. It exists because upstream Mastodon hardcodes
-`config.force_ssl = true` in `config/environments/production.rb` and
-`https = Rails.env.production?` in `config/initializers/1_hosts.rb`; neither is
-switchable by environment variable, so Rails always emits absolute `https://`
-asset URLs. Served over plain HTTP, the browser's request for a render-blocking
-stylesheet never completes and the page hangs even though every URL answers
+The Mastodon local UI proxy on `https://127.0.0.1:3300` also uses a self-signed certificate
+and the same acceptance applies. It is loopback-only and not a public ingress.
+
+It exists because upstream Mastodon hardcodes `config.force_ssl = true` and
+`https = Rails.env.production?`, neither switchable by environment variable, so Rails always
+emits absolute `https://` asset URLs. Over plain HTTP the browser's request for a
+render-blocking stylesheet never completes and the page hangs, even though every URL answers
 curl in milliseconds. The proxy terminates TLS on loopback and injects
-`X-Forwarded-Proto: https` so those URLs resolve. `mastodon-web` itself is not
-modified and federation through the Cloudflare Tunnel is unaffected.
+`X-Forwarded-Proto: https`. `mastodon-web` itself is unmodified, and federation through the
+Cloudflare Tunnel is unaffected.
 
 **The certificate is pre-trusted — there is no warning to click through.** It is
 installed as a trusted CA (`CT,C,C`) in both `~/.pki/nssdb` (shared NSS store)
@@ -1689,6 +1689,19 @@ Both CP2102 bridges expose the same USB serial descriptor
 through the stable PCI/USB `by-path` location and the recorded SX1262 MAC address. The USB
 serial descriptor alone is not a unique radio identity.
 
+### 9.2.2 What each radio is for
+
+The two radios are not interchangeable and are not both "chat". Each has one job:
+
+| Radio | Purpose | Ties to | Notes |
+|---|---|---|---|
+| **PEOPLE-RADIO** (915 MHz / 125 kHz / SF7 / 17 dBm) | **LoRaWAN-related communication** — public human chat | **MeshChatX** | Carries MeshChatX text over LoRa into the local chat service. This radio is the LoRaWAN path for human conversation. |
+| **DRONE-RADIO** (917 MHz / 250 kHz / SF7, hidden) | **Local QGroundControl missions** to the drone, over a **dedicated RNS-enabled connection** | **QGroundControl** | Carries a dedicated RNS-enabled QGC link to the **QGC session on the Raspberry Pi 5 drone**, so **missions can be updated midflight**. Radio only: no IP path, no mTLS. |
+
+`QGroundControl` therefore has two roles: it plans and watches missions from the desktop,
+and it receives **midflight mission updates** relayed by DRONE-RADIO to its session on the
+Pi5. PEOPLE-RADIO has no relationship to the drone.
+
 ## 9.3 Operational Security
 
 The MeshChatX web interface is restricted to `127.0.0.1:18000`.
@@ -1710,19 +1723,6 @@ host tooling. It does mean that a loopback-only web UI does not make the underly
 private, and anyone auditing exposure should expect `:4242` to be visible on the LAN. For
 contrast, PostgreSQL is explicitly `5432/tcp DENY` from any non-loopback source, and KDE
 Connect `:1716` is denied too.
-
-### 9.2.2 What each radio is for
-
-The two radios are not interchangeable and are not both "chat". Each has one job:
-
-| Radio | Purpose | Ties to | Notes |
-|---|---|---|---|
-| **PEOPLE-RADIO** (915 MHz / 125 kHz / SF7 / 17 dBm) | **LoRaWAN-related communication** — public human chat | **MeshChatX** | Carries MeshChatX text over LoRa into the local chat service. This radio is the LoRaWAN path for human conversation. |
-| **DRONE-RADIO** (917 MHz / 250 kHz / SF7, hidden) | **Local QGroundControl missions** to the drone, over a **dedicated RNS-enabled connection** | **QGroundControl** | Carries a dedicated RNS-enabled QGC link to the **QGC session on the Raspberry Pi 5 drone**, so **missions can be updated midflight**. Radio only: no IP path, no mTLS. |
-
-`QGroundControl` therefore has two roles: it plans and watches missions from the desktop,
-and it receives **midflight mission updates** relayed by DRONE-RADIO to its session on the
-Pi5. PEOPLE-RADIO has no relationship to the drone.
 
 ## 9.4 Radio Profile Requirements
 
