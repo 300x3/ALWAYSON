@@ -4395,7 +4395,9 @@ the discrepancy is stated.
 
 # 21. Status References
 
-Review the following before changing the platform:
+Read before changing the platform. The repository README, the local working folder, the
+verification evidence, the version matrix, and the issue log are the current state; a change
+that contradicts any of them is either wrong or needs a recorded deviation (§18).
 
 ```text
 README.md
@@ -4405,20 +4407,11 @@ docs/compliance/installation-status.md
 /ALWAYSON/
 ```
 
-The current repository README, local working folder, verification evidence,
-version matrix, and issue log must be reviewed before beginning new work.
-
-Current implementation references:
+Implementation references that sit outside the repository:
 
 ```text
-/home/scottw/.openclaw/openclaw.json
-(community publication bridge — carried inside ao-sales)
-quadlet/sales/ao-mastodon-web.container
-quadlet/sales/ao-mastodon-background-workers.container
-scripts/mastodon/federate-local.sh
-/home/scottw/.cloudflared/config.yml
+/home/scottw/.openclaw/openclaw.json      community publication bridge, carried inside ao-sales
+/home/scottw/.cloudflared/config.yml     tunnel credentials, 0400, mirrored to KDE Wallet
 ```
 
-Do not add API keys, passwords, tunnel credential JSON, or other secrets to
-this reference list.
-
+Never add API keys, passwords, tunnel credential JSON, or any other secret to this list.
