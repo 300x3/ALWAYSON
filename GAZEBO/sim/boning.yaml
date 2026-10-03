@@ -35,7 +35,15 @@ cells:
     link: robot_arms
     datum:
       source: derived-from-mesh-aabb
-      origin: [6.401314, 2.697865, 0.531531]
+      # origin is the MIN corner of the mesh AABB. Corrected 2026-10-02: this
+      # read (6.401314, 2.697865, ...) which is the mesh CENTRE in x/y, i.e.
+      # displaced by exactly half the extent (0.420000, 0.836196, 0.000000).
+      # z was already correct. Verified against arms.dae by direct AABB
+      # measurement: x 5.981314..6.821314, y 1.861669..3.534061, z 0.531531..
+      # 1.770063. The aisles block below already carried the correct y range,
+      # which is how the two disagreed. cell-conveyor and cell-massing were
+      # verified correct and are unchanged.
+      origin: [5.981314, 1.861669, 0.531531]
       extent: [0.840000, 1.672391, 1.238532]
     mounting_surface:
       source: derived-from-mesh-aabb
@@ -115,7 +123,10 @@ joints:
     cell: cell-arms
     type: revolute
     axis: [0, 0, 1]
-    origin: [6.401314, 2.697865, 0.531531]
+    # Corrected 2026-10-02 with the cell-arms datum: was the displaced value
+    # (6.401314, 2.697865, 0.531531), which sat half an extent off the arm
+    # base. See the datum block above.
+    origin: [5.981314, 1.861669, 0.531531]
     limits_deg: [-180, 180]
     tolerance_deg: 0.5
   - id: conveyor-run

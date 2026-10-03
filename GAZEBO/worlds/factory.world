@@ -625,7 +625,7 @@
          (0,0,0)-(7.874,4.831072,2.0574) so no view is from inside a wall. -->
     <model name="camera_arms_ne">
       <static>true</static>
-      <pose>8.067 4.780 1.863 0 0.3840 3.9270</pose>
+      <pose>5.133 5.417 1.151 0 0.0000 -1.1345</pose>
       <link name="camera_arms_ne">
         <pose>0 0 0 0 0 0</pose>
         <sensor name="camera_arms_ne" type="camera">
@@ -651,7 +651,7 @@
          (0,0,0)-(7.874,4.831072,2.0574) so no view is from inside a wall. -->
     <model name="camera_arms_n">
       <static>true</static>
-      <pose>6.821 5.296 1.863 0 0.3840 4.7124</pose>
+      <pose>6.140 5.686 1.151 0 0.0000 -1.4835</pose>
       <link name="camera_arms_n">
         <pose>0 0 0 0 0 0</pose>
         <sensor name="camera_arms_n" type="camera">
@@ -677,7 +677,7 @@
          (0,0,0)-(7.874,4.831072,2.0574) so no view is from inside a wall. -->
     <model name="camera_arms_se">
       <static>true</static>
-      <pose>5.575 4.780 1.863 0 0.3840 5.4978</pose>
+      <pose>7.669 5.417 1.151 0 0.0000 -2.0071</pose>
       <link name="camera_arms_se">
         <pose>0 0 0 0 0 0</pose>
         <sensor name="camera_arms_se" type="camera">
@@ -709,7 +709,7 @@
          conveyor. This one is az 60 / 38 deg, inside the clear quadrant. -->
     <model name="camera_arms_e">
       <static>true</static>
-      <pose>7.570 4.831 2.321 0 0.6632 4.1888</pose>
+      <pose>6.922 5.652 1.151 0 0.0000 -1.7453</pose>
       <link name="camera_arms_e">
         <pose>0 0 0 0 0 0</pose>
         <sensor name="camera_arms_e" type="camera">
@@ -735,7 +735,7 @@
          (0,0,0)-(7.874,4.831072,2.0574) so no view is from inside a wall. -->
     <model name="camera_elev_arms">
       <static>true</static>
-      <pose>6.821 6.203 1.151 0 0.0000 -1.5708</pose>
+      <pose>6.401 4.056 1.151 0 0.0000 -1.5708</pose>
       <link name="camera_elev_arms">
         <pose>0 0 0 0 0 0</pose>
         <sensor name="camera_elev_arms" type="camera">
