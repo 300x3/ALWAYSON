@@ -1,3 +1,25 @@
+# SUPERSEDED - DO NOT BUILD THIS. It is the original Ubuntu 24.04 "noble" GUI
+# image and is retained only as history. ALWAYS ON requires 26.04 "resolute" for
+# Ubuntu / ROS 2 Lyrical / Gazebo 10 compatibility, so the operative image is
+# built from gz-sim/Containerfile.resolute (FROM the pinned ros resolute digest)
+# and tagged gz-sim10-resolute, with the GUI client selected by overriding
+# ENTRYPOINT in the Quadlet unit rather than by a separate image.
+#
+# It is kept because it documents WHY resolute is used: this file is the record
+# of the noble attempt that failed - gz-sim10-gui resolved on noble but the OSRF
+# repo has no noble/resolute pairing worth relying on, and the host itself runs
+# resolute, so a noble image could not talk to a resolute host. See
+# gz-sim/Containerfile.resolute for the full rationale.
+#
+# Two further defects made this unusable even on its own terms:
+#   1. FROM ubuntu:24.04, i.e. not 26+. See above.
+#   2. It installed libqt6gui6 with --no-install-recommends and so omitted
+#      qt6-svg-plugins, without which gz-gui's EntityTree icons fail to decode
+#      (qrc:/Gazebo/images/chevron-right.svg) and the client aborts. The
+#      resolute Containerfile installs that plugin explicitly.
+#
+# Reference original content follows.
+#
 # Gazebo Sim 10 (Jetty) **GUI-capable** image — the container that can actually
 # open the world in a Gazebo window on a host that has no gz-sim package.
 #

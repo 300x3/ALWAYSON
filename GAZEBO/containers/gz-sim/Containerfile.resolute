@@ -67,6 +67,28 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       libopengl0 libosmesa6 xvfb \
       qml6-module-qt-labs-folderlistmodel \
       qml6-module-qt-labs-sharedimage \
+# The Qt SVG IMAGE-FORMAT PLUGIN. This is a different package from the SVG
+# library installed above (libqt6svg6) and is NOT pulled in by it. Every
+# apt-get in the RUN above uses --no-install-recommends, and libqt6gui6 only
+# *Recommends* qt6-svg-plugins, so it was silently absent and imageformats/
+# held only gif/ico/jpeg. gz-gui's EntityTree QML loads tree icons from the
+# qrc: resource
+#   qrc:/Gazebo/images/chevron-right.svg
+# which then failed on every expand with
+#   QQuickImage: Error decoding ...: Unsupported image format
+# The client drew a broken entity tree and aborted ~1s later with
+# "basic_string: construction from null is not valid" thrown from a Qt event
+# handler. systemd then restarted it (NRestarts=39) and every restart seized
+# keyboard and pointer focus.
+# Verified inside the image: this package ships exactly the two missing files,
+#   qt6/plugins/imageformats/libqsvg.so
+#   qt6/plugins/iconengines/libqsvgicon.so
+# resolute (Ubuntu 26.04) is required for it, as for everything else here.
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends \
+      qt6-svg-plugins \
+  && rm -rf /var/lib/apt/lists/*
+
  && rm -rf /var/lib/apt/lists/*
 
 # ROS 2 Lyrical and Gazebo 10 must share one DDS domain and one gz-transport

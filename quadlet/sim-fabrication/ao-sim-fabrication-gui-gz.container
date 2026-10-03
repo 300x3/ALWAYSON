@@ -20,25 +20,31 @@
 # X11 application (QT_QPA_PLATFORM=xcb), so it uses DISPLAY=:0 and the X11
 # socket. DISPLAY is deliberately not unset for any other value.
 #
-# RENDERING IS SOFTWARE, DELIBERATELY. Passing the NVIDIA GPU in through CDI
-# (AddDevice=nvidia.com/gpu=0) gives the device node but no usable EGL context
-# inside the container: libEGL reports "pci id for fd 85: 10de:1b80, driver
-# (null)" and "egl: failed to create dri2 screen", after which the Ogre2 plugin
-# aborts the process. Forcing LIBGL_ALWAYS_SOFTWARE=1 alone is not enough
-# either, because the API has already selected the hardware device - libEGL then
-# refuses with "Not allowed to force software rendering when API explicitly
-# selects a hardware device". Setting QT_QUICK_BACKEND=software is what
-# actually works: the GUI then loads its plugins, binds to
-# /world/factory/control and /world/factory/stats, and runs indefinitely.
-# Trade-off: llvmpipe is slower than the NVIDIA path. Revisit only with an
-# EGL-capable GPU passthrough, which is a separate decision.
+# GPU RENDERING, AND WHY THE EGL VENDOR MUST BE PINNED.
+# CDI passthrough is correct and complete: nvidia.com/gpu=0 injects
+# /dev/nvidia0, nvidia-modeset and nvidia-uvm, the 10_nvidia.json EGL vendor,
+# libEGL_nvidia, libnvidia-eglcore, libnvidia-glcore - 54 driver libraries, all
+# of whose dependencies resolve. The failure was never the passthrough.
+#
+# Without the pin, Mesa's dri2 platform enumerates the NVIDIA render node first
+# and cannot drive it, logging "pci id for fd 85: 10de:1b80, driver (null)" and
+# "egl: failed to create dri2 screen", and it never defers to the NVIDIA vendor.
+# LIBGL_ALWAYS_SOFTWARE cannot paper over this: libEGL answers "Not allowed to
+# force software rendering when API explicitly selects a hardware device".
+# QT_QUICK_BACKEND=software is worse - it renders the Qt interface but the 3D
+# view is a separate QQuickWidget that still needs a QOpenGLContext and
+# segfaults in QOpenGLContext::done.
+#
+# __EGL_VENDOR_LIBRARY_FILENAMES removes the ambiguity: only the NVIDIA vendor
+# is considered. Measured effect: every Mesa EGL complaint went to zero and the
+# GUI bound /world/factory/control and /world/factory/stats.
 [Unit]
 Description=ALWAYS ON Gazebo Sim 10 GUI client (ao-sim-fabrication)
 After=ao-sim-fabrication-gz.service graphical-session.target
 Wants=ao-sim-fabrication-gz.service
 
 [Container]
-Image=localhost/gz-sim10-resolute:gui
+Image=localhost/gz-sim10-resolute:gui-svgfix
 ContainerName=ao-sim-fabrication-gui-gz
 # Shares the server's netns: see the comment above. The image ENTRYPOINT is the
 # Gazebo SERVER, which must be overridden here: this unit is the GUI client, and
@@ -50,24 +56,56 @@ Volume=/ALWAYSON/GAZEBO:/ALWAYSON/GAZEBO:ro,Z
 # The runtime dir is spelled out rather than using %t: this Quadlet build does
 # not expand that specifier in Volume=, and passed it through literally, which
 # podman rejected as an invalid volume name. 1000 is scottw's uid on this host.
+# DRM render node, so the EGL device platform can enumerate the GPU at all.
+Volume=/dev/dri:/dev/dri
+AddDevice=nvidia.com/gpu=0
 Volume=/tmp/.X11-unix:/tmp/.X11-unix:ro
 Volume=/run/user/1000:/run/user/1000:ro
 Environment=DISPLAY=:0
+# Pin the EGL vendor to NVIDIA. Without this, Mesa's dri2 platform claims the
+# GPU and the Ogre2 plugin aborts. See the rendering note above.
+Environment=__EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/10_nvidia.json
 Environment=XDG_RUNTIME_DIR=/run/user/1000
 Environment=HOME=/gzhome
 Environment=GZ_VERSION=10
 # Must match the server or the client discovers nothing.
 Environment=GZ_PARTITION=alwayson_fabrication_sim
+# MUST also match the server. The server runs with GZ_IP=127.0.0.1; the client
+# did not set it, so gz-transport advertised and bound different addresses and
+# discovery never completed. Symptom: the client loaded QML, then polled
+# "[GUI] GUI requesting list of world names" every 5s forever and rendered a
+# black viewport, while the server was healthy on the same network namespace.
+Environment=GZ_IP=127.0.0.1
 Environment=ROS_DOMAIN_ID=22
+# THE FOUR THAT ACTUALLY MADE THE GUI RUN. With GZ_PARTITION alone the client
+# loaded QML and bound /world/factory/control, then died on the first rendered
+# frame with "basic_string: construction from null is not valid" thrown from a
+# Qt event handler. That is gz-rendering building a std::string from an unset
+# environment variable, not a graphics failure. The server unit set the first
+# two; the GUI container did not, and gz-rendering also reads the other two.
+# Adding all four took the crash count to zero and the client then ran
+# indefinitely with every plugin loaded and no mesh errors.
+Environment=GZ_SIM_RESOURCE_PATH=/ALWAYSON/GAZEBO/models
+Environment=GZ_SIM_SYSTEM_PLUGIN_PATH=/ALWAYSON/GAZEBO/models
+# GZ_RENDERING_RESOURCE_PATH is the Ogre2 MEDIA root only - it is where gz-rendering
+# looks for the Hlms template shaders (Hlms/Unlit/GLSL), and it is NOT a search list:
+# a colon-separated value is treated as ONE directory name, not as a list of roots.
+# Setting it to the ALWAYS ON models directory made gz-rendering raise
+#   OGRE EXCEPTION(6:FileNotFoundException): Data folder provided contains no valid
+#   template shader files
+# which left the render engine uninitialised ("Render-engine has not been
+# initialized"): the scene loaded and bound to /world/factory, but the viewport
+# cleared to the background colour and drew no geometry at all.
+# The stock media root is therefore used verbatim. Project MODELS are found through
+# GZ_SIM_RESOURCE_PATH / GZ_SIM_SYSTEM_PLUGIN_PATH above, which are the correct
+# variables for them - models are not Ogre media and must not be added here.
+Environment=GZ_RENDERING_RESOURCE_PATH=/usr/share/gz/gz-rendering
+Environment=GZ_CONFIG_PATH=/gzhome/.gz
 Environment=QT_QPA_PLATFORM=xcb
-# GLX software rendering via Mesa llvmpipe. QT_QUICK_BACKEND=software was tried
-# and is NOT sufficient: it renders the Qt UI but the 3D view is a separate
-# QQuickWidget (libMinimalScene.so) that still creates a QOpenGLContext and
-# segfaults without one. xcb_glx forces the X11/GLX path rather than EGL,
-# because EGL fails here with "failed to create dri2 screen".
-Environment=LIBGL_ALWAYS_SOFTWARE=1
+# Use the X11/GLX integration for Qt's own context; the Ogre2 scene goes
+# through EGL, which is handled by the vendor pin above. No software-rendering
+# variables: they are what previously prevented the hardware context.
 Environment=QT_XCB_GL_INTEGRATION=xcb_glx
-Environment=GALLIUM_DRIVER=llvmpipe
 # The GUI writes to its own gzhome; the server's is mounted read-only above.
 Volume=%h/.local/share/ao-simulation/gui-home:/gzhome:Z
 Volume=/ALWAYSON/scripts/simulation:/opt/ao-simulation:ro,Z

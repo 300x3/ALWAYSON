@@ -1,0 +1,16 @@
+{
+  "object_id": "f6bcb55e-0bf8-419b-b4da-8d09ff8fc167",
+  "object_type": "fabrication_simulation",
+  "origin_domain": "sim_fabrication",
+  "created_at_utc": "2026-10-01T04:10:27Z",
+  "schema_version": "1.0",
+  "content_hash_sha256": "64eacbbf9ab041c11ca10bba55ac5dd733705615b0b83ab69919fa71656f84e5",
+  "content_size_bytes": 5371,
+  "local_storage_reference": "sim://fabrication/factory-world-v1",
+  "ipfs_cid": "",
+  "pcloud_archive_reference": "",
+  "transaction_id": null,
+  "authorization_policy_id": "",
+  "producer_key_id": "ao-sim-fabrication",
+  "signature": "ed25519:YEmIS2hxKZJIbuajP3A1vcGDDccdJq5d6j0CbXsufA8z6dkGEeqT4FvzcbFpLG2wXwilAE8DPcjm6lCJWjBZBg=="
+}

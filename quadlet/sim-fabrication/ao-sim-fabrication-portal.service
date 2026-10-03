@@ -1,0 +1,41 @@
+# /ALWAYSON/quadlet/sim-fabrication/ao-sim-fabrication-portal.service
+#
+# ALWAYS ON operator portal for the fabrication simulation domain (README
+# Section 10.2.1). Serves GAZEBO/portal/index.html and the /api control surface.
+#
+# THIS REPLACES "gazebo-portal". That container was a throwaway nginx whose
+# docroot was the stock /usr/share/nginx/html; the /ALWAYSON/GAZEBO -> /srv
+# mount it carried was never read, so the page it served was a copy that exists
+# in no repository and that drops the ao- naming. It had no owning systemd unit
+# at all, so it would not have restarted or survived a reboot. The versioned
+# source of truth for this page is GAZEBO/portal/index.html.
+#
+# WHY A HOST SERVICE RATHER THAN A CONTAINER ON ao-sim-fabrication. Section
+# 10.2.1 asks for the portal to run inside that domain, but start/stop/reset of
+# the world means acting on the sibling Quadlet unit ao-sim-fabrication-gz,
+# which lives in the scottw user manager. A container on ao-sim-fabrication has
+# no access to it and no route to the host. Running the service here keeps the
+# control path real while leaving every container on its isolated network.
+#
+# LOOPBACK ONLY. 127.0.0.1:8765 and nothing else; the script refuses to bind any
+# other address. Not published through Podman, Cloudflare or a router, and no
+# public route exists to it.
+[Unit]
+Description=ALWAYS ON ao-sim-fabrication operator portal (loopback)
+After=graphical-session.target ao-sim-fabrication-gz.service
+Wants=ao-sim-fabrication-gz.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /ALWAYSON/scripts/simulation/ao-sim-portal.py --host 127.0.0.1 --port 8765
+Restart=on-failure
+RestartSec=10
+NoNewPrivileges=true
+# Read-only everywhere except its own service state; the world and the data
+# files it exposes are read-only to the operator surface.
+ProtectSystem=strict
+ProtectHome=read-only
+ReadOnlyPaths=/ALWAYSON/GAZEBO
+
+[Install]
+WantedBy=graphical-session.target

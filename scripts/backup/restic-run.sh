@@ -14,8 +14,26 @@ if [[ ! -f "$envfile" ]]; then
   envfile="$(mktemp)"
   cleanup_envfile="$envfile"
   /ALWAYSON/scripts/operations/fetch-restic-env.sh "$envfile"
-  trap 'rm -f "$cleanup_envfile"' EXIT
+  # README 16.3 requires the backup journal to record failure as well as
+  # success. With set -e a restic failure would otherwise abort at the
+  # ao_run line with nothing written, so the failure is journalled on the
+  # way out. The exit code is tested first: this trap also runs on SUCCESS,
+  # and recording "FAILED" with exit code 0 would be a false failure entry
+  # in the backup journal.
+  trap 'rc=$?; if (( rc != 0 )); then ao_backup_run none FAILED "restic backup aborted with exit code $rc"; fi; rm -f "$cleanup_envfile"' EXIT
 fi
 ao_run bash -c "set -a && source '$envfile' && restic backup '$AO_ROOT/config' '$AO_ROOT/artifacts' '$AO_ROOT/backups/postgres' '/media/scottw/500GBPHOTOGRAM/manifests' --tag alwayson"
-(( AO_DRY_RUN )) || ao_audit "restic backup completed"
+if (( AO_DRY_RUN )); then
+  # A dry run backs nothing up, so it is not a backup run and must not be
+  # recorded as one in the README 16.3 backup journal.
+  ao_backup_run none DRY-RUN "restic backup not executed (--dry-run); no snapshot created"
+else
+  # Snapshot ID comes from restic itself, not from a guess. Recorded only on
+  # success; a failure below is journalled by the trap and exits non-zero.
+  snapshot="$(bash -c "set -a && source '$envfile' && restic snapshots --latest 1 --json 2>/dev/null" \
+    | grep -oE '"short_id"[[:space:]]*:[[:space:]]*"[0-9a-f]+"' | head -1 \
+    | grep -oE '[0-9a-f]{8,}' || true)"
+  ao_backup_run "${snapshot:-unavailable}" OK "restic backup completed"
+  ao_audit "restic backup completed"
+fi
 echo "OK: restic run finished"

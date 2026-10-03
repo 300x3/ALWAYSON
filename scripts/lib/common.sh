@@ -6,6 +6,16 @@ AO_ROOT="/ALWAYSON"
 AO_LOG_DIR="$AO_ROOT/logs"
 AO_AUDIT_LOG="$AO_LOG_DIR/audit.log"
 
+# README Section 16.3 journals. These live under AO_LOG_DIR, NOT under
+# /ALWAYSON/LOGS-JOURNALS/ -- see the note in README 16.3. The
+# LOGS-JOURNALS/ naming predates the split and is corrected there; the
+# deployed Quadlet units and common.sh already write to $AO_ROOT/logs, so
+# moving the tree would break running services.
+AO_OPERATIONS_JOURNAL="$AO_LOG_DIR/operations-journal.log"
+AO_INSTALLATION_JOURNAL="$AO_LOG_DIR/installation-journal.log"
+AO_BACKUP_LOG="$AO_LOG_DIR/backup.log"
+AO_RESTORE_TEST_LOG="$AO_LOG_DIR/restore-test.log"
+
 ao_now_utc() { date -u --iso-8601=seconds; }
 
 ao_log() {
@@ -35,6 +45,43 @@ ao_audit_secret() {
     return 0
   fi
   ao_audit "$@"
+}
+
+# ao_operation MESSAGE...
+# Append to the README 16.3 operational journal. Call this for deploys,
+# enable/disable, restarts, and the outcome of validation scripts -- the
+# events Section 16.3 requires the operational journal to carry.
+# Before 2026-10-02 nothing appended here, so the journal was stale.
+ao_operation() {
+  mkdir -p "$AO_LOG_DIR"
+  printf '%s actor=%s script=%s %s\n' \
+    "$(ao_now_utc)" "${SUDO_USER:-$USER}" "${0##*/}" "$*" >> "$AO_OPERATIONS_JOURNAL"
+}
+
+# ao_install MESSAGE...
+# Append to the README 16.3 installation journal (Section 4.1 rule 11).
+ao_install() {
+  mkdir -p "$AO_LOG_DIR"
+  printf '%s actor=%s script=%s %s\n' \
+    "$(ao_now_utc)" "${SUDO_USER:-$USER}" "${0##*/}" "$*" >> "$AO_INSTALLATION_JOURNAL"
+}
+
+# ao_backup_run SNAPSHOT RESULT MESSAGE...
+# Append one backup run to the README 16.3 backup journal.
+ao_backup_run() {
+  mkdir -p "$AO_LOG_DIR"
+  printf '%s actor=%s script=%s snapshot=%s result=%s %s\n' \
+    "$(ao_now_utc)" "${SUDO_USER:-$USER}" "${0##*/}" "${1:-none}" "${2:-UNKNOWN}" "${3:-}" \
+    >> "$AO_BACKUP_LOG"
+}
+
+# ao_restore_test SOURCE RESULT MESSAGE...
+# Append one isolated restore-test outcome to the README 16.3 journal.
+ao_restore_test() {
+  mkdir -p "$AO_LOG_DIR"
+  printf '%s actor=%s script=%s source=%s result=%s %s\n' \
+    "$(ao_now_utc)" "${SUDO_USER:-$USER}" "${0##*/}" "${1:-none}" "${2:-UNKNOWN}" "${3:-}" \
+    >> "$AO_RESTORE_TEST_LOG"
 }
 
 ao_require_cmds() {

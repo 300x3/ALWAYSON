@@ -1,0 +1,23 @@
+# /ALWAYSON/quadlet/networks/ao-html-window.network
+#
+# Operator-facing READ-ONLY display network: serves 2D/3D HTML renders to the
+# operator's browser. It accepts NO input and exposes NO control channel.
+# Requested by operator 2026-10-01. Subnet registered in
+# config/platform/network-cidrs.yaml as ao-html-window 10.89.14.0/24.
+#
+# Internal=true is deliberate and NOT a limitation. A viewer reaches this
+# surface through a loopback-only PublishPort on the consuming container
+# (127.0.0.1:8081 for the Foxglove bridge), which does not require this
+# network to have egress. Proven precedent: ao-mapping is Internal=true and
+# ao-webodm-web reaches the operator's browser on 127.0.0.1:8000.
+# Internal=true is what stops an always-on render surface from becoming an
+# ingress path or routing traffic off the host.
+#
+# This file was added AFTER the network itself had been created manually with
+# `podman network create`. Without this file the quadlet generator refuses the
+# consumer unit with "requested Quadlet unit ao-html-window.network was not
+# found" and silently emits no .service, so the container never starts.
+[Network]
+NetworkName=ao-html-window
+Driver=bridge
+Internal=true

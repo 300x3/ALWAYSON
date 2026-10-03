@@ -1094,7 +1094,7 @@ def snaps(offline=False):
                     break
         rows.append({"item": f[0], "via": f"snap/{f[3]}",
                      "publisher": publisher,
-                     "repo": "snap store",
+                     "repo": f"snap store (snapcraft.io/{f[0]}) — snap package, no .deb form",
                      "pinned": f[1],
                      "released": released if released != "-" else "channel unreachable",
                      # A snap exposes no sha256 digest, but the revision number is
@@ -1376,6 +1376,35 @@ def flatpak_date(app_id):
     except OSError:
         pass
     return "-"
+
+
+def download_cell(r):
+    """The Download cell states WHAT you actually get.
+
+    A page that returns HTTP 200 is not necessarily a download, and for this
+    host most are not: 16 of the landing pages are snapcraft.io (which serves
+    snaps, never a .deb), 2 are GitHub repo pages (the .deb lives under
+    /releases/), and 2 are PyPI (source distributions). Only 3 actually offer an
+    amd64 .deb. Labelling each cell removes the chance of an operator following
+    a link expecting a .deb and getting a snap instead.
+    """
+    via = str(r.get("via", ""))
+    item = str(r.get("item", ""))
+    dl = str(r.get("download", "") or "")
+    if via.startswith("snap"):
+        return f"`snap install {item}` — snap store, **not** a .deb"
+    if via.startswith("flatpak"):
+        return f"`flatpak install {dl.rsplit('/', 1)[-1]}` — flatpak, **not** a .deb"
+    if via.startswith("container"):
+        return f"`{dl}` — OCI image (amd64), no .deb form" if dl.startswith("podman") \
+            else f"local build — no upstream artefact"
+    if dl.endswith(".deb"):
+        return f"[get]({dl}) — **.deb amd64**"
+    if dl.lower().endswith(".appimage"):
+        return f"[get]({dl}) — AppImage amd64, no .deb form"
+    if dl.startswith("http"):
+        return f"[page]({dl}) — publisher page, not a direct download"
+    return f"`{dl}`" if dl else "no download recorded"
 
 
 HEADERS = ["Item", "Via", "Publisher", "Repository / archive", "Pinned",
@@ -1758,9 +1787,7 @@ def render(inv, codename, offline):
                 return (-1, n, "")
         return (rank.get(match_of(x), 5), 9, str(x.get("item", "")).lower())
     for r in sorted(rows, key=sortkey):
-        dl = r.get("download", "-")
-        cell = (f"[get]({dl})" if str(dl).startswith("http")
-                else (f"`{dl}`" if str(dl).startswith("podman") else str(dl)))
+        cell = download_cell(r)
         mark = "\u2705" if r.get("is_pinned") else "\u274c"
         up = {"yes": "yes", "**NO**": "**NO**", "?": "?",
               "local": "local", "summary": "not applicable (roll-up)"}[match_of(r)]
