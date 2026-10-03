@@ -7,7 +7,7 @@
 | Document | Complete single-file architecture, integration, security, operations, evidence, and active-work report |
 | License | CC BY-NC-SA — creativecommons.org |
 | Project origin | Building ~2010 · Drone ~2012 · Equipment 2022 · Linux systems ~2023 |
-| **Why** | **A fully autonomous live/work/fabricate area supporting fully autonomous air, land, and sea vehicles, and the daily-carry equipment that goes with them. The goal: it literally does everything itself — for any business, and any owner, even when the internet turns off — at the size of a small storage unit, a garage, or a parking space.** |
+| **Why** | **A fully autonomous live/work/fabricate area supporting air/land/sea vehicles, and the daily-carry equipment that goes with them. The goal: it literally does everything itself — for any business, and any owner, even when the internet turns off — at the size of a small storage unit, a garage, or a parking space.** |
 | Website | https://www.300x3.com |
 | Supporting plan | https://archive.org/details/@scott_widmann |
 | Created with | Bluebeam and LibreDraw (PDF project plan), Perplexity.ai, Cline.bot |
