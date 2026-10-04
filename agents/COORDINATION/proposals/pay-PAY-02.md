@@ -66,6 +66,101 @@ evidence: |
   0
 section: 07-public-storefront-and-payment-policy
 ---
+**SUPERSEDES the evidence block above, 2026-10-04.** The `/tmp/pay02/` harness and
+candidate verifier referenced above **no longer exist on disk**:
+
+```text
+$ ls -d /tmp/pay02
+ls: cannot access '/tmp/pay02': No such file or directory
+```
+
+So the headline **18/18** result and the 5-step HTTP table can no longer be
+reproduced or re-checked, and **I do not re-claim them.** This is precisely the risk
+the earlier note raised against itself ("I deleted my tests immediately... the
+evidence was not reproducible as pasted"). It has now materialised. §7.2.1 states
+this explicitly instead of leaving an unreproducible number standing as proof.
+
+**The findings still stand, on fresh evidence.** I re-derived the three defects from
+scratch against the live file (unchanged,
+`sha256:71a74988b0731695f61a7d56d9580a3c8364a3371906fa333c1784638d399f58`,
+`git status` clean, `127.0.0.1:8899/health` → `{"ok": true, "enabled": true}`):
+
+```text
+$ python3 /tmp/pay-reprove/repro.py
+PayPal documented message string: tid-abc|2026-10-04T22:49:12Z|WH-1|1287485002
+crc32 of raw body (decimal): 1287485002
+NOTE: body length = 179 -> crc32 differs from the body, as documented
+[ao-payment] REJECT paypal: signature mismatch
+verify_paypal(genuine PayPal sig) -> False
+verify_paypal(adapter's own HMAC) -> True
+verify_coinbase defined in file: False
+COINBASE_WEBHOOK_SECRET references: 0
+AUTOMATED = ('paypal', 'coinbase')
+
+normalize(paypal, real PAYMENT.CAPTURE.COMPLETED) ==
+  {"provider":"paypal","event_type":"PAYMENT.CAPTURE.COMPLETED",
+   "provider_ref":"WH-1","currency":"USD","amount_cents":null}
+
+normalize(coinbase, real charge:confirmed) ==
+  {"provider":"coinbase","event_type":"charge:confirmed",
+   "provider_ref":"EV-EVENT-ID","currency":"USD","amount_cents":null}
+```
+
+```text
+$ grep -n 'webhook/\|verify_paypal(' scripts/payment/ao-payment-adapter.py
+60:def verify_paypal(headers, body: bytes, secret: str) -> bool:
+192:        if self.path == "/webhook/paypal":
+194:        elif self.path == "/webhook/coinbase":
+209:            if not verify_paypal(self.headers, body, self.secret):
+```
+
+**PAY-02 stays OPEN, and the fix stays unapplied** — deploying it changes which
+money-bearing events are trusted to create business state (§4.1 rule 14).
+
+## A defect the previous account did not record
+
+Re-running `normalize()` on a realistic Coinbase `charge:confirmed` shows
+**`amount_cents` is `null` for Coinbase too**, not only its `provider_ref` being
+wrong. The real payload carries money at `charge.amount.amount`, which
+`normalize()` does not read. The earlier write-up framed the Coinbase problem as a
+wrong-*reference* problem; it is actually **both** a wrong-reference *and* a
+lost-amount problem. Coinbase events lose the money *and* the reconciled reference.
+Recorded in §7.2.1.
+
+## A date defect in my own section file
+
+§7.2.1 and one correction note were dated **`2026-10-10`, six days in the future**
+(`date -u +%F` → `2026-10-04`; `grep -c '2026-10-10'` → `2`). This is the same
+defect class `spec-OPS-34.md` records having removed from §3 and §6 — and it is
+still present in §7, so **the class is not retired**. Both are now `2026-10-04`.
+
+## What I got wrong
+
+1. **My first re-proof run crashed** with
+   `TypeError: '{!r}' is a built-in class` from `inspect.getsource()`. I had loaded
+   the adapter with `importlib.util.spec_from_file_location` and then reused a
+   source-introspection idiom that assumes a normally-imported module. *Class of
+   bug: introspection that depends on how a module was loaded.* Dropping the
+   introspection for a plain `grep` answered the question better and gives the
+   reader evidence they can repeat.
+2. **I nearly treated that crash as disproof.** The traceback printed *after* the
+   two most important assertions had already succeeded. A non-zero exit from a
+   partially-completed proof neither refutes the lines above it nor licenses quoting
+   only those lines — I re-ran clean before writing any of this down.
+3. **§7 still carries `Section 18.4` references.** The dangling-reference class
+   `pay-PAY-07.md` flagged is **still open repo-wide**. I did not mechanically
+   renumber them to §7.2: the same references live in
+   `scripts/payment/ao-payment-adapter.py` (lines 2, 11, 42, 215, 217) and
+   `quadlet/payment/ao-ingress-payment.container` (line 15), and `scripts/` and
+   `quadlet/` are not files I own. Reported, not touched.
+
+## Note for the compiler
+
+`compile.py --check` reports `DIFFERS`. It reported `DIFFERS` on unmodified
+`/ALWAYSON` too, so it is **pre-existing and not mine**. Attributing every hunk,
+**two belong to other sessions**: one line in `es-executive-summary` and one
+trailing blank line in `09-field-and-lora-architecture`. The remaining hunks are my
+own §7 edits, which is expected until the README is recompiled.
 **PAY-02 stays OPEN. The correction is written and proven; applying it is blocked
 on operator approval.**
 

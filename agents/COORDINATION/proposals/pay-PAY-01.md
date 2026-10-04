@@ -52,6 +52,32 @@ evidence: |
   {"ok": true, "enabled": true}
 section: 07-public-storefront-and-payment-policy
 ---
+**INDEPENDENT RE-VERIFICATION 2026-10-04 — findings still hold, item still OPEN.**
+
+I did not take the evidence above on trust. Re-measured read-only:
+
+```text
+$ h=$(gdbus call --session --dest org.kde.kwalletd6 --object-path /modules/kwalletd6 \
+      --method org.kde.KWallet.open kdewallet 0 alwayson-ops | grep -oE '[0-9]{6,}')
+handle=775185618
+payment-db-password                (false,)
+payment-paypal-webhook-id          (false,)
+payment-paypal-webhook-secret      (false,)
+payment-coinbase-webhook-secret    (false,)
+CONTROL ao-sales/sales-db-password (true,)
+```
+
+All four `ao-payment` entries are still absent, and the known-true control still
+returns `(true,)` — so the negative results come from a query I have validated, not
+from a malformed call. `podman ps` still shows `ao-ingress-payment` up, and
+`/health` still returns `{"ok": true, "enabled": true}`.
+
+**No credential was created, read, moved or modified by this session either.** The
+four wallet entries must be created by the operator. The remediation proposed above
+(distinct `payment-db-password`, a least-privilege role, removal of the hand-written
+`payment.env`) is untouched and still needs explicit approval.
+
+---
 **PAY-01 stays OPEN. No credential was created, read, moved or modified by this
 session.** I am filing this as `update` rather than `close` because the item
 cannot be completed by me — the wallet entries must be created by the operator.
