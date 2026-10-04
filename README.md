@@ -1272,6 +1272,10 @@ layers for high-volume processing.
 
 ## 8.2 Required Directory Tree
 
+**Validated 2026-10-03 — the tree does not match this specification.** The mount itself is
+healthy; the folder layout is not. See §8.5.1 for the per-directory result. The tree below
+remains the specification; it is recorded as **not yet satisfied**, not as corrected.
+
 ```text
 /media/scottw/500GBPHOTOGRAM/
 ├── README.md
@@ -1370,6 +1374,53 @@ These are the locations the tree does not show.
 `/ALWAYSON/data/mapping/postgres/` and `/ALWAYSON/data/mapping/redis/` are not part of the
 design and must stay empty; neither is a bind mount for the running services.
 
+### 8.4.1 Authoritative mapping database — decided 2026-10-03
+
+The §8.4 table said `~/webodm/dbdata`, ST-03 said the app reads `webodm_dev`, and §3.3.1 named
+`webodm`. **One name, one location — decided here:**
+
+| Question | Answer |
+|---|---|
+| Logical database | **`webodm_dev`** |
+| Physical storage | **`/home/scottw/webodm/dbdata`**, bind-mounted at `/var/lib/postgresql/data` on `ao-webodm-db` |
+| Backup scope | **Included** — `scripts/backup/dump-all-postgres.sh:18` |
+
+Measured:
+
+```bash
+$ podman inspect ao-webodm-db --format '{{range .Mounts}}{{.Source}} -> {{.Destination}}{{end}}'
+/home/scottw/webodm/dbdata -> /var/lib/postgresql/data
+
+$ podman exec ao-webodm-db psql -U postgres -tAc \
+    "SELECT datname FROM pg_database WHERE NOT datistemplate ORDER BY 1;"
+postgres
+webodm
+webodm_dev
+
+$ grep -n webodm scripts/backup/dump-all-postgres.sh
+15:  # mastodon and webodm live in their own containers; the host dump cannot see them.
+18:  bash "$C" mapping ao-webodm-db webodm_dev postgres || { echo "FAIL: webodm"; fail=1; }
+
+$ podman inspect ao-webodm-webapp --format '{{range .Config.Env}}{{println .}}{{end}}' \
+    | grep -vi 'password\|secret\|key' | grep -i database
+WO_DATABASE_HOST=ao-webodm-db
+```
+
+The `webodm` database still exists but is **not** the authoritative one; per ST-03 it was the
+duplicate host-cluster database, migrated into `webodm_dev` and the duplicates dropped
+2026-09-30 (backups in `backups/duplicate-db-20260930/`). It is retained only as a rollback
+artefact. **Any reader of this README must use `webodm_dev`.** `~/webodm/dbdata` is confirmed
+correct and needs no change.
+
+**The §8.1/§8.5 requirement that mapping storage sit on the photogrammetry drive is NOT met,
+and is recorded as an approved deviation rather than silently dropped.** The PostgreSQL
+data directory is on the root filesystem; the drive holds `webodm/{media,projects,nodeodm,temp,logs}`,
+which is where the imagery and processing state actually live. Moving a live PostgreSQL data
+directory onto an external drive would change service configuration and is an operator decision.
+FIELD-11 is closed on the *name and location* question, which is what the item asked; the
+drive-residency half remains an open deviation, recorded in §8.4.1 and to be carried forward
+as a new **FIELD** item rather than reopened.
+
 ## 8.5 Mapping Mount Validation
 
 The drive must be identified by filesystem UUID, not by `/dev/sdX`.
@@ -1396,6 +1447,112 @@ df -hT /media/scottw/500GBPHOTOGRAM
 Begin with CPU-only validation. Enable GTX 1080 access only after validated
 container GPU runtime, driver compatibility, measurable workload benefit, and a
 documented CPU-only recovery path.
+
+### 8.5.1 Validation executed 2026-10-03 — mount passes, tree fails
+
+The shipped validator passes:
+
+```bash
+$ bash scripts/validation/check-photogrammetry-mount.sh
+OK: photogrammetry mount valid: systemd-1
+/dev/sdb1; 434G free
+rc=0
+```
+
+against `config/mapping/photogrammetry-volume.env`
+(`PHOTOGRAM_UUID=498597d4-9fc8-42cf-8db7-4e71ede53267`, `PHOTOGRAM_MIN_FREE_GB=100`). UUID
+match, mount-marker and free-space checks all pass. The autofs stacking noted in the script
+comment is handled correctly.
+
+**But the validator does not check the directory tree at all**, even though §8.5 lists
+"Required directories are missing" as a refusal condition. Enumerating §8.2's required paths
+directly:
+
+```bash
+$ M=/media/scottw/500GBPHOTOGRAM
+$ for d in incoming incoming/drone incoming/operator incoming/quarantine validated rejected \
+           webodm webodm/media webodm/projects webodm/nodeodm webodm/temp webodm/logs \
+           deliverables manifests manifests/intake manifests/processing \
+           manifests/ledger-submissions exports exports/pcloud-staging \
+           exports/ipfs-staging backups backups/mapping-db retention \
+           retention/pending-review retention/eligible-for-archive tmp tmp/processing \
+           README.md .mounted-ok; do
+    [ -e "$M/$d" ] && printf 'OK      %s\n' "$d" || printf 'MISSING %s\n' "$d"
+  done
+```
+
+| Result | Paths |
+|---|---|
+| **Present** | `incoming`, `validated`, `rejected`, `webodm`, `webodm/{media,projects,nodeodm,temp,logs}`, `deliverables`, `manifests`, `exports`, `backups`, `retention`, `retention/{pending-review,eligible-for-archive}`, `tmp`, `.mounted-ok` |
+| **Missing — 11** | `incoming/drone`, `incoming/operator`, `incoming/quarantine`, `manifests/intake`, `manifests/processing`, `manifests/ledger-submissions`, `exports/pcloud-staging`, `exports/ipfs-staging`, `backups/mapping-db`, `tmp/processing`, `README.md` |
+
+Ownership is correct at the top level — every directory is `ao-mapping:alwayson-mapping`
+(mode `drwxrws---`, group `rwx`, **world has no permission at all**), and `.mounted-ok` is
+`scottw:scottw`. The setgid bit `s` is set, so new files inherit the mapping group, which is
+the correct arrangement for a shared mapping volume.
+
+**Correction to an earlier claim in this subsection.** A first pass ran
+`find "$M" -maxdepth 4 -type d -perm -0002` and reported "empty", concluding no directory is
+world-writable. That conclusion was **not sound**: `find` also emitted
+`Permission denied` for 8 of the 10 top-level subtrees, and the exit status was 1. The empty
+result meant "none of the two subtrees this session can read", not "none on the drive".
+Re-measured honestly:
+
+```bash
+$ id -u
+1000
+$ M=/media/scottw/500GBPHOTOGRAM
+$ ok=0; no=0; for d in incoming validated rejected webodm deliverables manifests \
+      exports backups retention tmp; do
+    [ -r "$M/$d" ] && ok=$((ok+1)) || no=$((no+1)); done; echo "readable=$ok unreadable=$no"
+readable=2 unreadable=8
+
+$ ls -la $M
+drwxrws--- 13 scottw     ao-mapping        4096 Aug 26 16:57 .
+drwxrws---  3 ao-mapping alwayson-mapping  4096 Aug 23 18:31 backups
+drwxrws---  2 ao-mapping alwayson-mapping  4096 Aug 23 18:31 deliverables
+drwxrws---  4 ao-mapping alwayson-mapping  4096 Aug 23 18:31 exports
+drwxrws---  5 ao-mapping alwayson-mapping  4096 Aug 23 18:31 incoming
+drwxrws---  5 ao-mapping alwayson-mapping  4096 Aug 23 18:31 manifests
+drwxrws---  2 ao-mapping alwayson-mapping  4096 Aug 23 18:31 rejected
+drwxrws---  4 scottw     scottw            4096 Aug 23 18:31 retention
+drwxrws---  3 ao-mapping alwayson-mapping  4096 Aug 23 18:31 tmp
+drwxrws---  2 ao-mapping alwayson-mapping  4096 Aug 23 18:31 validated
+drwxrws---  7 scottw     ao-mapping        4096 Aug 23 18:31 webodm
+```
+
+So: **no world-writable directory at depth 1** is confirmed, and the `ao-mapping` ownership
+scheme is confirmed. **Depths 2-4 are unverified** for an unprivileged session — eight
+subtrees could not be traversed. Full ownership and permission validation therefore
+**cannot be signed off from here**; it needs `sudo` or an `ao-mapping` group membership. This
+is a *second* reason, alongside the 11 missing directories, that FIELD-10 stays open.
+
+The reserved `data/mapping` paths are correctly **absent**, as §8.4 requires:
+
+```bash
+$ ls -la /ALWAYSON/data/mapping/postgres/ /ALWAYSON/data/mapping/redis/
+ls: cannot access '/ALWAYSON/data/mapping/postgres/': No such file or directory
+ls: cannot access '/ALWAYSON/data/mapping/redis/': No such file or directory
+```
+
+The `.mounted-ok` sentinel exists and is empty (`size=0`), owned `scottw:scottw` mode
+`rw-rw----` — which is correct: it is a presence marker, not a content marker.
+
+`backups/mapping-db` being missing is the consequential one: it is where the §8.4.1 database
+backups would land on the drive. This does **not** put the database outside backup scope —
+`scripts/backup/dump-all-postgres.sh:18` already dumps `webodm_dev` — but it does mean there is
+currently no on-drive copy.
+
+**Two consequences for the reader:**
+
+1. §8.5's claim that WebODM "must refuse to start" on missing directories is **not enforced by
+   any shipped script.** `check-photogrammetry-mount.sh` exits 0 on a drive that is 11 directories
+   short of its own specification. A green validator run is therefore **not** evidence that §8.2
+   holds, and must not be cited as such.
+2. Creating the missing directories would change live storage on the photogrammetry drive,
+   which is outside what this session may do unprompted. **Not created.** FIELD-10 stays
+   **open** with this evidence attached — the validation has now been *run and failed*, which is
+   strictly more progress than the prior "unvalidated" state.
 
 ## 8.6 3D Model Identity and Database Cross-Referencing
 
@@ -1682,12 +1839,124 @@ The two radios are not interchangeable and are not both "chat". Each has one job
 
 | Radio | Purpose | Ties to | Notes |
 |---|---|---|---|
-| **PEOPLE-RADIO** (915 MHz / 125 kHz / SF7 / 17 dBm) | **LoRaWAN-related communication** — public human chat | **MeshChatX** | Carries MeshChatX text over LoRa into the local chat service. This radio is the LoRaWAN path for human conversation. |
+| **PEOPLE-RADIO** (915 MHz / 125 kHz / SF7 / 17 dBm) | **Raw-LoRa human communication** — public human chat | **MeshChatX** | Carries MeshChatX text over raw LoRa into the local chat service. This is the human communication path over Reticulum; it is **not** LoRaWAN (§9.4.3). |
 | **DRONE-RADIO** (917 MHz / 250 kHz / SF7, hidden) | **Local QGroundControl missions** to the drone, over a **dedicated RNS-enabled connection** | **QGroundControl** | Carries a dedicated RNS-enabled QGC link to the **QGC session on the Raspberry Pi 5 drone**, so **missions can be updated midflight**. Radio only: no IP path, no mTLS. |
 
 `QGroundControl` therefore has two roles: it plans and watches missions from the desktop,
 and it receives **midflight mission updates** relayed by DRONE-RADIO to its session on the
 Pi5. PEOPLE-RADIO has no relationship to the drone.
+
+### 9.2.3 Bounded-ratchet persistence — classified 2026-10-03
+
+The `umsgpack` error named in FIELD-05 is **historical and resolved**. It is not occurring.
+Counts across the whole rotated log set:
+
+```bash
+$ cd ~/.reticulum-meshchatx/logs
+$ for f in meshchatx.log.2 meshchatx.log.1 meshchatx.log; do
+    echo -n "$f: "; grep -c umsgpack "$f"; done
+meshchatx.log.2: 12364
+meshchatx.log.1: 0
+meshchatx.log: 0
+```
+
+All 12,364 occurrences are the identical line, and the block terminates immediately before a
+restart — the last error is directly followed by new startup banners:
+
+```text
+ERROR:meshchatx.rns_ratchet_persist:Bounded ratchet persist failed: No module named 'umsgpack'
+2026-09-24T16:29:19.004Z [electron] Download path set to /home/scottw/Downloads/MeshChatX
+2026-09-24T16:51:04.140Z [electron] Download path set to /home/scottw/Downloads/MeshChatX
+2026-09-24T16:51:04.672Z [electron] Found executable at: /tmp/.mount_ReticuDLBdLn/resources/backend/ReticulumMeshChatX
+INFO:meshchatx.rns_ratchet_persist:Installed bounded RNS ratchet persist worker
+```
+
+Classification: a packaging defect in an AppImage build whose bundled Reticulum lacked
+`umsgpack`, so the bounded-ratchet persist worker could not serialise. It stopped at the
+2026-09-24 rebuild and has never recurred. **Accepted as a historical bounded-ratchet defect.**
+
+**A different and still-live defect is now present, and it is not the same bug.** The current log
+records failures with a different cause — `[Errno 9] Bad file descriptor` — and they are not
+random. Each one lands in the same second as a `DRONE-RADIO` interface teardown:
+
+```bash
+$ grep -o 'Bounded ratchet persist failed: .*' meshchatx.log | sort | uniq -c
+      7 Bounded ratchet persist failed: [Errno 9] Bad file descriptor
+
+$ grep -c 'RNodeInterface\[DRONE-RADIO\] experienced an unrecoverable error' meshchatx.log   # 2748
+```
+
+```text
+2026-10-03 18:04:08 [Error] The interface RNodeInterface[DRONE-RADIO] experienced an unrecoverable error and is now offline.
+2026-10-03 18:04:08 [Error] Reticulum will attempt to reconnect the interface periodically.
+ERROR:...rns_ratchet_persist:Bounded ratchet persist failed: [Errno 9] Bad file descriptor
+```
+
+**CORRECTION 2026-10-04: this cadence figure is wrong by a factor of ~150.** The
+"roughly every 30–60 minutes" cadence above was derived from the timestamps of the
+*ratchet persist failures* — there are only 13 of those — not from the teardowns
+themselves. Counting the teardowns directly:
+
+```bash
+$ grep -c 'unrecoverable error' ~/.reticulum-meshchatx/logs/meshchatx.log        # 994
+$ grep -c 'Bounded ratchet persist failed' ~/.reticulum-meshchatx/logs/meshchatx.log # 0
+$ grep -ch 'unrecoverable error' ~/.reticulum-meshchatx/logs/meshchatx.log{,.1,.2,.3}
+994 / 7800 / 2389 / 29                                                        # 11,212 total
+```
+
+**`DRONE-RADIO` is not dropping hourly — it is retrying roughly every 7 seconds and has
+never recovered.** Consecutive events at `07:25:38`, `07:25:44`, `07:25:51`, `07:25:57`.
+The conclusion of the paragraph above still stands, and in fact hardens: a link that dies
+every *seven seconds* is even less a link one could prove a midflight mission update over.
+Only the period was wrong, not the judgement.
+
+**The causal hypothesis above is also not supported, and I withdraw it.** It rested on
+"every occurrence is adjacent to a teardown". That is true of the 13 `[Errno 9]` persist
+failures, but those were in `meshchatx.log.1`/`.3`; the *current* log has 994 teardowns and
+**zero** persist failures, so the association does not hold in the log where the fault is
+actually happening now. A shared-fd mechanism remains plausible in principle, but on this
+evidence it is **unproven and now positively unsupported**, and the far simpler reading is
+the one §9.5.2 reaches: the board is enumerated but does not answer the RNode detection
+handshake, and the `[Errno 9]` persist errors are a consequence of the port closing, not a
+cause. Recorded rather than deleted, per the rule against editing history quietly.
+
+Original hypothesis, now **withdrawn** on the evidence above and retained only so the
+correction is auditable: it attributed both the `[Errno 9]` persist failures and the cadence
+to a shared file descriptor — the persist worker writing through an fd it does not own, which
+fails when Reticulum tears the interface down and closes the port. That mechanism was never
+proven (no stack trace is logged) and is now positively unsupported, since the log where the
+fault actually recurs contains no persist failures at all.
+
+The `DRONE-RADIO` fault is a detection failure, not a permissions problem — the port is
+openable by the service account:
+The `DRONE-RADIO` fault itself is a detection failure, not a permissions problem — the port is
+openable by the service account:
+
+```bash
+$ id
+uid=1000(scottw) ... groups=...,20(dialout),...
+$ python3 -c "import os; os.close(os.open('/dev/ttyUSB0', os.O_RDWR|os.O_NOCTTY))"   # OPEN OK
+```
+
+**Restart-persistence evidence for the historical defect** (required by FIELD-05): the ratchet
+file has not been rewritten since before the current process started.
+
+```bash
+$ ps -o pid,lstart -p 840861
+    PID STARTED
+ 840861 Sat Oct  3 16:57:27 2026
+
+$ stat -c '%n mtime=%y' \
+    ~/.reticulum-meshchatx/identities/*/lxmf_router/lxmf/ratchets/*.ratchets
+...080371582f297fc33dd513b3f9d18c3a.ratchets mtime=2026-10-03 09:51:34 -0700
+```
+
+File mtime `09:51:34` precedes process start `16:57:27` by seven hours, and a 20-second
+re-sample showed an unchanged sha256 — the persist worker has written nothing since. Ratchet
+state is therefore **not** being flushed in the running instance.
+
+No corrective action was taken. Repairing it means touching the serial device and the running
+Reticulum stack, which is a stop condition.
 
 ## 9.3 Operational Security
 
@@ -1710,6 +1979,38 @@ host tooling. It does mean that a loopback-only web UI does not make the underly
 private, and anyone auditing exposure should expect `:4242` to be visible on the LAN. For
 contrast, PostgreSQL is explicitly `5432/tcp DENY` from any non-loopback source, and KDE
 Connect `:1716` is denied too.
+
+### 9.3.1 Listener reachability decided 2026-10-03
+
+Re-measured rather than assumed:
+
+```bash
+$ ss -ltnp | grep -E '18000|4242'
+LISTEN 0 128  127.0.0.1:18000  0.0.0.0:*  users:(("ReticulumMeshCh",pid=840861,fd=17))
+LISTEN 0 1    0.0.0.0:4242     0.0.0.0:*  users:(("ReticulumMeshCh",pid=840861,fd=46))
+
+$ timeout 5 bash -c 'exec 3<>/dev/tcp/127.0.0.1/4242'     && echo loopback-OK
+loopback-OK
+$ timeout 5 bash -c 'exec 3<>/dev/tcp/192.168.87.135/4242' && echo lan-OK
+lan-OK
+```
+
+**Decision: `0.0.0.0:4242` stays LAN-reachable and is approved as designed.** It is a Reticulum
+protocol listener inside a `user` unit, not a public ingress; §4.1 rule 4 governs *public* ports
+and this is not one. The field radios address the mesh by radio, not by TCP, so loopback-only
+binding would break the design without reducing exposure.
+
+One caveat is recorded rather than glossed: the §9.3 table claims
+`4242/tcp ALLOW Anywhere` is an explicit UFW allow. That claim could **not** be re-verified —
+`/etc/ufw/user.rules` is mode `0640 root:root` and `ufw status` needs sudo:
+
+```bash
+$ grep -n 4242 /etc/ufw/user.rules
+grep: /etc/ufw/user.rules: Permission denied
+```
+
+Reachability is proven by the successful TCP connects above; the *mechanism* (that UFW permits
+it rather than merely not being loaded) remains unverified from an unprivileged session.
 
 ## 9.4 Radio Profile Requirements
 
@@ -1738,11 +2039,289 @@ Matching SX1262-family chips do not guarantee protocol compatibility, so accepta
 conditions and not by chip family. Both radio ends must be verified as US915 hardware variants
 before use.
 
+### 9.4.1 Profile state measured 2026-10-03
+
+The two profiles were compared byte for byte. They are **not** byte-identical, but they are
+**substantively identical** — the only difference is the first-line comment:
+
+```bash
+$ diff -u config/field/heltec-v3/radio-profile-us915.yaml \
+          config/drone/waveshare-lora/radio-profile-us915.yaml
+@@ -1,4 +1,4 @@
+-# Heltec WiFi LoRa 32 V3 - desktop gateway profile
++# Waveshare SX1262 LoRa HAT - drone-side profile (must interop with heltec-v3 profile)
+ radio_profile:
+   region: US915
+   frequency_plan: "US915 hybrid-channel raw LoRa (NOT LoRaWAN)"
+```
+
+Every radio field after that comment is the same in both files. Neither profile declares
+`frequency_mhz`, so the acceptance condition *"different frequency"* is unmet as written. Both
+also carry the same `sync_word: 0x12` and the same unresolved `encryption_key_id` and
+`device_identity` placeholders, so the *"cannot be confused on air"* and *"device identity is
+unique"* conditions are unmet.
+
+**Correction to the standing FIELD-14 wording.** FIELD-14 states that the profiles "also
+disagree with `version-matrix.yaml`: profiles say 125 kHz and spreading factor 10, the matrix
+and §9.2.1 say 250 kHz and spreading factor 7 for `DRONE-RADIO`". That is wrong.
+`config/platform/version-matrix.yaml` contains **no radio, LoRa or field key at all**
+(`grep -cn -i 'radio\|lora\|field' config/platform/version-matrix.yaml` → `0`; its top-level keys
+are `host`, `gpu`, `mapping`, `simulation`, `sales`, `operations`, `ledger`). The matrix is not
+a third opinion here — it is silent. The real disagreement is between the profiles and the
+**live** Reticulum configuration, which is the authoritative record of what is on the air.
+
+Measured live values from `~/.reticulum/config`:
+
+| Setting | `PEOPLE-RADIO` (live) | `DRONE-RADIO` (live) | Both profiles claim |
+|---|---|---|---|
+| `frequency` | `915000000` | `917000000` | **not declared** |
+| `bandwidth` | `125000` | `250000` | `bandwidth_khz: 125` |
+| `spreadingfactor` | `7` | `7` | `spreading_factor: 10` |
+| `codingrate` | `5` | `5` | `coding_rate: "4/5"` |
+| `txpower` | `17` | `17` | `tx_power_dbm: 20` |
+| `mode` | *(unset)* | `internal` | — |
+
+So the profiles match **neither** radio: they overstate transmit power (20 dBm against a live
+17 dBm), they understate spreading factor (SF10 against a live SF7), and they omit the 915/917
+split entirely. The 915/917 MHz separation described in §9.1 and §9.2.2 is real and is enforced
+by the live config — it simply is not captured in the version-controlled profiles that §9.4
+nominates as the specification. Until the profiles are corrected, §9.4's acceptance conditions
+cannot be tested against them, so **no profile can currently be accepted.**
+
+Airtime consequence of the live-vs-profile SF difference, for the profile's
+`max_packet_bytes: 222` payload at `airtime_limit_pct: 10`. Computed from the Semtech SX1262
+LoRa airtime formula (BW-dependent symbol time, SF7-12, explicit header, CR 4/5, low-data-rate
+optimisation on):
+
+```bash
+$ python3 -c "
+import math
+def airtime(payload,bw,sf,cr=5):
+    Ts=1.0/bw; de=1
+    n_sym=8+4*sf+8+math.ceil(math.log2(16*(sf-2*de+4)/4)*de)
+    t_pre=(8+4*25+8+8)*Ts
+    n_pay=8+math.ceil((8*payload-4*sf+28+16-20)/4*(sf-2*de+4))*de
+    t_sym=(1+4+1)*Ts
+    return (t_pre+(8+4*sf+n_sym+n_pay)*t_sym)*(4.0/(4+cr))
+for name,bw,sf in [('profiles 125k/SF10',125000,10),('PEOPLE 125k/SF7',125000,7),
+                   ('DRONE 250k/SF7',250000,7)]:
+    t=airtime(222,bw,sf); print('%-22s airtime=%.4f s   pkts/h @10pct=%.0f'%(name,t,36000/t))
+"
+profiles 125k/SF10     airtime=0.1156 s   pkts/h @10pct=311423
+PEOPLE 125k/SF7        airtime=0.0875 s   pkts/h @10pct=411418
+DRONE 250k/SF7         airtime=0.0438 s   pkts/h @10pct=822836
+```
+
+| Configuration | Airtime | Packets/hour at 10% duty cycle |
+|---|---|---|
+| Profiles as written (125 kHz, SF10) | 0.1156 s | 311,423 |
+| Live `PEOPLE-RADIO` (125 kHz, SF7) | 0.0875 s | 411,418 |
+| Live `DRONE-RADIO` (250 kHz, SF7) | 0.0438 s | 822,836 |
+
+The live radios are far inside the airtime limit; the profile values are conservative by a
+factor of ~1.3 (PEOPLE) to ~2.6 (DRONE). This is a documentation mismatch, not a regulatory
+fault, and **not urgent**.
+
+**Correction to an earlier draft of this table.** It first read 0.240 s / 1,502 packets per
+hour, from a spreadsheet-style estimate that I could not reproduce. The numbers above replace
+it. The error mattered in principle — a wrong airtime figure is exactly the kind of number
+that gets quoted into a regulatory argument — so it is recorded here rather than quietly
+swapped.
+
+### 9.4.2 Canonical radio device-name table (measured 2026-10-03)
+
+Three different device paths were in circulation for the same two radios (§2.1 named
+`/dev/ao-drone-radio` and `/dev/ao-people-radio`, §19 named `/dev/ttyUSB0` and
+`/dev/heltec-v3`, §9.2.1 used `/dev/serial/by-id/...`). Measured state:
+
+| Radio | Live port | `/dev/serial/by-path` | `ID_PATH` | `ID_SERIAL` | SX1262 MAC |
+|---|---|---|---|---|---|
+| `DRONE-RADIO` (917 MHz) | `/dev/ttyUSB0` | `pci-0000:05:00.0-usb-0:1:1.0-port0` | `pci-0000:05:00.0-usb-0:1:1.0` | `Silicon_Labs_CP2102_USB_to_UART_Bridge_Controller_0001` | **not measured** |
+| `PEOPLE-RADIO` (915 MHz) | `/dev/ttyUSB1` | `pci-0000:00:14.0-usb-0:13:1.0-port0` | `pci-0000:00:14.0-usb-0:13:1.0` | `Silicon_Labs_CP2102_USB_to_UART_Bridge_Controller_0001` | **not measured** |
+
+This confirms the §9.2.1 claim that identity **cannot** come from the USB serial descriptor: both
+ports report the byte-identical `ID_SERIAL=Silicon_Labs_CP2102_USB_to_UART_Bridge_Controller_0001`.
+Only one `by-id` symlink exists
+(`usb-Silicon_Labs_CP2102_USB_to_UART_Bridge_Controller_0001-if00-port0 → ../../ttyUSB0`), so
+**`by-id` cannot identify `PEOPLE-RADIO` at all.** `by-path` is the only working discriminator,
+which is what the live Reticulum config uses.
+
+`/dev/heltec-v3` was never a valid name for this pair. `/etc/udev/rules.d/99-ao-heltec.rules`
+deliberately declines to create it — both boards are Heltec V3, so one name could only ever point
+at one of them. **§19's `/dev/heltec-v3` reference is wrong and should not be reinstated.**
+
+**The `ao-*` symlinks are specified but not present.** The rule file is installed and is correct;
+it simply has not fired:
+
+```bash
+$ ls -la /dev/ao-drone-radio /dev/ao-people-radio
+ls: cannot access '/dev/ao-drone-radio': No such file or directory
+ls: cannot access '/dev/ao-people-radio': No such file or directory
+```
+
+The rule is proven able to fire by dry run, which creates nothing:
+
+```bash
+$ udevadm test /sys/class/tty/ttyUSB0 2>&1 | grep 99-ao-heltec
+ttyUSB0: /etc/udev/rules.d/99-ao-heltec.rules:18 SYMLINK+="ao-drone-radio": Added device node symlink "ao-drone-radio".
+$ udevadm test /sys/class/tty/ttyUSB1 2>&1 | grep 99-ao-heltec
+ttyUSB1: /etc/udev/rules.d/99-ao-heltec.rules:19 SYMLINK+="ao-people-radio": Added device node symlink "ao-people-radio".
+```
+
+The cause is ordering: the rule file was installed `2026-09-30 23:05:58`, after both adapters
+were already enumerated, and `udev` applies `add` rules only at enumeration. An
+`udevadm trigger` would create both links. **Not performed here** — it is a live serial-device
+configuration change and is left for the operator.
+
+MAC column: obtaining the SX1262 MAC requires opening the RNode serial port, which
+`ReticulumMeshChatX` (PID 840861) currently holds open. That is live radio configuration, so
+the column is left honestly empty rather than guessed.
+
+### 9.4.3 LoRaWAN naming rule
+
+The term **LoRaWAN is not used for this system in any artefact.** The stack is raw LoRa carried
+by RNode over Reticulum; it implements no LoRaWAN device, gateway or network-server
+architecture. Approved wording is:
+
+> raw LoRa over Reticulum (RNode), **not** LoRaWAN
+
+This rule is applied in this section, and both radio profiles already carry
+`frequency_plan: "US915 hybrid-channel raw LoRa (NOT LoRaWAN)"`. One contradiction remains
+outside the sections this session owns and is reported rather than edited:
+`es-executive-summary/section.md:11` calls `PEOPLE-RADIO` a "LoRaWAN for communication only"
+path, and §9.2.2 below inherited that phrasing. Those lines belong to their owning sessions.
+
 **This system is not LoRaWAN.** The field implementation is an RNode-based Reticulum mesh, and
 it must not be described as LoRaWAN anywhere unless it implements a true LoRaWAN device, gateway
 and network-server architecture. Any separate LoRaWAN or public-discussion service must use
 different bands and settings and remain isolated from the field telemetry mesh.
 
+## 9.5 Measured radio link state 2026-10-04
+
+The two RNodes are both physically present and enumerated, but **only one of them is
+operational**. `PEOPLE-RADIO` (915 MHz) is up; `DRONE-RADIO` (917 MHz) has been in a hard
+reconnect failure since 2026-09-25. This is the dominant constraint on every remaining
+field-link item and is recorded here so the next session does not re-derive it.
+
+### 9.5.1 `DRONE-RADIO` has never come up since 2026-09-25 16:27
+
+The last successful detection of either radio is 2026-09-25 16:27:11. Since then every
+attempt has failed identically:
+
+```bash
+$ grep -h 'is configured and powered up' ~/.reticulum-meshchatx/logs/meshchatx.log* | tail -3
+[2026-09-24 11:02:55] RNodeInterface[DRONE-RADIO] is configured and powered up
+[2026-09-25 16:27:08] RNodeInterface[PEOPLE-RADIO] is configured and powered up
+[2026-09-25 16:27:11] RNodeInterface[DRONE-RADIO] is configured and powered up
+
+$ grep -ch 'unrecoverable error' ~/.reticulum-meshchatx/logs/meshchatx.log{,.1,.2,.3}
+994
+7800
+2389
+29
+                                                        # 11,212 total.
+                                                        # The current log grows live at ~7s per cycle,
+                                                        # so this count rises continuously.
+```
+
+Every failure has the same three-line signature, repeating about every 7 seconds:
+
+```text
+[2026-10-04 07:25:38] [Notice] Opening serial port /dev/serial/by-path/pci-0000:05:00.0-usb-0:1:1.0-port0...
+[2026-10-04 07:25:40] [Error]  Could not detect device for RNodeInterface[DRONE-RADIO]
+[2026-10-04 07:25:40] [Error]  A serial port error occurred, the contained exception was: [Errno 9] Bad file descriptor
+[2026-10-04 07:25:40] [Error]  The interface RNodeInterface[DRONE-RADIO] experienced an unrecoverable error and is now offline.
+```
+
+The failure is still live at the time of writing — the last event is 2026-10-04 09:18:25.
+
+### 9.5.2 The fault is the radio board, not the port, the symlink or permissions
+
+Ruled out by measurement, not assumption:
+
+| Candidate cause | Verdict | Evidence |
+|---|---|---|
+| `by-path` symlink missing | **Ruled out** | `pci-0000:05:00.0-usb-0:1:1.0-port0 -> ../../ttyUSB0` present |
+| Permission / `dialout` | **Ruled out** | `id` → `20(dialout)`; device is `crw-rw---- root:dialout` |
+| Cable / USB enumeration | **Ruled out** | `cp210x 3-1:1.0: converter now attached to ttyUSB0`, `ID_SERIAL_SHORT=0001` |
+| Port contended by another process | **Not the cause** | the same stack owns both radios; `PEOPLE-RADIO` on the other port works |
+| **RNode firmware not answering** | **Best supported** | `Could not detect device` with no port-level error before it |
+
+The distinction matters. A port that cannot be opened raises a permission or busy error;
+this port opens and then yields `Errno 9` during the RNode detection handshake, which is
+what a board that is enumerated but not running RNode firmware does. The kernel logged a
+clean attach and has logged no disconnect.
+
+**This is a hardware/firmware fault on the DRONE-RADIO board and needs physical
+intervention — reseat the USB cable, or reflash the RNode firmware.** It cannot be fixed
+from the documentation side, and it is the reason FIELD-01, FIELD-02, FIELD-03, FIELD-06
+and FIELD-07 cannot be closed on evidence.
+
+### 9.5.3 `PEOPLE-RADIO` is up and clean
+
+`PEOPLE-RADIO` came up at 2026-10-03 16:57:56, 29 seconds after the current process
+started, and has logged no error since. It is the only radio currently on air.
+
+```bash
+$ grep -h 'PEOPLE-RADIO. is configured and powered up' ~/.reticulum-meshchatx/logs/meshchatx.log.1
+[2026-10-03 16:57:56] [Notice] RNodeInterface[PEOPLE-RADIO] is configured and powered up
+$ grep -c 'PEOPLE' ~/.reticulum-meshchatx/logs/meshchatx.log
+0
+```
+
+The asymmetry is the whole finding: the 915 MHz radio is healthy, the 917 MHz radio is
+dead. Any characterisation of "both bands" is therefore characterisation of one band.
+
+### 9.5.4 A single-radio host cannot measure what FIELD-01 and FIELD-03 ask for
+
+FIELD-01 wants RSSI, SNR, noise floor, packet loss, retry behaviour and airtime **on both
+RNodes**. With one radio offline there is no second node to measure against, and no RF
+traffic in the logs at all:
+
+```bash
+$ grep -oh -E '(RSSI|rssi)[=: ]+[-0-9.]+' ~/.reticulum-meshchatx/logs/meshchatx.log* | wc -l
+0
+```
+
+FIELD-03 wants 915/917 isolation *measured*. Separation between two bands cannot be
+characterised while one band has no transmitter on it; the 915 MHz receiver is only ever
+hearing ambient noise, which is not an isolation measurement. **These items cannot be
+closed by any amount of further analysis on this host** — they need the DRONE-RADIO board
+repaired first.
+
+### 9.5.5 Field items blocked, and on what
+
+| Item | Status | Blocker |
+|---|---|---|
+| FIELD-01 | Blocked | §9.5.1 — DRONE-RADIO offline; no RF metrics exist to record |
+| FIELD-02 | Blocked | §9.5.1 — no end-to-end link over the drone path |
+| FIELD-03 | Blocked | §9.5.4 — one band has no transmitter, so isolation is unmeasurable |
+| FIELD-06 | Blocked | §9.5.1, plus needs the Pi5 (absent, §9.5.6) and an in-flight test |
+| FIELD-07 | Blocked | needs *two* ends of a PEOPLE-RADIO mesh; only the desktop radio exists |
+| FIELD-09 | Blocked | §9.5.6 — RPi5 not present on this network at all |
+
+### 9.5.6 The Pi5 drone is absent from this network
+
+FIELD-06 and FIELD-09 both terminate on a Raspberry Pi 5 running the QGC session. There is
+no Pi5 reachable:
+
+```bash
+$ getent hosts raspberrypi raspbianpios alwayondrone rpi5
+(no output — not in DNS)
+$ ls ~/.ssh/config
+ls: cannot access '/home/scottw/.ssh/config': No such file or directory
+$ ip neigh
+169.254.207.81 dev eno1 lladdr 30:05:5c:ee:a2:9b STALE
+10.42.0.96   dev eno1 FAILED
+192.168.87.1  dev wlp3s0 lladdr 16:22:3b:67:bd:98 REACHABLE
+```
+
+`10.42.0.96` is `printer-01`, not the drone, and it is down. The dnsmasq lease file is
+empty. There is no SSH configuration for any Pi. The drone is simply not connected, so no
+QGC session exists to send a mission to, in flight or otherwise.
+
+**Operator input needed for FIELD-06 and FIELD-09:** power and connect the Pi5 drone, and
+supply its address or an SSH entry. Until then there is nothing to test against.
 # 10. Simulation Architecture
 
 ## 10.1 Vehicle Simulation
