@@ -171,19 +171,40 @@ $ grep -c 'RNodeInterface\[DRONE-RADIO\] experienced an unrecoverable error' mes
 ERROR:...rns_ratchet_persist:Bounded ratchet persist failed: [Errno 9] Bad file descriptor
 ```
 
-**This is active and worsening, measured twice in one session.** The persist-failure count was 3
-at 20:27 and is 7 now, newest at `20:08:20`; the teardown count moved 2004 → 2748 over the same
-interval. The teardowns have settled into a repeating cadence of roughly one every 30–60 minutes
-(`16:25:06`, `18:04:08`, `18:55:43`, `19:02:38`, `19:56:47`, `20:02:44`, `20:08:20`). So
-`DRONE-RADIO` is dropping its interface about hourly and never holding it up — which means
-**FIELD-06 cannot be attempted on this hardware until the teardown is root-caused.** A link that
-dies every hour is not a link you can prove a midflight mission update over.
+**CORRECTION 2026-10-04: this cadence figure is wrong by a factor of ~150.** The
+"roughly every 30–60 minutes" cadence above was derived from the timestamps of the
+*ratchet persist failures* — there are only 13 of those — not from the teardowns
+themselves. Counting the teardowns directly:
 
-Probable cause is the shared file descriptor rather than the ratchet logic: the persist worker
-writes through an fd it does not own, and when Reticulum tears the `RNodeInterface` down and
-closes the port, that write hits a closed fd. This would explain both the `[Errno 9]` and why
-every occurrence is adjacent to a teardown. **Not proven** — no stack trace is logged, and it
-will not be proven without touching the running stack, which is a stop condition.
+```bash
+$ grep -c 'unrecoverable error' ~/.reticulum-meshchatx/logs/meshchatx.log        # 994
+$ grep -c 'Bounded ratchet persist failed' ~/.reticulum-meshchatx/logs/meshchatx.log # 0
+$ grep -ch 'unrecoverable error' ~/.reticulum-meshchatx/logs/meshchatx.log{,.1,.2,.3}
+994 / 7800 / 2389 / 29                                                        # 11,212 total
+```
+
+**`DRONE-RADIO` is not dropping hourly — it is retrying roughly every 7 seconds and has
+never recovered.** Consecutive events at `07:25:38`, `07:25:44`, `07:25:51`, `07:25:57`.
+The conclusion of the paragraph above still stands, and in fact hardens: a link that dies
+every *seven seconds* is even less a link one could prove a midflight mission update over.
+Only the period was wrong, not the judgement.
+
+**The causal hypothesis above is also not supported, and I withdraw it.** It rested on
+"every occurrence is adjacent to a teardown". That is true of the 13 `[Errno 9]` persist
+failures, but those were in `meshchatx.log.1`/`.3`; the *current* log has 994 teardowns and
+**zero** persist failures, so the association does not hold in the log where the fault is
+actually happening now. A shared-fd mechanism remains plausible in principle, but on this
+evidence it is **unproven and now positively unsupported**, and the far simpler reading is
+the one §9.5.2 reaches: the board is enumerated but does not answer the RNode detection
+handshake, and the `[Errno 9]` persist errors are a consequence of the port closing, not a
+cause. Recorded rather than deleted, per the rule against editing history quietly.
+
+Original hypothesis, now **withdrawn** on the evidence above and retained only so the
+correction is auditable: it attributed both the `[Errno 9]` persist failures and the cadence
+to a shared file descriptor — the persist worker writing through an fd it does not own, which
+fails when Reticulum tears the interface down and closes the port. That mechanism was never
+proven (no stack trace is logged) and is now positively unsupported, since the log where the
+fault actually recurs contains no persist failures at all.
 
 The `DRONE-RADIO` fault is a detection failure, not a permissions problem — the port is
 openable by the service account:
@@ -453,3 +474,127 @@ path, and §9.2.2 below inherited that phrasing. Those lines belong to their own
 it must not be described as LoRaWAN anywhere unless it implements a true LoRaWAN device, gateway
 and network-server architecture. Any separate LoRaWAN or public-discussion service must use
 different bands and settings and remain isolated from the field telemetry mesh.
+
+## 9.5 Measured radio link state 2026-10-04
+
+The two RNodes are both physically present and enumerated, but **only one of them is
+operational**. `PEOPLE-RADIO` (915 MHz) is up; `DRONE-RADIO` (917 MHz) has been in a hard
+reconnect failure since 2026-09-25. This is the dominant constraint on every remaining
+field-link item and is recorded here so the next session does not re-derive it.
+
+### 9.5.1 `DRONE-RADIO` has never come up since 2026-09-25 16:27
+
+The last successful detection of either radio is 2026-09-25 16:27:11. Since then every
+attempt has failed identically:
+
+```bash
+$ grep -h 'is configured and powered up' ~/.reticulum-meshchatx/logs/meshchatx.log* | tail -3
+[2026-09-24 11:02:55] RNodeInterface[DRONE-RADIO] is configured and powered up
+[2026-09-25 16:27:08] RNodeInterface[PEOPLE-RADIO] is configured and powered up
+[2026-09-25 16:27:11] RNodeInterface[DRONE-RADIO] is configured and powered up
+
+$ grep -ch 'unrecoverable error' ~/.reticulum-meshchatx/logs/meshchatx.log{,.1,.2,.3}
+891
+7800
+2389
+29
+```
+
+Every failure has the same three-line signature, repeating about every 7 seconds:
+
+```text
+[2026-10-04 07:25:38] [Notice] Opening serial port /dev/serial/by-path/pci-0000:05:00.0-usb-0:1:1.0-port0...
+[2026-10-04 07:25:40] [Error]  Could not detect device for RNodeInterface[DRONE-RADIO]
+[2026-10-04 07:25:40] [Error]  A serial port error occurred, the contained exception was: [Errno 9] Bad file descriptor
+[2026-10-04 07:25:40] [Error]  The interface RNodeInterface[DRONE-RADIO] experienced an unrecoverable error and is now offline.
+```
+
+The failure is still live at the time of writing — the last event is 2026-10-04 09:18:25.
+
+### 9.5.2 The fault is the radio board, not the port, the symlink or permissions
+
+Ruled out by measurement, not assumption:
+
+| Candidate cause | Verdict | Evidence |
+|---|---|---|
+| `by-path` symlink missing | **Ruled out** | `pci-0000:05:00.0-usb-0:1:1.0-port0 -> ../../ttyUSB0` present |
+| Permission / `dialout` | **Ruled out** | `id` → `20(dialout)`; device is `crw-rw---- root:dialout` |
+| Cable / USB enumeration | **Ruled out** | `cp210x 3-1:1.0: converter now attached to ttyUSB0`, `ID_SERIAL_SHORT=0001` |
+| Port contended by another process | **Not the cause** | the same stack owns both radios; `PEOPLE-RADIO` on the other port works |
+| **RNode firmware not answering** | **Best supported** | `Could not detect device` with no port-level error before it |
+
+The distinction matters. A port that cannot be opened raises a permission or busy error;
+this port opens and then yields `Errno 9` during the RNode detection handshake, which is
+what a board that is enumerated but not running RNode firmware does. The kernel logged a
+clean attach and has logged no disconnect.
+
+**This is a hardware/firmware fault on the DRONE-RADIO board and needs physical
+intervention — reseat the USB cable, or reflash the RNode firmware.** It cannot be fixed
+from the documentation side, and it is the reason FIELD-01, FIELD-02, FIELD-03, FIELD-06
+and FIELD-07 cannot be closed on evidence.
+
+### 9.5.3 `PEOPLE-RADIO` is up and clean
+
+`PEOPLE-RADIO` came up at 2026-10-03 16:57:56, 29 seconds after the current process
+started, and has logged no error since. It is the only radio currently on air.
+
+```bash
+$ grep -h 'PEOPLE-RADIO. is configured and powered up' ~/.reticulum-meshchatx/logs/meshchatx.log.1
+[2026-10-03 16:57:56] [Notice] RNodeInterface[PEOPLE-RADIO] is configured and powered up
+$ grep -c 'PEOPLE' ~/.reticulum-meshchatx/logs/meshchatx.log
+0
+```
+
+The asymmetry is the whole finding: the 915 MHz radio is healthy, the 917 MHz radio is
+dead. Any characterisation of "both bands" is therefore characterisation of one band.
+
+### 9.5.4 A single-radio host cannot measure what FIELD-01 and FIELD-03 ask for
+
+FIELD-01 wants RSSI, SNR, noise floor, packet loss, retry behaviour and airtime **on both
+RNodes**. With one radio offline there is no second node to measure against, and no RF
+traffic in the logs at all:
+
+```bash
+$ grep -oh -E '(RSSI|rssi)[=: ]+[-0-9.]+' ~/.reticulum-meshchatx/logs/meshchatx.log* | wc -l
+0
+```
+
+FIELD-03 wants 915/917 isolation *measured*. Separation between two bands cannot be
+characterised while one band has no transmitter on it; the 915 MHz receiver is only ever
+hearing ambient noise, which is not an isolation measurement. **These items cannot be
+closed by any amount of further analysis on this host** — they need the DRONE-RADIO board
+repaired first.
+
+### 9.5.5 Field items blocked, and on what
+
+| Item | Status | Blocker |
+|---|---|---|
+| FIELD-01 | Blocked | §9.5.1 — DRONE-RADIO offline; no RF metrics exist to record |
+| FIELD-02 | Blocked | §9.5.1 — no end-to-end link over the drone path |
+| FIELD-03 | Blocked | §9.5.4 — one band has no transmitter, so isolation is unmeasurable |
+| FIELD-06 | Blocked | §9.5.1, plus needs the Pi5 (absent, §9.5.6) and an in-flight test |
+| FIELD-07 | Blocked | needs *two* ends of a PEOPLE-RADIO mesh; only the desktop radio exists |
+| FIELD-09 | Blocked | §9.5.6 — RPi5 not present on this network at all |
+
+### 9.5.6 The Pi5 drone is absent from this network
+
+FIELD-06 and FIELD-09 both terminate on a Raspberry Pi 5 running the QGC session. There is
+no Pi5 reachable:
+
+```bash
+$ getent hosts raspberrypi raspbianpios alwayondrone rpi5
+(no output — not in DNS)
+$ ls ~/.ssh/config
+ls: cannot access '/home/scottw/.ssh/config': No such file or directory
+$ ip neigh
+169.254.207.81 dev eno1 lladdr 30:05:5c:ee:a2:9b STALE
+10.42.0.96   dev eno1 FAILED
+192.168.87.1  dev wlp3s0 lladdr 16:22:3b:67:bd:98 REACHABLE
+```
+
+`10.42.0.96` is `printer-01`, not the drone, and it is down. The dnsmasq lease file is
+empty. There is no SSH configuration for any Pi. The drone is simply not connected, so no
+QGC session exists to send a mission to, in flight or otherwise.
+
+**Operator input needed for FIELD-06 and FIELD-09:** power and connect the Pi5 drone, and
+supply its address or an SSH entry. Until then there is nothing to test against.
