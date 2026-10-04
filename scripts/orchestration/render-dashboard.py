@@ -59,6 +59,20 @@ DECISIONS = {
 
 ANSWERS_PATH = os.path.join(ROOT, "artifacts/dashboard/answers.json")
 CLAR_PATH = os.path.join(ROOT, "artifacts/dashboard/clarifications.json")
+STATE_PATH = os.path.join(ROOT, "artifacts/dashboard/decision-state.json")
+
+def load_state():
+    """Which decisions still need the operator. An answer that is sufficient to act
+    on removes the item from the list; only unanswered or operator-action items stay."""
+    if os.path.exists(STATE_PATH):
+        try:
+            d = json.load(open(STATE_PATH, encoding="utf-8"))
+            return d.get("needs_action", {}), set(d.get("answered", []))
+        except ValueError:
+            return {}, set()
+    return {}, set()
+
+NEEDS_ACTION, ANSWERED = load_state()
 
 def load_clarifications():
     """Items where the operator's answer is ambiguous, asks me a question back,
@@ -195,6 +209,8 @@ def main():
                 if len(r) == 6 and re.match(r"^[A-Z]+-\d+$", r[0]) and r[3] == "Open"}
     qs = []
     for item in sorted(DECISIONS):
+        if item in ANSWERED:
+            continue
         if item in open_ids:
             prev = ANSWERS.get(item, {}).get("answer", "")
         done = ANSWERS.get(item, {}).get("answered_at", "")
@@ -202,6 +218,9 @@ def main():
         note = ANSWERS.get(item, {}).get("agent_note", "")
         noteblk = ('<p class=agentnote><strong>Answer from the team:</strong> %s</p>'
                    % html.escape(note)) if note else ""
+        act = NEEDS_ACTION.get(item)
+        actblk = ('<p class=action"><strong>Waiting on you:</strong> %s</p>'
+                  % html.escape(act)) if act else ""
         clar = CLAR.get(item)
         cls = "ansrow unclear" if clar else "ansrow"
         badge = ('<span class=flag>needs clarification</span>' if clar else "")
@@ -210,10 +229,10 @@ def main():
                % (html.escape(clar["why"]), html.escape(clar["q"]))) if clar else ""
         qs.append(
             '<li class=%s><div class=qline><span class=qid>%s</span> %s'
-            '<span class=when>%s</span>%s</div>%s%s'
+            '<span class=when>%s</span>%s</div>%s%s%s'
             '<input class=ans id="a_%s" placeholder="type your decision here&hellip;" value="%s">'
             '<input type=hidden class=ts id="t_%s" value="%s"></li>'
-            % (cls, html.escape(item), html.escape(DECISIONS[item]), mark, badge, noteblk, why,
+            % (cls, html.escape(item), html.escape(DECISIONS[item]), mark, badge, noteblk, actblk, why,
                html.escape(item), html.escape(prev), html.escape(item), html.escape(done)))
     if qs:
         questions = (
@@ -278,6 +297,7 @@ ol.qs li{padding:7px 10px;border-left:3px solid #e0c48c;background:#fff;margin-b
 .when{margin-right:2px}
 .ansrow.unclear .flag{margin-left:10px;background:#e0a800;color:#221c00;font-size:10px;font-weight:700;
  text-transform:uppercase;letter-spacing:.04em;padding:2px 7px;border-radius:9px;white-space:nowrap}
+.action{margin:6px 0 0;font-size:12px;line-height:1.4;color:#5a3a00;background:#fdf4e3;border-left:3px solid #c08a2e;padding:6px 9px;border-radius:0 3px 3px 0}
 .agentnote{margin:6px 0 0;font-size:12px;line-height:1.4;color:#0b3d2e;background:#eef7f2;border-left:3px solid #4c9a76;padding:6px 9px;border-radius:0 3px 3px 0}
 .why,.reword{margin:5px 0 0;font-size:12px;line-height:1.4;color:#4a3f16}
 .reword{color:#2d2606;background:#fffdf0;border-left:3px solid #e0c14f;padding:5px 8px;border-radius:0 3px 3px 0}

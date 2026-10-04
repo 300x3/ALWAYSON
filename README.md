@@ -1179,14 +1179,45 @@ The unit files are installed at `~/.config/containers/systemd/` (`generated`
 means the service is not enabled to start at boot). No container is attached to
 `ao-build-update`; the network is allocated and empty.
 
-> **The allowlist is documentation of intent, not an enforced control.** The
-> `Internal=false` bridge cannot restrict destinations by itself: any container
-> attached to `ao-build-update` can reach any host on the internet. Nothing at
-> runtime reads `registry-allowlist.yaml`, so the *only sanctioned outbound*
-> sentence in **Containment** below is a **requirement the adapter must satisfy,
-> not a property it currently has.** Enforcement needs a firewall rule set on the
-> bridge, a filtering proxy, or per-destination proxies — all firewall policy,
-> all requiring explicit operator approval (Rule 6, §4.1 rule 13). Until that is
+> **The allowlist is enforced in code, but not by the network.** These are two
+> different controls and it matters which one you are relying on.
+>
+> *Enforced:* `scripts/build-update/ao-build-update.py` reads
+> `config/build-update/registry-allowlist.yaml` at runtime and **refuses**
+> anything not on it. Verified 2026-10-04 by execution — a denied host, an
+> allowed-but-unpinned reference, and an allowed-and-pinned reference:
+>
+> ```text
+> $ python3 scripts/build-update/ao-build-update.py localhost/foo:latest
+> allowlist boundary enforced; see the audit record
+>   localhost/foo:latest: DENIED: localhost is on the adapter deny list
+> EXIT=4
+>
+> $ python3 scripts/build-update/ao-build-update.py docker.io/library/nginx:latest
+> allowlist boundary enforced; see the audit record
+>   docker.io/library/nginx: UNPINNED: docker.io is allowed but the reference carries no sha256 digest
+> EXIT=4
+>
+> $ python3 scripts/build-update/ao-build-update.py \
+>     'docker.io/library/nginx@sha256:0000…0000'
+>   docker.io/library/nginx@sha256:0000…0000: ALLOWED-PINNED
+> EXIT=0
+> ```
+>
+> Every run also appends to the append-only audit log and writes a staging
+> report. The control is real, and it is a *refusal to plan*, not a refusal to
+> route.
+>
+> *Not enforced:* the network itself. `Internal=false` is an ordinary bridge, so
+> **anything else** attached to `ao-build-update` bypasses the allowlist
+> completely — it can reach any host on the internet. The allowlist governs this
+> one script; it does not govern the segment.
+>
+> Therefore the *only sanctioned outbound* sentence in **Containment** below is a
+> **requirement the adapter must satisfy, not a property the segment currently
+> has.** Segment-level enforcement needs a firewall rule set on the bridge, a
+> filtering proxy, or per-destination proxies — all firewall policy, all
+> requiring explicit operator approval (Rule 6, §4.1 rule 13). Until that is
 > approved and built, do not attach any container to this network. NET-01 is open
 > on exactly this point; see `proposals/net-NET-01.md`.
 
@@ -3517,6 +3548,27 @@ Network names are the real Podman names used throughout this document, in the Qu
 definitions, and in `config/platform/network-cidrs.yaml`. Where an area is served by a
 controlled adapter rather than a workload network, the adapter is named in the same cell.
 
+One row is an adapter and has **no network of its own**: `ao-egress-archive` is absent
+from both `config/platform/network-cidrs.yaml` and `podman network ls`. Every other
+network named in the table above is present in both. This is measured, not inferred:
+
+```text
+$ grep -c '^ao-' config/platform/network-cidrs.yaml
+14
+$ grep -n 'ao-egress-archive' config/platform/network-cidrs.yaml
+(no match)
+
+$ podman network ls --format '{{.Name}}' | grep -c '^ao-'
+14
+$ podman network ls --format '{{.Name}}' | grep -c 'ao-egress-archive'
+0
+```
+
+The registry and the live host agree on fourteen `ao-*` networks, eleven
+`Internal=true` and three `Internal=false` — so the archive row is a genuine
+exception, not a counting artefact. `config/platform/topology-model.yaml` already
+records it correctly as `adapter: true`, `status: planned`. See §11.6.1.
+
 Corda records signed references, hashes, approved transitions, and entitlement and
 provenance data sufficient to verify a claim without duplicating sensitive or high-volume
 data.
@@ -4952,10 +5004,32 @@ A role and the application that connects to it must use the same password, so a 
 `mastodon-dbdata` cannot be created with a different password than the application connects
 with.
 
-**One env root.** Every unit that consumes an env file reads
+**One env root.** Every unit that consumes a secret-bearing env file reads
 `%h/.local/share/ao-secrets/`: `ao-mastodon-db`, `ao-sales-db`, `ao-webodm-db`,
-`ao-webodm-web`, `ao-webodm-worker`, `ao-fabrication-db`, and the collector service. No
-env file is written to `%h/secrets/`.
+`ao-webodm-web`, `ao-webodm-worker`, `ao-fabrication-db`, the `ao-mastodon-web` /
+`ao-mastodon-streaming` / `ao-mastodon-sidekiq` set, `ao-mastodon-web`'s repair `ExecStartPost`,
+`ao-grafana`, `ao-metabase`, `ao-ingress-payment`, `ao-status-collect`,
+`ao-db-security-collect` and `ao-fabrication-collect`. No secret-bearing env file is written to
+`%h/secrets/`.
+
+The one deliberate exception is `ao-grafana`'s
+`EnvironmentFile=/ALWAYSON/config/platform/monitoring/grafana-admin.env`. It sits in the tracked
+`config/` tree and is readable by other users (`0644`), which is safe only because it is
+non-secret by construction: `GF_SECURITY_ADMIN_USER`, `GF_USERS_ALLOW_SIGN_UP`,
+`GF_AUTH_ANONYMOUS_ENABLED` and `GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS` and nothing else. The
+admin password is read separately from the `0600` wallet-materialised file. Verify the
+non-secreteness by key name, not by assuming it:
+
+    $ sed 's/=.*/=/' config/platform/monitoring/grafana-admin.env | grep -v '^#' | grep -v '^$'
+    GF_SECURITY_ADMIN_USER=
+    GF_USERS_ALLOW_SIGN_UP=
+    GF_AUTH_ANONYMOUS_ENABLED=
+    GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS=
+    → exactly four keys, no password, token or key name present.
+
+Two stray files under `ao-secrets/` are documented elsewhere: the orphaned
+`legacy-alwayson-folder.env` (**§14.1.6**) and the dangling `~/secrets/mastodon.env` symlink,
+which is outside this root and inert.
 
 ### 14.1.3 One env file, one wallet entry
 
@@ -5097,6 +5171,53 @@ Three traps: there is no `accounts.local` column;
 `owner_id` and `resource_owner_id` reference the **`users`** table, not
 `accounts`; and `expires_in: 0` produces an already-expired token.
 ### 14.1.6 Recorded deviation — env-file delivery instead of Podman secrets
+
+**Orphaned plaintext copy: `%h/.local/share/ao-secrets/legacy-alwayson-folder.env`.** Found
+2026-10-04, mode `0600`, holding four credential values by key name —
+`mastodon-db-password`, `sales-db-password`, `webodm-postgres-password`,
+`fabrication-db-password` — and referenced by **no** quadlet unit, script or section file. It is
+a plaintext duplicate of wallet-held credentials, which §14.1.1's rules forbid outright.
+
+Four measured facts, by sha256 prefix and no values printed, comparing each legacy key against
+the live env file the owning unit reads:
+
+| Legacy key | vs live env file | Result |
+|---|---|---|
+| `sales-db-password` | `sales-db.env` `POSTGRES_PASSWORD` | **SAME** (48 chars) — currently valid |
+| `webodm-postgres-password` | `webodm.env` `POSTGRES_PASSWORD` | **SAME** (32 chars) — currently valid |
+| `fabrication-db-password` | `fabrication-db.env` `POSTGRES_PASSWORD` | **SAME** (32 chars) — currently valid |
+| `mastodon-db-password` | `mastodon-db.env` `POSTGRES_PASSWORD` | DIFFERENT (48 vs 40 chars) — stale |
+
+**Three of the four are live database passwords, not historical artefacts.** An earlier draft of
+this subsection reported only the `sales-db-password` match and characterised the file as "neither
+wholly useless nor wholly current"; that was measured against two keys with the wrong live key
+names and understated the exposure by a factor of three. The corrected count is the one above. The
+practical consequence is unchanged but sharper: this file is a plaintext store of **three
+currently-valid production database credentials** plus one stale one, and it is exactly the
+duplication §14.2 exists to prevent.
+
+`check-secrets-exposure.sh` does **not** catch it — that
+script checks *tracked* files and file modes, and this file is untracked and correctly `0600`.
+It was found by enumerating `ao-secrets/` and comparing against the units that read it, not by
+running the guard. The guard's blind spot is itself the finding: **rule 7 compliance is only as
+good as the tracked-file assumption**, and a `0600` copy of three live database passwords plus
+one stale one sits outside both Git and the units.
+
+Its origin is not recorded anywhere in the repository — no quadlet unit, script or section file
+references `legacy-alwayson-folder`. Given the name and the fact that it holds exactly one
+password for each of the four DB domains, it appears to be a pre-wallet-folder consolidation
+artefact: a moment when the credential layout was one file instead of one folder per domain.
+
+**Not deleted by this session.** Removing it is a deletion of secret-classified material, which
+is outside this session's authority (brief stop conditions). **Operator decision requested** —
+recommend deletion. The reasoning matters and cuts the other way from a first reading: because
+three of the four values are **currently valid**, deleting the file removes a real plaintext
+store of live credentials, and it loses nothing operationally, because the wallet remains the
+system of record and the live env files are re-fetched at every start (the scope paragraph below).
+Deleting is therefore strictly safer than keeping. Rotation is **not** required by the presence of the
+file, because nothing outside it uses those values and they were never committed to Git, a
+backup set, or an external network; rotation becomes required only if the operator judges the
+host's local user account to be untrusted.
 
 **Status: recorded, awaiting operator ratification.** This subsection exists because
 §14.1 mandates Podman secrets or systemd credentials while every implemented path is a
@@ -6330,13 +6451,13 @@ it is the script's own control flow:
 
 | §17.1 requirement | Implemented at | How it is proved to be able to fail |
 |---|---|---|
-| 1. Restore to an isolated path or host | L77 `restic restore --target "$scratch_abs"` | Three refusals, all reproduced 2026-10-04 (below) |
-| 2. Validate database integrity | L84 gzip `-t` plus a 1024-byte floor per dump | A truncated or empty dump increments `db_bad`, which forces `result=FAIL` |
-| 3. Recalculate artifact hashes | L104 `sha256sum` over every restored file | Writes `.drill-hashes.txt`; count is printed and asserted against the find |
-| 4. Compare with stored manifests | L110 per-file compare against the **live** tree | Three buckets: drift, suspect (mtime older than snapshot), live-only. `suspect > 0` forces `result=FAIL` |
-| 5. Verify Corda receipts/manifests | L162 finds `pending-ledger-submissions` manifests | Prints an explicit "path-set observation, not a pass" when zero are found |
-| 6. Record operator, ID, result, exceptions | L170 prints operator, snapshot, repo and all counters | The `result=` line is the only value step 7 branches on |
-| 7. Alert on failure | L179 non-zero exit plus an operator-facing instruction | Exit 1 is what any caller or unit would detect |
+| 1. Restore to an isolated path or host | L89 `restic restore "$snapshot" --target "$scratch_abs"` | Three refusals, all reproduced 2026-10-04 (below) |
+| 2. Validate database integrity | L95–L113 gzip `-t` plus a 1024-byte floor per dump | A truncated or empty dump increments `db_bad`, which forces `result=FAIL` |
+| 3. Recalculate artifact hashes | L117 `sha256sum` over every file under the live root | Writes `.drill-hashes.txt`; count is printed at L118 |
+| 4. Compare with stored manifests | L121–L171 per-file compare against the **live** tree | Three buckets: drift, suspect (mtime older than snapshot), live-only. `suspect > 0` forces `result=FAIL` |
+| 5. Verify Corda receipts/manifests | L173 finds `pending-ledger-submissions` manifests | Prints an explicit "path-set observation, not a pass" when zero are found |
+| 6. Record operator, ID, result, exceptions | L181–L188 prints operator, snapshot, repo and all counters | The `result=` line at L188 is the only value step 7 branches on |
+| 7. Alert on failure | L190 non-zero exit plus an operator-facing instruction | Exit 1 is what any caller or unit would detect |
 
 **One honest deviation, recorded rather than smoothed over.** §17.1 step 4 says
 "compare hashes with stored manifests". There is no stored per-file manifest of
@@ -6351,6 +6472,25 @@ and it is stricter about corruption, because the suspect-bucket test can fail
 where a manifest comparison would only report a mismatch. But it is not the
 requirement's wording, and inventing a baseline manifest would mean new backup
 behaviour, which is OPS-09's decision and not this session's.
+
+**Correction to an earlier claim in this section.** It previously said the restic
+units were "not deployed", on the evidence of
+`ls ~/.config/containers/systemd/ | grep -i restic` returning nothing. That
+measurement was correct and the conclusion drawn from it was wrong. These are
+**root-level systemd units**, not Quadlets, so they are not deployed into
+`~/.config/containers/systemd/` at all — they live in `/etc/systemd/system/`.
+Measured 2026-10-04, they are installed, enabled and running:
+
+| Unit | `is-enabled` | Last activation |
+|---|---|---|
+| `ao-restic-backup.timer` | enabled | `ao-restic-backup.service` succeeded, exit 0, 9 h ago |
+| `ao-restic-verify.timer` | enabled | 8 h ago |
+| `ao-restic-prefetch.timer` | enabled (user) | 4 h ago |
+
+So the nightly backup is genuinely live, not staged. The lesson repeats the one
+already recorded for OPS-35 and for the Prometheus mount above: **a negative
+result from the wrong directory is not evidence of absence.** A Quadlet-style
+lookup was applied to a non-Quadlet unit.
 
 `install-backup-schedule.sh` installs the two root-level restic units. The
 `ao-db-dump` timer is armed only during a graphical session because host-database
@@ -6464,6 +6604,48 @@ the fact is what allowed a stale value to survive three runs unnoticed.
 
 **The journal has not been corrected.** The three wrong lines above are historical
 evidence of a real defect and rewriting them would destroy the only trace of it.
+They survive in `logs/backup.log.1`, which the now-installed logrotate policy
+rotated on 2026-10-04.
+
+**The fix is now verified on the live host, so OPS-35 is closed 2026-10-04.** The
+earlier statement in this section — "the first run after deployment is the
+evidence that it works" — was correct as written and is now satisfied. The
+fix commit `8cb21bb` is dated 2026-10-03 21:18:29 −0700; the nightly timer fired
+at 2026-10-04 03:35:37, the first run after it. Both sides of the claim, taken
+independently:
+
+```
+$ grep 'restic-run.sh' /ALWAYSON/logs/backup.log | tail -1
+2026-10-04T10:35:39+00:00 actor=root script=restic-run.sh snapshot=0548f116 result=OK restic backup completed
+
+$ journalctl -u ao-restic-backup.service --since '2026-10-04 03:00' --until '2026-10-04 04:00' \
+    | grep -oE 'snapshot [0-9a-f]{8} saved'
+snapshot 0548f116 saved
+```
+
+`0548f116` on both sides. This is the first run whose journal ID is not stale,
+and it is distinct from all three historical values (`548d9910`, `e79edfbf`,
+`fbc25f93`) — which is what rules out the coincidence of the ID simply being
+frozen in some other way.
+
+Two things this verification is **not**, recorded so the next agent does not
+over-read it. The run is a `SUCCESS` in both journal and systemd
+(`ExecStart=…/restic-run.sh (code=exited, status=0/SUCCESS)`), but it does not by
+itself re-prove that the backup covers the right paths — that is OPS-09, still
+open. And one correct run demonstrates the selection logic works on a repository
+whose newest snapshot is the nightly one; the original defect only appeared where
+snapshots of *different* path sets shared a repository, which is a state this
+repository is not currently in. The fix is verified against the failure's root
+cause (maximum `time` rather than array position) and against the live host, and
+that is the whole of what is claimed.
+
+| 1. Restore to an isolated path or host | L77 `restic restore --target "$scratch_abs"` | Three refusals, all reproduced 2026-10-04 (below) |
+| 2. Validate database integrity | L84 gzip `-t` plus a 1024-byte floor per dump | A truncated or empty dump increments `db_bad`, which forces `result=FAIL` |
+| 3. Recalculate artifact hashes | L104 `sha256sum` over every restored file | Writes `.drill-hashes.txt`; count is printed and asserted against the find |
+| 4. Compare with stored manifests | L110 per-file compare against the **live** tree | Three buckets: drift, suspect (mtime older than snapshot), live-only. `suspect > 0` forces `result=FAIL` |
+| 5. Verify Corda receipts/manifests | L162 finds `pending-ledger-submissions` manifests | Prints an explicit "path-set observation, not a pass" when zero are found |
+| 6. Record operator, ID, result, exceptions | L170 prints operator, snapshot, repo and all counters | The `result=` line is the only value step 7 branches on |
+| 7. Alert on failure | L179 non-zero exit plus an operator-facing instruction | Exit 1 is what any caller or unit would detect |
 The fix applies to future runs; the first run after deployment is the evidence
 that it works.
 
@@ -6518,8 +6700,48 @@ Rules live in `config/platform/monitoring/alwayson-alerts.yml`, loaded from
 `prometheus.yml` through `rule_files`. It is a separate file because Prometheus
 rejects a top-level `groups:` key in `prometheus.yml` itself (measured:
 `promtool check config` → `field groups not found in type config.plain`), so the
-rules cannot be inlined. Both files are read-only bind mounts on
-`ao-prometheus.container`.
+rules cannot be inlined. The repository Quadlet declares both files as read-only
+bind mounts on `ao-prometheus.container`.
+
+**But the running container has neither the second mount nor the updated config,
+so no rule is loaded. Corrected against the live host 2026-10-04.** This
+supersedes the earlier claim in this section that the rules "are mounted
+read-only by `ao-prometheus.container` and loaded via `rule_files`". That was
+true of the repository file and false of the running service, which is the
+load-bearing trap recorded in §16.1.1: Quadlets deploy **flat copies**, so
+editing `quadlet/operations/ao-prometheus.container` changes nothing live.
+
+Measured, three independent facts that each alone would have been filed as
+"done":
+
+| Measure | Value |
+|---|---|
+| Repository Quadlet, `Volume=` lines | **2** — `prometheus.yml` and `alwayson-alerts.yml` |
+| Deployed copy `~/.config/containers/systemd/ao-prometheus.container` | **1** — `prometheus.yml` only, dated Oct 1 14:06 |
+| `podman exec ao-prometheus ls /etc/prometheus/` | `prometheus.yml` only; `alwayson-alerts.yml` → *No such file* |
+| `GET /api/v1/rules` → `data.groups` length | **0** |
+| Container start vs config mtime | started Oct 1 15:08; config written Oct 3 21:18 |
+
+**A second, subtler failure sits behind the first.** The deployed Quadlet *does*
+mount `prometheus.yml`, and a bind mount of a file follows the **inode**, not the
+path. The in-tree file was replaced rather than edited in place, so the running
+container is still bound to the **old inode**:
+
+| File | Inode | Size |
+|---|---|---|
+| Host `/ALWAYSON/config/platform/monitoring/prometheus.yml` | 18223436 | 2503 B |
+| Container `/etc/prometheus/prometheus.yml` | **18219046** | **1881 B** |
+
+The container's copy has no `rule_files:` key at all. So even a redeploy that
+only added the alerts mount would still have loaded the *stale* config. This is
+the same class of error as OPS-35's: **a measurement taken from the repository
+proves the repository, not the service.** Both the mount list and the mounted
+content have to be checked, from inside the container.
+
+Nothing was redeployed. Restarting `ao-prometheus` would pick up the config
+change and drop the currently-observed scrape targets until they return, so it is
+left as an operator action and OPS-11 stays open on this ground as well as on
+the missing routing target.
 
 ### 17.2.2 Thresholds
 
@@ -6700,12 +6922,43 @@ need root and this session has no sudo (measured: `sudo -n true` →
 
 | Path | Rotation | Retention | Status |
 |---|---|---|---|
-| `logs/*.log` (top level) | `logrotate-alwayson.conf`, daily | 14 files, uncompressed | **Staged, not installed** |
-| `logs/operations/` | staged, daily | 400 rotations | **Staged, not installed** |
-| `logs/installation/` | staged, daily | 400 rotations | **Staged, not installed** |
-| `logs/backup/` | staged, daily | 400 rotations | **Staged, not installed** |
-| `logs/gpu-runtime/` | staged, daily | 400 rotations | **Staged, not installed** |
-| journald | `journald-alwayson.conf` drop-in | `SystemMaxUse=4G`, `MaxRetentionSec=90day` | **Staged, not installed** |
+| `logs/*.log` (top level) | `logrotate-alwayson.conf`, daily | 14 files, uncompressed | **Installed and rotating** |
+| `logs/operations/` | staged, daily | 400 rotations | **Installed and rotating** |
+| `logs/installation/` | staged, daily | 400 rotations | **Installed and rotating** |
+| `logs/backup/` | staged, daily | 400 rotations | **Installed and rotating** |
+| `logs/gpu-runtime/` | staged, daily | 400 rotations | **Installed and rotating** |
+| journald | `journald-alwayson.conf` drop-in | `SystemMaxUse=4G`, `MaxRetentionSec=90day` | **NOT installed** |
+
+**Corrected against the live host 2026-10-04: the logrotate policy is installed,
+and the table above previously said "staged, not installed" for all five log
+blocks.** That was true when written and stopped being true; the distinction now
+drawn is between the two halves, which are genuinely in different states.
+
+Measured:
+
+- `/etc/logrotate.d/alwayson` exists, root-owned, 5237 B, and is **byte-identical**
+  to the in-tree `config/host/logrotate-alwayson.conf` (`cmp` → no output).
+- It describes **5** rotating patterns (`logrotate -d` → count 5).
+- It has **already rotated**: 13 files match `logs/*.log.[0-9]` and **67** match
+  `logs/operations/*.log.[0-9]`. Rotations are real, not merely configured.
+- `find /ALWAYSON/logs -name '*.log' ! -user scottw` → **0**, so the ownership
+  precondition the policy needs holds.
+
+**The journald half is genuinely still uninstalled**, and the evidence is
+stronger than "not found":
+
+```
+$ ls -la /etc/systemd/journald.conf.d/
+ls: cannot access '/etc/systemd/journald.conf.d/': No such file or directory
+```
+
+The drop-in *directory* does not exist at all, so nothing could be installed into
+it. The effective caps remain the shipped defaults with every limit commented
+out (`/etc/systemd/journald.conf` lines 27, 28, 35 all `#`-prefixed), and
+`journalctl --disk-usage` reports **3.9G** in use. So `SystemMaxUse=4G` and
+`MaxRetentionSec=90day` remain aspirational. This is the second half of OPS-26
+and it needs one privileged command, which this session does not have
+(`sudo -n true` → `sudo: interactive authentication is required`).
 
 Compression is deliberately omitted from the logrotate policy because it is the
 only step that reads whole files; a full system pass measured 0.008 s and
