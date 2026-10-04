@@ -2299,6 +2299,70 @@ gz-transport discovery does not cross Podman's per-container bridge, so a GUI cl
 server must share its network namespace. A GUI client is selected by overriding `ENTRYPOINT` in
 the Quadlet unit, not by maintaining a second GUI image.
 
+### 10.3 Verified state, 2026-10-03 (SIM session)
+
+Everything below was measured on this host on 2026-10-03, not inferred from the repository. Two
+items in §19.1 were described as absent at the time §19 was compiled and are in fact present and
+running; that correction is the reason this subsection exists.
+
+**Delivered and verified live.**
+
+| Item | What was measured |
+|---|---|
+| 3D world and cameras | `ao-sim-fabrication-gz.service` `ActiveState=active`, `NRestarts=0`, up 31 min. Portal `/api/status` reports `link_count 37`. All eight camera topics present on `ros2 topic list`. |
+| Camera frames | `/factory/camera/elev_arms` `average rate: 1.972`, min 0.507 s max 0.507 s. The world's declared rate is 10 Hz; **the bridge delivers ~2 Hz, not 10 Hz.** This is a measured discrepancy, recorded rather than explained. |
+| RL objects as world entities | `/api/status` link list contains `part_a1..a3`, `stock_s1..s3`, `target_bin_a`, `target_bin_b`, `target_shelf` — nine live links inside a non-static `rl_objects` model, not a YAML-only catalogue. |
+| Safety zones | `/api/safety-zones` returns four resolved zones with computed min/max boxes, and `verify_safety_zones.py` exits 0 printing `4 zones, 2 unresolved dependencies`. |
+| Interlocks | Three interlocks declared, every one `enforced_in_simulation: false`. The model **reports**; it actuates nothing, and the printed line `No interlock is enforced in the simulation; they report only.` is the honest boundary. |
+| GUI image | `localhost/gz-sim10-resolute:gui-svgfix` carries `qt6-svg-plugins 6.10.2-2` and `/usr/share/gz/gz-rendering` holds `media/ ogre/ ogre2/` — both SIM-06 preconditions satisfied in the image. |
+| ROS 2 apt | `openssl s_client -connect packages.ros.org:443` returns `subject=... CN=*.osuosl.org` with `verify return:1`, and `curl` returns HTTP `000`. SIM-07 reproduced exactly as §19 describes. |
+
+**Two defects found, neither of them in §19.**
+
+1. **`build-rl-objects.py --check` reports STALE against the committed world, and `--write`
+   relocates the model.** `--check` exits 1 on the committed `factory.world`. The cause is not
+   data drift: the committed block carries `<specular>` and `<shininess>` on every material,
+   added by commit `fa3f8f6` ("material shininess") and never taught to the generator, while
+   `render()` emits bare ambient/diffuse. Nine material lines differ. Worse, `--write` strips the
+   existing block and re-appends before `</world>`, so the block moves from line 623 to the end
+   of the world, **after** `safety_zones` and `conveyor_loops`. Regeneration is therefore not
+   idempotent in *position* even once the material drift is settled. Demonstrated on a copy under
+   `/tmp/gen-test`, never on the live tree. Running `--write` against `/ALWAYSON` rewrites the
+   world in place and reorders three generated models; it is not a safe routine refresh.
+2. **The signed manifest no longer describes the world, and the gap is larger than §19 records.**
+   §19 says the manifest records 5371 bytes against a world of "~18 KB". Measured now:
+   manifest `content_size_bytes` 5371 and `content_hash_sha256` `64eacbbf…`; the actual file is
+   **63205 bytes** with sha256 `bce32f2a…`. Both the size *and* the hash disagree. The manifest
+   cannot be repaired by editing a number — it must be re-exported and re-signed with the
+   `ao-sim-fabrication` key.
+
+**Corrections to §19 items on the strength of the above.**
+
+- **SIM-13 and SIM-14 were recorded as absent; both are delivered.** The §19 text "nothing in the
+  repo implements one" and "That model does not exist" are both false as of these measurements.
+  Neither was ever a §19.2-tracked item, which is plausibly why they went stale: they were
+  delivered by ordinary commits without a matching §19 row to close.
+- **SIM-09 is closed by commit `365bd42`, not outstanding.** The arms datum was corrected to the
+  measured as-built centroid and every arm camera re-aimed at it. `cell-arms` now reads
+  `origin [5.981314, 1.861669, 0.531531]` with `extent [0.84, 1.672391, 1.238532]`, whose midpoint
+  is the centroid `(6.4013, 2.6979, 1.1508)`, and the world comment records that every camera
+  sits outside the massing envelope. `elev_arms` is at `6.401 4.056 1.151 0 0.0000 -1.5708`.
+- **SIM-06 is partly satisfied and partly untested.** The image carries the SVG plugin and the
+  media root is correct, but the GUI unit is `UnitFileState=generated` with no `[Install]`
+  section, so it cannot autostart; `ActiveState=inactive`, `NRestarts=0`. A restart count of zero
+  on a unit that has never run is not evidence that rendering works. **The GUI has not been
+  started in this session and its render path remains unverified.**
+
+**Still absent, confirmed.** No facility scheduler exists: a case-insensitive search for
+`scheduler` across `GAZEBO/`, `scripts/simulation/` and `quadlet/` returns only an unrelated
+comment in `quadlet/sales/ao-mastodon-sidekiq.container`. SIM-12 stands.
+
+**Operator decision outstanding.** SIM-02 — the `/ALWAYSON` Gazebo subfolder path. The repository
+uses `GAZEBO/` (present, `12M` of meshes) and every path reference in the world, the boning
+file, the portal and the Quadlet units agrees on `/ALWAYSON/GAZEBO`. The implementation is
+therefore self-consistent, but §10.2 still says "verify its exact location with the operator",
+and this session cannot substitute for that confirmation.
+
 
 ---
 
