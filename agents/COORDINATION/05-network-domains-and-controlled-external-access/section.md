@@ -159,10 +159,18 @@ Two `ao-*` networks named in earlier drafts appear in the topology but were in n
 table; both are now rows above: `ao-html-window` (`10.89.14.0/24`) and
 `ao-build-update` (`10.89.13.0/24`).
 
-### 5.1.2 The one dual-homed container, and why
+**The one dual-homed container, and why.** This was numbered §5.1.2 when
+first added, which collided with the §5.1.2 *Local Browser Addresses* below.
+Two sections shared one number. It is demoted to a bolded lead-in here rather
+than given a new number, because it is a continuation of §5.1.1 — it explains a
+row of the table immediately above — and because §5.1.2 is already referenced by
+name from §7 and §19.1 as *Local Browser Addresses*, so that number belongs to
+the other section. Renumbering the browser-address section instead would have
+broken those references; renumbering this one would have put a §5.1.3 above a
+§5.1.2.
 
-The *one network per component* rule above permits a second attachment only where
-the approved access path says so explicitly. Exactly one container holds two:
+The *one network per component* rule above permits a second attachment only
+where the approved access path says so explicitly. Exactly one container holds two:
 `ao-sim-fabrication-foxglove`, on `ao-sim-fabrication` (its own domain) and on
 `ao-html-window` (the read-only display network).
 
