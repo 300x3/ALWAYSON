@@ -73,7 +73,7 @@ internal hosts — see Section 7.1 prohibitions):
 1. Modal shows product images, parts list / detailed drawings link, pCloud
    folder link, and IPFS digital-asset mark where applicable.
 2. A purchase button routes to provider-hosted checkout (PayPal hosted button
-   today; Zelle instructions and Coinbase/USDC flow per Section 18.4 as
+   today; Zelle instructions and Coinbase/USDC flow per §7.2 as
    if built) or to a `mailto:300X3@POSTEO.NET` order-request template
    carrying product name, options, and quantity.
 3. Checkout completion returns a provider-signed event (or manual
@@ -138,6 +138,28 @@ authorisation before any live view is published, and none of them may be satisfi
 publishing a loopback address. Which rows are built is status and is recorded in §19.1 and
 §19.1.
 
+### 7.1.3 Build state of the nine views, 2026-10-03
+
+**None of the nine views is built.** The storefront in the pCloud Public Folder
+carries `index.html` and `alwayson-single-topology.html` only, and no asset,
+export, route or embed for rows 1–9 exists in this repository or in the pCloud
+site tree. The table above is a requirement list; it is not a status report, and
+it must not be read as one.
+
+Row 1 is the only row with no unresolved technical blocker — it is an outbound
+link plus one operator-supplied image, and the constraint is a *negative* one
+(do not substitute the Instructables wordmark). Rows 2, 7 and 8 are blocked by the
+loopback-only rule and each needs an explicit operator authorisation for a new
+public entry before it can be built at all. Rows 3, 4 and 5 are blocked on data
+that must be produced and licensed first (§8 WebODM tasks, LocusMap tile terms).
+Rows 6 and 9 are blocked on an external account or licence confirmation.
+
+This is recorded as **OPEN**. Building rows 2, 7 or 8 would require opening a
+public ingress, which is a §4.1 rule 6 stop condition and is reserved to the
+operator; this session built none of them. This extends, and does not contradict,
+the 2026-10-01 note in PAY-05: the three preconditions recorded there still hold,
+and the remaining six rows are blocked for the per-row reasons above.
+
 ## 7.2 Payment and Settlement Policy
 
 ALWAYS ON does not process, transmit, or store payment-card numbers, CVV
@@ -152,23 +174,69 @@ There are three forms of payment processing:
 | 2 | **Wire transfer / Zelle** | Wire transfer and Zelle | Approved high-value and direct-to-bank transactions | Manual reconciliation, operator approval, auditable reference record |
 | 3 | **Coinbase / stablecoin (USDC)** | Coinbase or similar | Crypto/stablecoin settlement | Documented provider terms, accounting treatment, refund process, and explicit operator approval |
 
-**In scope: PayPal, Zelle and Coinbase/USDC.** The default payment model is provider-hosted
-checkout; the provider is responsible for card capture and authorization. The local payment
-verifier accepts only provider-signed webhook events and stores normalized business state.
+**In scope, decided, and closed as a policy question: PayPal, Zelle and Coinbase/USDC.**
+This is the single normative statement of provider scope for the project. It was
+settled when §7.2 was written and it is not open. Earlier wording elsewhere that
+treats provider selection as undecided — ES.2's "deployable once the provider
+decision is recorded (§7.2)" and ST-27's "open on payment-provider selection" —
+refers to the *implementation* being gated, not to the choice being unmade, and
+is corrected by this statement. Choosing the providers never authorised accepting
+a payment: §4.1 rule 14 still requires explicit operator approval before payment
+acceptance is enabled, and ST-12 remains the gate for that.
 
-`ao-ingress-payment` accepts only PayPal provider-signed events. Zelle publishes no webhook
-and returns 501 on any inbound POST, so Zelle is verified by operator reconciliation against
-the provider record. Coinbase is verified against the on-chain settlement record. Bodies are
-capped at 256 KiB, only a SHA-256 hash and an opaque reference are stored, and a raw payload
-is never persisted.
+The default payment model is provider-hosted checkout; the provider is
+responsible for card capture and authorization. The local payment verifier
+accepts only provider-signed webhook events and stores normalized business state.
+
+`ao-ingress-payment` exposes three webhook paths. Zelle publishes no webhook and
+returns 501 on any inbound POST, so Zelle is verified by operator reconciliation
+against the provider record. Coinbase is verified against the on-chain settlement
+record. Bodies are capped at 256 KiB, only a SHA-256 hash and an opaque reference
+are stored, and a raw payload is never persisted.
+
+**Measured state of the automated verifier, 2026-10-03.** The verifier in
+`scripts/payment/ao-payment-adapter.py` is *not* conformant with either provider
+and must not be treated as a working control. Two defects, both proven by running
+the adapter, are recorded as **OPEN**:
+
+1. **The signature scheme is one PayPal does not produce.** The adapter computes
+   `HMAC-SHA256(secret, transmission_id | transmission_time | raw_body)`. PayPal
+   documents a different construction entirely: the message string is
+   `transmissionId | timeStamp | webhookId | crc32` — the CRC-32 of the raw body,
+   not the body — and it is verified with the RSA public key from the
+   `paypal-cert-url` certificate, not a shared HMAC secret. Tested directly: a
+   signature built on PayPal's documented message string is **rejected** by
+   `verify_paypal`, and only the adapter's own non-standard construction is
+   accepted. Consequence: as written the adapter would reject every genuine PayPal
+   delivery. This fails closed, so it is not a money-loss risk, but it means no
+   PayPal payment can be accepted and §7.2's "signature-verified webhook" control
+   does not exist yet.
+2. **Coinbase is verified with the PayPal verifier.** `AUTOMATED = ("paypal",
+   "coinbase")` and both branches call `verify_paypal`. Proven over HTTP: a
+   PayPal-style signed POST to `/webhook/coinbase` returns **200 accepted**, while
+   a Coinbase event carrying its own `x-cc-webhook-signature` header returns
+   **401**. `COINBASE_WEBHOOK_SECRET` is provisioned into `payment.env` by the
+   wallet bridge but is **never read by any code**. The Coinbase path therefore
+   admits PayPal-shaped events and rejects all real Coinbase events.
+
+A third defect sits in the normalized event model rather than the verifier: for a
+real PayPal `PAYMENT.CAPTURE.COMPLETED` payload the money is at
+`resource.amount.value`, which `normalize()` does not read, so `amount_cents`
+comes back `None` and the amount is silently lost. Coinbase payloads nest their
+reference at `charge.id`, which `normalize()` also does not read, producing an
+empty `provider_ref` that the adapter then rejects with 400.
+
+These are payment-verification defects. Correcting them changes how money-bearing
+events are accepted, so the fix is prepared and reported for operator approval
+rather than applied by this session.
 
 **How each form is verified.**
 
 | Form | Verification |
 |---|---|
-| Card / PayPal | The provider's signature on the webhook |
+| Card / PayPal | The provider's signature on the webhook. **Not implemented conformantly — see the measured state above.** |
 | Wire transfer / Zelle | The operator reconciles settlement against the provider record, because those channels publish no webhook |
-| Coinbase / stablecoin | On-chain settlement against the wallet record |
+| Coinbase / stablecoin | On-chain settlement against the wallet record. The webhook path is non-conformant — see the measured state above |
 
 In every case the verification result, provider reference, amount, currency and UTC
 verification timestamp are recorded before the transaction is documented in the ledger, so
@@ -182,6 +250,94 @@ transaction and per serial number (§3.3.b), and it must be queryable by the aut
 reporting services.
 
 ## 7.3 Sales and Receipt Sequence
+
+### 7.3.1 Verified implementation state, 2026-10-03
+
+Measured against the running system, not asserted.
+
+**`salesdb` is live and initialized.** The database holds the 14 core tables named
+in §15.1 plus `correlation_records`, `sale_contracts`, `sale_contract_lines` and
+`sale_evidence` (18 base tables), and all five §15.1 roles exist with login. The
+reporting boundary holds: `sales_reporting_role` holds `SELECT` on exactly the
+five `v_reporting_*` / `v_corda_entry_readiness` views and on **zero** base
+tables, which is the least-privilege property §6 requires. `sales_migration_role`
+holds the full 161 grants needed to administer the schema. The relational half of
+the sales pipeline is therefore real and correctly separated.
+
+**The receipt-manifest chain works offline, end to end.** A structurally valid
+receipt passes `scripts/validation/validate-sale-receipt.sh`; the same receipt with
+a `card_number` field added is rejected with exit 13, so the sensitive-field gate
+is live and not decorative. `scripts/ledger/build-manifest.sh sales_receipt` then
+produces a manifest whose only fields are the content SHA-256, the content size,
+an opaque local storage reference, the transaction ID and empty IPFS/pCloud slots —
+verified to contain **no** customer, SKU, serial or card token, and its
+`content_hash_sha256` equals `sha256(receipt)` exactly. `sign-manifest.sh` attaches
+a detached Ed25519 signature over the manifest digest.
+
+**A trap in that chain, measured.** The signature is computed over the digest of
+the manifest *before* the signature is embedded into it, so the signature verifies
+against the pre-signing digest and **fails against the final file**
+(`Signature Verification Failure`, exit 1). That is self-consistent — signing a file
+and then mutating it necessarily changes its hash — but there is no in-tree
+verifier that knows to blank `signature` and `producer_key_id` before hashing, and
+`grep` finds no `verify-manifest` script anywhere. A verifier written naively
+against the final file will reject every validly signed manifest. **Whoever builds
+the ingest-side verifier must hash the manifest with those two fields removed.**
+
+Submission to `ao-ledger-ingest` is a separate gate and is **not** claimed here:
+the gateway is not deployed and `submit-ledger-event.sh` exits 3 at staging, so
+nothing left the host during this session.
+
+**The Sales API does not exist.** §7.3 names a "Sales API and sales PostgreSQL"
+as the component that turns a verified event into order, receipt, fulfillment and
+entitlement state. There is no such service: no Quadlet unit, script or
+configuration anywhere in the tree implements one. The only `ao-sales`
+containers are `ao-sales-db` and the five Mastodon containers of §15.3, and
+`ao-sales` is the network, not an application. **The step between a verified
+payment event and an order/receipt/entitlement record is therefore missing**, and
+nothing in the current build can create business state from a payment. This is
+recorded as **OPEN**.
+
+**The customer-facing PDF email path is half built, and the sending half does not
+exist.** PDF generation is proven: `scripts/sales/intake-to-pdf.sh` runs end to
+end and emits the intake record, the work order, and a 10-field fillable
+AcroForm overlay, each verified at one page. There is **no mail path of any
+kind** — `msmtp`, `sendmail`, `mailx`, `mutt`, `swaks` and `s-nail` are all absent
+from the host, no SMTP configuration exists, and no script sends anything. The
+existing path is deliberately one-way: its own header states "Nothing is sent
+anywhere, no payment is taken, no order is created". So the three customer
+messages §7.3 owes — purchase-request confirmation, receipt, and work-order
+status with expected delivery — can be **generated** as PDFs but **cannot be
+delivered**. Installing an MTA or configuring an SMTP relay is a credentials and
+egress decision reserved to the operator, so this is **OPEN** pending approval.
+
+**`ao-ingress-payment` is running but not reachable from the internet.** Both
+`http://127.0.0.1:8899/health` and `http://127.0.0.1:8900/health` return
+`{"ok": true, "enabled": true}`, and `ss -ltn` confirms all three listeners —
+`127.0.0.1:8899`, `127.0.0.1:8900`, `127.0.0.1:15432` — are bound to loopback
+only, so nothing is LAN- or internet-reachable. No Cloudflare Tunnel route
+targets port 8900, so the approval gate on enabling the public route has not been
+opened. Note that `"enabled": true` means the adapter holds a database DSN, which
+contradicts ST-12's statement that it "runs with no DSN"; the credential finding
+below explains why.
+
+**Credential finding — `payment.env` was hand-written, not wallet-produced.** The
+four `ao-payment` KDE Wallet entries do not exist (`hasEntry` returns `false` for
+`payment-db-password`, `payment-paypal-webhook-id`, `payment-paypal-webhook-secret`
+and `payment-coinbase-webhook-secret`; for comparison `ao-sales`/`sales-db-password`
+returns `true`). Despite that, a `payment.env` exists, mode 0600, containing one
+key, `PAYMENT_DSN`, whose password is **byte-identical to the `sales-db` wallet
+password** (both 48 characters, identical SHA-256 prefix). So the file was created
+by hand on 2026-09-30, it duplicates an existing secret rather than holding a
+distinct payment credential, and it grants `ao-ingress-payment` the
+`sales_migration_role` — the full 161-grant schema-admin role. That is a wider
+privilege than a payment ingress adapter needs, and it is a §14.1 deviation
+introduced outside the wallet bridge. The wallet bridge would overwrite this file
+in a single composed pass if the entries existed; it does not. **Not remediated by
+this session** — it touches credentials and would require rotating and re-scoping a
+live secret. Recorded as **OPEN** for the operator.
+
+### 7.3.2 Sequence
 
 ```text
 Customer browser
