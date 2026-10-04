@@ -2868,6 +2868,45 @@ defined in `quadlet/networks/` and remain `Internal=true`, ready for the
 gateway.
 
 ---
+## 11.8 Second-Pass Verification, 2026-10-04 (LEDGER session)
+
+Every factual claim in §11.7 was **re-measured** this session rather than carried
+forward. All of it reproduced: the worker JAR checksum is `OK`, `ao-ledger` is
+uid 994, `alwayson-ledger` is not a username, and no Corda node unit exists.
+
+**Measuring "does the ledger unit exist?" — use `LoadState`, not `is-active`.**
+
+```text
+$ systemctl --user is-active ao-ledger-core.service
+inactive                                  # exit 4  -- MISLEADING
+
+$ systemctl --user show ao-ledger-core.service \
+    -p LoadState -p ActiveState -p FragmentPath
+LoadState=not-found
+ActiveState=inactive
+FragmentPath=
+```
+
+`is-active` prints the word `inactive` and exits 4 **both** when a unit does not
+exist and when it exists but is stopped. Only `LoadState=not-found` with an empty
+`FragmentPath` proves the unit was never installed. Here the truth is the latter:
+**the ledger core was never built — it is not merely stopped.** Do not attempt to
+start or enable it. (I hit this trap myself on the first check of this session.)
+
+**Standing correction to §19 (LEDGER-07).** §19 states `cordadb` "holds 0 tables".
+That figure remains **carried forward and unverified**. Neither the 2026-10-03
+session nor this one could measure it — `psql` fails authentication for `scottw`
+and `sudo -u postgres` requires interactive auth. An authentication failure is
+**not** evidence that a database is empty, so §19's figure must not be restated
+as established fact. To confirm:
+
+```bash
+sudo -u postgres psql -tAc \
+  "SELECT count(*) FROM pg_tables WHERE schemaname='public' AND tablename NOT LIKE 'pg_%';"
+sudo -u postgres psql -tAc "SELECT rolname, rolcanlogin FROM pg_roles WHERE rolname='corda';"
+```
+
+The second command deliberately selects no password column.
 
 # 12. Host Installation and Configuration
 
