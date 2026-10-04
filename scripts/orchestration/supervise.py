@@ -31,6 +31,15 @@ STUCK_MIN = 12
 MAX_NUDGES = 3
 TIMEOUT = 5400  # hard ceiling per session
 
+# Explicit model for every spawned session. Not the provider default:
+# globalState has actModeClineModelId = poolside/laguna-s-2.1:free, which is a
+# free-tier model with a DAILY quota - it killed seven sessions on 2026-10-03
+# with "You've reached today's free usage limit for this model". Setting the
+# model here means the choice is deliberate and recorded, not inherited.
+MODEL = os.environ.get("AO_MODEL", "stealth/space-bunny-alpha")
+PROVIDER = "cline"
+REASONING = os.environ.get("AO_REASONING", "medium")
+
 
 def prompt_path(g):
     for p in glob.glob(os.path.join(ROOT, PAGES, "*-%s.prompt.md" % g)):
@@ -61,7 +70,9 @@ def spawn(g):
     log = os.path.join(d, "events.jsonl")
     env = dict(os.environ, AO_GROUP=g)
     cmd = ["cline", "--json", "--cwd", wt, "--timeout", str(TIMEOUT),
-           "-t", str(TIMEOUT + 300), "--thinking", "high", open(prompt_path(g)).read()]
+           "-t", str(TIMEOUT + 300), "--thinking", REASONING,
+           "--provider", PROVIDER, "--model", MODEL,
+           open(prompt_path(g)).read()]
     with open(log, "ab") as out:
         p = subprocess.Popen(cmd, stdout=out, stderr=subprocess.STDOUT,
                              start_new_session=True, env=env)
@@ -71,8 +82,21 @@ def spawn(g):
 
 
 def pid_alive(pid):
+    """True only if the pid exists AND is not a zombie.
+
+    os.kill(pid, 0) succeeds for a zombie - the entry stays in the table until
+    the parent reaps it - so a defunct pid read as "alive" and spawn reported
+    ops-b as "already running" when it had been dead for 12 hours. State Z is
+    what marks a corpse.
+    """
     try:
-        os.kill(pid, 0); return True
+        os.kill(pid, 0)
+    except OSError:
+        return False
+    try:
+        with open("/proc/%d/stat" % pid) as fh:
+            fields = fh.read().rsplit(")", 1)[-1].split()
+        return not (len(fields) > 0 and fields[0] == "Z")
     except OSError:
         return False
 
@@ -107,36 +131,84 @@ def events(g):
 
 
 def state(g):
-    """Return (status, detail). status in running|done|error|dead|stuck|never."""
+    """Return (status, detail). status in never|running|stuck|done|error|dead.
+
+    Ordering matters and was the source of two live bugs:
+
+    * "done" wins even if the process is still up (the final message can flush after
+      the pid exits), and
+    * an "error" event only means failure if the process is actually gone or stale.
+      plat, ledger and spec all logged non-fatal errors ("operation timed out", "hook
+      dispatch failed") while still working; treating any error as terminal made the
+      watcher nudge a LIVE session and would have started a second agent in the same
+      worktree.
+    """
     pf = os.path.join(run_dir(g), "pid")
     if not os.path.exists(pf):
         return "never", "not spawned"
     pid = int(open(pf).read())
     ev = events(g)
+    alive = pid_alive(pid)
+    age = _age_min(ev)
+
+    # 1. completed - highest priority, regardless of liveness
     for e in reversed(ev):
         if e.get("type") == "agent_event" and e["event"].get("type") == "done":
-            return "done", e["event"].get("reason", "?")
-        if e.get("type") == "error":
-            return "error", e.get("message", "")[:80]
+            reason = e["event"].get("reason", "?")
+            # reason is not always "completed": plat and ledger ended with a done event
+            # carrying reason "error", which must NOT be reported as success.
+            if reason in ("completed", "finished"):
+                return "done", reason
+            return "error", "done with reason=%s" % reason
         if e.get("type") == "run_result":
-            return ("done" if e.get("finishReason") == "completed" else "error"), e.get("finishReason", "")
-    # liveness first: a live pid with no terminal event is running/stuck, NOT dead.
-    # (Checking pid before the event scan misreported live sessions as dead.)
+            fr = e.get("finishReason")
+            return ("done", "completed") if fr == "completed" else ("error", str(fr)[:80])
+
+    # 2. error is terminal only when the process is gone or has stopped making progress
+    for e in reversed(ev):
+        if e.get("type") == "error":
+            if not alive:
+                return "error", e.get("message", "")[:80]
+            if age > STUCK_MIN:
+                return "error", e.get("message", "")[:80]
+            # live and active: fall through to the running/stuck classification below
+            break
+        if e.get("type") == "run_result" and e.get("finishReason") != "completed":
+            if not alive:
+                return "error", str(e.get("finishReason"))[:80]
+            break
+
+    # 3. liveness
+    if not alive:
+        if not ev:
+            return "dead", "no events, process gone"
+        if age > STUCK_MIN:
+            return "dead", "process gone, no terminal event"
+        # process just exited; give the log a moment to flush
+        return "running", "exited, awaiting final events"
+
     if not ev:
-        return ("running" if pid_alive(pid) else "dead"), ("starting" if pid_alive(pid) else "no events, process gone")
-    if not pid_alive(pid):
-        return "dead", "process gone, no done event"
-    import datetime as dt
-    last = ev[-1].get("ts", "")
-    try:
-        age = (dt.datetime.now(dt.timezone.utc)
-               - dt.datetime.fromisoformat(last.replace("Z", "+00:00"))).total_seconds() / 60
-    except ValueError:
-        age = 0
+        return "running", "starting"
+
     it = [e["event"].get("iteration", 0) for e in ev
           if e.get("type") == "agent_event" and e["event"].get("type") == "iteration_start"]
     det = "iter %s, idle %.1fm" % (it[-1] if it else "?", age)
-    return ("stuck" if age > STUCK_MIN else "running"), det
+    if age > STUCK_MIN:
+        return "stuck", det
+    return "running", det
+
+
+def _age_min(ev):
+    """Minutes since the newest event, or 1e9 when there are none."""
+    if not ev:
+        return 1e9
+    try:
+        import datetime as dt
+        return ((dt.datetime.now(dt.timezone.utc)
+                 - dt.datetime.fromisoformat(ev[-1]["ts"].replace("Z", "+00:00")))
+                .total_seconds() / 60)
+    except Exception:
+        return 1e9
 
 
 def nudge(g, reason):
@@ -164,7 +236,8 @@ def nudge(g, reason):
     ) % (g, reason, wt, prompt_path(g))
     with open(os.path.join(d, "events.jsonl"), "ab") as out:
         p = subprocess.Popen(["cline", "--json", "--cwd", wt, "--timeout", str(TIMEOUT),
-                              "-t", str(TIMEOUT + 300), msg],
+                              "-t", str(TIMEOUT + 300), "--thinking", REASONING,
+                              "--provider", PROVIDER, "--model", MODEL, msg],
                              stdout=out, stderr=subprocess.STDOUT, start_new_session=True)
     open(os.path.join(d, "pid"), "w").write(str(p.pid))
     print("%-6s nudged #%d (pid %d) - %s" % (g, n, p.pid, reason))
