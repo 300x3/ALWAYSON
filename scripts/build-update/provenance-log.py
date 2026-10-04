@@ -587,6 +587,14 @@ def ubuntu_summary(inv):
         pass
     return [{
         "item": "Ubuntu archive packages", "via": "apt/ubuntu archive",
+        # OPS-23: the roll-up must not be a dead end. "3,857 packages" is a
+        # count, not an answer to "is the desktop behind"; the members are
+        # already in `inv` and cost nothing to carry, so they are attached and
+        # rendered as a drill-down. Collapsing the row was right; hiding the
+        # members behind the collapse was not.
+        "members": [f"{t['package']} ({t['version']})"
+                    for t in sorted(ubuntu, key=lambda t: t["package"])],
+        "package_rollup": True,
         "publisher": "Canonical",
         "repo": "archive.ubuntu.com + security.ubuntu.com",
         "pinned": f"{len(ubuntu)} packages, {inv['os']['pretty']}",
@@ -863,6 +871,12 @@ def ros_summary(inv):
         verdict = "**NO**"
     return [{
         "item": f"ROS 2 {distro} (whole train)", "via": "apt/ROS repository",
+        # OPS-23: same dead end as the Ubuntu archive row. This one matters
+        # more -- the train is FROZEN, so "which 351 packages are affected"
+        # is the question an operator will actually ask.
+        "members": [f"{t['package']} ({t['version']})"
+                    for t in sorted(ros, key=lambda t: t["package"])],
+        "package_rollup": True,
         "publisher": "packages.ros.org",
         "repo": f"{len(ros)} packages, suite {'/'.join(suites)}",
         "pinned": f"{distro}, built for Ubuntu {policy.get('validate_against_release','26.04')}",
@@ -2024,7 +2038,21 @@ def render(inv, codename, offline):
         w(f"| {item} | {r['via']} | {r['publisher']} | {r['repo']} | {mark} | "
           f"`{r['pinned']}` | {up} | {rel} | `{r.get('pin_hash', '-')}` | "
           f"`{r.get('rel_hash', '-')}` | {r.get('date', '-')} | {cell} |")
-    rolled = [(r["item"], r["members"]) for r in rows if r.get("members")]
+    w("")
+    return "\n".join(L) + "\n" + rollup_details_md(rows, kde_members) + "\n"
+
+
+def rollup_details_md(rows, kde_members=None):
+    """The collapsible drill-down blocks that follow the main table.
+
+    Split out of `render()` so it can be tested: `render()` spends hundreds of
+    apt round trips, which is not something a unit test should pay for to
+    assert a formatting rule.
+    """
+    out = []
+    w = out.append
+    rolled = [(r["item"], r["members"]) for r in rows
+              if r.get("members") and not r.get("package_rollup")]
     if rolled:
         w("")
         w("<details><summary>Rolled-up launchers — expand to list every "
@@ -2035,6 +2063,25 @@ def render(inv, codename, offline):
         w("|---|---|")
         for item, members in sorted(rolled):
             w(f"| `{item}` | {', '.join(members)} |")
+        w("")
+        w("</details>")
+    # A package roll-up has thousands of members. Joining them into one table
+    # cell produced a single 40,000-character line -- technically a drill-down,
+    # practically unreadable, and worse than the count it replaced. One member
+    # per row, in its own collapsible block per roll-up.
+    for r in rows:
+        if not (r.get("package_rollup") and r.get("members")):
+            continue
+        w("")
+        w(f"<details><summary>{r['item']} — expand to list all "
+          f"{len(r['members'])} packages with their installed versions"
+          "</summary>")
+        w("")
+        w("| Package | Installed version |")
+        w("|---|---|")
+        for m in r["members"]:
+            name, _, ver = m.rpartition(" (")
+            w(f"| `{name}` | `{ver.rstrip(')')}` |")
         w("")
         w("</details>")
     if kde_members:
@@ -2048,8 +2095,7 @@ def render(inv, codename, offline):
             w(f"| {nm} | {('`' + pk + '`') if pk else '-'} |")
         w("")
         w("</details>")
-    w("")
-    return "\n".join(L) + "\n"
+    return "\n".join(out)
 
 
 UNKNOWN = ("-", "no upstream", "no upstream feed", "no feed", "unreachable",

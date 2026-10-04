@@ -55,9 +55,9 @@ python3 scripts/build-update/provenance-log.py --markdown \
 
 # Report what an automated updater would be allowed to touch, and why not.
 if [ -f "$AO_ROOT/data/build-update/update-plan.json" ]; then
-  python3 - <<'PYEOF'
-import json
-p = json.load(open("/ALWAYSON/data/build-update/update-plan.json"))
+  python3 - "$AO_ROOT/data/build-update/update-plan.json" <<'PYEOF'
+import json, sys
+p = json.load(open(sys.argv[1]))
 s = p["summary"]
 print(f"plan        : {s['behind']} behind -> {s['eligible']} eligible, "
       f"{s['excluded']} excluded by recorded rule")

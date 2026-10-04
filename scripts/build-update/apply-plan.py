@@ -100,6 +100,7 @@ def validate_plan(plan) -> list:
             bad.append(f"plan has no {k!r} key")
     if not isinstance(plan.get("items"), list):
         return bad + ["`items` is not a list"]
+    n_no_manual = 0
     for idx, it in enumerate(plan["items"]):
         if not isinstance(it, dict):
             bad.append(f"items[{idx}]: item is not an object")
@@ -109,9 +110,16 @@ def validate_plan(plan) -> list:
             bad.append(f"{w}: decision {it.get('decision')!r} is neither "
                        f"'eligible' nor 'excluded' -- an undecided item must "
                        f"never be actionable")
-        if "manual" not in it:
-            bad.append(f"{w}: no `manual` key; a schema-2 plan always "
-                       f"separates prose from executable steps")
+        # `manual` is only required where the separation actually matters: an
+        # item a machine is allowed to act on. Emitting it for the 193
+        # `excluded` rows buried the 26 findings that mattered under 199
+        # identical lines, so the plan schema is reported once instead.
+        eligible_item = it.get("decision") == "eligible"
+        if eligible_item and "manual" not in it:
+            bad.append(f"{w}: no `manual` key; an eligible item must separate "
+                       f"prose from executable steps")
+        elif not eligible_item and "manual" not in it:
+            n_no_manual += 1
         steps = it.get("steps")
         if steps is None:
             bad.append(f"{w}: no `steps` key")
@@ -125,6 +133,12 @@ def validate_plan(plan) -> list:
             bad.append(f"{w}: marked eligible but carries no executable step")
         for j, s in enumerate(steps):
             bad += validate_step(s, f"{w} steps[{j}]")
+    if n_no_manual:
+        bad.append(f"plan: {n_no_manual} of {len(plan['items'])} items carry no "
+                   f"`manual` key. This is a schema-1 plan (prose and executable "
+                   f"steps are not separated). Every eligible step in it is a bare "
+                   f"string, so nothing in it is safe to hand to an executor -- "
+                   f"this is OPS-19, not a per-item defect.")
     return bad
 
 
