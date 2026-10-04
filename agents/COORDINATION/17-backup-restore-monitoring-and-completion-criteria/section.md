@@ -1402,6 +1402,85 @@ correct fix is either `copytruncate` or a `postrotate` that signals the
 container to reopen its log, and both touch a running simulation service.
 Recorded as an open finding, not silently patched.
 
+#### 17.5.1 The installed policy's own safety justification is false
+
+The defect above is not a policy bug — it is a **false claim inside the policy
+file**, and that is the more serious of the two. The installed
+`/etc/logrotate.d/alwayson` justifies `nocopytruncate` in a comment that will
+be read and believed:
+
+```
+# nocopytruncate is safe here because every writer in scripts/lib/common.sh
+# appends with >> per call and holds no descriptor - verified after rotation:
+# writes landed in the new file and backup.log.1 stayed at 1247 bytes.
+```
+
+Both halves of that are true and both are beside the point. `scripts/lib/
+common.sh` was verified and it does rotate correctly:
+
+```
+$ cat /ALWAYSON/logs/backup.log
+2026-10-04T10:35:39+00:00 actor=root script=restic-run.sh snapshot=0548f116 result=OK restic backup completed
+$ stat -c '%n size=%s' /ALWAYSON/logs/backup.log*
+/ALWAYSON/logs/backup.log   size=110    <- new writes land here
+/ALWAYSON/logs/backup.log.1 size=1247
+```
+
+But the comment says "every writer", and it scoped the check to one library.
+**Two writers were never in that library.** Podman opens the
+`--log-opt path=` file once at container start and never reopens it:
+
+```
+$ podman ps --format '{{.Names}} {{.Status}}' | grep -iE 'gz|foxglove'
+ao-sim-fabrication-foxglove  Up 44 hours
+ao-sim-fabrication-gz       Up 22 hours
+
+$ lsof /ALWAYSON/logs/sim-gz-server.log.1 /ALWAYSON/logs/sim-foxglove-bridge.log.1
+COMMAND     PID   USER FD   TYPE DEVICE SIZE/OFF     NODE NAME
+conmon   868080 scottw 7w   REG  259,2   100660 18222280 …/sim-foxglove-bridge.log.1
+conmon  1195162 scottw 6w   REG  259,2  1437117 18222278 …/sim-gz-server.log.1
+
+$ lsof /ALWAYSON/logs/sim-gz-server.log
+        (no output — nothing holds the live file open)
+```
+
+So the claim "verified after rotation: writes landed in the new file" is a true
+observation that was **generalised from a sample of writers to all writers**. It
+is the same error as §17.4.1's, in a different place: measuring the mechanism
+you tested and calling it the mechanism that exists.
+
+**Why it matters beyond the two affected files.** Gazebo and Foxglove output
+is currently landing in a rotated file. With `rotate 14` and `daily`, that
+file is a deletion candidate within 14 rotations, and when it is removed the
+log ends at whatever it held. Nothing was deleted by this session, so the data
+is still present — but the monitor is reporting on the wrong file.
+
+**The staleness validator does not catch this, which is the worst part.**
+`check-logs-journals.sh` was written before the rotation and checks the *live*
+file's mtime:
+
+```
+$ bash scripts/validation/check-logs-journals.sh | grep -E 'sim-gz|foxglove'
+sim-gz-server.log            OK (0d)          2026-10-04T07:18:38Z
+sim-foxglove-bridge.log       OK (0d)          2026-10-04T07:18:38Z
+PASS: every Section 16.3 log exists and is within its staleness budget
+```
+
+`OK (0d)` — it passes, because the rotation recreated the live file at 00:18
+and the validator is satisfied by a fresh empty file. **A validator that can be
+satisfied by an empty file cannot detect a detached writer.** The
+`AoRestoreTestStale`-style "no data" blindness from §17.2.1.1 has a second
+instance here, in the validator rather than in Prometheus.
+
+**Not changed by this session.** Correcting the policy comment requires editing
+`config/host/logrotate-alwayson.conf`, which is **not a file this session owns**,
+and would additionally break the `cmp` byte-identity that OPS-25's evidence
+rests on until the file is re-installed with root. The false claim is left
+standing in the installed file deliberately, and flagged here instead, because a
+stale-but-documented file is safer than an edit this session has no authority to
+make. An operator with root should do both halves at once: correct the comment
+**and** choose `copytruncate` vs `postrotate`. Recorded as **OPS-36**.
+
 **The journald half is genuinely still uninstalled**, and the evidence is
 stronger than "not found":
 
