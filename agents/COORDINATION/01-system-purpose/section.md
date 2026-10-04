@@ -53,10 +53,24 @@ $ systemctl is-enabled sddm
 enabled
 ```
 
-Three `kubuntu-*` packages are installed (`kubuntu-settings-desktop`, `kubuntu-wallpapers`,
-`kubuntu-notification-helper`) but the `kubuntu-desktop` metapackage is not, and
-`kubuntu-desktop` is in `universe`, not `main`. So: Ubuntu LTS base, KDE Plasma 6.6.6 on SDDM,
-Kubuntu-flavoured settings only. Every functional claim this section rests on is independently
+Six installed packages carry the Kubuntu name, three named `kubuntu-*` and three not
+(`libkubuntu1`, `plymouth-theme-kubuntu-logo`, `plymouth-theme-kubuntu-text`):
+
+```
+$ dpkg -l | awk '/^ii/ && $2 ~ /kubuntu/ {print $2}' | sort
+kubuntu-notification-helper
+kubuntu-settings-desktop
+kubuntu-wallpapers
+libkubuntu1
+plymouth-theme-kubuntu-logo
+plymouth-theme-kubuntu-text
+```
+
+So: Ubuntu LTS base, KDE Plasma 6.6.6 on SDDM, Kubuntu-flavoured settings only. The
+`kubuntu-desktop` metapackage is **not** installed, and `apt-cache show` confirms it sits in
+`universe`, not `main` (`Section: universe/metapackages`, candidate `1.496`). Every
+functional claim this
+section rests on is independently
 true — Plasma 6.6.6 is present, `konqueror`, `kwalletmanager5` and `kwallet-query` are
 installed (§14.1), ROS 2 Lyrical is at `/opt/ros/lyrical` (§2.2), and the machine is an
 i7-8700K with a GeForce GTX 1080. Only the distribution label was loose.
@@ -66,12 +80,24 @@ plus QGroundControl". ROS 2 and Gazebo are real: `ros2` resolves to `/opt/ros/ly
 and `gzserver` is not on the host PATH because Gazebo runs containerised
 (`ao-sim-fabrication-gz`, carrying `gz` and `gz-msgs_*`; the host keeps a wrapper at
 `~/bin/gazebo`). **QGroundControl is an AppImage, not an installed package** — there is no
-`qgroundcontrol` binary on the PATH and no `.desktop` entry in `/usr/share/applications`; the
-operator runs `~/Documents/APP IMAGES/QGroundControl-x86_64.AppImage`, which has left state in
-`~/.config/QGroundControl` and `~/.cache/QGroundControl`. Same for the Foxglove bridge, which is
-a locally built image (`localhost/foxglove-bridge`) rather than a pinned upstream digest. Those
-two are simulation-toolchain facts and belong to the SIM group's inventory; they are noted here
-only so §1 does not read as a package manifest.
+`qgroundcontrol` binary on the PATH and no `.desktop` entry under
+`/usr/share/applications`; the operator runs
+`~/Documents/APP IMAGES/QGroundControl-x86_64.AppImage`, which has left state in
+`~/.config/QGroundControl` and `~/.cache/QGroundControl`. It does have a **user-level**
+launcher, so it is on the desktop menu even though it is not a package:
+
+```
+$ find /usr/share/applications ~/.local/share/applications -iname '*ground*'
+/home/scottw/.local/share/applications/qgroundcontrol.desktop
+$ grep '^Exec' ~/.local/share/applications/qgroundcontrol.desktop
+Exec="/home/scottw/Documents/APP IMAGES/QGroundControl-x86_64.AppImage" %U
+```
+
+The distinction worth keeping is AppImage-vs-package, not absent-vs-present: the launcher
+just invokes the AppImage path, which is why the binary is not on the PATH. Same for the
+Foxglove bridge, which is a locally built image (`localhost/foxglove-bridge`) rather than a
+pinned upstream digest. Those two are simulation-toolchain facts and belong to the SIM
+group's inventory; they are noted here only so §1 does not read as a package manifest.
 
 **Support-horizon correction, same date.** This paragraph previously gave the maintenance
 horizon as "April 2031". Canonical's published release-cycle table gives **May 2031**, and

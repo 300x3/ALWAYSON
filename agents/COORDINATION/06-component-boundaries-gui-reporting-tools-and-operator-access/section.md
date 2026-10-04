@@ -74,6 +74,38 @@ operator-access implementation must comply with this subsection and §§4, 5, 14
   superuser with `CREATEDB` and `CREATEROLE`. That is the migration identity and it is not
   handed to a reporting tool, but any future convenience that grants it to Metabase or
   Grafana would void the read-only boundary above.*
+
+  **Re-verified 2026-10-04 by executing as the reporting role, not by reading a catalog.**
+  A catalog view reports what is *granted*; this proves what actually *happens* when the
+  reporting identity connects, which is the claim that matters:
+
+  ```
+  $ podman exec ao-sales-db psql -U sales_reporting_role -d salesdb -tAc "select count(*) from orders;"
+  ERROR:  permission denied for table orders
+  $ podman exec ao-sales-db psql -U sales_reporting_role -d salesdb -tAc "select count(*) from v_reporting_orders;"
+  1
+  $ podman exec ao-sales-db psql -U sales_migration_role -d salesdb -tAc \
+      "select rolname,rolsuper,rolcreatedb,rolcreaterole from pg_roles where rolname like 'sales_%';"
+  sales_admin_role|f|f|f
+  sales_api_role|f|f|f
+  sales_backup_role|f|f|f
+  sales_migration_role|t|t|t
+  sales_reporting_role|f|f|f
+  ```
+
+  Denied on the base table, permitted on the view, and `sales_migration_role` is the only
+  row with superuser/`CREATEDB`/`CREATEROLE` set — exactly as the watch-note above says.
+  The grant set is still exactly the five views, and `metabase_app` still does not exist
+  in `salesdb`, so the reporting path remains `sales_reporting_role`.
+
+  **A trap worth naming, because it reads as a broken container.** The obvious probe —
+  `psql -U postgres` inside `ao-sales-db` — fails with `role "postgres" does not exist`,
+  because that cluster is initialised with `POSTGRES_USER=sales_migration_role` and has no
+  `postgres` role at all. The container is not broken and the database is not missing;
+  there is simply no `postgres` superuser in it. Use the `sales_migration_role` identity.
+  Someone reading "PostgreSQL 17 container", reaching for `-U postgres`, and recording
+  "reporting store unreachable" would be wrong, and the fix is to read
+  `POSTGRES_USER` from the container env before concluding anything about the data.
 - `ao-admin` receives approved PostgreSQL reporting, exporter, status,
   projection, API, relay, tunnel, or push paths. It must not join every
   workload network.
@@ -224,11 +256,48 @@ Why this belongs in §6 rather than §19 only: §6.A.3 requires every containeri
 identity**. These four have no service owner (no `PODMAN_SYSTEMD_UNIT` label), no declared network
 (`pasta` rootless-NAT, per-process — not any of the fourteen registered `ao-*` networks), and
 they are **absent from §5.1 group D**, which claims to enumerate all eighteen GUI and workflow
-rows. Two of them also mount host paths that are *not* the sanctioned read-only snapshot
-copies: `confident_khayyam` mounts `/tmp/tmp.2HBNsh7zgo:/probe` and `ao-sqli3` mounts
-`/tmp/sqli-plugins2:/var/lib/grafana/plugins`, both **writable, both from `/tmp`**, one of them
-supplying the unsigned `frser-sqlite-datasource` plugin to a Grafana instance that is not the
-one with the allow-list policy.
+rows. Two of them mount host paths from `/tmp`, and **one of the two is writable**:
+
+```
+$ for c in relaxed_tharp confident_khayyam keen_bhabha ao-sqli3; do
+    printf '%-20s mounts=[%s]\n' "$c" \
+      "$(podman inspect $c --format '{{range .Mounts}}{{.Source}}:{{.Destination}}:rw={{.RW}};{{end}}')"; done
+relaxed_tharp        mounts=[]
+confident_khayyam    mounts=[/tmp/tmp.2HBNsh7zgo:/probe:rw=false;]
+keen_bhabha          mounts=[]
+ao-sqli3             mounts=[/tmp/sqli-plugins2:/var/lib/grafana/plugins:rw=true;]
+```
+
+`ao-sqli3` is the writable one: it bind-mounts `/tmp/sqli-plugins2` **read-write** over
+Grafana's plugin directory, and that host directory contains the `frser-sqlite-datasource`
+plugin alongside two Grafana-authored apps.
+
+**Do not over-read this as "an unsigned plugin got in".** The same plugin is deliberately
+used by the sanctioned `ao-grafana` — it is the datasource type behind the five
+`ALWAYS ON SQLite (…)` datasources in
+`config/platform/monitoring/grafana/provisioning/datasources/sqlite-snapshots.yml`. The
+difference is **not** which plugin, it is where it comes from and in which direction it
+can be written:
+
+```
+sanctioned ao-grafana : /ALWAYSON/data/monitoring/grafana-plugins -> /var/lib/grafana/plugins : ro,Z
+unmanaged  ao-sqli3  : /tmp/sqli-plugins2                        -> /var/lib/grafana/plugins : rw
+```
+
+So the sanctioned path is a curated, repository-adjacent directory mounted **read-only**
+(`ro,Z`, and `rw=false` measured). The unmanaged one is a **`/tmp` directory mounted
+read-write**, so the plugin set of a running container can be changed by anything that can
+write `/tmp`, and it survives into whatever runs next. That is the real defect — writable
+plugin supply, not plugin identity. `confident_khayyam` mounts
+`/tmp/tmp.2HBNsh7zgo` at `/probe` **read-only** (`"RW":false`); it is a probe scratch
+directory, not a writable attack surface.
+
+**Correction 2026-10-04 — an earlier revision of this paragraph said "both writable,
+both from `/tmp`". The second half was right and the first was wrong.** Only `ao-sqli3`
+is `RW:true`. The reason the error happened is the same class as the label-key error
+below: the earlier revision enumerated the two `/tmp` mounts but never asked for the
+`RW` flag, so "two mounts from `/tmp`" was silently promoted to "two writable mounts".
+Read the flag, do not infer it from the mount's existence.
 
 Mitigating, measured, and worth stating so this is not over-read:
 
@@ -238,10 +307,11 @@ Mitigating, measured, and worth stating so this is not over-read:
 - **None is privileged**, none is on an `ao-*` network, and none is quadlet-started.
 
 So this is a **conformance and hygiene defect, not an exposure**: unmanaged duplicate GUIs
-outside the inventory, two of them writable-mount-bearing. **Not mine to remediate.** Stopping
-containers is destructive, touches another group's running work, and the `/tmp` plugin mounts
-are the subject of the unsigned-plugin question that §6.A.3 and the OPS group already track.
-Recorded here and reported to the operator; no action taken.
+outside the inventory, one of them with a writable `/tmp` plugin mount feeding it an
+unsigned plugin. **Not mine to remediate.** Stopping containers is destructive, touches
+another group's running work, and the `/tmp` plugin mount is the subject of the
+unsigned-plugin question that §6.A.3 and the OPS group already track. Recorded here and
+reported to the operator; no action taken.
 
 **Trap for the next session — two of them, and the first one cost me a whole review
 pass.** `podman ps` is sorted by name, so a `grep grafana` against the **image** column

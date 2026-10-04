@@ -345,6 +345,49 @@ installed package or desktop settings module.
 This table records what each database is and which program uses it. Whether a database is
 built and provisioned is status, recorded in §19.1 alongside the work to build it.
 
+**Re-verified 2026-10-04 — every version claim in the rows above, measured in one pass.**
+The container rows were the ones most likely to drift, because they are read from the
+running container rather than from a manifest. All of them still hold:
+
+```
+$ for c in ao-sales-db mastodon-db ao-fabrication-db ao-webodm-broker mastodon-redis; do
+    printf '%-20s %s\n' "$c" \
+      "$(podman exec $c sh -c 'postgres --version 2>/dev/null || redis-server --version 2>/dev/null')"; done
+ao-sales-db            postgres (PostgreSQL) 17.11 (Debian 17.11-1.pgdg13+2)
+mastodon-db            postgres (PostgreSQL) 17.11 (Debian 17.11-1.pgdg13+2)
+ao-fabrication-db      postgres (PostgreSQL) 17.11 (Debian 17.11-1.pgdg13+2)
+ao-webodm-broker       Redis server v=7.4.11
+mastodon-redis         Redis server v=7.4.11
+$ podman exec ao-webodm-db psql -U postgres -tAc 'select version();'
+PostgreSQL 9.5.25 on x86_64-pc-linux-gnu
+$ psql --version; redis-cli --version
+psql (PostgreSQL) 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
+redis-cli 8.0.5
+```
+
+So **PostgreSQL 17.11** for the three domain databases, **9.5.25** for WebODM/NodeODM,
+**18.6** for the host cluster that also carries Grafana and Metabase, **Redis 7.4.11** in
+the two containerised Redis services and **8.0.5** on the host — matching §3.3.1 exactly.
+The host-cluster figure is now corroborated three independent ways: `psql --version`
+locally, Metabase's own startup banner, and Grafana's `dbtype=postgres` connect log
+(§6.A.3.1), rather than being inferred from `/etc/postgresql/` alone.
+
+The PostGIS split in the WebODM row is also confirmed the same day, and it is the one row
+where the difference between the two databases is the whole point:
+
+```
+$ podman exec ao-webodm-db psql -U postgres -d webodm_dev -tAc "select extname,extversion from pg_extension where extname='postgis';"
+postgis|2.3.2
+$ podman exec ao-webodm-db psql -U postgres -d webodm -tAc "select extname,extversion from pg_extension;"
+plpgsql|1.0
+```
+
+PostGIS is in `webodm_dev` — the database the app actually reads — and absent from
+`webodm`. Two things that were previously asserted without a command are now measured at
+the same time: the host-side data dir is `~/webodm/dbdata`, and the host Redis holds no
+application data (`redis-cli dbsize` → `0`, `redis_version:8.0.5`), which is what the
+"no current application data confirmed" wording in the Redis 8 row above actually means.
+
 #### 3.3.1.1 How SQLite stores reach reporting (measured 2026-10-04)
 
 **Added because §3.3.1 listed the SQLite stores but never said how any of them reach
