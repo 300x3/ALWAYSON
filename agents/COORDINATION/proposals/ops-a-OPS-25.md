@@ -2,10 +2,32 @@
 item: OPS-25
 action: update
 evidence: |
-  $ ls /etc/logrotate.d/ | grep -i alwayson || echo 'NOT installed'
-  NOT installed
-  $ ls /etc/systemd/journald.conf.d/ | grep -i alwayson || echo 'NOT installed'
-  NOT installed
+  # *** SUPERSEDES the "NOT installed" lines in the earlier evidence block. ***
+  # The logrotate half IS installed, byte-identical to source, and has rotated.
+  $ ls -la /etc/logrotate.d/alwayson
+  -rw-r--r-- 1 root root 5237 Oct  4 09:07 /etc/logrotate.d/alwayson
+  $ cmp /etc/logrotate.d/alwayson /ALWAYSON/config/host/logrotate-alwayson.conf
+  (identical - no output)
+  $ logrotate -d /etc/logrotate.d/alwayson 2>&1 | grep -c 'rotating pattern'
+  5
+  # rotations are real, not merely configured:
+  $ ls -1 /ALWAYSON/logs/*.log.[0-9] | wc -l
+  13
+  $ ls -1 /ALWAYSON/logs/operations/*.log.[0-9] | wc -l
+  67
+  $ find /ALWAYSON/logs -name '*.log' ! -user scottw | wc -l
+  0
+
+  # the journald half of the SAME installer is still absent, and the drop-in
+  # directory does not exist on this host at all:
+  $ ls -la /etc/systemd/journald.conf.d/
+  ls: cannot access '/etc/systemd/journald.conf.d/': No such file or directory
+  $ grep -n '^#\?SystemMaxUse\|^#\?SystemKeepFree\|^#\?MaxRetentionSec' /etc/systemd/journald.conf
+  27:#SystemMaxUse=
+  28:#SystemKeepFree=
+  35:#MaxRetentionSec=0
+  $ journalctl --disk-usage
+  Archived and active journals take up 3.9G in the file system.
   $ sudo -n true
   sudo: interactive authentication is required
 
@@ -24,11 +46,24 @@ evidence: |
   rc=0
 section: 17-backup-restore-monitoring-and-completion-criteria
 ---
-**Stays OPEN — installing it needs root, which is an operator action.** The
-acceptance test in §19.1 is "install it, then confirm one rotation actually
-occurs"; neither half is done, so this is not closed. What moved is that the
-privileged step is now a single reviewed script instead of an ad-hoc copy, and
-the dry run is verifiable without escalating.
+**Still OPEN as a whole, but the logrotate half is now done, and this supersedes
+the earlier "neither half is done" statement.** That was true when written;
+someone installed the policy in the interim. The file is root-owned, 5237 B,
+**byte-identical** to the in-tree source (`cmp` → no output), dated Oct 4 09:07.
+
+It is not merely installed, it has **actually rotated**: 13 rotated files at
+`logs/*.log.[0-9]` and 67 in `logs/operations/`. That is exactly the acceptance
+test §19.1 sets — "install it, then confirm one rotation actually occurs" — so
+that half is met. The ownership precondition also holds:
+`find /ALWAYSON/logs -name '*.log' ! -user scottw` → 0.
+
+**The item stays open because the same installer also handles the journald
+drop-in, and that half is still not installed.** The evidence is stronger than
+"file not found": the drop-in *directory* does not exist on this host, so
+nothing could have been written into it. §17.5's table now shows the split
+explicitly — five log blocks "Installed and rotating", journald "NOT installed".
+Presenting all six as one uniform staged state is precisely what made the first
+claim wrong, and it is the reason the table was rewritten rather than patched.
 
 `scripts/ops/install-log-retention.sh` installs the policy to
 `/etc/logrotate.d/alwayson` and the journald drop-in to
