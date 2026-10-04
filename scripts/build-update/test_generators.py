@@ -68,33 +68,41 @@ def container_row(rel_digest):
 
 
 class TestContainerPullSteps(unittest.TestCase):
-    """Assertion 1: every generated pull step carries a FULL digest."""
+    """Assertion 1: every generated pull step carries a FULL digest.
+
+    OPS-19 changed the return type from a list of shell STRINGS to
+    `{"steps": [argv, ...], "manual": [prose, ...]}`. These assertions are
+    unchanged in meaning -- only in how they read the result -- because the
+    point of them was and remains "never emit a broken command".
+    """
 
     def test_truncated_digest_produces_no_step(self):
         """A 12-char digest must yield NO command, not a broken one."""
         self.assertEqual(pl.update_steps(container_row(SHA256_TRUNC),
-                                         unit_path=UNIT), [],
+                                         unit_path=UNIT)["steps"], [],
                          "a truncated digest must not become a pull command")
 
     def test_full_digest_produces_valid_pull(self):
-        steps = pl.update_steps(container_row(SHA256_FULL), unit_path=UNIT)
-        pulls = [s for s in steps if s.startswith("podman pull ")]
+        steps = pl.update_steps(container_row(SHA256_FULL),
+                                unit_path=UNIT)["steps"]
+        pulls = [s for s in steps if s[0] == "podman" and s[1] == "pull"]
         self.assertEqual(len(pulls), 1, f"expected one pull step, got {steps}")
-        self.assertIn(SHA256_FULL, pulls[0])
+        self.assertIn(SHA256_FULL, pulls[0][2])
 
     def test_empty_digest_produces_no_step(self):
-        self.assertEqual(pl.update_steps(container_row(""), unit_path=UNIT), [])
+        self.assertEqual(
+            pl.update_steps(container_row(""), unit_path=UNIT)["steps"], [])
 
     def test_prose_error_string_produces_no_step(self):
         """Assertion 2: a prose error string is not a digest."""
         for prose in ("upstream digest unreachable (registry refused)",
                       "no version tag", "unknown", "-"):
             self.assertEqual(pl.update_steps(container_row(prose),
-                                             unit_path=UNIT), [],
+                                             unit_path=UNIT)["steps"], [],
                              f"prose {prose!r} must not become a command")
 
     def test_every_pull_step_across_shapes_has_full_hex(self):
-        """Belt and braces: sweep row shapes, check the emitted command text."""
+        """Belt and braces: sweep row shapes, check the emitted digest."""
         rows = [container_row(SHA256_FULL),
                 container_row("sha512:" + "b" * 128),
                 container_row(SHA256_TRUNC),
@@ -102,10 +110,10 @@ class TestContainerPullSteps(unittest.TestCase):
                 dict(container_row(SHA256_FULL), rel_digest=None)]
         seen = 0
         for row in rows:
-            for step in pl.update_steps(row, unit_path=UNIT):
-                if step.startswith("podman pull "):
+            for step in pl.update_steps(row, unit_path=UNIT)["steps"]:
+                if step[0] == "podman" and step[1] == "pull":
                     seen += 1
-                    digest = step.split("@", 1)[1]
+                    digest = step[2].split("@", 1)[1]
                     self.assertRegex(
                         digest, r"^(sha256:[0-9a-f]{64}|sha512:[0-9a-f]{128})$",
                         f"malformed digest in: {step}")
@@ -114,9 +122,10 @@ class TestContainerPullSteps(unittest.TestCase):
     def test_no_pull_step_embeds_a_not_a_value_marker(self):
         for tgt in (SHA256_TRUNC, "", "unreachable", "not recorded",
                     "no version tag", "-", "unknown"):
-            for step in pl.update_steps(container_row(tgt), unit_path=UNIT):
-                if "@" in step:
-                    frag = step.split("@", 1)[1]
+            for step in pl.update_steps(container_row(tgt),
+                                        unit_path=UNIT)["steps"]:
+                if "@" in step[-1]:
+                    frag = step[-1].split("@", 1)[1]
                     self.assertFalse(has_not_a_value(frag),
                                      f"not-a-value marker in: {step}")
 
@@ -127,37 +136,283 @@ class TestAptStepsUsePackageNames(unittest.TestCase):
     def test_desktop_app_uses_owning_package(self):
         row = {"item": "Account Wizard", "via": "desktop app (apt)",
                "repo": "apt: accountsservice"}
-        self.assertEqual(pl.update_steps(row),
-                         ["apt install --only-upgrade accountsservice"])
+        self.assertEqual(pl.update_steps(row)["steps"],
+                         [["apt", "install", "--only-upgrade",
+                           "accountsservice"]])
 
     def test_display_name_never_reaches_the_command(self):
         row = {"item": "Account Wizard", "via": "desktop app (apt)",
                "repo": "apt: accountsservice"}
-        for step in pl.update_steps(row):
-            self.assertNotIn("Wizard", step)
-            for tok in step.split()[3:]:
+        for step in pl.update_steps(row)["steps"]:
+            joined = " ".join(step)
+            self.assertNotIn("Wizard", joined)
+            for tok in step[3:]:
                 self.assertRegex(
                     tok, r"^[a-z0-9][a-z0-9+.\-]*(:[a-z0-9]+)?$",
-                    f"non-package token {tok!r} in {step!r}")
+                    f"non-package token {tok!r} in {joined!r}")
 
     def test_desktop_app_with_no_package_yields_no_step(self):
         self.assertEqual(
             pl.update_steps({"item": "Some App", "via": "desktop app (apt)",
-                             "repo": ""}), [])
+                             "repo": ""})["steps"], [])
 
     def test_third_party_apt_step_names_a_package(self):
         steps = pl.update_steps({"item": "microsoft-edge-stable",
                                  "via": "apt/third-party",
-                                 "repo": "apt: packages.microsoft.com"})
+                                 "repo": "apt: packages.microsoft.com"})["steps"]
         self.assertEqual(len(steps), 1)
-        self.assertRegex(steps[0].split()[3], r"^[a-z0-9][a-z0-9+.\-]*(:[a-z0-9]+)?$")
+        self.assertRegex(steps[0][3], r"^[a-z0-9][a-z0-9+.\-]*(:[a-z0-9]+)?$")
 
     def test_non_package_vias_have_no_mechanical_step(self):
         for via in ("local build", "ROS 2", "vendor/.deb",
                     "desktop app (not dpkg-owned)"):
             self.assertEqual(
-                pl.update_steps({"item": "x", "via": via, "repo": ""}), [],
-                f"{via} should have no mechanical step")
+                pl.update_steps({"item": "x", "via": via, "repo": ""})["steps"],
+                [], f"{via} should have no mechanical step")
+
+
+class TestStepsAreArgvNotShellStrings(unittest.TestCase):
+    """OPS-19: the split between what a machine can do and what a human must.
+
+    `update_steps` used to return a flat list of strings mixing
+    `podman pull repo@sha256:<64>` -- runnable -- with
+    `edit Image= in quadlet/x` -- runnable by nothing, ever. An item was marked
+    `eligible` on the strength of the first while carrying the second, so
+    "eligible" did not mean "automatable" and nothing could tell them apart.
+    """
+
+    def test_no_step_is_ever_a_bare_string(self):
+        """Every step is an argv ARRAY, so no executor needs a shell."""
+        for row in (container_row(SHA256_FULL),
+                    {"item": "foo", "via": "snap", "repo": ""},
+                    {"item": "foo", "via": "flatpak", "repo": ""},
+                    {"item": "foo", "via": "apt/third-party", "repo": ""},
+                    {"item": "Some App", "via": "desktop app (apt)",
+                     "repo": "apt: accountsservice"}):
+            for s in pl.update_steps(row, unit_path=UNIT)["steps"]:
+                self.assertIsInstance(s, list, f"step must be argv, got {s!r}")
+                self.assertTrue(all(isinstance(a, str) for a in s),
+                                f"argv must hold strings, got {s!r}")
+
+    def test_the_quadlet_edit_is_prose_and_never_a_step(self):
+        """The one step that cannot be mechanised must not pretend to be."""
+        out = pl.update_steps(container_row(SHA256_FULL), unit_path=UNIT)
+        joined = " ".join(" ".join(s) for s in out["steps"])
+        self.assertNotIn("edit Image=", joined,
+                         "a prose instruction leaked into executable steps")
+        self.assertTrue(any("Image=" in m for m in out["manual"]),
+                        "the Image= edit must still be recorded as manual prose")
+
+    def test_prose_only_sources_report_no_executable_step(self):
+        """A source with no mechanical path yields empty `steps`, not a fake."""
+        out = pl.update_steps({"item": "x", "via": "local build", "repo": ""})
+        self.assertEqual(out["steps"], [])
+        self.assertIsInstance(out["manual"], list)
+
+    def test_every_emitted_step_passes_the_safety_check(self):
+        """Nothing leaves the generator that an executor could not run safely."""
+        rows = [container_row(SHA256_FULL),
+                container_row(SHA256_TRUNC),
+                {"item": "foo", "via": "snap", "repo": ""},
+                {"item": "foo", "via": "flatpak", "repo": ""},
+                {"item": "evil; rm -rf /", "via": "snap", "repo": ""}]
+        for row in rows:
+            for s in pl.update_steps(row, unit_path=UNIT)["steps"]:
+                self.assertTrue(pl._argv_is_safe(s),
+                                f"unsafe step emitted: {s!r}")
+
+    def test_a_shell_metacharacter_is_downgraded_to_prose(self):
+        """Hostile item names must not become runnable argv."""
+        row = {"item": "pkg; rm -rf /", "via": "apt/third-party", "repo": ""}
+        out = pl.update_steps(row)
+        self.assertEqual(out["steps"], [],
+                         "a metacharacter-bearing name must not be executable")
+        self.assertTrue(out["manual"], "the intent must still be recorded")
+
+    def test_the_deploy_script_is_the_only_script_path_allowed(self):
+        self.assertTrue(pl._argv_is_safe(
+            ["./scripts/deploy/deploy-quadlet-domain.sh", "mapping"]))
+class TestRollupsCanBeDrilledInto(unittest.TestCase):
+    """OPS-23: a roll-up row must not be a dead end.
+
+    A row reading "plasma-workspace (28 launchers)" is only useful if the
+    reader can see WHICH 28. The members were computed and carried on the row
+    as `members`, but the HTML table renderer never emitted them -- so the
+    drill-down existed in markdown only, and the HTML/PDF render silently lost
+    it. Silent loss is the failure mode that matters: nothing errored, the
+    document just quietly stopped being able to answer a question.
+    """
+
+    ROW = {"item": "plasma-workspace (28 launchers)", "via": "desktop app (apt)",
+           "publisher": "KDE", "repo": "apt:kde", "pinned": "5.27", "released": "5.27",
+           "pin_hash": "x", "rel_hash": "x", "date": "-", "download": "-",
+           "is_pinned": True, "nocompare": True,
+           "members": ["Dolphin", "Konsole", "Kate"]}
+
+    def test_html_row_drills_into_its_members(self):
+        h = pl.rows_to_html([self.ROW], "3 items", "t")
+        self.assertIn("3 entries", h, "the drill-down is missing from the row")
+        for m in self.ROW["members"]:
+            self.assertIn(m, h, f"member {m!r} is not reachable in the HTML")
+
+    def test_a_row_with_no_members_gets_no_drilldown(self):
+        r = dict(self.ROW)
+        r.pop("members")
+        h = pl.rows_to_html([r], "1 item", "t")
+        self.assertNotIn("entries</summary>", h,
+                         "a non-roll-up row must not claim to have members")
+
+    def test_member_names_are_html_escaped(self):
+        """Members come from .desktop files on disk; a name is not trusted."""
+        r = dict(self.ROW, members=["<img src=x onerror=alert(1)>"])
+        h = pl.rows_to_html([r], "1 item", "t")
+        self.assertNotIn("<img src=x", h, "member name was not escaped")
+        self.assertIn("&lt;img src=x", h)
+
+    def test_the_drilldown_survives_the_print_stylesheet(self):
+        """A PDF that hides the drill-down reintroduces the dead end."""
+        self.assertIn("@media print", pl.CSS)
+        self.assertIn("details.drill", pl.CSS)
+class TestVerbAllowlistAgreesAcrossFiles(unittest.TestCase):
+    """apply-plan.py duplicates the verb list so it runs standalone.
+
+    A duplicated constant is a drift risk: if provenance-log.py gains a verb
+    the validator has never heard of, every step using it fails validation and
+    the operator cannot tell whether the plan or the validator is wrong.
+    """
+
+    def test_allowlists_are_identical(self):
+        ap = load_module("ap_verbs", Path(__file__).resolve().parent
+                         / "apply-plan.py")
+        self.assertEqual(tuple(pl.PLAN_VERBS), tuple(ap.ALLOWED_VERBS),
+                         "the generator and the validator disagree about "
+                         "which verbs a plan step may use")
+
+    def test_the_deploy_script_allowlist_is_identical(self):
+        ap = load_module("ap_scripts", Path(__file__).resolve().parent
+                         / "apply-plan.py")
+        self.assertEqual(("./scripts/deploy/deploy-quadlet-domain.sh",),
+                         ap.ALLOWED_SCRIPTS)
+
+
+class TestApplyPlanValidator(unittest.TestCase):
+    """OPS-20: the dry-run validator must reject what it cannot trust."""
+
+    def setUp(self):
+        self.ap = load_module("ap_validator", Path(__file__).resolve().parent
+                              / "apply-plan.py")
+
+    def _plan(self, items):
+        return {"generated": "2026-10-04T00:00:00Z", "host": "h", "schema": 2,
+                "items": items}
+
+    def test_a_bare_string_step_is_rejected(self):
+        """Splitting a string would be a guess; the validator refuses."""
+        bad = self.ap.validate_step("podman pull repo@sha256:" + "a" * 64, "x")
+        self.assertTrue(any("bare string" in b for b in bad), bad)
+
+    def test_a_non_allowlisted_verb_is_rejected(self):
+        bad = self.ap.validate_step(["curl", "-s", "http://x"], "x")
+        self.assertTrue(any("not allowlisted" in b for b in bad), bad)
+
+    def test_a_shell_metacharacter_argument_is_rejected(self):
+        bad = self.ap.validate_step(["apt", "install", "foo; rm -rf /"], "x")
+        self.assertTrue(any("metacharacter" in b for b in bad), bad)
+
+    def test_a_truncated_pull_digest_is_rejected(self):
+        bad = self.ap.validate_step(
+            ["podman", "pull", "repo@sha256:" + "a" * 12], "x")
+        self.assertTrue(any("64 hex" in b for b in bad), bad)
+
+    def test_a_floating_pull_reference_is_rejected(self):
+        bad = self.ap.validate_step(["podman", "pull", "repo:latest"], "x")
+        self.assertTrue(any("not digest-pinned" in b for b in bad), bad)
+
+    def test_a_valid_step_produces_no_problems(self):
+        self.assertEqual(
+            self.ap.validate_step(
+                ["podman", "pull", "repo@sha256:" + "a" * 64], "x"), [])
+
+    def test_eligible_with_no_step_is_the_defect_OPS19_removed(self):
+        plan = self._plan([{"item": "x", "decision": "eligible",
+                            "steps": [], "manual": ["do it by hand"]}])
+        bad = self.ap.validate_plan(plan)
+        self.assertTrue(any("no executable step" in b for b in bad), bad)
+
+    def test_an_undecided_item_is_never_actionable(self):
+        plan = self._plan([{"item": "x", "decision": "maybe", "steps": [],
+                            "manual": []}])
+        self.assertTrue(self.ap.validate_plan(plan))
+
+    def test_a_well_formed_plan_validates_clean(self):
+        plan = self._plan([
+            {"item": "x", "decision": "eligible", "unit": "quadlet/mapping/a",
+             "target_digest_full": "sha256:" + "a" * 64,
+             "steps": [["podman", "pull", "r@sha256:" + "a" * 64],
+                       ["systemctl", "--user", "daemon-reload"]],
+             "manual": ["set Image= by hand"]},
+            {"item": "y", "decision": "excluded", "unit": "",
+             "target_digest_full": "-", "steps": [], "manual": ["float"]}])
+        self.assertEqual(self.ap.validate_plan(plan), [])
+
+    def test_two_units_sharing_a_digest_are_reported_as_coupled(self):
+        """A shared digest means one rollback cannot be partial."""
+        d = "sha256:" + "a" * 64
+        plan = self._plan([
+            {"item": "x", "decision": "eligible", "unit": "quadlet/mapping/a",
+             "target_digest_full": d, "steps": [], "manual": []},
+            {"item": "y", "decision": "eligible", "unit": "quadlet/mapping/b",
+             "target_digest_full": d, "steps": [], "manual": []}])
+        r = self.ap.blast_radius(plan["items"])
+        self.assertEqual(r["coupled_digests"], 1)
+        self.assertEqual(r["by_domain"]["mapping"], ["x", "y"])
+
+    def test_excluded_items_never_enter_the_blast_radius(self):
+        d = "sha256:" + "a" * 64
+        plan = self._plan([
+            {"item": "x", "decision": "eligible", "unit": "quadlet/mapping/a",
+             "target_digest_full": d, "steps": [], "manual": []},
+            {"item": "y", "decision": "excluded", "unit": "quadlet/mapping/b",
+             "target_digest_full": d, "steps": [], "manual": []}])
+        r = self.ap.blast_radius(plan["items"])
+        self.assertEqual(r["coupled_digests"], 0,
+                         "an excluded item is not being touched, so it is "
+                         "not part of the blast radius")
+
+    def test_coupling_is_read_from_the_pull_step_not_the_display_column(self):
+        """The step is what runs, so the step is what couples.
+
+        The two digests disagree on purpose. Coupling them because a
+        human-readable summary column matched would report a risk that the
+        commands do not have.
+        """
+        plan = self._plan([
+            {"item": "x", "decision": "eligible", "unit": "quadlet/mapping/a",
+             "target_digest_full": "sha256:" + "b" * 64,
+             "steps": [["podman", "pull", "r@sha256:" + "a" * 64]],
+             "manual": []},
+            {"item": "y", "decision": "eligible", "unit": "quadlet/lidar/b",
+             "target_digest_full": "sha256:" + "b" * 64,
+             "steps": [["podman", "pull", "r@sha256:" + "a" * 64]],
+             "manual": []}])
+        r = self.ap.blast_radius(plan["items"])
+        self.assertEqual(r["coupled_digests"], 1,
+                         "both items pull the same digest, so they are coupled")
+        self.assertEqual(r["by_digest"]["sha256:" + "a" * 64], ["x", "y"])
+
+    def test_an_item_with_no_pull_step_does_not_fabricate_coupling(self):
+        """A snap refresh has no digest; it must not inherit one from a column."""
+        plan = self._plan([
+            {"item": "x", "decision": "eligible", "unit": "",
+             "target_digest_full": "sha256:" + "a" * 64,
+             "steps": [["snap", "refresh", "x"]], "manual": []},
+            {"item": "y", "decision": "eligible", "unit": "",
+             "target_digest_full": "-", "steps": [["snap", "refresh", "y"]],
+             "manual": []}])
+        r = self.ap.blast_radius(plan["items"])
+        self.assertEqual(r["coupled_digests"], 0,
+                         "no pull step means no digest is being applied, so "
+                         "there is nothing to couple")
 
 
 class TestAptHistoryParsing(unittest.TestCase):
