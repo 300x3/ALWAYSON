@@ -26,6 +26,27 @@ Network names are the real Podman names used throughout this document, in the Qu
 definitions, and in `config/platform/network-cidrs.yaml`. Where an area is served by a
 controlled adapter rather than a workload network, the adapter is named in the same cell.
 
+One row is an adapter and has **no network of its own**: `ao-egress-archive` is absent
+from both `config/platform/network-cidrs.yaml` and `podman network ls`. Every other
+network named in the table above is present in both. This is measured, not inferred:
+
+```text
+$ grep -c '^ao-' config/platform/network-cidrs.yaml
+14
+$ grep -n 'ao-egress-archive' config/platform/network-cidrs.yaml
+(no match)
+
+$ podman network ls --format '{{.Name}}' | grep -c '^ao-'
+14
+$ podman network ls --format '{{.Name}}' | grep -c 'ao-egress-archive'
+0
+```
+
+The registry and the live host agree on fourteen `ao-*` networks, eleven
+`Internal=true` and three `Internal=false` — so the archive row is a genuine
+exception, not a counting artefact. `config/platform/topology-model.yaml` already
+records it correctly as `adapter: true`, `status: planned`. See §11.6.1.
+
 Corda records signed references, hashes, approved transitions, and entitlement and
 provenance data sufficient to verify a claim without duplicating sensitive or high-volume
 data.
