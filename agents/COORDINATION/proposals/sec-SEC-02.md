@@ -52,27 +52,43 @@ mode `0600`, untracked, referenced by no unit or script, and holding four
 credential values by key name (`mastodon-db-password`, `sales-db-password`,
 `webodm-postgres-password`, `fabrication-db-password`). This is precisely the
 duplication SEC-02 exists to reconcile, and §14.1.1's own rules already forbid
-it. By sha256 prefix, no values printed:
+it. Re-measured 2026-10-04 against each live env file by sha256 prefix, no
+values printed:
 
-    legacy sales-db-password      = c0fa51768a38
-    sales-db.env/POSTGRES_PASSWORD = c0fa51768a38  → SAME (live-valid)
-    legacy mastodon-db-password    = cbd78a234974
-    mastodon-db.env/POSTGRES_PASSWORD = 4cb870628b50 → DIFFERENT (stale)
+    sales-db-password        = 03521083973b  len 48
+    sales-db.env             = 03521083973b  len 48  → SAME (live-valid)
+    webodm-postgres-password = 6d174927d250  len 32
+    webodm.env               = 6d174927d250  len 32  → SAME (live-valid)
+    fabrication-db-password  = f0d6bb4481fd  len 32
+    fabrication-db.env       = f0d6bb4481fd  len 32  → SAME (live-valid)
+    mastodon-db-password     = 8c3319896c87  len 48
+    mastodon-db.env          = 4f090748460c  len 40  → DIFFERENT (stale)
 
-`scripts/validation/check-secrets-exposure.sh` returns `OK` and does **not**
-catch it — it checks tracked files and modes, and this file is neither. Recorded
-in **§14.1.6**. **Not deleted**: deleting secret-classified material is outside
-this session's authority. Recommend the operator delete it; the
-`mastodon-db-password` it holds is already superseded, so nothing recoverable is
-lost. Note the guard's blind spot — rule 7 checking that only inspects Git will
-not see untracked `0600` files, and this is the first instance of that.
+**Three of the four are live database passwords.** `check-secrets-exposure.sh`
+returns `OK: no secret-shaped content in tracked files` and does **not** catch it
+— it checks tracked files and modes, and this file is neither. Recorded in
+**§14.1.6**. **Not deleted**: deleting secret-classified material is outside this
+session's authority. Recommend the operator delete it — because three values are
+live, deletion strictly reduces exposure and costs nothing operationally (the
+wallet is the system of record; live env files re-fetch at every start).
+Rotation is *not* required by the file's existence; it was never committed to
+Git, a backup set, or an external network. Note the guard's blind spot — a rule-7
+check that only inspects Git will not see untracked `0600` files, and this is the
+first instance of that.
 
-What I got wrong: my first `check-secrets-exposure.sh` invocation used a path
-that does not exist (`scripts/operations/…`); the real path is
-`scripts/validation/…`. The shell reported the error and **still exited 0**,
-because the `EXIT=$?` I appended captured the exit of `tail`, not the script.
-A missing file would have been recorded as a passing check. Same trap as the
-`find -maxdepth 3` error already in this proposal: verify the command ran.
+What I got wrong (second pass, 2026-10-04): the first version of this proposal
+reported **one** of the four values as live-valid. That was wrong, and the cause
+was mine — I compared the legacy keys against guessed live key names
+(`PGPASSWORD` for WebODM, upper-case `SALES_DB_PASSWORD`) which do not exist. All
+three wrong guesses produced an empty `cut` result, so two *real* matches were
+recorded as missing, and the one key I did get right was the only match reported.
+A `grep` that finds nothing and an absent key look identical in a one-line
+`cut`, and `printf '%s' '' | sha256sum` still prints a valid-looking
+`e3b0c44298fc` (the SHA-256 of the empty string), so the failure was silent rather
+than loud. Fix: enumerate the keys of each env file first, compare only names that
+`grep` has confirmed exist, and treat an unexpected empty value as a broken
+measurement rather than a negative result. §14.1.6 now carries the corrected
+table and the correction is stated in the section itself, not silently fixed.
 
 **Also found, not fixed: `~/secrets/mastodon.env` is a dangling symlink** to
 `/ALWAYSON/secrets/mastodon/mastodon.env`, which does not exist. It is inert —

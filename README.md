@@ -3166,17 +3166,30 @@ Three traps: there is no `accounts.local` column;
 `fabrication-db-password` — and referenced by **no** quadlet unit, script or section file. It is
 a plaintext duplicate of wallet-held credentials, which §14.1.1's rules forbid outright.
 
-Two measured facts, by sha256 prefix and no values printed: its `sales-db-password` matches the
-live `sales-db.env`, so it holds a **currently valid** password; its `mastodon-db-password` does
-**not** match the live `mastodon-db.env`, so that one is stale. It is therefore neither wholly
-useless nor wholly current.
+Four measured facts, by sha256 prefix and no values printed, comparing each legacy key against
+the live env file the owning unit reads:
+
+| Legacy key | vs live env file | Result |
+|---|---|---|
+| `sales-db-password` | `sales-db.env` `POSTGRES_PASSWORD` | **SAME** (48 chars) — currently valid |
+| `webodm-postgres-password` | `webodm.env` `POSTGRES_PASSWORD` | **SAME** (32 chars) — currently valid |
+| `fabrication-db-password` | `fabrication-db.env` `POSTGRES_PASSWORD` | **SAME** (32 chars) — currently valid |
+| `mastodon-db-password` | `mastodon-db.env` `POSTGRES_PASSWORD` | DIFFERENT (48 vs 40 chars) — stale |
+
+**Three of the four are live database passwords, not historical artefacts.** An earlier draft of
+this subsection reported only the `sales-db-password` match and characterised the file as "neither
+wholly useless nor wholly current"; that was measured against two keys with the wrong live key
+names and understated the exposure by a factor of three. The corrected count is the one above. The
+practical consequence is unchanged but sharper: this file is a plaintext store of **three
+currently-valid production database credentials** plus one stale one, and it is exactly the
+duplication §14.2 exists to prevent.
 
 `check-secrets-exposure.sh` does **not** catch it — that
 script checks *tracked* files and file modes, and this file is untracked and correctly `0600`.
 It was found by enumerating `ao-secrets/` and comparing against the units that read it, not by
 running the guard. The guard's blind spot is itself the finding: **rule 7 compliance is only as
-good as the tracked-file assumption**, and a stale `0600` copy of four live database passwords
-sits outside both Git and the units.
+good as the tracked-file assumption**, and a `0600` copy of three live database passwords plus
+one stale one sits outside both Git and the units.
 
 Its origin is not recorded anywhere in the repository — no quadlet unit, script or section file
 references `legacy-alwayson-folder`. Given the name and the fact that it holds exactly one
@@ -3185,9 +3198,14 @@ artefact: a moment when the credential layout was one file instead of one folder
 
 **Not deleted by this session.** Removing it is a deletion of secret-classified material, which
 is outside this session's authority (brief stop conditions). **Operator decision requested** —
-recommend deletion, since rotation/reprovisioning supersedes it and its
-`mastodon-db-password` no longer matches the live one, so it has no recovery value. §14.2.5
-covers the rotation path if any value in it is ever needed.
+recommend deletion. The reasoning matters and cuts the other way from a first reading: because
+three of the four values are **currently valid**, deleting the file removes a real plaintext
+store of live credentials, and it loses nothing operationally, because the wallet remains the
+system of record and the live env files are re-fetched at every start (the scope paragraph below).
+Deleting is therefore strictly safer than keeping. Rotation is **not** required by the presence of the
+file, because nothing outside it uses those values and they were never committed to Git, a
+backup set, or an external network; rotation becomes required only if the operator judges the
+host's local user account to be untrusted.
 
 **Status: recorded, awaiting operator ratification.** This subsection exists because
 §14.1 mandates Podman secrets or systemd credentials while every implemented path is a
