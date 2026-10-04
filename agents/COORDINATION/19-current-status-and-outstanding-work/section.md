@@ -1895,67 +1895,7 @@ refusals are shown in the OPS-08 evidence above.
 Files changed: `scripts/restore/restore-restic-drill.sh` (new),
 `agents/COORDINATION/…/17-…/section.md` (§17.4).<br><br><strong>Evidence:</strong><br><code># the drill ran against the off-host repository; table in 17.4:<br>#   snapshot 56bf1af5, 63 files, 304.564 KiB<br>#   hash-identical to live: 59 of 63<br>#   changed since snapshot: 4 (all config/, all mtime AFTER the snapshot)<br>#   changed with mtime BEFORE the snapshot (corruption signature): 0<br>#   database dumps in this snapshot: 0<br>#   result: PASS<br>$ export RESTIC_REPOSITORY=/media/scottw/…/ALWAYSON-BACKUPS<br>$ restic check --read-data-subset=1/10<br>no errors were found</code></td>
 </tr>
-<tr>
-<td valign="top">OPS-25</td>
-<td valign="top"><strong>Install the logrotate policy</strong></td>
-<td valign="top">ST-01</td>
-<td valign="top"><strong>Open</strong></td>
-<td valign="top">§16.3</td>
-<td valign="top"><code>config/host/logrotate-alwayson.conf</code> is staged and syntax-checked but <strong>not installed</strong>: <code>/etc/logrotate.d/</code> needs root and <code>pkexec</code> would raise a GUI prompt unattended. Install it, then confirm one rotation actually occurs. Overhead is not the obstacle — a full system pass measured 0.008s and <code>logrotate.timer</code> runs once daily. Compression is deliberately omitted because it is the only step that reads whole files. Until installed, nothing in <code>logs/</code> is rotated and <code>sim-gz-server.log</code> grows continuously.<br><br><strong>PROGRESS by 17-backup-restore-monitoring-and-completion-criteria.</strong> **Stays OPEN — installing it needs root, which is an operator action.** The
-acceptance test in §19.1 is "install it, then confirm one rotation actually
-occurs"; neither half is done, so this is not closed. What moved is that the
-privileged step is now a single reviewed script instead of an ad-hoc copy, and
-the dry run is verifiable without escalating.
 
-`scripts/ops/install-log-retention.sh` installs the policy to
-`/etc/logrotate.d/alwayson` and the journald drop-in to
-`/etc/systemd/journald.conf.d/60-alwayson-retention.conf`, and deliberately
-**does not restart systemd-journald** unless `--restart-journald` is passed —
-restarting the journal daemon is a visible host action. It validates the policy
-with `logrotate --debug` *before* writing it, so a malformed file never lands
-in `/etc/logrotate.d/`.
-
-**Two defects I found in my own staged artifacts and fixed, both of which
-would have been filed as "done":**
-
-1. The logrotate file's own header read `Installed 2026-10-03` while
-   `/etc/logrotate.d/alwayson` does not exist. A future agent reading that
-   header would have skipped this item entirely. It now reads `STAGED …
-   NOT INSTALLED`.
-2. The same file's comment said the subdirectories "are NOT rotated", while
-   the four blocks immediately below it rotate them on a 400-day budget. The
-   comment predated the OPS-26 work and was left contradicting its own file.
-
-I also narrowed the root guard so `--dry-run` works unprivileged. As written it
-exited `must run as root` before printing anything, which means the operator
-could not inspect the policy without escalating first — backwards. Measured
-before and after:
-
-    $ bash scripts/ops/install-log-retention.sh --dry-run   # before
-    ERROR: must run as root (pkexec)
-    rc=1
-    $ bash scripts/ops/install-log-retention.sh --dry-run   # after
-    DRY RUN -- no files will be written.
-    … 5 rotating patterns …
-    rc=0
-
-**Note for the next agent, it cost me a wrong turn:** this session runs in a
-git worktree at `/tmp/ao-sessions/wt-ops-a`, so `/ALWAYSON/config/host/` does
-**not** contain the staged files — `ls /ALWAYSON/config/host/journald-alwayson.conf`
-→ *No such file or directory*, and the live
-`logrotate-alwayson.conf` there is the older 1225-byte version. The installer
-reads from `/ALWAYSON`, so from a worktree its preflight correctly refuses with
-`staged source missing`. That is the guard working, not a bug.
-
-**Operator action required:** run
-`pkexec bash /ALWAYSON/scripts/ops/install-log-retention.sh`, then confirm one
-rotation occurs (`logrotate -v /etc/logrotate.d/alwayson` or wait for
-`logrotate.timer`).
-
-Files changed: `scripts/ops/install-log-retention.sh` (new),
-`config/host/logrotate-alwayson.conf` (header + subdirectory comment),
-`agents/COORDINATION/…/17-…/section.md` (§17.5).<br><br><strong>Evidence:</strong><br><code>$ ls /etc/logrotate.d/ | grep -i alwayson || echo 'NOT installed'<br>NOT installed<br>$ ls /etc/systemd/journald.conf.d/ | grep -i alwayson || echo 'NOT installed'<br>NOT installed<br>$ sudo -n true<br>sudo: interactive authentication is required</code></td>
-</tr>
 <tr>
 <td valign="top">OPS-26</td>
 <td valign="top"><strong>Retention for the log subdirectories and for journald</strong></td>
@@ -2158,6 +2098,40 @@ verification checks against the running system. Nothing listed here is outstandi
 </tr>
 </thead>
 <tbody>
+<tr>
+<td valign="top">OPS-25</td>
+<td valign="top"><strong>Install the logrotate policy</strong></td>
+<td valign="top">ST-01</td>
+<td valign="top"><strong>Implemented</strong></td>
+<td valign="top">§16.3</td>
+<td valign="top"><strong>CLOSED 17-backup-restore-monitoring-and-completion-criteria.</strong> Installed and confirmed by an observed rotation, not by an exit code.
+
+Two things had to be fixed before the install would have worked. Two logs in
+`operations/` — `pkexec-post-deploy.log` and `apply-20260831-fixes.log` — were
+owned by root, so the `su scottw scottw` block could not rotate them. The first
+attempt at fixing this gave them their own policy block, which was wrong: the
+existing `operations/*.log` wildcard already matched them, so logrotate rejected
+the whole file with `duplicate log entry for
+/ALWAYSON/logs/operations/apply-20260831-fixes.log` and exit 1. That would have
+made the daily timer fail. They are chowned to `scottw:scottw` instead; they are
+the only two non-scottw logs under `/ALWAYSON/logs` and nothing needs them
+root-owned. `find /ALWAYSON/logs -name '*.log' ! -user scottw` now returns 0.
+
+The confirmation worth recording: an ordinary `logrotate -v` run returned
+**exit 0 while rotating nothing** — it reported "log does not need rotating
+(log has already been rotated)". Treating that exit code as proof would have
+closed this item on a no-op. The forced run is the evidence: 13 rotated files
+created, `agent-install.log` renumbered .2 through .16 against its 400-rotation
+budget, and `audit.log` moved from inode 18219280 to 18223513 with the new file
+created `scottw:scottw 0664`.
+
+The policy uses `nocopytruncate`, which is only safe if writers reopen the file
+per write. `ao_backup_run` and `ao_restore_test` in `scripts/lib/common.sh`
+append with `&gt;&gt;` on every call and hold no descriptor, so a rename cannot
+orphan a writer. Proved rather than assumed: after rotation, calling
+`ao_backup_run` wrote into the new `backup.log` while `backup.log.1` stayed at
+1247 bytes, so nothing was written into the rotated inode and lost.<br><br><strong>Evidence:</strong><br><code>$ ls -la /etc/logrotate.d/alwayson<br>-rw-r--r-- 1 root root 4588 Oct  4 00:16 /etc/logrotate.d/alwayson</code></td>
+</tr>
 <tr>
 <td valign="top">OPS-34</td>
 <td valign="top"><strong>Grafana reads SQLite through snapshots, never the live personal databases</strong></td>
