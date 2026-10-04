@@ -119,7 +119,7 @@ function applySobel(imgData, w, h) {
       if (m < EDGE_MIN) continue;
       // ramp: below EDGE_MAX is fully inked, then fades out
       const t = Math.min(1, (m - EDGE_MIN) / (EDGE_MAX - EDGE_MIN));
-      const k2 = 1 - t * 0.97;
+      const k2 = 1 - t * 0.80;
       const o = (y * w + x) * 4;
       px[o]   = px[o]   * k2;
       px[o+1] = px[o+1] * k2;
@@ -127,7 +127,7 @@ function applySobel(imgData, w, h) {
     }
   }
 }
-const EDGE_MIN = 5, EDGE_MAX = 46;
+const EDGE_MIN = 9, EDGE_MAX = 52;
 
 // Minimal CDR decoder for sensor_msgs/msg/Image, then blit to a canvas.
 //
