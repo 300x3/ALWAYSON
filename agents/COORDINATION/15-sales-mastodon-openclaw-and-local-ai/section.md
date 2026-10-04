@@ -171,6 +171,33 @@ other service. Human approval remains required for pricing, orders, shipping,
 warranties, financial topics, technical claims, safety guidance, legal
 statements, and any publication outside the local bridge workflow.
 
+Bridge state re-verified 2026-10-03 (evidence for COMM-04):
+
+- **Auth half.** The wallet-held bot token is valid. `verify_credentials` returns
+  HTTP 200 for `acct=bot, id=117363090433277638` against
+  `https://mastodon.300x3.com`. The token value was never printed — only its length
+  (43 characters) was measured.
+- **Script identity.** The unit runs `/ALWAYSON/scripts/mastodon/mastodon-openclaw-bridge.py`.
+  `~/.local/bin/mastodon-openclaw-bridge.py` is a byte-identical copy, not a symlink —
+  `sha256` is `486e7472…99c19` for both. Editing the `/ALWAYSON` copy is therefore *not*
+  sufficient to change live behaviour until the unit is restarted; this is the same
+  copy-not-symlink trap as Quadlets.
+- **Operator decision honoured.** Line 281 of the bridge posts with
+  `'visibility': 'public'` and retains the `@author` mention prefix, matching the
+  2026-10-01 operator decision. Confirmed in *both* copies above, so no stale
+  `unlisted` variant is hiding in the deployed file.
+- **Cursor is current but idle.** `~/.openclaw/mastodon-bridge-state.json` holds
+  `lastNotificationId: "7"`, while `max(notifications.id)` is 8. The two
+  notifications (ids 7 and 8, both `follow` from `300x3@mastodon.social`) are not
+  `mention`/`status` types, so the bridge correctly ignores them; the state file is
+  simply not rewritten for skipped types. Last write was 2026-10-02 00:27 UTC, ~49.9 h
+  before measurement. This is expected idleness, **not** the stale-cursor fault
+  described in COMM-04 — that earlier fault (cursor ahead of the newest id) is fixed
+  and the bridge's own recovery log line is present in the journal.
+- **No 401 crash-loop regression.** `systemctl --user status` shows the unit
+  `active (running) since Thu 2026-10-01 18:50:55 PDT; 2 days ago`, with no restart
+  loop, and the service has consumed 719.9 M peak memory across a clean run.
+
 ## 15.3 Local 300X3 Mastodon Deployment
 
 The 300X3 Mastodon instance (Mastodon 4.3.7, containerized in the authoritative
@@ -200,8 +227,13 @@ Architecture requirements and verified state:
   `https://mastodon.300x3.com/.well-known/webfinger`.
 - The tunnel currently uses HTTP/2 transport because QUIC stream timeouts were
   observed on this host. Local and public health checks returned HTTP 200.
-- Open registration remains enabled with the approval gate; approval applies
-  to new account registration, not to following an existing local account.
+- **Open registration is closed.** Measured 2026-10-03: `/api/v1/instance` reports
+  `registrations=false, approval_required=false`, and no `registrations` row exists in the
+  `settings` table. There is no approval queue and no pending registration. Account
+  creation on this instance is an operator action performed directly in the admin UI.
+  (An earlier revision of this bullet claimed registration was "open with the approval
+  gate"; that was contradicted by both the API and the database on 2026-10-03 and has
+  been corrected here.)
 - No passwords, OAuth secrets, API keys, tunnel credentials, or access tokens
   are committed to Git or recorded in this README.
 
@@ -237,25 +269,46 @@ Open configuration drift against these values is tracked in §19.1.
 
 ### 15.4.2 Domain and Mastodon Identity Configuration
 
-Environment changes applied to the authoritative service-account
-`mastodon.env` on 2026-09-24:
+The authoritative runtime env (`LOCAL_DOMAIN=mastodon.300x3.com`) as re-measured
+2026-10-03, from `~/.local/share/ao-secrets/mastodon.env`, non-secret keys only:
 
 ```text
 LOCAL_DOMAIN=mastodon.300x3.com
-LOCAL_HTTPS=false
-RAILS_FORCE_SSL=false  # Cloudflare edge terminates public TLS
-ALTERNATE_DOMAINS=localhost,127.0.0.1
+RAILS_FORCE_SSL=true
+LOCAL_HTTPS=true
+ALTERNATE_DOMAINS=localhost,localhost:3000,127.0.0.1,127.0.0.1:3000
 ```
 
-Both switches above are **inert** and are set only to agree with intent.
-Upstream hardcodes `config.force_ssl = true`
-(`config/environments/production.rb`) and
-`https = Rails.env.production?` (`config/initializers/1_hosts.rb`), so in
-production Rails always emits absolute `https://` URLs and always redirects
-plain HTTP. Setting these to `false` does not change that; it was verified on
-2026-10-01 that `http://127.0.0.1:3000/` still answers
-`301 -> https://127.0.0.1:3000/`. The local UI is therefore served over TLS by
-the loopback proxy (§9.2.1), not by relaxing Mastodon.
+> **Correction 2026-10-03 (COMM session).** An earlier revision of this section stated
+> `LOCAL_HTTPS=false` and `RAILS_FORCE_SSL=false`, applied "2026-09-24". That was wrong —
+> both keys have always been `true` in the runtime env, in the generator
+> `scripts/operations/fetch-mastodon-env.sh` (lines 42–43) and in
+> `config/mastodon/mastodon.env.example` (lines 36–37). The measurement below proves
+> the claim was never needed: upstream hardcodes `config.force_ssl = true`
+> (`config/environments/production.rb`) and `https = Rails.env.production?`
+> (`config/initializers/1_hosts.rb`), so in production Rails always emits absolute
+> `https://` URLs and always redirects plain HTTP. Re-measured 2026-10-03:
+
+```console
+$ curl -s -o /dev/null -w '%{http_code} redirect=%{redirect_url}\n' http://127.0.0.1:3000/
+301 redirect=https://127.0.0.1:3000/
+```
+
+The local UI is therefore served over TLS by the loopback proxy (§9.2.1), not by
+relaxing Mastodon. Leaving the keys `true` keeps the env self-describing and matches
+what the generator actually writes.
+
+Registration state is also **not** as previously recorded here. Measured
+2026-10-03 against the live instance:
+
+```console
+$ curl -s https://mastodon.300x3.com/api/v1/instance | python3 -c "import sys,json;d=json.load(sys.stdin);print(d.get('registrations'), d.get('approval_required'))"
+False False
+```
+
+Registration is **closed** (`registrations` absent from the `settings` table, which
+Mastodon treats as disabled). There is therefore no approval queue to operate. See
+COMM-03 in §19.1.
 
 - WebFinger and actor JSON resolve through the public federation hostname.
 - The main storefront remains on `300x3.com` / `www.300x3.com`.
@@ -347,6 +400,30 @@ stated here, because a specification does not carry its own status.
 Steps 1 through 7 are complete; see §19.1 ST-13 and ST-14 for the evidence and for what
 remains on the federation edge.
 
+Step 8 status as measured 2026-10-03: **the reverse-follow verification half is done**
+and is recorded in §15.4.9, read from the remote `following` collection of
+`300x3@mastodon.social` and cross-checked against the local `follows` table — never from
+local outgoing state alone. A *fresh signed* ActivityPub round-trip is **not** re-run
+here, because doing so posts publicly and needs operator approval (COMM-07). The
+sidekiq queues are empty, which shows nothing is stuck:
+`LLEN queue:push_public = 0`, `LLEN queue:pull = 0`, and `redis-cli KEYS 'queue:*'`
+returns an empty array.
+
+Step 9 status as measured 2026-10-03: first contact **has** occurred, so the instance is
+no longer unindexed. Evidence — 10 distinct remote domains are now known locally
+(`mastodon.social`, `veganism.social`, `mastodon.online`, `universeodon.com`,
+`mastodonapp.uk`, `rivals.space`, `cupoftea.social`, `sekretaerbaer.de`, `fedibook.de`,
+`friendicadev.sekretaerbaer.de`) and `mastodon.social` holds our actor. The one part of
+step 9 not performed is the **human** step — signing in with Konqueror and following from
+the browser UI. That requires the operator at the desktop and is not something a headless
+session can or should fake. Tracked as COMM-06; status Open.
+
+Step 10 has two parts and neither is complete. Public-post delivery and round-trip
+re-validation need a **new public post**, which is an external publication and is
+withheld pending operator approval; directory submission to joinmastodon.org is
+explicitly named in §19.1 as requiring explicit operator approval. Neither was performed.
+Tracked as COMM-07; status Open.
+
 ### 15.4.5 Operational Boundaries After Enablement
 
 - Only `public` visibility federates; `unlisted`, `private`, and
@@ -359,5 +436,136 @@ remains on the federation edge.
   practically irreversible.
 - Publication audit logging (immutable, Section 15.2) must include the
   remote-delivery outcome for federated statuses.
+
+### 15.4.6 Remote Account Approval and Rejection Record
+
+This is the standing moderation record for **remote** accounts contacting this
+instance, deliberately kept separate from the local follow relationships in §15.4.4.
+It is written here so that an approval or rejection decision is auditable rather than
+inferred from follow state.
+
+State measured 2026-10-03 directly from the `mastodon-db` container:
+
+```console
+$ podman exec mastodon-db psql -U mastodon -d mastodon -At -c \
+  "select 'blocks='||(select count(*) from blocks)
+        ||' domain_blocks='||(select count(*) from domain_blocks)
+        ||' account_domain_blocks='||(select count(*) from account_domain_blocks)
+        ||' email_domain_blocks='||(select count(*) from email_domain_blocks)
+        ||' canonical_email_blocks='||(select count(*) from canonical_email_blocks)
+        ||' follow_requests='||(select count(*) from follow_requests)
+        ||' invites='||(select count(*) from invites)
+        ||' ip_blocks='||(select count(*) from ip_blocks)
+        ||' user_invite_requests='||(select count(*) from user_invite_requests);"
+blocks=0 domain_blocks=0 account_domain_blocks=0 email_domain_blocks=0
+canonical_email_blocks=0 follow_requests=0 invites=0 ip_blocks=0 user_invite_requests=0
+```
+
+| Date | Remote account | Action | Basis |
+|---|---|---|---|
+| 2026-10-01 | `300x3@mastodon.social` (remote mirror of the project's own service account, `actor_type=Service`, `bot=true`) | **Accepted** — bidirectional follow established with `bot` and `admin`. No block recorded. | Self-owned account; it is the project's own `300x3` mastodon.social identity, so blocking it would sever the operator's own remote presence. Not a third party. |
+| 2026-10-01 | `Gargron@mastodon.social` (remote third party, `actor_type=Person`) | **Accepted as a remote actor, not followed** — `bot` follows `Gargron`; no reverse follow exists and none is expected. No block recorded. | An ordinary public-account follow in the direction local→remote. Not a moderation event. |
+| — | All other contacting remote accounts | No action. Discovery relays (`veganism.social`, `mastodon.online`, `universeodon.com`, `mastodonapp.uk`, `rivals.space`, `cupoftea.social`, `friendica@sekretaerbaer.de`, `friendica@fedibook.de`, `friendica@friendicadev.sekretaerbaer.de`) are **automatically fetched service-discovery actors**, not user accounts and not approval candidates. | Discovery contacts are protocol artefacts, not sign-ups. |
+
+There are **no pending remote approval requests**: `follow_requests = 0` and
+`user_invite_requests = 0`, which is consistent with registration being closed (§15.4.2).
+Nothing in the moderation tables is self-populating, so this table is the record of
+record — a future block or approval must be added as a row here by the operator, per
+§15.4.1 "Operator duties". No remote account has been rejected to date.
+
+### 15.4.7 Inbound and Outbound Mail for the 300X3 Domain
+
+Mail for `300x3.com` is **not configured and currently cannot be delivered**. This is
+recorded here because Mastodon's account-confirmation and password-reset mail depends on
+it, and because "no MX" is a decision state, not an oversight.
+
+Measured 2026-10-03:
+
+```console
+$ dig +noall +answer MX 300x3.com; echo "answers=$(dig +noall +answer MX 300x3.com | wc -l)"
+answers=0
+$ dig +noall +answer TXT 300x3.com          # no SPF
+$ dig +noall +answer TXT _dmarc.300x3.com   # no DMARC
+$ dig +noall +answer A  mail.300x3.com      # no mail host
+$ ss -lntp | grep -E ':(25|465|587)\b'      # no local SMTP listener
+```
+
+With no MX, RFC 5321 §5.1 falls back to the implicit MX, which is the domain's A record
+(the Cloudflare edge addresses). Port 25 to those addresses does not answer:
+
+```console
+$ for IP in 172.67.163.66 104.21.41.83; do echo > /dev/tcp/$IP/25 && echo "$IP:25 OPEN" || echo "$IP:25 no-answer/closed"; done
+172.67.163.66:25 no-answer/closed
+104.21.41.83:25 no-answer/closed
+```
+
+Consequence: **all mail to `@300x3.com` is silently undeliverable.** This affects the
+local Mastodon accounts, whose registered addresses are `admin@300x3.com` and
+`bot@300x3.com`. Password resets and any confirmation mail cannot arrive. Because the
+instance has open registration closed and no pending approvals, this is currently
+non-blocking for federation, but it is a real gap.
+
+Resolution requires an operator decision between the options in §19.1 COMM-05 and is
+**not** taken unilaterally here: pointing MX at a hosted relay, standing up a local MTA
+(both a new public listener on port 25 and a new package — rule 3 and rule 12), or
+formally deferring mail and documenting that address-based recovery is unsupported.
+Tracked as COMM-05; status Open.
+
+### 15.4.8 Known Configuration Drift Against `mastodon.300x3.com`
+
+Reconciled audit performed 2026-10-03. **The service runtime is correct** — the live
+instance is genuinely `mastodon.300x3.com` and federation works. The drift is confined
+to documentation and helper artefacts, all of which emit the superseded apex
+`300x3.com`. The entries below are exact so the owning session can apply them without
+re-deriving the evidence; none of these files is owned by this session, so none was
+edited here.
+
+| # | File | Line | Currently | Should be | Consequence |
+|---|---|---|---|---|---|
+| D1 | `config/mastodon/mastodon.env.example` | 7 | `LOCAL_DOMAIN=300x3.com` | `LOCAL_DOMAIN=mastodon.300x3.com` | Template would provision a wrong-identity instance. **Highest severity of the four.** |
+| D2 | `scripts/operations/fetch-openclaw-mastodon-env.sh` | 17 | `printf 'MASTODON_SERVER=https://300x3.com\n'` | `https://mastodon.300x3.com` | `MASTODON_SERVER` points at the static storefront, so every consumer of this helper posts to a non-Mastodon host. |
+| D3 | `scripts/operations/fetch-openclaw-mastodon-env.sh` | 19 | `printf 'MASTODON_BOT_EMAIL=300x3@posteo.net\n'` | `bot@300x3.com` | Superseded third-party mailbox identity. |
+| D4 | `config/mastodon/instance-policy.yaml` | 9 | `"https://300x3.com at the Cloudflare edge ... tunnel ao-mastodon-federation"` | `https://mastodon.300x3.com` | Names the retired network name `ao-mastodon-federation` and the apex host. |
+| D5 | `config/mastodon/instance-policy.yaml` | 8, 16, 34 | `approved_pub_host: "300x3.com"`; Tokodon origin `https://300x3.com` | `mastodon.300x3.com` | Approved publication host must be the federation host. |
+| D6 | `config/mastodon/instance-policy.yaml` | 24 | `registrations: "open with approval gate (approval_required: true)"` | `"closed"` | **Contradicted by the live instance** (`registrations=false`); see §15.4.2. |
+| D7 | `config/mastodon/instance-policy.yaml` | 18–19 | `admin@300x3.com`, `bot@300x3.com` | correct — matches the database | No change. |
+| D8 | `config/platform/version-matrix.yaml` | 41 | `local_domain: "mastodon.300x3.com"` | correct | Already reconciled 2026-10-01. Images are digest-pinned at v4.3.7, matching the running container. |
+| D9 | `config/platform/version-matrix.yaml` | 51 | note: `RAILS_FORCE_SSL/LOCAL_HTTPS are set false but are INERT … loopback proxy at https://127.0.0.1:3300` | `set true`; and the proxy port is **3000**, not 3300 | **Second instance of the same §15.4.2 error**, plus an independent port typo. Propagates the false claim into the platform matrix. |
+
+Proof that D2/D3 are live rather than theoretical: `scripts/mastodon/post.sh` line 17
+calls `fetch-openclaw-mastodon-env.sh` on every invocation and line 21 consumes
+`MASTODON_SERVER`. Any `post.sh` run therefore targets `https://300x3.com`.
+
+Current versions confirmed correct and needing no change: Mastodon `4.3.7` (§15.3),
+`tunnel alwayson-mastodon-federation` running `--protocol http2`, and the runtime
+`LOCAL_DOMAIN=mastodon.300x3.com`. Tracked as COMM-01; status Open pending the edits
+above, which belong to the session owning `config/` and `scripts/`.
+
+### 15.4.9 Federation Contact Asymmetry (measured, not a fault)
+
+Recorded because it looks like drift and is not. Measured 2026-10-03 from both sides:
+
+```console
+$ curl -s 'https://mastodon.social/api/v1/accounts/115945980770248178/following?limit=80'
+count= 2
+admin@mastodon.300x3.com | https://mastodon.300x3.com/@admin
+bot@mastodon.300x3.com   | https://mastodon.300x3.com/@bot
+```
+
+The remote `following` collection of `300x3@mastodon.social` confirms **both** local
+accounts follow it — the acceptance condition for COMM-02, read from the remote server
+rather than inferred locally. The reverse is **not** symmetric: `300x3@mastodon.social`
+lists only `bot` among its followers, and local `follows` rows 3 and 4 (`300x3@mastodon.social`
+→ `bot`, → `admin`) were created by that remote account's own requests. `admin` has no
+outgoing remote follow. `bot` has none either, locally: the only local→remote row is
+`bot → admin` (row 1).
+
+`Gargron@mastodon.social` was paginated to exhaustion (25 pages, 2000 follower entries)
+and **does not** follow any `300x3.com` account. That is correct and expected: the
+`follows` row 2 (`Gargron → bot`) is a record that *Gargron* follows *our bot*, which is
+the remote account's business, not a reciprocal requirement.
+
+This asymmetry is a property of how ActivityPub follow requests work, not a defect. It
+is written down so a future session does not "fix" it by adding follows.
 
 ---
