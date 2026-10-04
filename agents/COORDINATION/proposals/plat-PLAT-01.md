@@ -133,3 +133,59 @@ catches it. The `grep -c '^ao-'` form with a control pattern is now in §2.5 as 
 
 `OPS-14` asks for this same reconciliation and can close on §13.2.1, but §19.1 is not
 mine to edit — the compiler merges that row.
+## Third pass 2026-10-04 — the rootful store was enumerable all along
+
+Re-verification reproduced every finding above, and then **overturned one of my own claims**.
+§13.2.1 said the rootful store's "contents are `drwx------ root root`" and that enumerating it
+"needs one `sudo` command and operator approval". **Both wrong, and I had not tested either.**
+
+```
+$ stat -c '%A %U:%G %n' /var/lib/containers/storage
+drwxr-xr-x root:root /var/lib/containers/storage
+$ stat -c '%A %n' /var/lib/containers/storage/overlay-images/
+drwx------ /var/lib/containers/storage/overlay-images/     # the 0700 is the CHILD, not the root
+$ ls -la /var/lib/containers/storage/ | sed -n '4p'
+-rw-r--r-- 1 root root 114688 Sep 30 20:26 db.sql            # world-readable
+
+$ python3 -c "import sqlite3; c=sqlite3.connect('file:/var/lib/containers/storage/db.sql?mode=ro',uri=True); print({t: c.execute('select count(*) from '+t).fetchone()[0] for t in ('ContainerConfig','ContainerState','ContainerExitCode','VolumeConfig','PodConfig','ContainerDependency')})"
+{'ContainerConfig': 0, 'ContainerState': 0, 'ContainerExitCode': 0, 'VolumeConfig': 0, 'PodConfig': 0, 'ContainerDependency': 0}
+```
+
+**The rootful store holds no containers, no pods, no volumes and no dependency records.** The
+store root is `drwxr-xr-x` and `db.sql` is `0644`, so this needed **no `sudo` and no operator
+approval** — the thing I said needed approval. This upgrades the single-store designation from
+"unused by any workload" to "contains no workload records at all", and it makes `PLAT-01`'s
+"mixed-store deviation closed or confirmed" answer unambiguous: **there is no mixed store and
+nothing left in the rootful store that a workload could have used.**
+
+`ContainerConfig` has columns `ID, Name, PodID, JSON`, and that JSON would carry `Env` — so I
+selected counts only and **never printed a row value**. `sqlite3(3)` is not installed; Python's
+`sqlite3` module needs no package.
+
+**Still open, narrower:** `overlay-images/` is `0700` and `ls` on it returns `Permission denied`
+as uid 1000, so **residual image blobs are still unverified**. Last write `2026-09-30` is
+consistent with images predating the rootless migration but does not prove it; the rootless store
+has 102 image records and is fully enumerable. One `sudo` command would settle it — recommended
+action, **no automatic action taken, no deletion proposed.**
+
+### What I got wrong, sixth time: I asserted a mode I never measured
+
+I wrote `drwx------ root root` for the store root and built an OPEN item on it. I had observed
+`Permission denied` from `ls overlay-images/` and inferred the *store's* mode from the
+*child's*. `ls` failing tells you about the path you asked for, not its parent. I generalised a
+child's mode to its parent and then reported the parent as unreadable.
+
+Worse, I converted that error into a **needless approval gate** — "enumerating it needs one
+`sudo` command and operator approval". The correct claim was free and instant. An unverifiable
+OPEN item is worse than an absent one, because the next agent inherits the constraint and either
+believes the store is opaque or asks the operator for permission to do nothing.
+
+The class of bug is **inferring a fact about a parent from a child's attributes**, and it is the
+same class as the `wc -l` mistake above it: the conclusion was plausible, the supporting command
+had never been run. Three of my six errors here are of this shape — a plausible story attached
+to a measurement I did not make. Rule 5 exists precisely because I keep violating it.
+
+I also reproduced it *inside this correction*: my first draft cited the enumeration as a
+two-line `python3 -c` with an indented continuation, which raises `IndentationError` and
+produces no output. I caught it by replaying every citation before committing and rewrote it as
+a single verified line.
