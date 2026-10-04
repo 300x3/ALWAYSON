@@ -1306,6 +1306,9 @@ which prints one row per registered network and a footer carrying the asserted
 counts. The two prose columns — what the network belongs to, and what is attached
 to it — are architecture, not runtime state, and are maintained here.
 
+Every network's *Attached now* count below was re-measured against the running
+host on **2026-10-04**, and every row now agrees with it.
+
 | Network | Subnet | Internal | Belongs to (§5.1) | Attached now |
 |---|---|---|---|---|
 | `ao-sales` | 10.89.0.0/24 | **false** | Mastodon stack, `ao-sales-db`, orders and AI chat | `mastodon-web` `-sidekiq` `-db` `-redis` `-streaming`, `ao-sales-db` (6) |
@@ -1313,19 +1316,71 @@ to it — are architecture, not runtime state, and are maintained here.
 | `ao-field` | 10.89.2.0/24 | true | Heltec gateway, RNS/MeshChatX, telemetry spool, mission-release | **none** — gateway runs on host USB serial (ST-22) |
 | `ao-mapping` | 10.89.3.0/24 | true | WebODM, NodeODM, Redis, mapping DB, imagery intake/exporter | `ao-webodm-webapp` `-worker` `-db` `-broker`, `ao-nodeodm` (5) |
 | `ao-sim-vehicle` | 10.89.4.0/24 | true | ROS 2, Gazebo, ArduPilot SITL, MAVLink, QGC | **none** — Gazebo is host-installed; `ao-ardupilot-sitl.container` never deployed |
-| `ao-sim-fabrication` | 10.89.5.0/24 | true | ROS 2, Gazebo; rehearses the engineering/production flow | `ao-sim-fabrication-gz` (1) |
+| `ao-sim-fabrication` | 10.89.5.0/24 | true | ROS 2, Gazebo; rehearses the engineering/production flow | `ao-sim-fabrication-gz`, `ao-sim-fabrication-foxglove` (2) |
 | `ao-ledger-ingest` | 10.89.6.0/24 | true | mTLS validation gateway, authorization, audit, idempotency | **none** |
 | `ao-ledger-core` | 10.89.7.0/24 | true | Corda node, Corda database, certificate/keystore | **none** |
 | `ao-data` | 10.89.8.0/24 | true | Narrow controlled data plumbing **where unavoidable** | **none — correct by design.** ST-29: host services stay loopback-only; §5.1 forbids it becoming a universal shared network |
 | `ao-admin` | 10.89.9.0/24 | true | Prometheus, node_exporter, Grafana, Metabase, backup/restore | `ao-grafana`, `ao-metabase`, `ao-prometheus`, `ao-node-exporter` (4) |
-| `ao-reporting-egress` | 10.89.10.0/24 | **false** | Egress for reporting sources only | `ao-grafana`, `ao-metabase` (also on `ao-admin`) |
+| `ao-reporting-egress` | 10.89.10.0/24 | **false** | Egress for reporting sources only | `ao-grafana`, `ao-metabase` (2) (also on `ao-admin`) |
 | `ao-fabrication` | 10.89.12.0/24 | true | Real (non-simulated) fabrication; per-machine production data | `ao-fabrication-db` (1) |
 | `ao-build-update` | 10.89.13.0/24 | **false** | Controlled software-update acquisition (§5.2.1) | none — scaffolded, not enabled |
-| `ao-html-window` | 10.89.14.0/24 | true | View-only HTML window for the 300x3.com storefront (ES.2) | none |
+| `ao-html-window` | 10.89.14.0/24 | true | Operator-facing read-only display network for local 3D/2D HTML renders; `Internal=true` deliberately, reached by loopback `PublishPort` only | `ao-sim-fabrication-foxglove` (1) — dual-homed with `ao-sim-fabrication`, see below |
 
 Two `ao-*` networks named in earlier drafts appear in the topology but were in no
 table; both are now rows above: `ao-html-window` (`10.89.14.0/24`) and
 `ao-build-update` (`10.89.13.0/24`).
+
+### 5.1.2 The one dual-homed container, and why
+
+The *one network per component* rule above permits a second attachment only where
+the approved access path says so explicitly. Exactly one container holds two:
+`ao-sim-fabrication-foxglove`, on `ao-sim-fabrication` (its own domain) and on
+`ao-html-window` (the read-only display network).
+
+```text
+$ podman inspect ao-sim-fabrication-foxglove \
+    --format '{{range $k,$v := .NetworkSettings.Networks}}{{$k}} {{end}}'
+ao-html-window ao-sim-fabrication
+```
+
+Both halves are load-bearing, and the reason is mechanical rather than a
+convenience: two `Internal=true` bridges do not route to each other, so a
+container on one cannot reach a peer on the other. The bridge must sit on both to
+carry Gazebo topics out to the browser-facing surface. The `Network=` lines in
+`quadlet/sim-fabrication/ao-sim-fabrication-foxglove.container` state this, and
+§10.2 records the operational consequence.
+
+The security consequence is bounded and worth stating plainly: the two networks
+are joined by one container, so anything reachable on `ao-sim-fabrication` is
+reachable from `ao-html-window` by going through it. Both are `Internal=true`, so
+neither carries a route off the host, and the bridge publishes nothing but its
+loopback `127.0.0.1:8081` WebSocket. This is a bridge between two internal
+segments, not an egress path.
+
+**This row previously said "none" was attached, and that was wrong** — it was
+written when the network was empty and never re-measured after the Foxglove
+bridge was deployed. The whole *Attached now* column is host state and goes
+stale silently; it is stated here as measured on the date below, not as a
+permanent fact. `--emit-table` covers only the two generated columns, so the
+attachment column must be re-measured directly:
+
+```bash
+for n in ao-sales ao-payment ao-field ao-mapping ao-sim-vehicle \
+         ao-sim-fabrication ao-ledger-ingest ao-ledger-core ao-data ao-admin \
+         ao-reporting-egress ao-fabrication ao-build-update ao-html-window; do
+  printf '%-22s %s\n' "$n" \
+    "$(podman network inspect "$n" --format \
+        '{{range .Containers}}{{.Name}} {{end}}' | wc -w)"
+done
+```
+
+**`ao-html-window` is not the storefront window.** ES.2 describes it as
+public-facing egress to 300x3.com, and this row used to repeat that. The
+deployed unit and network file say otherwise: the network is `Internal=true`
+with no route off the host, and it serves the operator's own browser over
+loopback. ES.2 is not my file and I have not edited it; the divergence is
+recorded in `proposals/net-NET-05.md` for the executive-summary session and the
+operator. I corrected only my own row, to match the deployed unit.
 
 `10.89.11.0/24` is deliberately unallocated and is reserved for
 `ao-egress-community`, which is **retired**. Verified 2026-10-03: no podman
@@ -1473,12 +1528,17 @@ and could not perform acquisition. `ao-admin` is `Internal=true` and is
 additionally the monitoring and reporting plane, so an update audit record does
 not belong on it. No workload container is attached to this network.
 
-**Containment — required, not yet enforced.** Acquisition over HTTPS/443 to the
-registry hosts named in `config/build-update/registry-allowlist.yaml` is the
-*only* outbound this adapter is permitted to make. See the status note above:
-that restriction is not currently enforced by any mechanism, and this paragraph
-states the requirement the adapter must meet, not a control that is operating.
-The allowlist is mounted read-only, so the adapter cannot widen its own boundary.
+**Containment — enforced in code, unenforced at the segment.** Acquisition over
+HTTPS/443 to the registry hosts named in
+`config/build-update/registry-allowlist.yaml` is the *only* outbound this
+adapter is permitted to make. That restriction **is** a working control in this
+script: it reads the allowlist at runtime and refuses anything not on it, and
+refuses unpinned references, exiting non-zero on both (verified by execution
+above). What is *not* enforced is the network segment — see the status note.
+This paragraph previously said the restriction was "not currently enforced by
+any mechanism", which contradicted the verified results directly above it and
+was wrong; it conflated the two controls the status note separates. The
+allowlist is mounted read-only, so the adapter cannot widen its own boundary.
 `packages.ros.org` is on an explicit deny list rather than merely absent, because
 it fails TLS verification from this host and that verification is deliberately
 not disabled. The adapter publishes no port and serves no listener; it runs as a
@@ -3917,6 +3977,10 @@ running; that correction is the reason this subsection exists.
   `origin [5.981314, 1.861669, 0.531531]` with `extent [0.84, 1.672391, 1.238532]`, whose midpoint
   is the centroid `(6.4013, 2.6979, 1.1508)`, and the world comment records that every camera
   sits outside the massing envelope. `elev_arms` is at `6.401 4.056 1.151 0 0.0000 -1.5708`.
+  **Superseded in part, 2026-10-04 — see "SIM-09 re-opened and properly closed" below.** The
+  arithmetic above was right, but §19 asks for two further things and neither was then true:
+  `boning.yaml` stated no `centroid:` at all, and the camera pose was a hand-written literal
+  that no code derived from the datum. Both are now done.
 - **SIM-06 is partly satisfied and partly untested.** The image carries the SVG plugin and the
   media root is correct, but the GUI unit is `UnitFileState=generated` with no `[Install]`
   section, so it cannot autostart; `ActiveState=inactive`, `NRestarts=0`. A restart count of zero
@@ -3998,12 +4062,121 @@ operator decision. SIM-08 is a publishing decision and was not touched — no pu
 or Cloudflare config was modified. SIM-03 (QGroundControl) is not installed on this host and
 no install was attempted.
 
+### 10.5 SIM-09 re-opened and properly closed, and a cross-session hazard
+
+Measured 2026-10-04 in worktree `/tmp/ao-sessions/wt-sim` (branch `ai-sim`, base `1332005`).
+
+#### SIM-09 is now closed against the actual acceptance criteria
+
+§19 requires the centroid to be *added to the boning data* and the pose *recomputed from it*.
+Commit `365bd42` satisfied neither: `boning.yaml` had no `centroid:` field, and the pose was a
+literal in `factory.world` — the only file in `GAZEBO/`, `scripts/` or `quadlet/` mentioning
+`camera_elev_arms`. So the two could silently disagree again, which is the recurrence the
+item exists to prevent. Both are now done:
+
+- `centroid:` added to all three cell datums, each equal to `origin+extent/2`.
+- New `scripts/simulation/build-boning-cameras.py` derives each elevation pose from a new
+  `elevation_cameras:` block in `boning.yaml` (`centroid_offset` + `yaw`).
+
+The generated poses are byte-identical to the hand-written ones — correct, since §19 records
+the three standoffs as already sound. This removes the manual re-aiming step and changes no
+rendered view. A semantic XML comparison of the three `<model>` elements, HEAD vs now, is
+identical after whitespace normalisation.
+
+Guards, each proved by making it fail: standoff drift → `--check` exits 1; a stated centroid
+disagreeing with `origin+extent/2` → refuses to generate; an XML comment containing `--` →
+refuses. **The last one I hit for real** — my first generated block contained the literal
+`--write` in a comment, and XML comments may not contain `--`, so the world stopped parsing.
+
+    $ python3 scripts/simulation/build-rl-objects.py --check     -> OK (exit 0)
+    $ python3 scripts/simulation/build-boning-cameras.py --check  -> OK (exit 0)
+    $ gz sdf -k GAZEBO/worlds/factory.world                      -> Valid.
+
+#### Hazard: `--write` from any worktree was rewriting the LIVE world
+
+`build-rl-objects.py` hardcoded `OBJECTS`/`WORLD` to `/ALWAYSON/...`. With one git worktree
+per session, running `--write` from a worktree rewrote the live `/ALWAYSON` world instead of
+the checkout in front of you, and `--check` reported on a file the caller was not editing.
+
+Ten of the eleven worktrees still hold that defective copy, **and** they predate main's
+`SPECULAR`/`SHININESS` fix (`a05f018`), so `--write` from one of them strips every
+`<specular>` from the live world. This fired during this session: `/ALWAYSON`'s world was
+rewritten at 13:12:01 and its `rl_objects` specular count fell from **9 to 0**.
+
+Restored and verified — `/ALWAYSON/GAZEBO/worlds/factory.world` is byte-identical to its
+committed state, `bce32f2a…`, 63205 bytes, 9 specular, `--check` OK, `gz sdf -k` Valid:
+
+    $ git -C /ALWAYSON status --short -- GAZEBO/worlds/factory.world   -> empty
+    $ sha256sum /ALWAYSON/GAZEBO/worlds/factory.world
+      bce32f2a7ff035b4022db82d9a90267ca829261d08038d3e26e5ff3fe5f51053
+
+**Nobody should run `build-rl-objects.py --write` from a worktree until this is fixed
+everywhere.** The remaining copies are in other sessions' trees; correcting them needs either
+each session fixing its own, or the operator's explicit approval for me to touch them.
+
+### 10.6 SIM-14 is not closed, and a third generator defect (SIM-15)
+
+Re-audited 2026-10-04 against §19's actual acceptance text rather than against my own earlier
+verdicts. Two of my own conclusions were wrong.
+
+**SIM-14 stays Open. §19 asks for objects "addressable and resettable"; only addressable is
+delivered.** The `rl_objects` model does exist and §19.1's "That model does not exist" is
+retracted — but `/api/reset` returns **404** and the portal performs no reset, so placement
+cannot be returned to `home_pose` at run time. The portal field I corrected in §10.4 is what made
+this visible: `resettable_claimed` true beside `reset_available` **false**. I filed `close` on
+2026-10-03 while my own section file said the opposite.
+
+    $ curl -s -o /dev/null -w '%{http_code}\n' -m 5 http://127.0.0.1:8765/api/reset   -> 404
+    $ curl -s -m 5 .../api/status | python3 -c '...'
+      link_count: 37
+      rl links: 9 ['part_a1','part_a2','part_a3','stock_s1','stock_s2','stock_s3',
+                   'target_bin_a','target_bin_b','target_shelf']
+
+**SIM-13's close stands**, re-checked: 4 zones resolve, 3 interlocks are declared and all carry
+`enforced_in_simulation: false`, and the 4 zones are live links in the served world. The model
+exists and is honest that it actuates nothing. `printer-01` and `cnc-01` remain `[GAP]` and need
+operator-supplied datums.
+
+**SIM-15, new: `--write` is not position-idempotent.** A *correct* regeneration strips the
+`rl_objects` block and re-appends it before `</world>`, silently reordering three generated
+models in the world the live server has open. Measured on `/tmp/gen-test-sim`, never the live tree:
+
+    $ python3 scripts/simulation/build-rl-objects.py --write   -> "already current; nothing written"
+    # make a real catalogue change (part-a1 home_pose 6.20 -> 6.90), then rewrite:
+    $ python3 scripts/simulation/build-rl-objects.py --check   -> STALE (exit 1)
+    $ python3 scripts/simulation/build-rl-objects.py --write   -> wrote 3 groups / 9 objects
+    #   rl_objects           547 -> 1289
+    #   safety_zones         695 ->  548
+    #   camera_elev_massing 1410 -> 1263
+    $ gz sdf -k ...                        -> Valid.
+    $ grep -c '<link name=' ...            -> 37 (unchanged; nothing lost)
+
+No content is lost and the world stays valid, so this is a review-integrity hazard rather than a
+runtime fault — which is why it survived so long unnoticed. It should replace the block in place.
+
+**A structural defect in this very subsection, found while auditing my own prose.** §10.5's
+heading had been inserted *mid-sentence*, splitting the SIM-07 paragraph and orphaning its tail
+("disabled to work around it. SIM-12 …") at the far end of §10.5, where it read as part of the
+generator hazard. Repaired. Worth noting for other sessions: a heading inserted into a section
+file produces no error anywhere — the compiler concatenates happily — so prose damage from a bad
+edit is only visible by reading the rendered README.
+
 **What I got wrong this session.** I first reported the GUI as verified on the strength of
 `ActiveState=active` plus a clean error grep. That is the exact mistake §10.3 warned about: a
 live process and an absence of errors is not proof that geometry renders. I only reached a real
 answer by capturing the window and diffing two captures. Smaller error: I ran `gz topic` inside
 the GUI container before checking `GZ_CONFIG_PATH`, and briefly read "cannot find any available
 'gz' command" as a missing toolchain when it was only an unset variable.
+
+**The recurring error, stated once so it is not repeated: I re-ran my own old commands without
+re-deriving their assumptions, and briefly believed the wrong answer.** `/api/status` now returns
+`links` and `link_count` *nested* under `world`. My 2026-10-03 one-liner reads them at top level,
+so it now returns `[]` and `None`. I ran it unchanged, saw zero RL links, and for a moment
+concluded the model had vanished — when the model was fine and my query was stale. A measurement
+whose inputs may have drifted needs re-derivation, not just re-execution. I made the same class of
+error twice: verifying the arithmetic of SIM-09 last session and treating that as equivalent to
+having read the acceptance criteria, then verifying the existence of `rl_objects` for SIM-14 and
+treating that as equivalent to having met the criteria.
 
 
 ---
@@ -5167,13 +5340,13 @@ the cost is paid once.
 ### 12.5.2 Regression tests for the generators
 
 `scripts/build-update/test_generators.py` — run it with
-`python3 scripts/build-update/test_generators.py`; no framework is required.
-**29 tests, all passing**, in about 0.3 s:
+`python3 scripts/build-update/test_generators.py`; no framework is required,
+though `pytest` collects it too. **62 tests, all passing**, in about 0.7 s:
 
 ```
 $ python3 scripts/build-update/test_generators.py
 ...
-Ran 29 tests in 0.266s
+Ran 62 tests in 0.73s
 
 OK
 ```
@@ -5207,6 +5380,330 @@ silently fell back to the dpkg mtime, producing a document that looked normal
 and carried the older, less accurate dates. The module is now loaded by
 `__file__`. Without the test this regression is invisible: the failure mode is
 a plausible-looking document, not an error.
+
+### 12.5.3 `eligible` now means a machine can do it (OPS-19)
+
+`update-plan.json` used to carry a single `steps` list per item, mixing two
+things that cannot be combined: commands an executor could run
+(`podman pull repo@sha256:<64>`) and prose no executor could ever run
+(`edit Image= in quadlet/<domain>/<unit>.container`). An item was marked
+**eligible** on the strength of the first while carrying the second, so
+"eligible" did not mean "automatable" and **nothing in the file distinguished
+them**.
+
+`update_steps()` now returns `{"steps": [...], "manual": [...]}`, and the
+`eligible` decision is taken on the strength of `steps` alone:
+
+| Field | Meaning | Contract |
+|---|---|---|
+| `steps` | argv **arrays**, verb-allowlisted | a machine can run these; nothing needs a shell |
+| `manual` | prose for a human | never executed, never silently dropped |
+
+Every step is an argv array (`["podman", "pull", "repo@sha256:<64>"]`), never a
+string. This is deliberate: a plan-supplied string can only be run through a
+shell, and a plan is generated data, not trusted input. `_argv_is_safe()`
+downgrades any argument carrying a shell metacharacter to prose rather than
+emitting it — an item literally named `pkg; rm -rf /` produces **no**
+executable step and keeps its intent under `manual`.
+
+The consequence is visible and worth stating plainly: on this host the plan now
+reports **0 eligible of 224**. That is not a regression, it is the truth. The
+old count of 6 was counting items whose only "step" was a sentence about
+editing a Quadlet file.
+
+**A correction to what this section claimed when first written.** It said
+"`brave` remains genuinely automatable and is emitted as argv". That was
+checked rather than assumed, and it is false as stated. `update_steps()`
+*does* emit argv for `brave` —
+
+```
+$ python3 -c "...update_steps({'item':'brave','via':'snap/latest/stable'}, None)"
+{'steps': [['snap', 'refresh', 'brave']], 'manual': []}
+```
+
+— but the emitted plan shows `"steps": []` for `brave`, because the writer
+gates on the decision:
+
+```
+"steps": steps if decision == "eligible" else [],
+```
+
+`brave`'s verdict is `?`, not `**NO**`: the snap channel was unreachable, so
+there is **no evidence of being behind**. It is excluded as *"no evidence of
+being behind"*, and the exclusion blanks its steps. The distinction matters,
+because the two statements answer different questions. `brave` is the only item
+whose *source* admits a mechanical step; it is not eligible *today* because the
+evidence for updating it does not exist, not because it is unautomatable.
+Written the other way round — "only brave is automatable" — the next reader
+would look for the argv in the plan, not find it, and conclude the generator
+had regressed.
+
+So the honest summary of this host is **0 eligible of 224, and 0 of those 224
+carry a `steps` array**, because every one of them is excluded, and the writer
+deliberately refuses to publish steps for an excluded item. Measured:
+
+```
+$ python3 -c "... json.load(update-plan.json) ..."
+schema 2 items 224
+summary {'behind': 1, 'eligible': 0, 'excluded': 224}
+with steps 0
+with manual 0
+```
+
+### 12.5.4 `apply-plan.py` — the dry-run validator (OPS-20)
+
+`scripts/build-update/apply-plan.py` answers one question: *if an operator
+approved this plan, what would it touch?* It loads the plan, hashes it,
+snapshots it into the run directory, validates every step against a verb
+allowlist, derives blast-radius groups (units sharing a digest or a deploy
+domain) and reports the result. **It executes nothing**, and the module docstring
+states it must never be extended to.
+
+```
+$ AO_ROOT=$PWD python3 scripts/build-update/apply-plan.py --no-snapshot
+plan        : /tmp/ao-sessions/wt-ops-b/data/build-update/update-plan.json
+sha256      : b753e5dab017df1be539b4b86e26713cc1293d9cde1c034ebb376f78aac9453f
+generated   : 2026-10-04T16:55:20+00:00   schema: 2
+items       : 224  -> 0 eligible, 224 excluded
+would run   : 0 argv steps across 0 item(s)
+manual only : 0 item(s) need a human
+would touch: NOTHING - no item is eligible
+EXECUTED    : nothing. This tool is a validator only.
+validation  : OK
+```
+
+**Why approval must pin to the plan hash, not the filename.** The plan
+regenerates on every refresh, so the file an operator approved is not the file a
+tool would run — the `generated` timestamp alone changes the bytes when no item
+changed. `--expect-hash` refuses anything else, so an approval can name exactly
+the bytes that were reviewed:
+
+```
+$ AO_ROOT=$PWD python3 scripts/build-update/apply-plan.py --no-snapshot \
+      --expect-hash 0000...0000
+MISMATCH_EXIT=4
+HASH MISMATCH
+  approved : 0000...0000
+  on disk  : b753e5dab017df1be539b4b86e26713cc1293d9cde1c034ebb376f78aac9453f
+```
+
+Exit codes: `0` well-formed, `2` usage, `3` validation failure, `4` hash
+mismatch.
+
+The verb allowlist is **duplicated rather than imported**, so the validator
+still runs when `provenance-log.py` is broken — the file most likely to be
+broken is the one that produced the plan. That duplication is a drift risk, so
+`TestVerbAllowlistAgreesAcrossFiles` asserts the two lists are identical.
+
+Run against the **live** `/ALWAYSON` plan the same tool exits **3** with 33
+problems, and the diagnosis is in the output:
+
+```
+$ python3 scripts/build-update/apply-plan.py --no-snapshot     # AO_ROOT=/ALWAYSON
+  - items[128] ao-build-update: no `manual` key; an eligible item must separate prose from executable steps
+  - plan: 193 of 199 items carry no `manual` key. This is a schema-1 plan
+    (prose and executable steps are not separated). Every eligible step in it is
+    a bare string, so nothing in it is safe to hand to an executor -- this is
+    OPS-19, not a per-item defect.
+```
+
+That is the validator earning its keep: the live plan is still schema 1 and has
+not been regenerated since §12.5.3 landed, so **it is not yet safe to hand to
+an executor**. Regenerating it is one `./scripts/build-update/refresh-install-log.sh`.
+
+**A trap worth recording for the next agent.** The validator defaults `AO_ROOT`
+to `/ALWAYSON`, so running it from a worktree validates **the live main-repo
+plan, not your worktree's** — silently, with a plausible-looking result. I hit
+this: a first run reported 199 items and schema 1 while the worktree plan held
+224 items and schema 2. Always pass `AO_ROOT=$PWD`, and sanity-check the
+`plan :` line in the output against the file you meant. The same class of bug
+existed literally in `refresh-install-log.sh`, whose summary-report heredoc
+opened a hardcoded `/ALWAYSON/data/build-update/update-plan.json` while the
+surrounding script honoured `AO_ROOT`; it now takes the path as `sys.argv[1]`.
+
+### 12.5.5 Image digests are checked against what is deployed (OPS-02)
+
+`config/platform/version-matrix.yaml` records image digests as free text in
+YAML strings. Nothing compared those strings to anything, so a row could only
+change by a hand edit, and a stale row was indistinguishable from a correct one
+by reading it. `capture-version-matrix.sh` does not help: it rewrites five host
+facts (systemd, podman, netplan, nvidia) with `sed` and never looks at an
+image at all.
+
+The check now exists as `scripts/validation/check-image-digests.sh`, and it
+found real drift immediately. **7 matrix rows name a digest no deployed unit
+carries, 1 deployed image is not digest-pinned, and 4 deployed digests appear
+nowhere in the matrix:**
+
+```
+$ AO_ROOT=$PWD bash scripts/validation/check-image-digests.sh --check
+deployed units  : 21 in /home/scottw/.config/containers/systemd
+distinct digests: 14
+UNPINNED  Image=localhost/gz-sim10-resolute:gui-svgfix
+DRIFT     mapping.broker_image_digest              sha256:91d0f7e8c748e...
+DRIFT     simulation.gazebo_images                 sha256:0c19f326a339e...
+DRIFT     simulation.image_foxglove_bridge         sha256:6d3461ddf0277...
+DRIFT     sales.mastodon.image_postgres            sha256:a65e6a841f6c4...
+DRIFT     sales.mastodon.image_redis               sha256:91d0f7e8c748e...
+DRIFT     operations.image_postgres_shared         sha256:a65e6a841f6c4...
+matrix digests matched a deployed unit  : 11
+matrix digests matching nothing deployed: 7
+deployed Image= lines without a digest  : 1
+UNLISTED  deployed but absent from the matrix: sha256:d74eeac9a635...   (postgres, 3 units)
+UNLISTED  deployed but absent from the matrix: sha256:c6eabf748fc7...   (redis, 2 units)
+UNLISTED  deployed but absent from the matrix: sha256:9acc6d4df749...   (foxglove)
+UNLISTED  deployed but absent from the matrix: sha256:55f8dbcf8dec...   (gz-sim10-server)
+RESULT: DRIFT -- 7 stale matrix row(s), 1 unpinned deployed image(s).
+$ echo $?
+1
+```
+
+The postgres row is the clearest case, and the reason a naive check is not
+enough. The matrix records `docker.io/library/postgres@sha256:a65e6a84…` in
+two rows — `sales.mastodon.image_postgres` and
+`operations.image_postgres_shared` — while **all three** deployed postgres
+units (`ao-fabrication-db`, `ao-mastodon-db`, `ao-sales-db`) run
+`sha256:d74eeac9…`. Nothing is wrong with either digest; the document and the
+live system simply stopped agreeing, and neither could tell the other had
+moved.
+
+**Why the check reads the deployed units and not the repository tree.**
+Quadlet deploys **flat**: `~/.config/containers/systemd/` holds copies, not
+symlinks. Comparing the matrix against `quadlet/` would have reported "no
+drift" at precisely the moment the live system had drifted — the repository
+copy can be correct while the unit that is actually running is not. The
+deployed unit is the only thing that describes what is running, so it is the
+authority here.
+
+**The check reports; it never rewrites.** Where a row disagrees with the live
+system, deciding which side is right is an operator judgement — it may be a
+stale document, an unapproved deploy, or a deliberate change never recorded. A
+script that adopted the live digest would make the matrix self-fulfilling and
+launder a hand edit into an apparently-captured fact. So the seven rows above
+are **reported as findings, not fixed**. That is deliberate, and it is the
+part most likely to look like incompleteness.
+
+**A bug this check had on its first run, which the tests caught.** When every
+deployed image is unpinned, the digest-extracting `grep` matches nothing and
+exits 1; under `set -e` + `pipefail` that aborted the script with **status 1
+and no output at all**. A gate that fails without saying why is worse than no
+gate, because the next reader cannot tell a real finding from a crash. It is
+fixed by tolerating the empty result in collection rather than by loosening
+`set -e`, because the unpinned images are precisely what the script most needs
+to report.
+
+That is why the five tests drive the **real script** against a synthetic tree
+and assert exit codes, rather than testing a Python reimplementation: a check
+only ever observed in its failing state proves nothing, because "7 rows
+drifted" is exactly what a broken comparison prints too.
+
+```
+$ python3 -m pytest scripts/build-update/test_generators.py -q
+62 passed in 0.73s
+```
+
+Five cases, and the OK path is exercised as carefully as the failing ones:
+
+| Case | Asserts |
+|---|---|
+| matrix matches deployed | `RESULT: OK`, exit **0** |
+| one stale matrix row | `DRIFT` naming `host.images.a`, exit **1** |
+| `Image=…:latest` | `UNPINNED`, exit **1** |
+| `sha256:` + 12 hex chars | `UNPINNED`, exit **1** |
+| stale row, no `--check` | `RESULT: DRIFT` but exit **0** |
+
+The fourth case is the §12.5.2 lesson reused: a `sha256:` prefix is not a
+pinned reference, and the same class of bug that produced
+`podman pull repo@sha256:<12>` would otherwise let a 12-character digest pass
+here. The fifth case exists because a validation script that *always* exits
+non-zero stops being run — so reporting is the default and `--check` is the
+gate, and that distinction has to live in the exit code rather than only in
+the prose.
+
+### 12.5.6 Roll-ups can be drilled into (OPS-23)
+
+`KDE Plasma Desktop` was one row for 191 components, the Ubuntu archive one row
+for 3,857 packages, the ROS train one row for 351. "Is the desktop behind" is
+answerable; "update ROS 2 rviz" is not. Collapsing those rows is right — they
+were 90 percent of the document — but a collapsed row that hides its members is
+a dead end. Each roll-up now carries a `members` list and renders it as a
+`<details>` drill-down, in Markdown, HTML **and** the PDF:
+
+```
+$ grep -o '<summary>[^<]*</summary>' /tmp/ops23v/s.md
+<summary>Rolled-up launchers — expand to list every application entry (153 entries across 34 groups)</summary>
+<summary>Ubuntu archive packages — expand to list all 3857 packages with their installed versions</summary>
+<summary>ROS 2 lyrical (whole train) — expand to list all 351 packages with their installed versions</summary>
+<summary>KDE Plasma Desktop — expand to list all 191 components</summary>
+
+$ grep -c "details class='drill'" /tmp/ops23v/s.html
+38
+```
+
+Reproduce with a scratch render, which touches nothing tracked:
+
+```
+$ AO_ROOT=$PWD python3 scripts/build-update/provenance-log.py --offline \
+      --out /tmp/ops23v/s.md --html /tmp/ops23v/s.html --plan /tmp/ops23v/p.json
+```
+
+**A trap here, and the reason the numbers above were nearly unprovable.** The
+tracked render artifacts `docs/software-status.md` and `tmp/software-status.html`
+are **stale** — dated 2026-10-03 20:53, while the generator carrying this fix
+landed 2026-10-04 10:30. So checking the fix against them shows 2 summaries and
+**0** drill-downs, which reads exactly like "the fix does not work":
+
+```
+$ grep -o '<summary>[^<]*</summary>' docs/software-status.md
+<summary>Rolled-up launchers — expand to list every application entry (153 entries across 34 groups)</summary>
+<summary>KDE Plasma Desktop — expand to list all 191 components</summary>
+$ grep -c "details class='drill'" tmp/software-status.html
+0
+```
+
+Both apt roll-ups are missing there too, which is the §12.5.5 pattern in a
+different guise: the code is correct and the artifact predates it. The
+committed documents have **not** been regenerated, so the shipped PDF still
+collapses those rows to bare counts. That is a real outstanding action, and it
+is why the evidence above comes from a scratch render rather than from the
+tracked files — the claim is about the generator, and it is stated as such.
+
+The HTML drill-down is inline on the row itself, where the count promised it,
+and carries every member as its own `<li>`.
+
+Members are rendered with their **own versions** (`libc6 (2.42-1)`), which is
+what OPS-23 asks for; a bare list of names would answer "which" but not "which
+version".
+
+**The failure this item describes was silent, which is why it was easy to miss.**
+The members were computed and carried on the row as `members`, but the HTML
+table renderer never emitted them — so the drill-down existed in Markdown only
+and the HTML and PDF quietly lost it. Nothing errored; the document just stopped
+being able to answer a question. `TestRollupsCanBeDrilledInto` asserts the HTML
+path specifically, and that the drill-down survives the print stylesheet,
+because a PDF that hides it reintroduces the same dead end. Member names are
+HTML-escaped: they come from `.desktop` files on disk and are not trusted.
+
+The two apt roll-ups were still bare counts after that first pass — I checked
+the rendered output rather than trusting the code, and `Ubuntu archive packages`
+and `ROS 2 lyrical (whole train)` carried no members. Both lists are already in
+`inv`, so both now attach theirs; the ROS one matters most because the train is
+FROZEN, making "which 351 packages are affected" the question an operator will
+actually ask. `test_the_apt_rollups_carry_their_members` is the guard, and I
+confirmed it is not vacuous by deleting both `members` keys and watching it
+fail with `Ubuntu archive packages is a roll-up with no members`.
+
+**A second fix the first one created.** Attaching members made the Markdown
+~3× larger, but the existing roll-up renderer joined them into a single table
+cell (`', '.join(members)`), so the Ubuntu archive came out as **one
+40,000-character line**. That technically satisfied "the members are reachable"
+and practically failed the reader as badly as the original count — a single row
+you cannot scan is not a drill-down. Package roll-ups now render one member per
+row with the version in its own column, in their own collapsible block; the
+launcher grouping keeps its joined cell, where members are short and few. The
+roll-up emitter was extracted from `render()` into `rollup_details_md()` so this
+is unit-testable — `render()` spends hundreds of apt round trips, which no test
+should pay to assert a formatting rule.
 
 ---
 

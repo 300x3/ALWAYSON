@@ -1,68 +1,97 @@
 ---
 item: SIM-14
-action: close
+action: update
 evidence: |
-  §19.1 recorded this item as absent ("That model does not exist"). The model
-  exists in the world as live links. Measured 2026-10-03.
+  SUPERSEDES the 2026-10-03 `action: close` proposal previously in this same file.
+  The model exists, so §19.1's "That model does not exist" is wrong and must be
+  corrected. But "close" was the wrong verdict for a second reason I did not
+  check on 2026-10-03: §19 asks for objects "addressable and resettable", and
+  reset is NOT delivered. Re-measured 2026-10-04.
 
-  $ curl -s http://127.0.0.1:8765/api/objects | head -c 260
-  {"model": "rl_objects", "resettable": true, "total_objects": 9, "groups": [
-   {"id": "marked-parts", "name": "Marked parts (inspection tasks)", "objects": [
-    {"id": "part-a1", "label": "Marked part A1", "class": "marked_part",
-     "home_pose": [6.2, 2.1, 0.8, "0 0 0"], "size": [0.12,0.12,0.06],
-     "mass_kg": 1.2, "tolerance_m": null}, ...
+  LIMB 1 -- the `rl_objects` model exists as live world entities. TRUE.
+  $ grep -n 'name="rl_objects"' GAZEBO/worlds/factory.world
+  547:    <model name="rl_objects">
 
-  $ curl -s http://127.0.0.1:8765/api/status   # world link list, RL entries
-  rl links: ['part_a1','part_a2','part_a3','stock_s1','stock_s2','stock_s3',
-             'target_bin_a','target_bin_b','target_shelf']
-  link_count 37
+  $ curl -s -m 5 http://127.0.0.1:8765/api/status | python3 -c '...'
+  world keys: ['path', 'link_count', 'links']
+  link_count: 37
+  rl links: 9 ['part_a1', 'part_a2', 'part_a3', 'stock_s1', 'stock_s2',
+               'stock_s3', 'target_bin_a', 'target_bin_b', 'target_shelf']
 
-  $ grep -n 'BEGIN GENERATED: rl_objects' GAZEBO/worlds/factory.world
-  623:    <!-- BEGIN GENERATED: rl_objects (scripts/simulation/build-rl-objects.py) -->
+  ^ nine catalogue objects instantiated as non-static links. §19.1's assertion
+  that the model does not exist is contradicted; it is retracted here.
 
-  $ grep -n '<model name="rl_objects">' -A1 GAZEBO/worlds/factory.world
-      <model name="rl_objects">
-        <static>false</static>
+  LIMB 2 -- "resettable". FALSE.
+  $ curl -s -o /dev/null -w '%{http_code}\n' -m 5 http://127.0.0.1:8765/api/reset
+  404
+  $ curl -s -m 5 http://127.0.0.1:8765/api/objects | python3 -c '...'
+  model rl_objects
+  total 9
+  claimed True available False
+  note objects.yaml declares resettable: true and documents a reset action
+       returning each object to home_pose, but this portal implements no reset
+       endpoint and performs no reset. Treat resettable_claimed as an unverified
+       catalogue assertion, not an available operation.
 
-  Nine catalogue objects are instantiated as a non-static `rl_objects` model in
-  the committed world: nine links, three groups, two actors, resettable to
-  `home_pose`. They are world entities, not a YAML-only catalogue, which is the
-  distinction the item asks about.
+  There is no reset endpoint, so placement cannot be returned to `home_pose` at
+  run time without rewriting the world. "Resettable" is undelivered.
 section: 10-simulation-architecture
 ---
-§19.1 records SIM-14 as absent ("That model does not exist"). It exists. The nine
-catalogue entries in `GAZEBO/sim/objects.yaml` are generated into the committed
-`factory.world` as a non-static `rl_objects` model with nine links, and the running
-server reports those links through the portal. The separation the item is really
-concerned with -- RL entities held apart from the static `factory_assets` so a
-training run can vary count and placement without rebuilding the world -- is
-implemented by making the model non-static.
 
-§10.3 in my section file now records the measurement instead of the §19 assertion.
+§19.1 records SIM-14 as absent ("That model does not exist"). **That assertion is wrong and
+should be corrected in §19**: the nine catalogue entries in `GAZEBO/sim/objects.yaml` are
+generated into the committed `factory.world` as a non-static `rl_objects` model with nine
+links, and the running server reports those links through the portal. The separation the item
+is really concerned with — RL entities held apart from the static `factory_assets` so a
+training run can vary count and placement without rebuilding the world — is implemented by
+making the model non-static.
 
-**Closing this does not mean the generator is sound, and I found a real defect
-while verifying it.** `build-rl-objects.py --check` exits 1 against the committed
-world. Two separate causes, both reproduced on a copy under `/tmp/gen-test`:
+**SIM-14 must stay Open, for a limb I did not check on 2026-10-03.** §19 asks for objects
+"individually addressable, observable and **resettable**". Addressable is delivered. Resettable
+is not: `/api/reset` returns 404, the portal implements no reset, and placement cannot be
+returned to `home_pose` at run time without rewriting the world. My own portal correction in
+§10.4 replaced the bare `"resettable": true` with `resettable_claimed` beside an explicit
+`reset_available: false` — and that correction is precisely what made the undelivered half
+visible. Filing `close` while my own section file said the opposite was an inconsistency I
+should have caught by reading the two documents together.
 
-1. The committed block carries `<specular>` and `<shininess>` on all nine
-   materials, added by commit `fa3f8f6` ("material shininess"), which the
-   generator was never taught to emit. Nine material lines differ.
-2. `--write` strips the existing block and re-appends before `</world>`, so the
-   model moves from line 623 to the end of the file -- after `safety_zones` and
-   `conveyor_loops`. Regeneration is not idempotent in position even once cause 1
-   is settled.
+**On the generator defects I flagged in 2026-10-03.** Cause 1 (hand-added `<specular>`
+disarming `--check`) is **fixed and verified**: the generator now emits `SPECULAR`/`SHININESS`,
+and `--check` exits 0. Cause 2 (non-idempotent *position* on write) is **still present** and is
+now filed as **SIM-15** rather than left in prose. Re-measured 2026-10-04 on a scratch copy:
 
-Neither is a §19 item, so I have left both open rather than renumbering into a
-group I do not own. Cause 2 is the more dangerous of the two: a routine refresh
-silently reorders three generated models in the world that the live server has
-open. That belongs in a new SIM item.
+    $ python3 scripts/simulation/build-rl-objects.py --check     -> OK, exit 0 (no-op path safe)
+    $ python3 scripts/simulation/build-rl-objects.py --write     -> "already current; nothing written"
+    # force a real catalogue change (part-a1 home_pose 6.20 -> 6.90) and rewrite:
+    $ python3 scripts/simulation/build-rl-objects.py --check     -> STALE, exit 1
+    $ python3 scripts/simulation/build-rl-objects.py --write     -> wrote 3 groups / 9 objects
+    # rl_objects model position:  547 -> 1289
+    # safety_zones model position: 695 -> 548
+    # camera_elev_massing:       1410 -> 1263
+    $ gz sdf -k ...                                               -> Valid.
+    $ grep -c '<link name=' -> 37 (unchanged, no content lost)
 
-**What I got wrong.** I ran `--write` against `/ALWAYSON` before I had copied the
-tree to a scratch directory. That modified the shared live tree, which is exactly
-the interference I am supposed to avoid; I caught it in the diff (149 insertions,
-147 deletions, the rl_objects block relocated) and restored with
-`git checkout -- GAZEBO/worlds/factory.world`, after which
-`git status --short -- GAZEBO/ scripts/ quadlet/` printed nothing and the file
-sha256 returned to `bce32f2a7ff035b4022db82d9a90267ca829261d08038d3e26e5ff3fe5f51053`.
-I caused the fault, so I reverted only my own edit -- but the sequence was wrong,
-and the diff is what caught it rather than my checking first.
+So a legitimate catalogue edit silently reorders three generated models — `rl_objects` is
+re-appended after `safety_zones` and the conveyor loops — in the world the live server has open.
+The world stays parseable and no link is lost, so this is a diff-noise and review hazard rather
+than a rendering fault, but it is exactly the kind of silent reordering that makes a world
+unreviewable later.
+
+**What I got wrong.** I filed `close` on 2026-10-03 for SIM-14 having verified only the half I
+found interesting — that the model exists — and not the half §19 actually names, resettability,
+which my own section file already contradicted. The 2026-10-03 evidence block is also now stale
+in form: `/api/status` returns `world.links` and `world.link_count` as **nested** keys, so a
+top-level `d.get("links")` returns `[]` and a top-level `d.get("link_count")` returns `None`. I
+re-ran my original one-liner unchanged, got 0 RL links, and briefly took that as evidence that
+the model had disappeared. It had not; my query was wrong. Re-reading the response shape gave
+the real 9 links and `link_count` 37. That is the second time this session that re-running an
+old command unchanged, without checking whether its assumptions still held, produced a
+confidently wrong answer. A measurement whose *inputs* may have drifted needs re-derivation, not
+just re-execution.
+
+I also ran `--write` against the live `/ALWAYSON` tree before copying to a scratch directory,
+modifying the shared tree. I caught it in the diff and reverted only my own edit
+(`git checkout -- GAZEBO/worlds/factory.world`), after which the sha256 returned to
+`bce32f2a7ff035b4022db82d9a90267ca829261d08038d3e26e5ff3fe5f51053`. Caught is not the same as
+avoided; the correct order was copy first. Both of today's relocation measurements were done on
+`/tmp/gen-test-sim`, never on the live tree.

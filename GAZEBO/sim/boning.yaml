@@ -45,6 +45,14 @@ cells:
       # verified correct and are unchanged.
       origin: [5.981314, 1.861669, 0.531531]
       extent: [0.840000, 1.672391, 1.238532]
+      # centroid = origin + extent/2, the as-built arm centre the elevation
+      # cameras are framed on. Added 2026-10-04 (SIM-09): it used to exist only
+      # as something a reader had to compute by hand, so the datum and the
+      # camera pose in factory.world could drift apart silently. It is now
+      # stated, and scripts/simulation/build-boning-cameras.py both derives the
+      # elevation poses from it and FAILS if the stated value disagrees with
+      # origin+extent/2. See elevation_cameras below.
+      centroid: [6.401314, 2.697865, 1.150797]
     mounting_surface:
       source: derived-from-mesh-aabb
       normal: [0, 0, 1]
@@ -60,6 +68,7 @@ cells:
       source: derived-from-mesh-aabb
       origin: [5.199062, 1.773474, 0.012700]
       extent: [1.747837, 1.127674, 2.032000]
+      centroid: [6.072980, 2.337311, 1.028700]
     mounting_surface:
       source: derived-from-mesh-aabb
       normal: [0, 0, 1]
@@ -71,10 +80,45 @@ cells:
       source: derived-from-mesh-aabb
       origin: [0.000000, 0.000000, 0.000000]
       extent: [7.874000, 4.831072, 2.057400]
+      centroid: [3.937000, 2.415536, 1.028700]
     mounting_surface:
       source: derived-from-mesh-aabb
       normal: [0, 0, 1]
       z: 0.000000
+
+# Elevation cameras. Added 2026-10-04 (SIM-09).
+#
+# WHY THIS BLOCK EXISTS. The three "elev-*" camera poses in factory.world used
+# to be hand-written literals whose comment claimed they were aimed at "a BONED
+# cell centre". They were, once, but nothing tied them to the boning data, so
+# correcting a datum left the cameras stale and nothing failed. Declaring the
+# standoff here makes the pose derivable: the camera sits at the cell centroid
+# plus `centroid_offset`, looking back along -Yaw. scripts/simulation/
+# build-boning-cameras.py renders these into the world and refuses to run if a
+# stated centroid disagrees with origin+extent/2.
+#
+# `centroid_offset` is measured in the same frame as the datum. It is 0 in z on
+# purpose: the camera views at cell-centre height, pushed out horizontally to a
+# clear vantage. Yaw is radians; the camera's optical axis is its local +X.
+#
+# SIM-09 also records that the three standoffs are themselves correct, so these
+# values reproduce the committed poses exactly and change no rendered view.
+elevation_cameras:
+  - id: elev-arms
+    cell: cell-arms
+    topic: /factory/camera/elev_arms
+    centroid_offset: [0.000000, 1.358135, 0.000000]
+    yaw: -1.5708
+  - id: elev-conveyor
+    cell: cell-conveyor
+    topic: /factory/camera/elev_conveyor
+    centroid_offset: [0.000000, -4.379311, 0.000000]
+    yaw: 1.5708
+  - id: elev-massing
+    cell: cell-massing
+    topic: /factory/camera/elev_massing
+    centroid_offset: [7.809000, 0.000000, 0.000000]
+    yaw: 3.1416
 
 # Machine beds. The 3D printer and CNC are NOT in the SketchUp exports, so there
 # is nothing to derive them from. The operator must declare their position and

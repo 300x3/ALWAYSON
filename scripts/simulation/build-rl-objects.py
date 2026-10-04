@@ -31,13 +31,26 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import pathlib
 import re
 import sys
 
 import yaml
 
-OBJECTS = "/ALWAYSON/GAZEBO/sim/objects.yaml"
-WORLD = "/ALWAYSON/GAZEBO/worlds/factory.world"
+# Paths are resolved from this file, NOT hardcoded to /ALWAYSON.
+#
+# These were absolute literals until 2026-10-04 and that was a live hazard: a
+# git worktree per session means `python3 build-rl-objects.py --write` run from
+# a worktree silently rewrote the LIVE /ALWAYSON world instead of the checkout
+# the operator was standing in. It also made `--check` meaningless in a
+# worktree -- it reported on a different file than the one being edited, so it
+# failed (or passed) for reasons unrelated to the work in front of you.
+#
+# Resolving from __file__ makes each checkout self-contained, which is what a
+# per-session worktree requires. See proposals/sim-SIM-09.md.
+ROOT = pathlib.Path(__file__).resolve().parents[2]
+OBJECTS = str(ROOT / "GAZEBO" / "sim" / "objects.yaml")
+WORLD = str(ROOT / "GAZEBO" / "worlds" / "factory.world")
 
 BEGIN = "    <!-- BEGIN GENERATED: rl_objects (scripts/simulation/build-rl-objects.py) -->"
 END = "    <!-- END GENERATED: rl_objects -->"
@@ -50,6 +63,19 @@ COLOURS = {
     "task_target": (0.10, 0.70, 0.35, 1.0),   # green
 }
 DEFAULT_COLOUR = (0.80, 0.80, 0.10, 1.0)
+
+# Shared specular response for every generated object. Added 2026-10-04: the
+# specular/shininess pair had been added to factory.world BY HAND inside the
+# generated block, which is precisely the divergence the generator exists to
+# prevent. `--check` had therefore been failing continuously (exit 1) and no
+# one could tell a real catalogue drift from this cosmetic hand edit, so the
+# guard was effectively disarmed. Declaring the values here makes the world
+# reproducible from the catalogue again, and --check regains its meaning.
+#
+# Carried over from main (a05f018); this branch's copy predated the fix, which
+# is why --check failed at HEAD here. See proposals/sim-SIM-09.md.
+SPECULAR = (0.30, 0.30, 0.30, 1.0)
+SHININESS = 24
 
 
 def esc(name: str) -> str:
@@ -109,7 +135,9 @@ def render_object(obj: dict) -> list:
          '        <visual name="visual">',
          f"          <geometry>{box}</geometry>",
          f"          <material><ambient>{r:.3f} {g:.3f} {b:.3f} {a:.3f}</ambient>"
-         f"<diffuse>{r:.3f} {g:.3f} {b:.3f} {a:.3f}</diffuse></material>",
+         f"<diffuse>{r:.3f} {g:.3f} {b:.3f} {a:.3f}</diffuse>"
+         f"<specular>{SPECULAR[0]:.2f} {SPECULAR[1]:.2f} {SPECULAR[2]:.2f} "
+         f"{SPECULAR[3]:g}</specular><shininess>{SHININESS}</shininess></material>",
          "        </visual>",
          '        <collision name="collision">',
          f"          <geometry>{box}</geometry>",

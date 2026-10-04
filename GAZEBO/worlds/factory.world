@@ -539,86 +539,6 @@
       </link>
     </model>
 
-    <!-- Camera "elev-arms": elevation over the robot arms.
-         Aimed at a BONED cell centre from GAZEBO/sim/boning.yaml, not at the
-         building centre. The earlier four were all aimed at the massing centre
-         (3.937, 2.416, 1.029), which is why the robot arms - boned at
-         (6.821, 3.534, 1.151) - never appeared in them.
-         Every camera sits OUTSIDE the massing envelope
-         (0,0,0)-(7.874,4.831072,2.0574) so no view is from inside a wall. -->
-    <model name="camera_elev_arms">
-      <static>true</static>
-      <pose>6.401 4.056 1.151 0 0.0000 -1.5708</pose>
-      <link name="camera_elev_arms">
-        <pose>0 0 0 0 0 0</pose>
-        <sensor name="camera_elev_arms" type="camera">
-          <pose>0 0 0 0 0 0</pose>
-          <always_on>1</always_on>
-          <update_rate>10</update_rate>
-          <visualize>0</visualize>
-          <topic>/factory/camera/elev_arms</topic>
-          <camera name="camera_elev_arms">
-            <horizontal_fov>0.6</horizontal_fov>
-            <image><width>640</width><height>480</height></image>
-            <clip><near>0.05</near><far>100</far></clip>
-          </camera>
-        </sensor>
-      </link>
-    </model>
-
-    <!-- Camera "elev-conveyor": elevation over the conveyor.
-         Aimed at a BONED cell centre from GAZEBO/sim/boning.yaml, not at the
-         building centre. The earlier four were all aimed at the massing centre
-         (3.937, 2.416, 1.029), which is why the robot arms - boned at
-         (6.821, 3.534, 1.151) - never appeared in them.
-         Every camera sits OUTSIDE the massing envelope
-         (0,0,0)-(7.874,4.831072,2.0574) so no view is from inside a wall. -->
-    <model name="camera_elev_conveyor">
-      <static>true</static>
-      <pose>6.073 -2.042 1.029 0 0.0000 1.5708</pose>
-      <link name="camera_elev_conveyor">
-        <pose>0 0 0 0 0 0</pose>
-        <sensor name="camera_elev_conveyor" type="camera">
-          <pose>0 0 0 0 0 0</pose>
-          <always_on>1</always_on>
-          <update_rate>10</update_rate>
-          <visualize>0</visualize>
-          <topic>/factory/camera/elev_conveyor</topic>
-          <camera name="camera_elev_conveyor">
-            <horizontal_fov>0.6</horizontal_fov>
-            <image><width>640</width><height>480</height></image>
-            <clip><near>0.05</near><far>100</far></clip>
-          </camera>
-        </sensor>
-      </link>
-    </model>
-
-    <!-- Camera "elev-massing": elevation over the building massing / storage.
-         Aimed at a BONED cell centre from GAZEBO/sim/boning.yaml, not at the
-         building centre. The earlier four were all aimed at the massing centre
-         (3.937, 2.416, 1.029), which is why the robot arms - boned at
-         (6.821, 3.534, 1.151) - never appeared in them.
-         Every camera sits OUTSIDE the massing envelope
-         (0,0,0)-(7.874,4.831072,2.0574) so no view is from inside a wall. -->
-    <model name="camera_elev_massing">
-      <static>true</static>
-      <pose>11.746 2.416 1.029 0 0.0000 3.1416</pose>
-      <link name="camera_elev_massing">
-        <pose>0 0 0 0 0 0</pose>
-        <sensor name="camera_elev_massing" type="camera">
-          <pose>0 0 0 0 0 0</pose>
-          <always_on>1</always_on>
-          <update_rate>10</update_rate>
-          <visualize>0</visualize>
-          <topic>/factory/camera/elev_massing</topic>
-          <camera name="camera_elev_massing">
-            <horizontal_fov>0.6</horizontal_fov>
-            <image><width>640</width><height>480</height></image>
-            <clip><near>0.05</near><far>100</far></clip>
-          </camera>
-        </sensor>
-      </link>
-    </model>
 
     <!-- BEGIN GENERATED: rl_objects (scripts/simulation/build-rl-objects.py) -->
     <!-- Source of truth: GAZEBO/sim/objects.yaml (schema 1.0).
@@ -1432,5 +1352,82 @@
       </link>
     </model>
     <!-- END GENERATED: conveyor_loops -->
+
+    <!-- BEGIN GENERATED: elevation cameras (scripts/simulation/build-boning-cameras.py) -->
+    <!-- Source of truth: GAZEBO/sim/boning.yaml, block elevation_cameras.
+         Each pose is the cell's stated centroid plus its centroid_offset,
+         so re-aiming a view is a boning.yaml edit plus a write, never a
+         hand edit of this file. Generated; do not edit by hand. -->
+    <!-- Camera "elev-arms": elevation over Robot arm cell.
+         Aimed at the boned centroid [6.401314, 2.697865, 1.150797] of cell cell-arms,
+         offset [0.0, 1.358135, 0.0] and yawed -1.5708 rad to face the cell. -->
+    <model name="camera_elev_arms">
+      <static>true</static>
+      <pose>6.401 4.056 1.151 0 0.0000 -1.5708</pose>
+      <link name="camera_elev_arms">
+        <pose>0 0 0 0 0 0</pose>
+        <sensor name="camera_elev_arms" type="camera">
+          <pose>0 0 0 0 0 0</pose>
+          <always_on>1</always_on>
+          <update_rate>10</update_rate>
+          <visualize>0</visualize>
+          <topic>/factory/camera/elev_arms</topic>
+          <camera name="camera_elev_arms">
+            <horizontal_fov>0.6</horizontal_fov>
+            <image><width>640</width><height>480</height></image>
+            <clip><near>0.05</near><far>100</far></clip>
+          </camera>
+        </sensor>
+      </link>
+    </model>
+
+    <!-- Camera "elev-conveyor": elevation over Conveyor system.
+         Aimed at the boned centroid [6.07298, 2.337311, 1.0287] of cell cell-conveyor,
+         offset [0.0, -4.379311, 0.0] and yawed 1.5708 rad to face the cell. -->
+    <model name="camera_elev_conveyor">
+      <static>true</static>
+      <pose>6.073 -2.042 1.029 0 0.0000 1.5708</pose>
+      <link name="camera_elev_conveyor">
+        <pose>0 0 0 0 0 0</pose>
+        <sensor name="camera_elev_conveyor" type="camera">
+          <pose>0 0 0 0 0 0</pose>
+          <always_on>1</always_on>
+          <update_rate>10</update_rate>
+          <visualize>0</visualize>
+          <topic>/factory/camera/elev_conveyor</topic>
+          <camera name="camera_elev_conveyor">
+            <horizontal_fov>0.6</horizontal_fov>
+            <image><width>640</width><height>480</height></image>
+            <clip><near>0.05</near><far>100</far></clip>
+          </camera>
+        </sensor>
+      </link>
+    </model>
+
+    <!-- Camera "elev-massing": elevation over Building massing / fabrication area.
+         Aimed at the boned centroid [3.937, 2.415536, 1.0287] of cell cell-massing,
+         offset [7.809, 0.0, 0.0] and yawed 3.1416 rad to face the cell. -->
+    <model name="camera_elev_massing">
+      <static>true</static>
+      <pose>11.746 2.416 1.029 0 0.0000 3.1416</pose>
+      <link name="camera_elev_massing">
+        <pose>0 0 0 0 0 0</pose>
+        <sensor name="camera_elev_massing" type="camera">
+          <pose>0 0 0 0 0 0</pose>
+          <always_on>1</always_on>
+          <update_rate>10</update_rate>
+          <visualize>0</visualize>
+          <topic>/factory/camera/elev_massing</topic>
+          <camera name="camera_elev_massing">
+            <horizontal_fov>0.6</horizontal_fov>
+            <image><width>640</width><height>480</height></image>
+            <clip><near>0.05</near><far>100</far></clip>
+          </camera>
+        </sensor>
+      </link>
+    </model>
+
+    <!-- END GENERATED: elevation cameras -->
+
 </world>
 </sdf>
