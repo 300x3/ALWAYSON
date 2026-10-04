@@ -1342,6 +1342,39 @@ def unindexed_debs(inv):
 
 
 _APT_HISTORY_INDEX = None
+_APT_HISTORY_MODULE = "unset"   # unset | None (failed) | module
+
+
+def _load_apt_history():
+    """Import apt_history.py by PATH, not by bare name.
+
+    `import apt_history` resolves against sys.path, which contains the CWD --
+    not the script's own directory. refresh-install-log.sh runs
+    `cd "$AO_ROOT"` before invoking this file, so the bare import raised
+    ImportError on every production run and the code silently fell back to the
+    dpkg mtime, i.e. the exact wrong source this module exists to replace. The
+    failure was invisible: the output looked normal and carried the older,
+    less accurate dates. Measured before this fix:
+
+        $ cd /tmp && python3 -c "...load provenance-log.py by path..."
+        apt_date(rclone) = 2026-10-03 (dpkg mtime)     <- apt history unused
+
+    Loading by __file__ makes it independent of CWD. A genuine failure is
+    remembered so the cost is paid once, and still degrades to the mtime.
+    """
+    global _APT_HISTORY_MODULE
+    if _APT_HISTORY_MODULE != "unset":
+        return _APT_HISTORY_MODULE
+    try:
+        import importlib.util
+        path = Path(__file__).resolve().parent / "apt_history.py"
+        spec = importlib.util.spec_from_file_location("ao_apt_history", path)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        _APT_HISTORY_MODULE = mod
+    except (ImportError, OSError, AttributeError, SyntaxError):
+        _APT_HISTORY_MODULE = None
+    return _APT_HISTORY_MODULE
 
 
 def apt_date(pkg):
@@ -1371,10 +1404,7 @@ def apt_date(pkg):
     global _APT_HISTORY_INDEX
     if not pkg:
         return "-"
-    try:
-        import apt_history as _ah
-    except ImportError:
-        _ah = None
+    _ah = _load_apt_history()
     if _ah is not None:
         if _APT_HISTORY_INDEX is None:
             try:
@@ -1382,8 +1412,15 @@ def apt_date(pkg):
             except (OSError, ValueError):
                 _APT_HISTORY_INDEX = {}
         date, rec = _ah.install_date(pkg, _APT_HISTORY_INDEX)
+        if rec is not None and rec.get("removed"):
+            # dpkg no longer lists this package. Printing its install date under
+            # an "Installed" heading would be a lie told by the column, and a
+            # bare "-" hides the reason. nginx was purged 2026-10-01: the
+            # :8765 portal is a host python3 process now, not this container.
+            return f"not installed (removed/purged {rec['date']})"
         if date and rec and rec["action"] in ("Install", "Reinstall"):
-            return f"{date} (apt history)"
+            up = (f"; upgraded {rec['upgraded']}" if rec.get("upgraded") else "")
+            return f"{date} (apt history, {rec['action']}{up})"
         if date and rec and rec["action"] == "Upgrade":
             # Installed before the retained log window. The dpkg manifest mtime
             # would be the same upgrade date wearing no label, so the date is
@@ -1559,26 +1596,6 @@ NEEDS_APPROVAL = {
     "ao-mastodon-db": "rule 14: production database, data volume at risk",
     "ao-mastodon-redis": "rule 14: production datastore",
 }
-
-
-def is_complete_digest(tgt):
-    """True only for a full-length registry digest reference.
-
-    A digest reference is `sha256:`/`sha512:` followed by the WHOLE hash.
-    Validating only the algorithm prefix is what let a 12-character truncation
-    through into a generated `podman pull` command. Registry pulls reject a
-    short hash outright, so the command was guaranteed to fail while looking
-    correct. Anything else -- a prose error string, a short hash, an empty
-    value -- returns False and suppresses command generation.
-    """
-    if not tgt or not isinstance(tgt, str):
-        return False
-    for algo, length in (("sha256:", 64), ("sha512:", 128)):
-        if tgt.startswith(algo):
-            body = tgt[len(algo):]
-            return (len(body) == length
-                    and all(c in "0123456789abcdef" for c in body))
-    return False
 
 
 def update_steps(r, unit_path=None):

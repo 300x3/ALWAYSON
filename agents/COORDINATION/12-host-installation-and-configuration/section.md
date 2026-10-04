@@ -210,4 +210,105 @@ decisions. Nothing is executed by the tooling; applying anything is an operator
 decision. Ubuntu archive security updates are already handled automatically by
 `unattended-upgrades` and need no action here.
 
+### 12.5.1 The Installed column is ground truth from apt history
+
+The `Installed` column of `docs/software-status.md` is produced by
+`apt_date()` in `scripts/build-update/provenance-log.py`, which reads
+`/var/log/apt/history.log` and its rotated siblings via
+`scripts/build-update/apt_history.py`.
+
+**It used to be wrong, and wrong in a way that mattered.** dpkg keeps no install
+timestamp, so the date was inferred from the mtime of
+`/var/lib/dpkg/info/<pkg>.list` — a file dpkg rewrites on *every* unpack. The
+column therefore displayed the last **upgrade** date under an install heading. An
+operator auditing a deployment would read "installed 2026-10-01" for a package
+that had in fact been installed in April and merely upgraded that day.
+
+apt's history log does hold the truth, and it separates the two cases: every
+transaction records `Start-Date`, the exact `Commandline`, and distinct
+`Install:` / `Upgrade:` / `Remove:` / `Purge:` lines. Four facts now reach the
+document that did not before:
+
+| Fact | How it is derived |
+|---|---|
+| install vs upgrade | the item-line keyword, not a file mtime |
+| unattended vs operator-initiated | `Commandline` contains `unattended-upgrade` or a packagekit upgrade role |
+| removed / purged | a later `Remove:`/`Purge:` wins over the earlier `Install:`; the cell reads `not installed (removed/purged <date>)` |
+| who asked | the `Requested-By:` user, where apt recorded one |
+
+Measured against the real log (2026-10-04):
+
+```
+$ python3 scripts/build-update/apt_history.py
+packages indexed      : 4445
+  installed           : 4281
+  upgrade-only (pre-window): 86
+  installed unattended: 2098
+log files read        : ['history.log.1.gz', 'history.log.2.gz', 'history.log']
+
+$ python3 -c "...install_date('dbeaver-ce')..."
+dbeaver-ce   None  Purge   unattended=False  removed=True
+nginx        None  Purge   unattended=False  upgraded=2026-08-22  removed=True
+rclone       2026-10-03  Install  unattended=False
+```
+
+Two honest limits, stated rather than papered over:
+
+* **Coverage is bounded by apt's own log retention.** A package installed before
+  the oldest surviving stanza is simply absent from the index. Absent means
+  *unknown*, never *not installed* — the 86 upgrade-only records above are
+  packages whose install predates the retained window.
+* **A removal is not an install date.** For a purged package the function
+  returns `(None, record)` so the caller can say *why* the cell is empty rather
+  than printing a date for software `dpkg -l` no longer lists.
+
+The dpkg-mtime path remains as a fallback and is labelled as such in the cell
+(`(dpkg manifest mtime)`) so the two sources are never confused. A genuine
+failure to load `apt_history.py` degrades to that fallback and is remembered so
+the cost is paid once.
+
+### 12.5.2 Regression tests for the generators
+
+`scripts/build-update/test_generators.py` — run it with
+`python3 scripts/build-update/test_generators.py`; no framework is required.
+**29 tests, all passing**, in about 0.3 s:
+
+```
+$ python3 scripts/build-update/test_generators.py
+...
+Ran 29 tests in 0.266s
+
+OK
+```
+
+Three defects had shipped because nothing asserted them, and each now has a
+test:
+
+1. **Truncated digests became pull commands.** `update_steps()` checked only the
+   `sha256:` prefix, so `sha256:` plus 12 hex characters produced
+   `podman pull repo@sha256:<12>`, which a registry rejects with HTTP 400 — a
+   command that looked correct and could never work. `is_complete_digest()` now
+   checks the algorithm *and* the full body length, and suppresses command
+   generation entirely.
+2. **Steps built from a display name.** A row for the application "Account
+   Wizard" produced `apt install --only-upgrade Account`, which does not exist.
+   Steps now use the owning package name.
+3. **A prose error string used as a digest.** `"upstream digest unreachable
+   (registry refused)"` reached the command generator. Any value that is not a
+   complete digest now yields no command.
+
+A fourth defect was found and fixed *by* this suite: `update_steps()` accepted a
+12-character digest while a nearby assertion already expected it to be rejected.
+
+Two further tests exist specifically because the fixes were silent when
+reverted. `test_apt_history_loads_regardless_of_working_directory` runs the
+generator as a subprocess with `cwd=/tmp`: the original `import apt_history`
+resolved against `sys.path`, which holds the **current working directory**, not
+the script's own directory — and `refresh-install-log.sh` does `cd "$AO_ROOT"`
+first. The import therefore raised `ImportError` on every production run and
+silently fell back to the dpkg mtime, producing a document that looked normal
+and carried the older, less accurate dates. The module is now loaded by
+`__file__`. Without the test this regression is invisible: the failure mode is
+a plausible-looking document, not an error.
+
 ---
