@@ -256,8 +256,9 @@ runs Kubuntu 26.04 LTS on an Intel Core i7-8700K with an NVIDIA GTX 1080. Comput
 production workloads may move to an immersion-cooled server rack and a Raspberry Pi
 edge-computing cluster.
 
-Kubuntu is the desktop for four reasons: it is built on Ubuntu LTS with support through April
-2031, giving a predictable maintenance horizon; it carries the ROS 2 and Gazebo toolchain plus
+Kubuntu is the desktop for four reasons: it is built on Ubuntu LTS with standard security
+maintenance to May 2031, giving a predictable maintenance horizon; it carries the ROS 2 and
+Gazebo toolchain plus
 QGroundControl that the simulation work depends on; KDE Plasma provides the login-gated KDE
 Wallet secret flow (§14.1) and Konqueror as the dedicated automation browser; and the KDE
 suite covers the desktop and portable hardware this system is built for.
@@ -307,6 +308,26 @@ operator runs `~/Documents/APP IMAGES/QGroundControl-x86_64.AppImage`, which has
 a locally built image (`localhost/foxglove-bridge`) rather than a pinned upstream digest. Those
 two are simulation-toolchain facts and belong to the SIM group's inventory; they are noted here
 only so §1 does not read as a package manifest.
+
+**Support-horizon correction, same date.** This paragraph previously gave the maintenance
+horizon as "April 2031". Canonical's published release-cycle table gives **May 2031**, and
+the month was the substance of the claim — a maintenance horizon is only useful if it is the
+right one. Measured 2026-10-04 from `ubuntu.com/about/release-cycle`:
+
+```
+26.04 LTS   Released: Apr 2026
+            Standard security maintenance    May 2031
+            Expanded security maintenance    May 2036
+```
+
+Two things follow that are worth more than the date. The horizon is **standard security
+maintenance, not full support** — extended to May 2036 with Ubuntu Pro, so the 2031
+figure is when routine maintenance stops, not when the release stops being usable. And this
+section's "Kubuntu" claim is about the *Ubuntu LTS base*, whose cycle is the table above;
+flavour cycles are maintained separately by their own communities and are not covered by
+Canonical's dates. Since this host is Ubuntu 26.04.1 LTS with KDE Plasma rather than
+Kubuntu proper (see the correction above), the base table is in fact the correct one to cite
+— but a reader should not take the flavour's support window to be the same number.
 
 # 2. Platform Baseline
 
@@ -566,6 +587,100 @@ The one surviving open item is the `ao-egress-community` / `10.89.11.0/24` name-
 reconciliation. That is a rename decision belonging to another group, tracked in §19.1; it is
 deliberately left alone here.
 
+**The full network inventory, measured 2026-10-04.** Added because the correction above
+names "three deliberately `Internal=false` networks" without naming all three, and because a
+reader checking the isolation rule should be able to verify all fourteen at once rather than
+trust a count. Live state and `config/platform/network-cidrs.yaml` **agree exactly** — all
+fourteen names, all fourteen `internal` flags, all fourteen subnets. That is worth stating
+explicitly: the registry is not aspirational, it describes what is actually running.
+
+| Network | `Internal` | Subnet | Note |
+|---|---|---|---|
+| `ao-payment` | true | 10.89.1.0/24 | |
+| `ao-field` | true | 10.89.2.0/24 | |
+| `ao-mapping` | true | 10.89.3.0/24 | |
+| `ao-sim-vehicle` | true | 10.89.4.0/24 | |
+| `ao-sim-fabrication` | true | 10.89.5.0/24 | |
+| `ao-ledger-ingest` | true | 10.89.6.0/24 | |
+| `ao-ledger-core` | true | 10.89.7.0/24 | |
+| `ao-data` | true | 10.89.8.0/24 | |
+| `ao-admin` | true | 10.89.9.0/24 | |
+| `ao-reporting-egress` | **false** | 10.89.10.0/24 | Egress path for `ao-grafana`, `ao-metabase` (§6.A.2) |
+| `ao-sales` | **false** | 10.89.0.0/24 | Egress; absorbs the folded `10.89.11.0/24` |
+| `ao-fabrication` | true | 10.89.12.0/24 | §3.3.0.1 |
+| `ao-build-update` | **false** | 10.89.13.0/24 | Build/pull egress — the third, and the one §3 never named |
+| `ao-html-window` | true | 10.89.14.0/24 | |
+
+```
+$ for n in $(podman network ls --format '{{.Name}}' | grep '^ao-'); do
+    podman network inspect $n --format 'internal={{.Internal}} subnet={{range .Subnets}}{{.Subnet}}{{end}}'; done
+  -> internal=true  x11 (payment, field, mapping, sim-vehicle, sim-fabrication,
+                       ledger-ingest, ledger-core, data, admin, fabrication, html-window)
+  -> internal=false x3  (reporting-egress, sales, build-update)
+```
+
+**Read this before reading the isolation rule as absolute.** The project convention is
+`Internal=true` for workload networks, and eleven of fourteen honour it. The three
+exceptions are all **egress** networks, which must not be `Internal=true` or they could not
+reach anything — so this is the rule working, not a violation. But it does mean "all
+workload networks are `Internal=true`" is not literally true of everything called a network,
+and a security argument that assumes it is would be wrong by three. The `Internal=true`
+guarantee that §3.3.0.1 relies on — no default route, no NAT, no way off the subnet — holds
+for `ao-fabrication` and the ten others, and **not** for these three.
+
+**Correction to my own text, immediately after writing it.** The first draft of this
+paragraph said the block was "contiguous and gap-free" and that `10.42.0.0/24` was the only
+non-`ao-` addressing on the host. **Both statements are wrong**, and I am recording that
+because they are the kind of claim that survives into someone else's security argument.
+
+1. The block is **not** gap-free. Fourth octet counting is misleading here because every
+   subnet is `10.89.<n>.0/24`, so the varying octet is the **third**:
+
+```
+$ for n in $(podman network ls --format '{{.Name}}' | grep '^ao-'); do
+    podman network inspect $n --format '{{range .Subnets}}{{.Subnet}}{{end}}'; done
+third octets in use: 0 1 2 3 4 5 6 7 8 9 10 12 13 14
+missing in the 0-14 range: [11]
+```
+
+`11` is absent, and that is exactly the folded `10.89.11.0/24` this subsection already
+discusses. So the one gap in the block is the one known-unallocated subnet — consistent,
+not a second problem. There are **no overlaps** and no duplicates, which is the property
+that actually matters.
+2. The host carries a **third** address family besides `10.42.0.0/24`:
+
+```
+$ ip -4 addr show | grep 'inet ' | grep -v 127.0.0.1
+inet 10.42.0.1/24       scope global  noprefixroute  eno1
+inet 192.168.87.135/24  scope global  dynamic       wlp3s0
+inet 169.254.248.253/16 scope link   noprefixroute  eno1
+```
+
+`10.42.0.0/24` is the wired equipment LAN on `eno1`; `192.168.87.0/24` is a **Wi-Fi**
+network on `wlp3s0`, and the `169.254.0.0/16` link-local is autoconfigured.
+
+**Correction to that correction — the Wi-Fi address is not undocumented.** I wrote that §3
+describes the host as having only the equipment LAN, and having just recompiled the README I
+checked whether that was true elsewhere in the document rather than only in my own section.
+It is not: the Wi-Fi address appears in at least two other sections.
+
+```
+README.md:2173  | Host address | `192.168.87.135/24` on `wlp3s0` |
+README.md:5572  MeshChatX is bound to 0.0.0.0:4242; the host had 192.168.87.135/24 on Wi-Fi
+```
+
+So the accurate statement is narrower: the Wi-Fi interface is documented elsewhere and
+**absent from §3**, not absent from the README. That is a consistency gap in one section,
+not a gap in the project record — a meaningfully different thing, and the difference
+matters for whether anyone needs to act. MeshChatX binding `0.0.0.0` while the host holds a
+Wi-Fi address looks like a genuine exposure question, but it belongs to the COMM/NET groups
+and I am recording the pointer rather than opening it.
+
+The substantive point stands unchanged: `Internal=true` constrains a *container's* view, and
+nothing in it constrains what the host's own interfaces reach. §3.3.0.1's "no route off the
+subnet" is true of a container and false of the host, and that distinction is worth making
+explicit regardless of which addresses the host holds.
+
 ### 3.3.1 Program-to-Database Map (single consolidated table)
 
 This is the one table of programs and the databases they use. It is the starting
@@ -588,17 +703,97 @@ installed package or desktop settings module.
 | **PostgreSQL 18** | Metabase | Metabase application database (dedicated) | Metabase application schema, saved questions, dashboards, filters, and subscriptions. Not a system of record and never written to by a reporting source |
 | **PostgreSQL / MySQL (read-only)** | Metabase reporting sources | Per-source read-only roles | Ad-hoc read-only reporting connections to the business databases. One read-only role per source, with no write, DDL, or owner privilege, so a report cannot modify a source |
 | **Prometheus TSDB** | Prometheus | `/prometheus` persistent volume | Security evidence only. Time-series metrics, service health, resource usage, and security evidence. Acts alone and independently of Grafana and Metabase. |
-| **SQLite** | MeshChatX | MeshChatX SQLite store | MeshChatX messages, rooms, and local Reticulum/MeshChatX application state |
-| **SQLite** | QGroundControl | QGroundControl SQLite store | QGroundControl plans, waypoints, settings, and vehicle/flight-plan state |
+| **SQLite** | MeshChatX / Reticulum MeshChatX | Per-identity database at `~/.reticulum-meshchatx/identities/<identity>/database.db` | MeshChatX messages, rooms, and local Reticulum/MeshChatX application state. **Correction 2026-10-04:** this row previously gave no path, and an earlier revision implied a single store under `~/.local/share/`. There is none. The real store is **per identity**, keyed by a hashed directory name — measured: one identity present, 18 MB, 44+ tables (`lxmf_messages`, `lxmf_folders`, `contacts`, `announces`, `crawl_tasks`, `rrc_room_keys`, `map_drawings`, `blocked_destinations`). A separate small store holds declarative-performance-observer reports. Note the content state: `lxmf_messages`, `lxmf_folders` and `lxmf_conversation_summaries` all read **0** rows, while `announces` holds 8862 and `crawl_tasks` 3048 — so the store is populated by network announces and crawling, not by message traffic. There is also a Qt performance-observer store and a plugin-state store. |
+| **SQLite** | QGroundControl | **No application database exists.** Settings are in an INI file and map tiles in a tile cache | **Correction 2026-10-04:** this row previously claimed a "QGroundControl SQLite store" holding "plans, waypoints, settings, and vehicle/flight-plan state". Measured, that store does not exist. The only SQLite file QGroundControl creates on this host is a **map tile cache** — `~/.cache/QGroundControl/QGroundControl/QGCMapCache/qgcMapCache.db`, tables `Tiles`, `TileSets`, `SetTiles`, `TilesDownload`, holding 16 tiles in 1 tile set. Settings live in `~/.config/QGroundControl/QGroundControl.ini` (a plain INI, currently just `SettingsVersion=9`), not in SQLite. Mission plans are `.plan` **files**, not database rows, and no live plan store was found. What this row describes is the intended design; what exists is a tile cache. |
 | **SQLite** | Akonadi/KDE PIM applications | Akonadi SQLite data | Contacts, calendars, mail indexes, and local personal-information data **Not collected by Prometheus** — excluded by operator instruction 2026-10-03: personal and mail-index material is not security telemetry |
-| **SQLite** | Firefox, Brave, Chrome, and Edge | Browser profile SQLite stores | Browser history, site storage, caches, certificates, and profile data **Not collected by Prometheus** — excluded by operator instruction 2026-10-03: browsing material is not security telemetry |
+| **SQLite** | OpenClaw agents | `~/.openclaw/agents/{main,sitebot}/agent/openclaw-agent.sqlite` | Sales/social AI agent state. **Correction 2026-10-04 — this contradicts the "filesystem/local metadata — social" row below, which classes OpenClaw as files "not automatically part of SQL reporting".** OpenClaw does not hold state only in files: it has two real SQLite databases, measured at 33 MB (main) and 4.4 MB (sitebot), and both are among the **seven stores actually snapshotted and read by Grafana** (§3.3.1.1). The row below should not be read as excluding OpenClaw from SQL reporting |
+| **SQLite** | nPerf | `~/.local/share/nPerf/{history,settings,engine}.db` | Run history and settings; two of the three are snapshotted and read by Grafana. Row counts only — settings values are never selected |
+| **SQLite** | Elisa | `~/.local/share/elisa/elisaDatabase.db` | Music library; snapshotted and read by Grafana. Counts only — no titles, artists or paths |
+| **SQLite** | Klipper | `~/.local/share/klipper/history3.sqlite` | Clipboard history. **Never snapshotted, metadata only, by design** — a snapshot would copy clipboard content (which can include passwords and tokens) into a world-readable file, which README §4.1 rule 5 forbids |
+| **SQLite** | libaccounts-glib | `~/.config/libaccounts-glib/accounts.db` | Account identifiers. **Never snapshotted, metadata only**, same reason as Klipper |
+| **SQLite** | Firefox, Brave, Chrome, and Edge | Browser profile SQLite stores | Browser history, site storage, caches, certificates, and profile data **Not collected by Prometheus** — excluded by operator instruction 2026-10-03: browsing material is not security telemetry. **Correction 2026-10-04 — measured, and worth knowing which of these are real.** Chrome and Edge each have a populated `Default` profile with SQLite files present. Firefox is installed **as a snap** (`firefox 1:1snap1`) and its real profile is `~/snap/firefox/common/.mozilla/firefox/<id>/places.sqlite` — *not* the `~/.mozilla/firefox/` path the monitoring collector declares, which is absent, so a collector run would report Firefox absent rather than reading it. Brave is also a snap and **has no profile directory at all**, so it is unpopulated rather than excluded. The exclusion decision is unaffected; only the enumeration was wrong. |
 | **SQLite** | Podman | Rootless container metadata store | Container, image, network, and volume metadata; not application data BoltDB, not SQLite, so not a Prometheus collector target |
-| **Filesystem/local metadata — social** | LM Studio and OpenClaw | Application files, model settings, and local state | Sales/social AI application state that is not automatically part of SQL reporting |
+| **Filesystem/local metadata — social** | LM Studio and OpenClaw | Application files, model settings, and local state | Sales/social AI application state that is not automatically part of SQL reporting. **Caveat added 2026-10-04:** this row is accurate for LM Studio but **must not be read to cover OpenClaw's agent databases**, which are real SQLite stores and are snapshotted into Grafana reporting — see the OpenClaw row in §3.3.1 |
 | **Filesystem/local metadata — drone/field** | ArduPilot, MeshChatX/Reticulum field stores, and radio gateway logs | Application files, telemetry spools, and local state | Field operational and engineering data that is not automatically part of SQL reporting |
 | **Filesystem/local metadata — sim** | Gazebo, ROS 2, ArduPilot SITL, and simulation tools | Project files, worlds, models, and result artifacts | Simulation operational and engineering data that is not automatically part of SQL reporting |
 
 This table records what each database is and which program uses it. Whether a database is
 built and provisioned is status, recorded in §19.1 alongside the work to build it.
+
+#### 3.3.1.1 How SQLite stores reach reporting (measured 2026-10-04)
+
+**Added because §3.3.1 listed the SQLite stores but never said how any of them reach
+reporting, and a reader could reasonably conclude none of them do.** Seven of them do,
+through a snapshot mechanism that has two properties worth knowing: Grafana **never opens
+a live SQLite store**, and the whole path is credential-free.
+
+```
+source SQLite  --(VACUUM INTO, source opened mode=ro)-->  snapshot dir
+   -> bind-mounted read-only into ao-grafana at /var/lib/ao-sqlite
+   -> read by Grafana through the frser-sqlite-datasource plugin
+```
+
+Measured:
+
+```
+$ ls -la /ALWAYSON/data/monitoring/sqlite-snapshots/
+-rw-r--r-- 139264   Oct  4 15:10  db-elisa.db
+-rw-r--r-- 2916352  Oct  4 15:10  db-nperf-history.db
+-rw-r--r-- 12288    Oct  4 15:10  db-nperf-settings.db
+-rw-r--r-- 33259520 Oct  4 15:10  db-openclaw-agent-main.db
+-rw-r--r-- 4411392  Oct  4 15:10  db-openclaw-agent-sitebot.db
+-rw-r--r-- 532480   Oct  4 15:10  db-podman.db
+-rw-r--r-- 32768    Oct  4 15:10  db-reticulum-meshchatx-observer.db
+
+$ podman inspect ao-grafana --format '{{range .Mounts}}{{.Source}} -> {{.Destination}} rw={{.RW}}{{"\n"}}{{end}}'
+/ALWAYSON/data/monitoring/sqlite-snapshots -> /var/lib/ao-sqlite rw=false
+```
+
+**Why snapshots at all rather than a read-only bind mount of the live stores.** Two
+measured reasons, both recorded in the collector: SQLite must write the `-shm` index to
+read a WAL-mode database, so a WAL store *cannot* be read through a read-only mount at
+all; and `VACUUM INTO` produces a delete-mode file that opens cleanly read-only. The
+`immutable=1` workaround was rejected because it ignores the `-wal` file and would have
+Grafana reporting stale data while appearing healthy. The consequences are deliberate and
+should be read as design, not limitation: no ACL change is applied to any personal store,
+Grafana cannot write to or corrupt a live store, and **panel data can lag the live store by
+up to one collector interval** — the snapshot age is displayed on the dashboard for exactly
+this reason.
+
+**No credentials exist anywhere on this path.** The datasources set only a `path`; there is
+no user, password, or any other credential, and none may be added, because SQLite has no
+authentication mechanism. Access control is entirely the file mode (`0644`) plus the
+read-only mount. That is a real property of SQLite, not an oversight — it also means there
+is nothing to protect here beyond filesystem permissions.
+
+**Three stores are deliberately metadata-only and never snapshotted**, because a snapshot
+would copy credential-bearing content into a world-readable file (README §4.1 rule 5):
+Klipper clipboard history, libaccounts-glib accounts, and — by operator instruction of
+2026-10-03 — all mail (Akonadi) and browser stores. Mail and browser material is reported
+as present/absent in PostgreSQL but is never snapshotted, never mounted, and never
+readable from Grafana. This is the enforcement point behind the "Not collected by
+Prometheus" notes in §3.3.1.
+
+**One datasource per snapshot, deliberately.** The `frser-sqlite-datasource` plugin executes
+every query against the single `jsonData.path` and treats `jsonData.databases` only as a
+picker for its query editor UI. With one datasource carrying several paths, every panel
+silently answered from whichever store was in `path` — the measured symptom was the Elisa
+panel reporting Podman's container count. Per-snapshot datasources are the only way for a
+panel to address the store it names.
+
+**Two boundaries on what crosses.** First, Prometheus does not scrape SQLite at all: its
+only jobs are `prometheus` (itself) and `ao-node-exporter`. The SQLite evidence reaches
+`ao_status` in PostgreSQL through the collector's own projection, not through Prometheus.
+Second, the collector selects **row counts only** — no message bodies, no track titles, no
+settings values, no prompt or response payloads, and no browser or mail content ever.
+
+**Not mine to reconcile.** The collector (`scripts/operations/collect-system-health.py`) is
+an OPS-group file, so two measured gaps are reported rather than fixed: the declared
+MeshChatX and QGroundControl paths do not match where those applications actually keep
+their data (§3.3.1), and the declared Firefox path is pre-snap while the snap install
+stores the profile elsewhere. In both cases the collector reports the store absent, which is
+conservative — it reads nothing it should not — but it means those stores are not actually
+covered by the inventory this subsection describes.
 
 ### 3.3.2 Data Flow into Reporting and Ledger Records
 
@@ -1192,23 +1387,65 @@ misled.
 
 #### 6.A.3.2 Four unmanaged Grafana containers are running (measured 2026-10-04)
 
-Beyond the YAML's staleness, `podman ps` shows **four Grafana containers that no Quadlet
-unit owns**, alongside the one sanctioned `ao-grafana`. All four are leftovers from
-2026-10-03 datasource/plugin investigation, two of them from an unnamed probe:
+Measured 2026-10-04 with the correct label key (see the correction immediately
+below — an earlier revision used the wrong one):
 
 ```
-$ for c in relaxed_tharp confident_khayyam keen_bhabha ao-sqli3 ao-grafana; do
-    podman inspect $c --format '{{.Name}} created={{.Created}} nets={{range $k,$v := .NetworkSettings.Networks}}{{$k}} {{end}} netmode={{.HostConfig.NetworkMode}} priv={{.HostConfig.Privileged}} unit={{index .Config.Labels "io.podman.annotations.quadlet"}}'; done
-relaxed_tharp     created=2026-10-03 08:54:41 nets= netmode=pasta priv=false unit=
-confident_khayyam created=2026-10-03 09:00:35 nets= netmode=pasta priv=false unit=
-keen_bhabha       created=2026-10-03 11:50:02 nets= netmode=pasta priv=false unit=
-ao-sqli3          created=2026-10-03 11:50:58 nets= netmode=pasta priv=false unit=
-ao-grafana        created=(managed)   nets=ao-admin ao-reporting-egress netmode=bridge priv=false unit=ao-grafana.service
+$ podman inspect relaxed_tharp --format '{{index .Config.Labels "PODMAN_SYSTEMD_UNIT"}}'
+$ podman inspect ao-grafana     --format '{{index .Config.Labels "PODMAN_SYSTEMD_UNIT"}}'
+ao-grafana.service
+```
+
+**Correction 2026-10-04 — the ownership evidence in this subsection was gathered with a
+label key that does not exist on this host.** The command shown above is what produced
+the numbers; an earlier revision of this subsection used
+`{{index .Config.Labels "io.podman.annotations.quadlet"}}` and printed `unit=` for every
+container. On Podman 5.7.0 that key is never set, so that command proves nothing and
+would have reported `ao-grafana` as ownerless too. The key Quadlet actually writes here
+is **`PODMAN_SYSTEMD_UNIT`** — measured:
+
+```
+$ for c in $(podman ps --format '{{.Names}}'); do u=$(podman inspect $c \
+    --format '{{index .Config.Labels "PODMAN_SYSTEMD_UNIT"}}'); \
+    printf '%-30s -> %s\n' "$c" "${u:-<none>}"; done
+ao-prometheus              -> ao-prometheus.service
+ao-grafana                 -> ao-grafana.service
+ao-metabase                -> ao-metabase.service
+ao-sim-fabrication-gz      -> ao-sim-fabrication-gz.service
+ao-sim-fabrication-foxglove -> ao-sim-fabrication-foxglove.service
+vigorous_shannon           -> <none>
+dreamy_rosalind            -> <none>
+relaxed_tharp              -> <none>
+confident_khayyam          -> <none>
+keen_bhabha                -> <none>
+ao-sqli3                   -> <none>
+```
+
+The **conclusion is unchanged** — exactly six running containers have no service owner,
+and they are the four Grafana duplicates and the two Foxglove duplicates. But it now
+rests on a key that returns a value, and on the whole-container enumeration rather than
+on a hand-picked subset. A reader should treat any ownership claim anywhere in this
+section that does not show `PODMAN_SYSTEMD_UNIT` as unproven.
+
+Beyond the YAML's staleness, `podman ps` shows **four Grafana containers that no Quadlet
+unit owns**, alongside the one sanctioned `ao-grafana`. All four are leftovers from
+2026-10-03 datasource/plugin investigation, two of them from an unnamed probe. Each was
+created on 2026-10-03 (`relaxed_tharp` 08:54:41, `confident_khayyam` 09:00:35,
+`keen_bhabha` 11:50:02, `ao-sqli3` 11:50:58), all use rootless `pasta` rather than a
+bridge network, and none is privileged:
+
+```
+$ podman inspect $c --format '{{.Name}} created={{.Created}} nets={{range $k,$v := .NetworkSettings.Networks}}{{$k}} {{end}} netmode={{.HostConfig.NetworkMode}} priv={{.HostConfig.Privileged}}'
+relaxed_tharp     created=2026-10-03 08:54:41 nets= netmode=pasta priv=false
+confident_khayyam created=2026-10-03 09:00:35 nets= netmode=pasta priv=false
+keen_bhabha       created=2026-10-03 11:50:02 nets= netmode=pasta priv=false
+ao-sqli3          created=2026-10-03 11:50:58 nets= netmode=pasta priv=false
+ao-grafana        nets=ao-admin ao-reporting-egress netmode=bridge priv=false
 ```
 
 Why this belongs in §6 rather than §19 only: §6.A.3 requires every containerized GUI to have a
 **documented Podman-network membership, listener policy, service owner and least-privilege
-identity**. These four have no service owner (no Quadlet label), no declared network
+identity**. These four have no service owner (no `PODMAN_SYSTEMD_UNIT` label), no declared network
 (`pasta` rootless-NAT, per-process — not any of the fourteen registered `ao-*` networks), and
 they are **absent from §5.1 group D**, which claims to enumerate all eighteen GUI and workflow
 rows. Two of them also mount host paths that are *not* the sanctioned read-only snapshot
@@ -1230,13 +1467,22 @@ containers is destructive, touches another group's running work, and the `/tmp` 
 are the subject of the unsigned-plugin question that §6.A.3 and the OPS group already track.
 Recorded here and reported to the operator; no action taken.
 
-**Trap for the next session.** `podman ps` is sorted by name, so a `grep grafana` against the
-**image** column finds these while a search for `ao-grafana` does not. The Foxglove containers
-are the same class of leftover: of three `localhost/foxglove-bridge` containers,
-`ao-sim-fabrication-foxglove` is the sanctioned, **digest-pinned** one, while `vigorous_shannon`
-and `dreamy_rosalind` are unnamed duplicates on the mutable `:latest` tag with no Quadlet label
-— the same §4.1 rule 9 pinning concern, already measured above. Enumerate by *label presence*,
-not by image string.
+**Trap for the next session — two of them, and the first one cost me a whole review
+pass.** `podman ps` is sorted by name, so a `grep grafana` against the **image** column
+finds these while a search for `ao-grafana` does not. The Foxglove containers are the same
+class of leftover: of three `localhost/foxglove-bridge` containers,
+`ao-sim-fabrication-foxglove` is the sanctioned, **digest-pinned** one, while
+`vigorous_shannon` and `dreamy_rosalind` are unnamed duplicates on the mutable `:latest` tag
+with no `PODMAN_SYSTEMD_UNIT` label — the same §4.1 rule 9 pinning concern.
+
+Enumerate by *label presence*, not by image string — but **look the key up first**. The
+instinct is `io.podman.annotations.quadlet`, and on this host it is simply not set on
+anything: a query using it returns an empty string for all twenty-five running containers,
+including every genuinely managed one. An empty result from that key looks like a finding
+("nothing has an owner!") and is indistinguishable from "I asked the wrong question." The
+correct key is `PODMAN_SYSTEMD_UNIT`, and the self-check is to run it over the whole
+container list and confirm that the containers you believe are managed actually come back
+with a service name. If every row is empty, the key is wrong, not the fleet.
 
 ---
 
