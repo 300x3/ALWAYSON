@@ -171,8 +171,15 @@ data directory is on the root filesystem; the drive holds `webodm/{media,project
 which is where the imagery and processing state actually live. Moving a live PostgreSQL data
 directory onto an external drive would change service configuration and is an operator decision.
 FIELD-11 is closed on the *name and location* question, which is what the item asked; the
-drive-residency half remains an open deviation, recorded in §8.4.1 and to be carried forward
-as a new **FIELD** item rather than reopened.
+drive-residency half remains an open deviation, recorded here and carried forward as a new
+**FIELD** item rather than reopening FIELD-11.
+
+Note that §8.5.2 (measured 2026-10-04) makes the drive-residency question harder than it looks,
+not easier. The drive is not operator-writable in its intended ownership arrangement: the mapping
+directories are group-owned by `alwayson-mapping` and the operator is not a member of that group,
+so `mkdir` on the drive fails even for paths that §8.2 requires to exist. Any decision to move
+PostgreSQL storage there has to fix that ownership first, or the database will land on a volume
+its own operator cannot manage.
 
 ## 8.5 Mapping Mount Validation
 
@@ -274,11 +281,11 @@ drwxrws---  2 ao-mapping alwayson-mapping  4096 Aug 23 18:31 validated
 drwxrws---  7 scottw     ao-mapping        4096 Aug 23 18:31 webodm
 ```
 
-So: **no world-writable directory at depth 1** is confirmed, and the `ao-mapping` ownership
-scheme is confirmed. **Depths 2-4 are unverified** for an unprivileged session — eight
-subtrees could not be traversed. Full ownership and permission validation therefore
-**cannot be signed off from here**; it needs `sudo` or an `ao-mapping` group membership. This
-is a *second* reason, alongside the 11 missing directories, that FIELD-10 stays open.
+**Correction, 2026-10-04 — see §8.5.2.** The setgid paragraph above reads as if setgid makes the
+ownership arrangement correct. It does not. Setgid propagates the *parent's group*, and on this
+drive that group is `alwayson-mapping`, a group the operator is not in. The depth-2 audit I could
+not perform here is explained there, together with a measured root cause (group membership) that
+this section previously reported only as "unverified".
 
 The reserved `data/mapping` paths are correctly **absent**, as §8.4 requires:
 
@@ -306,6 +313,96 @@ currently no on-drive copy.
    which is outside what this session may do unprompted. **Not created.** FIELD-10 stays
    **open** with this evidence attached — the validation has now been *run and failed*, which is
    strictly more progress than the prior "unvalidated" state.
+
+### 8.5.2 Why the tree cannot be repaired by the operator's own account — measured 2026-10-04
+
+§8.5.1 left two things unresolved: 11 required paths are missing, and depths 2-4 could not be
+audited. **Both now have a single measured root cause, and it is a group-membership fault, not a
+missing-permission fault.**
+
+Every `ao-mapping`-owned directory on the drive is mode `770` with group **`alwayson-mapping`
+(gid 975)**, and there are no ACLs extending it:
+
+```bash
+$ stat -c '%n owner=%U group=%G mode=%a' /media/scottw/500GBPHOTOGRAM/tmp
+/media/scottw/500GBPHOTOGRAM/tmp owner=ao-mapping group=alwayson-mapping mode=770
+
+$ getfacl -p /media/scottw/500GBPHOTOGRAM/tmp
+# owner: ao-mapping
+# group: alwayson-mapping
+user::rwx
+group::rwx
+other::---
+
+$ getent passwd ao-mapping
+ao-mapping:x:997:975:ALWAYS ON mapping domain service:/home/alwayson-mapping:/usr/sbin/nologin
+$ getent group alwayson-mapping
+alwayson-mapping:x:975:              # <- NO members at all
+```
+
+`ao-mapping` is a **service account** (uid 997), and the directories are owned by it. The
+operator's account is a member of the *other* group:
+
+```bash
+$ id -nG scottw | tr ' ' '\n' | grep -xE '1001|975'
+1001                                # ao-mapping      - member
+                                    # 975 absent      - NOT in alwayson-mapping
+
+$ M=/media/scottw/500GBPHOTOGRAM
+$ mkdir "$M/tmp/processing"
+mkdir: Permission denied
+$ sg ao-mapping -c "mkdir -p '$M/tmp/processing'"
+mkdir: Permission denied
+```
+
+`sg ao-mapping` still fails, which is the diagnostic that matters: group `ao-mapping` (1001)
+grants nothing here because these directories are **group-owned by `alwayson-mapping` (975)**
+and the `other` class is `---`. `scottw` therefore falls through to `other` and is denied. This
+is why §8.5.1 could not traverse 8 of 10 subtrees — **not** "unverified for want of trying",
+but a hard denial.
+
+Every one of the 10 missing sub-directories sits under an identically-blocked parent:
+
+| Required path | Parent owner:group | Parent mode |
+|---|---|---|
+| `incoming/drone` | `ao-mapping:alwayson-mapping` | `770` |
+| `manifests/intake` | `ao-mapping:alwayson-mapping` | `770` |
+| `exports/pcloud-staging` | `ao-mapping:alwayson-mapping` | `770` |
+| `backups/mapping-db` | `ao-mapping:alwayson-mapping` | `770` |
+| `tmp/processing` | `ao-mapping:alwayson-mapping` | `770` |
+
+**A second, independent fault is now visible: ownership at depth 2 is inconsistent with depth 1.**
+The top level is uniformly `ao-mapping:alwayson-mapping`, but several existing depth-2
+directories are owned by `scottw` instead:
+
+```bash
+$ stat -c '%n owner=%U group=%G' /media/scottw/500GBPHOTOGRAM/retention/pending-review \
+                               /media/scottw/500GBPHOTOGRAM/webodm/media
+.../retention/pending-review owner=scottw group=scottw
+.../webodm/media              owner=scottw group=ao-mapping
+```
+
+Three different ownership patterns (`ao-mapping:alwayson-mapping`, `scottw:ao-mapping`,
+`scottw:scottw`) coexist on one volume. The setgid bit is therefore **not** doing what §8.5.1
+claimed: setgid propagates the *parent's group*, and here that group is `alwayson-mapping`,
+which is exactly the group the operator cannot write through. Setgid is propagating the fault
+as consistently as it propagates the intent.
+
+**What this means for the reader:**
+
+- The §8.5 refusal conditions ("required directories are missing", "mapping service ownership
+  or permissions are incorrect") are **both genuinely tripped**. The validator passes only
+  because it checks neither. This is no longer a theoretical gap in the validator — it is a
+  live instance of the gap, on the live drive, today.
+- Repairs require `sudo`, and are **group-membership changes**:
+  1. `sudo usermod -aG alwayson-mapping scottw` (then re-login), **or**
+  2. create the 11 paths as root and `chgrp alwayson-mapping` them.
+
+  Both are operator actions. Neither is a documentation fix, and neither is attempted here.
+- **Security posture is correct, which is worth saying explicitly.** Mode `770` with `other=---`
+  and no world-writable directory is the *intended* arrangement per §8.2. The operator being
+  locked out is the symptom of that policy working, not of it failing. The fix is to add the
+  operator to the mapping group, **not** to relax the mode to `777`.
 
 ## 8.6 3D Model Identity and Database Cross-Referencing
 

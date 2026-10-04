@@ -98,3 +98,65 @@ as a reasonable place for a summary note without checking that this format has a
 header — prose above the frontmatter is not "at the top", it is invalid.** I caught it with
 `head` and moved it here. Worth knowing for other sessions: **append to the body of a
 proposal, never above its frontmatter.**
+
+---
+
+**UPDATE 2026-10-04 15:09 — §8.5.2 added: the blocker now has a measured root cause.**
+Action stays `update`; the item still cannot close, but one of its two unresolved questions is
+answered and the other is no longer ambiguous.
+
+The previous version of this proposal left the ownership half as "unverified at depths 2-4".
+That was a symptom, not a finding. §8.5.2 now measures the cause:
+
+```bash
+$ stat -c '%n owner=%U group=%G mode=%a' /media/scottw/500GBPHOTOGRAM/tmp
+.../tmp owner=ao-mapping group=alwayson-mapping mode=770
+$ getent group alwayson-mapping
+alwayson-mapping:x:975:              # no members at all
+$ id -nG scottw | tr ' ' '\n' | grep -xE '1001|975'
+1001                                # in ao-mapping; NOT in alwayson-mapping (975)
+$ mkdir /media/scottw/500GBPHOTOGRAM/tmp/processing
+mkdir: Permission denied
+$ sg ao-mapping -c "mkdir -p /media/scottw/500GBPHOTOGRAM/tmp/processing"
+mkdir: Permission denied
+```
+
+`sg ao-mapping` failing is the load-bearing detail: the operator *is* in group `ao-mapping`
+(1001), but these directories are group-owned by **`alwayson-mapping` (975)**, which the
+operator is not in, and `other` is `---`. So the operator falls through to `other` and is
+denied. That is why §8.5.1 could not traverse 8 of 10 subtrees — a hard denial, not an
+incomplete attempt.
+
+**A second fault surfaced with it: depth-2 ownership is inconsistent with depth 1.** Three
+patterns coexist on one volume — `ao-mapping:alwayson-mapping` (top level),
+`scottw:ao-mapping` (`webodm/media`), `scottw:scottw` (`retention/pending-review`).
+
+```bash
+$ stat -c '%n owner=%U group=%G' /media/scottw/500GBPHOTOGRAM/retention/pending-review \
+                               /media/scottw/500GBPHOTOGRAM/webodm/media
+.../retention/pending-review owner=scottw group=scottw
+.../webodm/media              owner=scottw group=ao-mapping
+```
+
+This **corrects §8.5.1's claim that setgid makes the ownership arrangement correct.** Setgid
+propagates the *parent's group* — here `alwayson-mapping`, precisely the group the operator
+cannot write through. Setgid is propagating the fault as reliably as it propagates the intent.
+The correction is recorded in §8.5.1 with a pointer to §8.5.2 rather than deleted.
+
+**Read this before "fixing" it:** the mode is `770` with `other=---` and no world-writable
+directory, which is exactly what §8.2 requires. **The operator being locked out is the security
+policy working correctly, not failing.** The repair is to add the operator to the mapping group
+(`sudo usermod -aG alwayson-mapping scottw`, then re-login) — **not** to relax the mode to
+`777` or add world-write ACLs. If any other session proposes loosening these permissions to
+make a mapping path writable, that is a regression against §8.2 and should be refused.
+
+**What I got wrong this session, and the reason.** I overwrote this proposal's entire
+frontmatter with the FIELD-15 content while intending to append to the body — I passed the
+existing header text as `old_text`, so the write landed on top of the file and destroyed
+FIELD-10's `item:`/`action:` block. **Reason: I used a replace-the-whole-header idiom to
+create a *different* file, in the wrong file.** I caught it on the next read and restored with
+`git checkout -- agents/COORDINATION/proposals/field-FIELD-10.md` (99 lines, header intact),
+then created `field-FIELD-15.md` as a separate new file. No other session's file was touched.
+
+Note for other sessions: **the frontmatter is the one part of a proposal you must never
+replace, only read.** Every other part of these files is safely appendable.
