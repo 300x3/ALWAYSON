@@ -43,6 +43,44 @@
 No component may take any of the following paths. Each prohibition is enforced by the rule
 named in the last column; the rule text is in §4.1.
 
+### 4.3.1 Named source-to-target prohibitions
+
+This is the original §4.3 list, recovered verbatim from the superseded v6 archive
+(`README - ARCHIVE/ALWAYS ON — Architecture, Operations, and Status - v6.md`,
+"## 4.3 Prohibited Paths", added in `b3d35e7`). It states the prohibitions as
+concrete source → target pairs, which the rebuilt table below cannot: a rule such
+as "one component to a second domain network" says why, not *which* pairs are
+named. Both are kept, because the pairs are what an operator checks against a
+running host.
+
+```text
+Sales/AI → MAVLink, ArduPilot, ROS, Gazebo, LoRa, RNS, MeshChatX
+Sales/AI → WebODM workers, raw imagery, Corda core
+Payment → OpenClaw, LM Studio, Mastodon, field, mapping, simulation
+Field → payment provider, Mastodon, OpenClaw, LM Studio, Corda core
+Mapping → flight control, LoRa/RNS, payment provider, Mastodon, Corda core
+Vehicle simulation → live drones, live radios, sales, payments, Corda core
+Fabrication simulation → live machinery during phase one, sales, payments, Corda core
+Public internet → PostgreSQL, Redis, WebODM workers, LM Studio, Corda,
+                  ROS, MAVLink, Gazebo, QGroundControl, RNS, MeshChatX
+```
+
+Two entries in this list have been superseded by later operator decisions and are
+marked rather than silently deleted, because deleting them would hide a decision:
+
+- *Field → payment provider* and *Mapping → payment provider* are superseded in
+  that payment is now reached through the controlled `ao-ingress-payment` /
+  `ao-egress-archive` adapters (§5.2), never directly from a workload network.
+  The prohibition still holds in substance: no `ao-field` or `ao-mapping` container
+  holds a payment credential.
+- *Fabrication simulation → live machinery **during phase one***: the phase-one
+  qualifier is historical. The prohibition is absolute in the current design
+  (§4.3.2, first row; §10.2).
+
+### 4.3.2 Prohibitions by rule
+
+The rebuilt list, retained because each row names the enforcing rule.
+
 | Prohibited path | Why | Rule |
 |---|---|---|
 | Simulation domain to live machinery | A rehearsal must never command a real machine, a real robot arm, or a live flight controller | Rule 12, §10.2 |
@@ -55,6 +93,22 @@ named in the last column; the rule text is in §4.1.
 | A reporting tool to write into a source database | Grafana and Metabase are read-only over their sources | §3.3, §6.A.2 |
 | A wider privilege, mount, or secret to make an error go away | Least privilege is not negotiable to clear a fault | Rules 13, 6.A.3 |
 | An adapter to a workload, or a workload to an adapter | The adapter boundary is one-way and holds its own credentials | §5.2 |
+
+### 4.3.3 What was lost, and where it went
+
+The body of this section was at one point overwritten with a duplicate of the
+sale-chain diagram. That misplaced content was not lost — it belongs to the sale
+chain and is now carried once, in §3.3.2, which holds the sale-chain figure and
+the catalogue-to-Corda narrative. The prohibition list itself was lost with it and
+is restored above as §4.3.1.
+
+The list above is recovered from the archived v6 document, which is the
+operator-approved original named as this document's own ancestor
+(`config/platform/topology-model.yaml` records `authority: "... v6.md"`). It has
+**not** been independently re-approved by the operator in its current form; §4.3.1
+records where two entries were superseded and by what. Confirmation of the
+recovered list as the operator-approved original is the one item in this section
+that needs a human decision.
 
 ## 4.4 Approved Internal Paths
 
