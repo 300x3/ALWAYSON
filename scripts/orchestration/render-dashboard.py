@@ -57,6 +57,18 @@ DECISIONS = {
  "OPS-29":   "(duplicate of OPS-30 - same question, closing one closes both)",
 }
 
+ANSWERS_PATH = os.path.join(ROOT, "artifacts/dashboard/answers.json")
+
+def load_answers():
+    if os.path.exists(ANSWERS_PATH):
+        try:
+            return json.load(open(ANSWERS_PATH, encoding="utf-8"))
+        except ValueError:
+            return {}
+    return {}
+
+ANSWERS = load_answers()
+
 def load():
     recs = []
     if os.path.exists(SRC):
@@ -171,8 +183,16 @@ def main():
     qs = []
     for item in sorted(DECISIONS):
         if item in open_ids:
-            qs.append('<li><span class=qid>%s</span> %s</li>'
-                       % (html.escape(item), html.escape(DECISIONS[item])))
+            prev = ANSWERS.get(item, {}).get("answer", "")
+        done = ANSWERS.get(item, {}).get("answered_at", "")
+        mark = " answered %s" % done[:10] if done else ""
+        qs.append(
+            '<li class=ansrow><div class=qline><span class=qid>%s</span> %s'
+            '<span class=when>%s</span></div>'
+            '<input class=ans id="a_%s" placeholder="type your decision here&hellip;" value="%s">'
+            '<input type=hidden class=ts id="t_%s" value="%s"></li>'
+            % (html.escape(item), html.escape(DECISIONS[item]), mark,
+               html.escape(item), html.escape(prev), html.escape(item), html.escape(done)))
     if qs:
         questions = (
             '<div class=panel id=approvals>'
@@ -180,7 +200,10 @@ def main():
             '<p class=note2>These %d items are blocked on an operator decision and cannot '
             'be completed by an agent. Answer any of them and the owning session can '
             'proceed. Items disappear from this list as they close.</p>'
-            '<ol class=qs>%s</ol></div>' % (len(qs), "".join(qs)))
+            '<div class=form><ol class=qs>%s</ol>'
+            '<div class=savebar><button id=save>Save decisions</button>'
+            '<button class=ghost id=clearall>Clear</button>'
+            '<span class=status id=st></span></div></div></div>' % (len(qs), "".join(qs)))
     else:
         questions = ('<div class=panel id=approvals><h2>Decisions needed from you</h2>'
                      '<p class=note2>Nothing is blocked on a decision right now.</p></div>')
@@ -194,6 +217,8 @@ def main():
 *{box-sizing:border-box}
 body{margin:0;background:#f6f7f9;color:#1b1f24;font:14px/1.45 "DejaVu Sans",system-ui,sans-serif}
 .wrap{padding:18px 22px}
+.cols{display:grid;grid-template-columns:minmax(0,1fr) 430px;gap:14px;align-items:start}
+@media (max-width:1250px){.cols{grid-template-columns:1fr}}
 h1{font-size:19px;margin:0 0 2px}
 .sub{color:#5b6472;font-size:12.5px;margin-bottom:14px}
 .cards{display:flex;gap:12px;margin-bottom:14px}
@@ -228,6 +253,22 @@ ol.qs li{padding:7px 10px;border-left:3px solid #e0c48c;background:#fff;margin-b
  font-size:13.5px;line-height:1.5}
 .qid{display:inline-block;min-width:82px;font-weight:700;color:#7a5c15;
  font-family:"DejaVu Sans Mono",monospace;font-size:12px}
+#approvals .form{display:flex;flex-direction:column;gap:10px}
+ol.qs{display:grid;grid-template-columns:repeat(auto-fill,minmax(430px,1fr));gap:10px}
+ol.qs li{margin-bottom:0}
+.ans{width:100%;box-sizing:border-box;padding:6px 8px;font:13px/1.4 inherit;
+ border:1px solid #d8cdb0;border-radius:5px;background:#fff;color:#1b1f24}
+.ans:focus{outline:2px solid #c8a54a;outline-offset:-1px;border-color:#c8a54a}
+.ans.saved{border-color:#15803d;background:#f2fbf4}
+.ansrow{display:flex;flex-direction:column;gap:4px}
+.savebar{position:static;display:flex;gap:9px;align-items:center;
+ margin-top:14px;padding:12px 0 2px;border-top:1px solid #e6dcc2;background:#fffdf7}
+button{font:600 13px/1 inherit;padding:9px 16px;border-radius:6px;cursor:pointer;
+ border:1px solid #7a5c15;background:#7a5c15;color:#fff}
+button:hover{background:#6a4f11}
+button.ghost{background:#fff;color:#7a5c15}
+.status{font-size:12px;color:#6b5a2e}
+.status.ok{color:#15803d}
 </style><div class=wrap>
 <h1>ALWAYS ON &mdash; section 19 work items</h1>
 <div class=sub>outstanding (19.1) vs completed (19.2) per work group &middot; snapshot @WHEN@ UTC</div>
@@ -242,6 +283,49 @@ ol.qs li{padding:7px 10px;border-left:3px solid #e0c48c;background:#fff;margin-b
 <th>Done</th><th>Items</th></tr></thead><tbody>@ROWS@</tbody></table></div>
 <div class=panel>@GRAPH@<div class=note>@HIST@</div></div>
 @QUESTIONS@
+<script>
+// Save writes each non-empty answer to artifacts/dashboard/answers.json via a
+// POST to the local writer. It never silently loses text: the button reports
+// what it saved and what it could not.
+(function(){
+  var st=document.getElementById('st');
+  function collect(){
+    var out=[];
+    document.querySelectorAll('input.ans').forEach(function(inp){
+      var v=inp.value.trim();
+      if(v) out.push({item:inp.id.slice(2), answer:v});
+    });
+    return out;
+  }
+  function mark(saved){
+    document.querySelectorAll('input.ans').forEach(function(inp){
+      if(inp.value.trim()) inp.classList.add('saved');
+    });
+    st.textContent=saved; st.className='status ok';
+  }
+  document.getElementById('save').addEventListener('click',function(){
+    var rows=collect();
+    if(!rows.length){ st.textContent='nothing filled in yet'; st.className='status'; return; }
+    st.textContent='saving '+rows.length+'…';
+    fetch('answers',{method:'POST',headers:{'Content-Type':'application/json'},
+                     body:JSON.stringify({answers:rows})})
+      .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status);
+                          return r.text(); })
+      .then(function(){ mark('saved '+rows.length+' decision(s) at '+new Date().toLocaleTimeString()); })
+      .catch(function(e){ st.textContent='NOT saved - '+e.message+
+                                    ' (is the writer running? see scripts/orchestration/dashboard-writer.py)';
+                          st.className='status'; });
+  });
+  document.getElementById('clearall').addEventListener('click',function(){
+    if(!confirm('Clear every answer field? Saved answers in answers.json are kept until you press Save.')) return;
+    document.querySelectorAll('input.ans').forEach(function(i){ i.value=''; i.classList.remove('saved'); });
+    st.textContent='cleared - press Save to write'; st.className='status';
+  });
+  document.querySelectorAll('input.ans').forEach(function(i){
+    if(i.value.trim()) i.classList.add('saved');
+  });
+})();
+</script>
 </div></html>"""
     # Token substitution, not %-formatting: the stylesheet is full of literal
     # % and {} which %-formatting and str.format both mangle.
