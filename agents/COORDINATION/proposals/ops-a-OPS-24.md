@@ -2,32 +2,59 @@
 item: OPS-24
 action: update
 evidence: |
-  # the drill ran against the off-host repository; table in 17.4:
-  #   snapshot 56bf1af5, 63 files, 304.564 KiB
-  #   hash-identical to live: 59 of 63
-  #   changed since snapshot: 4 (all config/, all mtime AFTER the snapshot)
-  #   changed with mtime BEFORE the snapshot (corruption signature): 0
-  #   database dumps in this snapshot: 0
-  #   result: PASS
-  $ export RESTIC_REPOSITORY=/media/scottw/…/ALWAYSON-BACKUPS
-  $ restic check --read-data-subset=1/10
-  no errors were found
+  # NEW THIS SESSION: the nightly repository cannot be drilled at all without
+  # root. The PASS in 17.4 was against the OFF-HOST repo, because that one is
+  # readable. The repo that actually holds data/ + ledger/ + payment/ +
+  # backups/postgres/ is the one that is unreadable.
+  $ ls -ld /var/backups/alwayson-restic
+  drwx------ 7 root root 4096 Aug 25 14:11 /var/backups/alwayson-restic
 
-  # still no cadence — nothing schedules the drill:
-  $ systemctl --user list-timers --all | grep -i restic
-  ao-restic-prefetch.timer   (only the prefetch timer exists)
+  # the SECRET half works fine -- wallet materialises the env:
+  $ ./scripts/operations/fetch-restic-env.sh "$E"
+  OK: wallet-backed restic env materialized
 
-  # data/ is still absent from the nightly path set:
-  $ grep -o "restic backup.*" scripts/backup/restic-run.sh | tr ' ' '\n' | grep ALWAYSON
-  /ALWAYSON/config /ALWAYSON/artifacts /ALWAYSON/backups/postgres
-  /ALWAYSON/data/ardupilot /ALWAYSON/data/corda-install /ALWAYSON/data/sim-fabrication
-  /ALWAYSON/data/sales /ALWAYSON/data/mapping /ALWAYSON/data/field
-  /ALWAYSON/data/payment /ALWAYSON/data/ledger
+  # but the failure is a directory permission, not a decryption failure:
+  $ restic snapshots --tag alwayson
+  Fatal: unable to open config file: stat /var/backups/alwayson-restic/config: permission denied
+  Is there a repository at the following location?
+  /var/backups/alwayson-restic
+
+  # the drill script reports it correctly as its environment class, not as an
+  # empty result:
+  $ ./scripts/restore/restore-restic-drill.sh --repo "$RESTIC_REPOSITORY" --scratch /var/tmp/ao-drill-$$
+  ERROR: could not resolve a snapshot; pass --snapshot explicitly
+  rc=3
+
+  # the scripted safety refusals still hold, and notably the live-tree refusal
+  # fires BEFORE the credential check:
+  $ ./scripts/restore/restore-restic-drill.sh --repo /var/backups/alwayson-restic --scratch /ALWAYSON/data/evil
+  REFUSED: scratch path /ALWAYSON/data/evil is inside the live /ALWAYSON tree.
+  rc=2
 section: 17-backup-restore-monitoring-and-completion-criteria
 ---
-**Progress, still OPEN.** New §17.4 records a restore drill actually executed
-by `scripts/restore/restore-restic-drill.sh` (new this session) against the
-off-host repository, with the per-measure table.
+**Still OPEN, and the reason is now much sharper.** New §17.4.1 pins the
+blocker to a specific permission. The drill recorded as PASS in §17.4 was run
+against the off-host repository because that one is readable; the nightly
+repository is mode `0700 root root`, so it cannot be read with valid credentials.
+That inverts the intuitive reading of the evidence — the passing drill exercises
+the repository that protects the least (config + artifacts), and the repository
+that protects the most is the one never drilled.
+
+Closing it needs a privilege change on backup data (`pkexec`, a read-only group,
+or service-account read access), which is an explicit stop condition. Nothing was
+changed, no scratch directory remains, and nothing under `/ALWAYSON` was written.
+
+## What I got wrong this session
+
+I initially read `stat` mtimes on the rotated files and concluded the rotations
+predated the logrotate policy install — reasoning that a `.log.1` older than
+`/etc/logrotate.d/alwayson` could not have come from it. **That inference was
+wrong**, for the reason §17.5 already documents: under `nocopytruncate` the
+rotation *renames*, so the rotated file retains the mtime of its last write. mtime
+measures the content's age, not the rotation's time, and cannot date a rotation
+at all. I repeated an error the section had already recorded against a previous
+revision of itself. The rule I keep relearning: to date a rotation, read the
+journal (`pkexec`/`logrotate.service` lines), never the filesystem.
 
 Why it does not close, and the two limits are recorded rather than buried:
 

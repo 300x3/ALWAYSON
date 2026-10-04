@@ -2,83 +2,84 @@
 item: OPS-11
 action: update
 evidence: |
-  $ curl -s http://127.0.0.1:9090/api/v1/rules | python3 -c '...print("groups:",len(...))'
-  groups: 0
-
-  $ podman ps -a --format '{{.Names}}' | grep -i alert || echo 'no alertmanager container'
-  no alertmanager container
   $ podman images --format '{{.Repository}}:{{.Tag}}' | grep -i alert || echo 'no alertmanager image'
   no alertmanager image
 
-  # after the change — rules exist and validate:
+  # rules exist and validate in-tree:
   $ podman run --rm -v .../monitoring:/etc/prometheus:ro --entrypoint promtool \
       docker.io/prom/prometheus@sha256:d47ad27c... check config /etc/prometheus/prometheus.yml
-  Checking /etc/prometheus/prometheus.yml
     SUCCESS: 1 rule files found
-   SUCCESS: /etc/prometheus/prometheus.yml is valid prometheus config file syntax
-
-  Checking /etc/prometheus/alwayson-alerts.yml
     SUCCESS: 10 rules found
 
-  $ python3 -c "import yaml; ..."   # rule/group inventory
-    ao-storage -> 3 rules
-      - AoFilesystemLowSpace | for 30m | sev warning
-      - AoFilesystemCriticallyFull | for 10m | sev critical
-      - AoFilesystemReadOnly | for 5m | sev critical
-    ao-backup -> 3 rules
-      - AoBackupStale | for 15m | sev critical
-      - AoRestoreTestStale | for 1h | sev warning
-      - AoRepositoryVerifyStale | for 1h | sev warning
-    ao-host -> 2 rules
-      - AoMemoryLow | for 15m | sev warning
-      - AoLoadHigh | for 30m | sev warning
-    ao-collector -> 2 rules
-      - AoExporterDown | for 5m | sev critical
-      - AoDbSecurityCollectorStale | for 30m | sev warning
-    total rules: 10
+  # BUT nothing on the host emits the three backup metrics -- re-measured 2026-10-04:
+  $ grep -rln 'ao_backup_last_success\|ao_restore_test_last_pass\|ao_backup_last_verify' .
+  ./config/platform/monitoring/alwayson-alerts.yml      <- the rules; no emitter
+  $ ls /ALWAYSON/data/prometheus-textfile/
+  ao-db-security.prom                                  <- the only textfile emitter
+  $ curl -s localhost:9090/api/v1/label/__name__/values | python3 -c \
+      '...print([x for x in v if x.startswith("ao_")])'
+  ao_* series: []
 
-  $ for m in node_systemd_unit_state ...; do curl -s ".../api/v1/query?query=$m"; done
-  node_systemd_unit_state          series: 0
-  node_filesystem_avail_bytes      series: 12
+  # and the rules are still not loaded -- repo quadlet has the mount, deployed does not:
+  $ grep -n 'alwayson-alerts' quadlet/operations/ao-prometheus.container
+  18:Volume=/ALWAYSON/config/platform/monitoring/alwayson-alerts.yml:/etc/prometheus/alwayson-alerts.yml:ro,Z
+  $ grep -n 'Volume=' ~/.config/containers/systemd/ao-prometheus.container
+  12:Volume=/ALWAYSON/config/platform/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro,Z
+  $ curl -s localhost:9090/api/v1/rules
+  {"status":"success","data":{"groups":[]}}            <- 0 groups loaded
+
+  # real expressions, read from the file (the 17.2.2 table had these wrong):
+  $ grep -n 'alert:\|expr:' config/platform/monitoring/alwayson-alerts.yml
+  - alert: AoBackupStale
+    expr: (time() - ao_backup_last_success_timestamp_seconds) > 93600
+  - alert: AoRestoreTestStale
+    expr: (time() - ao_restore_test_last_pass_timestamp_seconds) > 3024000
+  - alert: AoRepositoryVerifyStale
+    expr: (time() - ao_backup_last_verify_timestamp_seconds) > 777600
 section: 17-backup-restore-monitoring-and-completion-criteria
 ---
-**Stays OPEN.** Two of the three parts of this item are now done; the third is
-blocked on an operator decision.
+**Stays OPEN**, now on **three** grounds rather than one.
 
-Done in §17.2.1 and §17.2.2: the alerting component is named (Prometheus rule
-evaluation, explicitly not Alertmanager, which is measured absent), the
-thresholds are stated per rule in a ten-rule table, and the rules exist as a
-validated file — `config/platform/monitoring/alwayson-alerts.yml`, mounted
-read-only by `ao-prometheus.container` and loaded via `rule_files`.
+Ground 1 -- no routing target. Unchanged from the previous revision: no
+Alertmanager container, image or receiver exists. Adding one is a new component,
+a new network path and probably a new credential (4.1 rules 6/7), so it needs
+operator approval and was not built.
 
-Why it is not closed: **there is no routing target.** The item asks for "the
-routing target per severity" and none exists — no Alertmanager container, no
-image, no receiver anywhere. Rules evaluate and show up in Grafana, but nothing
-reaches an operator who is not already looking at the dashboard. Adding
-Alertmanager plus a delivery target means a new component, a new network path
-and very likely a new credential, which is §4.1 rule 6/7 territory and needs
-explicit operator approval. I stopped there rather than build it.
+Ground 2 -- the rules are not loaded. New this session, and it is the 16.1.1
+trap: the repository Quadlet declares the `alwayson-alerts.yml` read-only mount,
+but `~/.config/containers/systemd/ao-prometheus.container` is a flat copy dated
+Oct 1 with **one** `Volume=` line. `GET /api/v1/rules` returns `groups: []`.
+Nothing was redeployed -- restarting `ao-prometheus` would drop observed scrape
+targets, so it is left as an operator action.
 
-Also honest about partial coverage, recorded in §17.2.2 and §17.2.3: three of
-the ten rules (`AoBackupStale`, `AoRestoreTestStale`,
-`AoRepositoryVerifyStale`) reference metric names nothing currently exports, so
-they cannot fire yet; and seven of the eleven required conditions have no
-exporter at all, measured by `node_systemd_unit_state` returning 0 series and
-only two scrape jobs existing. A rule that can never fire is not alerting, so
-these are documented as unwired rather than counted as coverage.
+Ground 3 -- **the three backup alerts have no metric source.** This is new and it
+changes what fixing ground 2 would accomplish. `AoBackupStale`,
+`AoRestoreTestStale` and `AoRepositoryVerifyStale` are the only rules not built
+from `node_*` or `up`; a repository-wide grep for their metric names returns
+exactly one file -- the rule file that consumes them. Prometheus holds zero
+`ao_*` series. So the redeploy would load all ten rules, seven would evaluate,
+and these three would evaluate to **empty**: an absent series yields no vector,
+which neither fires nor reports "no data". The alerting would look correct while
+the exact failure mode of 17.2.1 -- a backup that silently stops -- stayed
+uncovered. The gap is a missing collector, not a threshold to tune; the
+`data/prometheus-textfile/` channel already used by `ao-db-security.prom` is the
+obvious shape for it. Not written here: it changes alerting behaviour an operator
+relies on.
 
-**What I got wrong, twice, both worth reading.** First, I inlined a top-level
-`groups:` block into `prometheus.yml` because that is how rule files normally
-look; `promtool` rejected it with `field groups not found in type
-config.plain`, and the rules had to be split into a second file that
-`prometheus.yml` references through `rule_files`. Second, while fixing the YAML
-indentation I ran a `sed` that stripped the two leading spaces from every line
-in a range, which broke the block structure, and then a second `sed` that added
-them back to a range whose start line I had miscomputed. Both produced
-plausible-looking files that failed validation. Lesson: validate YAML with a
-real parser after every reindent, and never fix indentation with a blind
-line-range `sed`.
+**Corrected a factual error in 17.2.2.** The threshold table had been
+reconstructed from what each rule is *for* rather than read from the `expr:`
+lines. The real metric names carry a `_timestamp_seconds` suffix, and the real
+thresholds are far looser than the table claimed: 93600 s (26 h) not 900 s,
+3024000 s (35 d) not 86400 s, 777600 s (9 d) not 604800 s. The 900 s backup
+threshold was **26x tighter than what is written, against a job that runs once a
+night** -- a reader tuning against the table would have concluded the nightly job
+breaches its own SLO on every run.
 
-Files changed: `config/platform/monitoring/alwayson-alerts.yml` (new),
-`config/platform/monitoring/prometheus.yml` (rule_files + moved comment),
-`quadlet/operations/ao-prometheus.container` (second read-only mount).
+**What I got wrong this round.** I nearly filed the emitter gap as "known
+unwired" -- carried forward from an earlier revision that had spotted the
+missing metric names but filed it as partial coverage rather than checking
+whether *anything* produced them. A name nothing emits is not partial coverage;
+it is a rule that cannot fire, and the difference matters because partial
+coverage is at least visible on a dashboard while this is invisible in both. The
+lesson: "referenced" must be checked through to the producer, not stopped at the
+consumer.
