@@ -314,23 +314,48 @@ running host are in §19.1, and where the two differ §19.1 is the fact.
 
 The install list is written in §12.3, which another session owns. The requirement belongs here,
 because a package is part of the platform baseline if the platform's own verification asserts
-on it. Measured 2026-10-03:
+on it. **Re-measured 2026-10-04 09:22** — the `apparmor-utils` row changed under this section
+after it was first written, so both states are recorded:
 
 | Package | Needed by | Installed on this host |
 |---|---|---|
-| `apparmor-utils` | `aa-enforce`, `aa-decode`, `aa-genprof`, `aa-logprof` — the profile tools §4.1 relies on | **Yes, installed 2026-10-04.** `dpkg -s apparmor-utils` → `Status: install ok installed`, `Version: 5.0.2-0ubuntu1~26.04.1`. All five binaries now resolve: `/usr/sbin/aa-enforce`, `aa-complain`, `aa-decode`, `aa-logprof`, `aa-genprof` |
+| `apparmor-utils` | `aa-enforce`, `aa-decode`, `aa-genprof`, `aa-logprof` — the profile tools §4.1 relies on | **Yes, as of 2026-10-04 09:07.** `dpkg-query -W` → `apparmor-utils 5.0.2-0ubuntu1~26.04.1`; all five binaries resolve under `/usr/sbin/`. *(It was **absent** when this row was first measured on 2026-10-03: `apt-cache policy` → `Installed: (none)` and all five tools `MISSING`.)* |
+| `nvidia-container-toolkit` (+ `libnvidia-container1`, `libnvidia-container-tools`, `nvidia-container-toolkit-base`) | GPU access from rootless containers via CDI; the `nvidia.com/gpu=0` device the version matrix records | Yes — all four at **1.20.1-1** |
 
-**Resolved 2026-10-04.** `apparmor-utils` is installed, so a profile can now be
-enforced or inspected on this host — which is what §4.1 depends on. The gap
-recorded earlier (2026-10-03) is closed, and `verify-host-baseline.sh` will now
-report `aa-enforce present (profile enforcement possible)` instead of a WARN,
-because it tests for the binary rather than for `aa-status`, which shipped in
-the base `apparmor` package and succeeded misleadingly all along.
+**How the `apparmor-utils` state changed, and what did not change with it.** `/var/log/apt/history.log`
+records the install at `2026-10-04 09:07:11`, `Requested-By: scottw (1000)`, pulling in
+`apparmor-utils`, `python3-apparmor` and `python3-libapparmor` at `5.0.2-0ubuntu1~26.04.1`. This
+was an **interactive operator action, not a change to any install list** — the gap this section
+recorded is therefore still open:
+
+- `scripts/bootstrap/02-install-host-dependencies.sh` line 6 still does not name `apparmor-utils`.
+- `scripts/bootstrap/ao-bootstrap-privileged.sh` still does not name it.
+- `scripts/provision/provision.sh` contains **zero** occurrences of `apparmor`
+  (`grep -c apparmor scripts/provision/provision.sh` → `0`).
+
+So the host is fixed and the **provisioning path is not**. A host rebuilt from the repository's
+own bootstrap chain would not get `apparmor-utils`, and §4.1's profile workflow has no tooling.
+**This section must not read as "satisfied" on the strength of one host's package list.**
 
 **Correction to a stale claim.** `config/platform/version-matrix.yaml` records
 `nvidia-container-toolkit 1.20.0 installed 2026-08-25`. `dpkg-query -W` reports **1.20.1-1**.
 The matrix is a version record, so this row is wrong; it is recorded here rather than edited,
 because the matrix file is not owned by this session.
+
+**Traps recorded for the next session.**
+
+- **`aa-status` is a misleading success signal.** `dpkg -S /usr/sbin/aa-status` →
+  `apparmor: /usr/sbin/aa-status`: it ships in the **base `apparmor` package**, not in
+  `apparmor-utils`. Any verification that tests `command -v aa-status` will pass on a host with
+  no profile tooling installed at all. Test for `aa-enforce`, not `aa-status`.
+- **`aa-status` returns non-zero without privilege, and §12.3 throws that away.**
+  Unprivileged it prints `apparmor module is loaded.` on stdout, writes
+  `You do not have enough privilege to read the profile set.` to stderr and **exits 4** —
+  measured, not assumed. §12.3 line 163 is `sudo aa-status || true`, and the `|| true`
+  discards exactly the status that would have told the operator the profile set was
+  unreadable. Combined with `sudo` requiring interactive authentication on this host
+  (`sudo -n aa-status` → `sudo: interactive authentication is required`, rc=1), the line
+  cannot fail. This is the same class of defect as the cgroup check in §2.4.
 
 ## 2.4 Baseline Verification Must Assert
 
@@ -354,6 +379,29 @@ Two defects, both reproduced above:
 2. The block's **overall exit status is 0 either way**. A script that cannot fail cannot
    verify anything, so the §19.2 evidence it supports cannot be re-run and trusted (this is
    the same defect `OPS-15` records).
+
+**Third defect, found 2026-10-04: the `aa-status` line discards its own failure.** §12.3
+line 163 is `sudo aa-status || true`. Running the block **verbatim** (all six lines,
+`sudo` untouched):
+
+```
+--- verbatim §12.3 verify block (lines 158-163) ---
+podman version rc=0
+podman info rc=0
+systemctl --user status rc=0
+Linger=yes
+cgroups v2 active
+OVERALL EXIT=0
+
+[stderr]
+sudo: A terminal is required to authenticate
+```
+
+The AppArmor check **never ran** — `sudo` could not authenticate — and the block still
+reported success. An operator reading that output sees six green lines and concludes the
+profile set is in enforcing mode. It was not even inspected. Note the interaction with §2.3:
+`apparmor-utils` being newly installed makes this line *look* more meaningful than it is,
+because the tool now exists and `aa-status` still cannot read anything without privilege.
 
 **Requirement.** The §12.3 verify block must exit non-zero when any check fails, and must name
 the expected value beside each observed one so a failure is readable without re-running it.
@@ -1064,14 +1112,45 @@ The unit files are installed at `~/.config/containers/systemd/` (`generated`
 means the service is not enabled to start at boot). No container is attached to
 `ao-build-update`; the network is allocated and empty.
 
-> **The allowlist is documentation of intent, not an enforced control.** The
-> `Internal=false` bridge cannot restrict destinations by itself: any container
-> attached to `ao-build-update` can reach any host on the internet. Nothing at
-> runtime reads `registry-allowlist.yaml`, so the *only sanctioned outbound*
-> sentence in **Containment** below is a **requirement the adapter must satisfy,
-> not a property it currently has.** Enforcement needs a firewall rule set on the
-> bridge, a filtering proxy, or per-destination proxies — all firewall policy,
-> all requiring explicit operator approval (Rule 6, §4.1 rule 13). Until that is
+> **The allowlist is enforced in code, but not by the network.** These are two
+> different controls and it matters which one you are relying on.
+>
+> *Enforced:* `scripts/build-update/ao-build-update.py` reads
+> `config/build-update/registry-allowlist.yaml` at runtime and **refuses**
+> anything not on it. Verified 2026-10-04 by execution — a denied host, an
+> allowed-but-unpinned reference, and an allowed-and-pinned reference:
+>
+> ```text
+> $ python3 scripts/build-update/ao-build-update.py localhost/foo:latest
+> allowlist boundary enforced; see the audit record
+>   localhost/foo:latest: DENIED: localhost is on the adapter deny list
+> EXIT=4
+>
+> $ python3 scripts/build-update/ao-build-update.py docker.io/library/nginx:latest
+> allowlist boundary enforced; see the audit record
+>   docker.io/library/nginx: UNPINNED: docker.io is allowed but the reference carries no sha256 digest
+> EXIT=4
+>
+> $ python3 scripts/build-update/ao-build-update.py \
+>     'docker.io/library/nginx@sha256:0000…0000'
+>   docker.io/library/nginx@sha256:0000…0000: ALLOWED-PINNED
+> EXIT=0
+> ```
+>
+> Every run also appends to the append-only audit log and writes a staging
+> report. The control is real, and it is a *refusal to plan*, not a refusal to
+> route.
+>
+> *Not enforced:* the network itself. `Internal=false` is an ordinary bridge, so
+> **anything else** attached to `ao-build-update` bypasses the allowlist
+> completely — it can reach any host on the internet. The allowlist governs this
+> one script; it does not govern the segment.
+>
+> Therefore the *only sanctioned outbound* sentence in **Containment** below is a
+> **requirement the adapter must satisfy, not a property the segment currently
+> has.** Segment-level enforcement needs a firewall rule set on the bridge, a
+> filtering proxy, or per-destination proxies — all firewall policy, all
+> requiring explicit operator approval (Rule 6, §4.1 rule 13). Until that is
 > approved and built, do not attach any container to this network. NET-01 is open
 > on exactly this point; see `proposals/net-NET-01.md`.
 
@@ -1506,13 +1585,75 @@ the adapter, are recorded as **OPEN**:
 A third defect sits in the normalized event model rather than the verifier: for a
 real PayPal `PAYMENT.CAPTURE.COMPLETED` payload the money is at
 `resource.amount.value`, which `normalize()` does not read, so `amount_cents`
-comes back `None` and the amount is silently lost. Coinbase payloads nest their
-reference at `charge.id`, which `normalize()` also does not read, producing an
-empty `provider_ref` that the adapter then rejects with 400.
+comes back `None` and the amount is silently lost. For Coinbase the
+money-bearing reference is `charge.id`, which `normalize()` also does not read;
+it falls through to the top-level **event** id, so the adapter records the event
+that arrived rather than the charge being reconciled. A 2026-10-10 correction to
+an earlier statement in this session: that reference is **not** empty, because a
+real Coinbase payload does carry a top-level `id`, so the adapter does not reject
+it with 400. The reference it records is simply the wrong one, which breaks
+reconciliation without looking like a failure.
 
 These are payment-verification defects. Correcting them changes how money-bearing
 events are accepted, so the fix is prepared and reported for operator approval
 rather than applied by this session.
+
+### 7.2.1 Prepared verifier correction, proven offline 2026-10-10
+
+The correction has been **written and proven, and deliberately not applied.** The
+live adapter is unchanged — `scripts/payment/ao-payment-adapter.py` still hashes to
+`sha256:71a74988b0731695f61a7d56d9580a3c8364a3371906fa333c1784638d399f58`, its
+sha256 as measured before this work began, and the running service still answers
+`{"ok": true, "enabled": true}` on `127.0.0.1:8899`.
+
+PayPal's construction was re-read from the vendor rather than from the previous
+session's notes. Per developer.paypal.com, "Integrate webhooks" → *Self
+verification method*, the signed message is
+`transmissionId | timeStamp | webhookId | crc32`, where `crc32` is the CRC-32 of
+the **original raw body** in decimal, and the signature is checked with the
+**RSA public key** from the certificate at `paypal-cert-url`. `webhookId`
+arrives in **no header and no body** — it is listener configuration, which is why
+the adapter could not have been correct as written.
+
+The candidate was built in `/tmp` from a copy of the live file and proven two
+ways. A unit harness generated a throwaway 2048-bit RSA keypair in-process, stubbed
+the certificate fetch so the host allowlist and certificate-to-key extraction
+still execute, and ran **18 of 18 checks**: the candidate accepts a
+PayPal-documented signature and rejects a tampered body, a wrong `webhookId`, a
+stale timestamp, an HMAC forgery in the adapter's *current* scheme, and two
+non-PayPal certificate URLs. `verify_coinbase()` accepts a genuine Coinbase HMAC
+and rejects a PayPal-shaped event.
+
+The acceptance criterion — "A test payment event produces a verified normalized
+record" — was then proven **end to end over HTTP** against the candidate on a
+spare loopback port in `--dry-run`, so no row could be written:
+
+| Step | Request | Result |
+|---|---|---|
+| 1 | Genuine PayPal event, PayPal-documented signature | `200 {"accepted": true}` |
+| 2 | Same event, one byte of body tampered | `401 signature verification failed` |
+| 3 | Genuine Coinbase event, HMAC over the raw body | `200 {"accepted": true}` |
+| 4 | PayPal-shaped event to the Coinbase path | `401` — the 200-from-defect-2 no longer happens |
+| 5 | Zelle POST | `501` — still manual-reconciliation only |
+
+and the adapter's own log shows the normalized records it produced, carrying the
+amount and currency that the live code drops:
+
+```text
+DRY-RUN (no DSN): event provider=paypal type=PAYMENT.CAPTURE.COMPLETED
+  ref=paypal:3b97c70f1e963687d2da6dbd62f7d7bd amount_cents=50000 currency=USD verified=True
+DRY-RUN (no DSN): event provider=coinbase type=charge:confirmed
+  ref=coinbase:9871540c485e614b22a7e30fda45d736 amount_cents=1234 currency=USD verified=True
+```
+
+**This is prepared, not applied.** Approving it changes which money-bearing
+events are trusted to create business state — README §4.1 rule 14 and the first
+stop condition of this session's brief. Deployment also needs
+`PAYPAL_WEBHOOK_ID` and `COINBASE_WEBHOOK_SECRET` as real configuration, and
+`COINBASE_WEBHOOK_SECRET` is currently provisioned but read by nothing. The
+operator decision requested is narrower than "fix the verifier": it is whether to
+accept PayPal and Coinbase webhooks at all, because the honest consequence of
+today's code is that neither provider can complete a payment.
 
 **How each form is verified.**
 
@@ -2328,19 +2469,40 @@ $ grep -c 'RNodeInterface\[DRONE-RADIO\] experienced an unrecoverable error' mes
 ERROR:...rns_ratchet_persist:Bounded ratchet persist failed: [Errno 9] Bad file descriptor
 ```
 
-**This is active and worsening, measured twice in one session.** The persist-failure count was 3
-at 20:27 and is 7 now, newest at `20:08:20`; the teardown count moved 2004 → 2748 over the same
-interval. The teardowns have settled into a repeating cadence of roughly one every 30–60 minutes
-(`16:25:06`, `18:04:08`, `18:55:43`, `19:02:38`, `19:56:47`, `20:02:44`, `20:08:20`). So
-`DRONE-RADIO` is dropping its interface about hourly and never holding it up — which means
-**FIELD-06 cannot be attempted on this hardware until the teardown is root-caused.** A link that
-dies every hour is not a link you can prove a midflight mission update over.
+**CORRECTION 2026-10-04: this cadence figure is wrong by a factor of ~150.** The
+"roughly every 30–60 minutes" cadence above was derived from the timestamps of the
+*ratchet persist failures* — there are only 13 of those — not from the teardowns
+themselves. Counting the teardowns directly:
 
-Probable cause is the shared file descriptor rather than the ratchet logic: the persist worker
-writes through an fd it does not own, and when Reticulum tears the `RNodeInterface` down and
-closes the port, that write hits a closed fd. This would explain both the `[Errno 9]` and why
-every occurrence is adjacent to a teardown. **Not proven** — no stack trace is logged, and it
-will not be proven without touching the running stack, which is a stop condition.
+```bash
+$ grep -c 'unrecoverable error' ~/.reticulum-meshchatx/logs/meshchatx.log        # 994
+$ grep -c 'Bounded ratchet persist failed' ~/.reticulum-meshchatx/logs/meshchatx.log # 0
+$ grep -ch 'unrecoverable error' ~/.reticulum-meshchatx/logs/meshchatx.log{,.1,.2,.3}
+994 / 7800 / 2389 / 29                                                        # 11,212 total
+```
+
+**`DRONE-RADIO` is not dropping hourly — it is retrying roughly every 7 seconds and has
+never recovered.** Consecutive events at `07:25:38`, `07:25:44`, `07:25:51`, `07:25:57`.
+The conclusion of the paragraph above still stands, and in fact hardens: a link that dies
+every *seven seconds* is even less a link one could prove a midflight mission update over.
+Only the period was wrong, not the judgement.
+
+**The causal hypothesis above is also not supported, and I withdraw it.** It rested on
+"every occurrence is adjacent to a teardown". That is true of the 13 `[Errno 9]` persist
+failures, but those were in `meshchatx.log.1`/`.3`; the *current* log has 994 teardowns and
+**zero** persist failures, so the association does not hold in the log where the fault is
+actually happening now. A shared-fd mechanism remains plausible in principle, but on this
+evidence it is **unproven and now positively unsupported**, and the far simpler reading is
+the one §9.5.2 reaches: the board is enumerated but does not answer the RNode detection
+handshake, and the `[Errno 9]` persist errors are a consequence of the port closing, not a
+cause. Recorded rather than deleted, per the rule against editing history quietly.
+
+Original hypothesis, now **withdrawn** on the evidence above and retained only so the
+correction is auditable: it attributed both the `[Errno 9]` persist failures and the cadence
+to a shared file descriptor — the persist worker writing through an fd it does not own, which
+fails when Reticulum tears the interface down and closes the port. That mechanism was never
+proven (no stack trace is logged) and is now positively unsupported, since the log where the
+fault actually recurs contains no persist failures at all.
 
 The `DRONE-RADIO` fault is a detection failure, not a permissions problem — the port is
 openable by the service account:
@@ -2611,6 +2773,132 @@ it must not be described as LoRaWAN anywhere unless it implements a true LoRaWAN
 and network-server architecture. Any separate LoRaWAN or public-discussion service must use
 different bands and settings and remain isolated from the field telemetry mesh.
 
+## 9.5 Measured radio link state 2026-10-04
+
+The two RNodes are both physically present and enumerated, but **only one of them is
+operational**. `PEOPLE-RADIO` (915 MHz) is up; `DRONE-RADIO` (917 MHz) has been in a hard
+reconnect failure since 2026-09-25. This is the dominant constraint on every remaining
+field-link item and is recorded here so the next session does not re-derive it.
+
+### 9.5.1 `DRONE-RADIO` has never come up since 2026-09-25 16:27
+
+The last successful detection of either radio is 2026-09-25 16:27:11. Since then every
+attempt has failed identically:
+
+```bash
+$ grep -h 'is configured and powered up' ~/.reticulum-meshchatx/logs/meshchatx.log* | tail -3
+[2026-09-24 11:02:55] RNodeInterface[DRONE-RADIO] is configured and powered up
+[2026-09-25 16:27:08] RNodeInterface[PEOPLE-RADIO] is configured and powered up
+[2026-09-25 16:27:11] RNodeInterface[DRONE-RADIO] is configured and powered up
+
+$ grep -ch 'unrecoverable error' ~/.reticulum-meshchatx/logs/meshchatx.log{,.1,.2,.3}
+994
+7800
+2389
+29
+                                                        # 11,212 total.
+                                                        # The current log grows live at ~7s per cycle,
+                                                        # so this count rises continuously.
+```
+
+Every failure has the same three-line signature, repeating about every 7 seconds:
+
+```text
+[2026-10-04 07:25:38] [Notice] Opening serial port /dev/serial/by-path/pci-0000:05:00.0-usb-0:1:1.0-port0...
+[2026-10-04 07:25:40] [Error]  Could not detect device for RNodeInterface[DRONE-RADIO]
+[2026-10-04 07:25:40] [Error]  A serial port error occurred, the contained exception was: [Errno 9] Bad file descriptor
+[2026-10-04 07:25:40] [Error]  The interface RNodeInterface[DRONE-RADIO] experienced an unrecoverable error and is now offline.
+```
+
+The failure is still live at the time of writing — the last event is 2026-10-04 09:18:25.
+
+### 9.5.2 The fault is the radio board, not the port, the symlink or permissions
+
+Ruled out by measurement, not assumption:
+
+| Candidate cause | Verdict | Evidence |
+|---|---|---|
+| `by-path` symlink missing | **Ruled out** | `pci-0000:05:00.0-usb-0:1:1.0-port0 -> ../../ttyUSB0` present |
+| Permission / `dialout` | **Ruled out** | `id` → `20(dialout)`; device is `crw-rw---- root:dialout` |
+| Cable / USB enumeration | **Ruled out** | `cp210x 3-1:1.0: converter now attached to ttyUSB0`, `ID_SERIAL_SHORT=0001` |
+| Port contended by another process | **Not the cause** | the same stack owns both radios; `PEOPLE-RADIO` on the other port works |
+| **RNode firmware not answering** | **Best supported** | `Could not detect device` with no port-level error before it |
+
+The distinction matters. A port that cannot be opened raises a permission or busy error;
+this port opens and then yields `Errno 9` during the RNode detection handshake, which is
+what a board that is enumerated but not running RNode firmware does. The kernel logged a
+clean attach and has logged no disconnect.
+
+**This is a hardware/firmware fault on the DRONE-RADIO board and needs physical
+intervention — reseat the USB cable, or reflash the RNode firmware.** It cannot be fixed
+from the documentation side, and it is the reason FIELD-01, FIELD-02, FIELD-03, FIELD-06
+and FIELD-07 cannot be closed on evidence.
+
+### 9.5.3 `PEOPLE-RADIO` is up and clean
+
+`PEOPLE-RADIO` came up at 2026-10-03 16:57:56, 29 seconds after the current process
+started, and has logged no error since. It is the only radio currently on air.
+
+```bash
+$ grep -h 'PEOPLE-RADIO. is configured and powered up' ~/.reticulum-meshchatx/logs/meshchatx.log.1
+[2026-10-03 16:57:56] [Notice] RNodeInterface[PEOPLE-RADIO] is configured and powered up
+$ grep -c 'PEOPLE' ~/.reticulum-meshchatx/logs/meshchatx.log
+0
+```
+
+The asymmetry is the whole finding: the 915 MHz radio is healthy, the 917 MHz radio is
+dead. Any characterisation of "both bands" is therefore characterisation of one band.
+
+### 9.5.4 A single-radio host cannot measure what FIELD-01 and FIELD-03 ask for
+
+FIELD-01 wants RSSI, SNR, noise floor, packet loss, retry behaviour and airtime **on both
+RNodes**. With one radio offline there is no second node to measure against, and no RF
+traffic in the logs at all:
+
+```bash
+$ grep -oh -E '(RSSI|rssi)[=: ]+[-0-9.]+' ~/.reticulum-meshchatx/logs/meshchatx.log* | wc -l
+0
+```
+
+FIELD-03 wants 915/917 isolation *measured*. Separation between two bands cannot be
+characterised while one band has no transmitter on it; the 915 MHz receiver is only ever
+hearing ambient noise, which is not an isolation measurement. **These items cannot be
+closed by any amount of further analysis on this host** — they need the DRONE-RADIO board
+repaired first.
+
+### 9.5.5 Field items blocked, and on what
+
+| Item | Status | Blocker |
+|---|---|---|
+| FIELD-01 | Blocked | §9.5.1 — DRONE-RADIO offline; no RF metrics exist to record |
+| FIELD-02 | Blocked | §9.5.1 — no end-to-end link over the drone path |
+| FIELD-03 | Blocked | §9.5.4 — one band has no transmitter, so isolation is unmeasurable |
+| FIELD-06 | Blocked | §9.5.1, plus needs the Pi5 (absent, §9.5.6) and an in-flight test |
+| FIELD-07 | Blocked | needs *two* ends of a PEOPLE-RADIO mesh; only the desktop radio exists |
+| FIELD-09 | Blocked | §9.5.6 — RPi5 not present on this network at all |
+
+### 9.5.6 The Pi5 drone is absent from this network
+
+FIELD-06 and FIELD-09 both terminate on a Raspberry Pi 5 running the QGC session. There is
+no Pi5 reachable:
+
+```bash
+$ getent hosts raspberrypi raspbianpios alwayondrone rpi5
+(no output — not in DNS)
+$ ls ~/.ssh/config
+ls: cannot access '/home/scottw/.ssh/config': No such file or directory
+$ ip neigh
+169.254.207.81 dev eno1 lladdr 30:05:5c:ee:a2:9b STALE
+10.42.0.96   dev eno1 FAILED
+192.168.87.1  dev wlp3s0 lladdr 16:22:3b:67:bd:98 REACHABLE
+```
+
+`10.42.0.96` is `printer-01`, not the drone, and it is down. The dnsmasq lease file is
+empty. There is no SSH configuration for any Pi. The drone is simply not connected, so no
+QGC session exists to send a mission to, in flight or otherwise.
+
+**Operator input needed for FIELD-06 and FIELD-09:** power and connect the Pi5 drone, and
+supply its address or an SSH entry. Until then there is nothing to test against.
 # 10. Simulation Architecture
 
 ## 10.1 Vehicle Simulation
@@ -2979,6 +3267,78 @@ file, the portal and the Quadlet units agrees on `/ALWAYSON/GAZEBO`. The impleme
 therefore self-consistent, but §10.2 still says "verify its exact location with the operator",
 and this session cannot substitute for that confirmation.
 
+### 10.4 Verified state, 2026-10-04 (SIM session)
+
+Measured on this host on 2026-10-04. One item is closed with commands and output, one defect is
+fixed, one false claim is corrected, and one item is prepared and stopped at a stop condition.
+
+**SIM-06 is now established, not inferred.** §10.3 recorded the GUI as untested, with the
+correct warning that `NRestarts=0` on a unit that never ran proves nothing. The GUI has now
+actually been started and watched:
+
+- `systemctl --user start ao-sim-fabrication-gui-gz.service` → `ActiveState=active`,
+  `SubState=running`, `NRestarts=0`, `ExecMainStatus=0`.
+- 18 plugins load, including `EntityTree` (the SVG-icon-dependent one) and
+  `gz-rendering-ogre2`. A case-insensitive journal grep for `OGRE EXCEPTION`,
+  `construction from null`, `Segmentation`, `Failed to load` and `cannot open` returns **0**.
+- The window exists and is placed by the KWin script: `xwininfo -root -children` shows
+  `"Gazebo Sim": ("gz-sim-gui" "Gazebo GUI") 480x292+24+1502` — bottom-left of DP-3, per
+  `~/.local/share/kwin/scripts/ao-gazebo-monitor/`.
+- **Positive proof of geometry, not just a live process.** A window capture
+  (`import -window 0x120001a`) shows rendered factory geometry on the ground plane, the
+  left-hand toolbar icons decoded (so the SVG plugin works, not merely installs), and the sim
+  clock advancing at `20.00%`. A second capture 5 s later differs in **294 of 140160** pixels,
+  so the view is live rather than a frozen first frame.
+- The unit was **re-masked afterwards**, as §19 requires, so it cannot seize keyboard and
+  pointer focus: `is-enabled` = `masked`, and `start` then fails with `Unit ... is masked.`
+
+**Fixed: the reproducibility guard that was disarmed.** §10.3 defect 1 found
+`build-rl-objects.py --check` exiting 1 against the committed world, so the one check whose
+entire purpose is catching divergence could not distinguish real drift from a cosmetic hand
+edit. The cause was that `<specular>`/`<shininess>` had been added to `factory.world` *inside
+the generated block* and never taught to the generator. The generator now declares
+`SPECULAR = (0.30, 0.30, 0.30, 1.0)` and `SHININESS = 24`, so:
+
+- `--check` → `OK: rl_objects block matches objects.yaml`, exit 0;
+- `--write` → `rl_objects block already current; nothing written`, with the world sha256
+  unchanged either side (`bce32f2a…`), so the world was **not** rewritten;
+- the guard is not merely green: a real catalogue drift (moving `part-a1`'s home pose) makes
+  `--check` exit 1 with `STALE`, and restoring the file returns it to 0. `objects.yaml`
+  sha256 confirmed unchanged afterwards.
+
+**Corrected a false capability claim in the portal.** `/api/objects` served
+`"resettable": true` copied verbatim from `objects.yaml`, indistinguishable from a verified
+capability, while the portal exposes no reset endpoint and performs no reset — `/api/reset`
+returns 404. A consumer could reasonably have read that as "I can reset these objects". The
+field is now `resettable_claimed` beside an explicit `reset_available: false` and a
+`reset_note` naming the discrepancy, and the HTML portal (its only consumer) was updated to
+match so it does not render `undefined`. Verified live on the restarted portal, and
+`node --check` on the extracted script reports `PORTAL JS SYNTAX OK`. This corrects a claim;
+it does **not** deliver reset, so SIM-14 stays open on that limb.
+
+**SIM-11 is prepared and deliberately NOT executed.** Measured: the manifest records
+`content_size_bytes` 5371 and `content_hash_sha256` `64eacbbf…`, while `factory.world` is
+**63205 bytes** with sha256 `bce32f2a…`. Size *and* hash disagree, so the manifest cannot be
+repaired by editing a number. Repair requires re-export and re-signing with the
+`ao-sim-fabrication` producer key (present at `secrets/sim-fabrication/producer.pem`, 119 bytes,
+value not printed) via `scripts/ledger/build-manifest.sh`. Re-signing a provenance record with a
+ledger key is a stop condition for this session, so the change is prepared and left for the
+operator. Cosmetic with respect to the running world, which is valid and serving.
+
+**Unchanged from §10.3.** SIM-07 reproduces exactly: `packages.ros.org` presents
+`subject=… CN=*.osuosl.org` and `curl` returns HTTP `000`. Certificate verification must not be
+disabled to work around it. SIM-12 (facility scheduler) remains absent. SIM-02 remains an
+operator decision. SIM-08 is a publishing decision and was not touched — no public port, route
+or Cloudflare config was modified. SIM-03 (QGroundControl) is not installed on this host and
+no install was attempted.
+
+**What I got wrong this session.** I first reported the GUI as verified on the strength of
+`ActiveState=active` plus a clean error grep. That is the exact mistake §10.3 warned about: a
+live process and an absence of errors is not proof that geometry renders. I only reached a real
+answer by capturing the window and diffing two captures. Smaller error: I ran `gz topic` inside
+the GUI container before checking `GZ_CONFIG_PATH`, and briefly read "cannot find any available
+'gz' command" as a missing toolchain when it was only an unset variable.
+
 
 ---
 
@@ -3009,6 +3369,27 @@ separation from the sales and mapping databases are specified in §17.1 and §3.
 Network names are the real Podman names used throughout this document, in the Quadlet
 definitions, and in `config/platform/network-cidrs.yaml`. Where an area is served by a
 controlled adapter rather than a workload network, the adapter is named in the same cell.
+
+One row is an adapter and has **no network of its own**: `ao-egress-archive` is absent
+from both `config/platform/network-cidrs.yaml` and `podman network ls`. Every other
+network named in the table above is present in both. This is measured, not inferred:
+
+```text
+$ grep -c '^ao-' config/platform/network-cidrs.yaml
+14
+$ grep -n 'ao-egress-archive' config/platform/network-cidrs.yaml
+(no match)
+
+$ podman network ls --format '{{.Name}}' | grep -c '^ao-'
+14
+$ podman network ls --format '{{.Name}}' | grep -c 'ao-egress-archive'
+0
+```
+
+The registry and the live host agree on fourteen `ao-*` networks, eleven
+`Internal=true` and three `Internal=false` — so the archive row is a genuine
+exception, not a counting artefact. `config/platform/topology-model.yaml` already
+records it correctly as `adapter: true`, `status: planned`. See §11.6.1.
 
 Corda records signed references, hashes, approved transitions, and entitlement and
 provenance data sufficient to verify a claim without duplicating sensitive or high-volume
@@ -5685,6 +6066,56 @@ them and the units that run them.
 | Repository integrity check | `scripts/backup/verify-backup.sh` | `ao-restic-verify.service` | `ao-restic-verify.timer` | Sun 04:30 |
 | Seven-step restore test | `scripts/restore/restore-restic-drill.sh` | none yet — see below | none yet | manual; **OPS-24 stays open until a timer exists** |
 
+**The seven-step contract has an executor: OPS-04 closed 2026-10-04.** The
+requirement is not owned by the `check-*.sh` validators — those verify the
+installed state, and none of them opens a repository or restores anything. It is
+owned by `scripts/restore/restore-restic-drill.sh`, one script, one function per
+step, each printing a `STEP n:` banner. The mapping is not a claim about intent,
+it is the script's own control flow:
+
+| §17.1 requirement | Implemented at | How it is proved to be able to fail |
+|---|---|---|
+| 1. Restore to an isolated path or host | L89 `restic restore "$snapshot" --target "$scratch_abs"` | Three refusals, all reproduced 2026-10-04 (below) |
+| 2. Validate database integrity | L95–L113 gzip `-t` plus a 1024-byte floor per dump | A truncated or empty dump increments `db_bad`, which forces `result=FAIL` |
+| 3. Recalculate artifact hashes | L117 `sha256sum` over every file under the live root | Writes `.drill-hashes.txt`; count is printed at L118 |
+| 4. Compare with stored manifests | L121–L171 per-file compare against the **live** tree | Three buckets: drift, suspect (mtime older than snapshot), live-only. `suspect > 0` forces `result=FAIL` |
+| 5. Verify Corda receipts/manifests | L173 finds `pending-ledger-submissions` manifests | Prints an explicit "path-set observation, not a pass" when zero are found |
+| 6. Record operator, ID, result, exceptions | L181–L188 prints operator, snapshot, repo and all counters | The `result=` line at L188 is the only value step 7 branches on |
+| 7. Alert on failure | L190 non-zero exit plus an operator-facing instruction | Exit 1 is what any caller or unit would detect |
+
+**One honest deviation, recorded rather than smoothed over.** §17.1 step 4 says
+"compare hashes with stored manifests". There is no stored per-file manifest of
+the backed-up set — measured: `find artifacts -maxdepth 2 -name '*.sha256*'`
+returns only three upstream Corda download checksums
+(`artifacts/corda-5.2.2/*.sha256sum`), which are vendor checksums for jars and
+packages, not a manifest of what restic backed up. The drill therefore compares
+the restored tree against the **live** tree, which answers a different question:
+*did anything change since the snapshot*, rather than *does the snapshot match a
+recorded baseline*. That is arguably the more useful question for a restore drill
+and it is stricter about corruption, because the suspect-bucket test can fail
+where a manifest comparison would only report a mismatch. But it is not the
+requirement's wording, and inventing a baseline manifest would mean new backup
+behaviour, which is OPS-09's decision and not this session's.
+
+**Correction to an earlier claim in this section.** It previously said the restic
+units were "not deployed", on the evidence of
+`ls ~/.config/containers/systemd/ | grep -i restic` returning nothing. That
+measurement was correct and the conclusion drawn from it was wrong. These are
+**root-level systemd units**, not Quadlets, so they are not deployed into
+`~/.config/containers/systemd/` at all — they live in `/etc/systemd/system/`.
+Measured 2026-10-04, they are installed, enabled and running:
+
+| Unit | `is-enabled` | Last activation |
+|---|---|---|
+| `ao-restic-backup.timer` | enabled | `ao-restic-backup.service` succeeded, exit 0, 9 h ago |
+| `ao-restic-verify.timer` | enabled | 8 h ago |
+| `ao-restic-prefetch.timer` | enabled (user) | 4 h ago |
+
+So the nightly backup is genuinely live, not staged. The lesson repeats the one
+already recorded for OPS-35 and for the Prometheus mount above: **a negative
+result from the wrong directory is not evidence of absence.** A Quadlet-style
+lookup was applied to a non-Quadlet unit.
+
 `install-backup-schedule.sh` installs the two root-level restic units. The
 `ao-db-dump` timer is armed only during a graphical session because host-database
 passwords come from KDE Wallet, so a pre-login firing could only fail;
@@ -5797,8 +6228,40 @@ the fact is what allowed a stale value to survive three runs unnoticed.
 
 **The journal has not been corrected.** The three wrong lines above are historical
 evidence of a real defect and rewriting them would destroy the only trace of it.
-The fix applies to future runs; the first run after deployment is the evidence
-that it works.
+They survive in `logs/backup.log.1`, which the now-installed logrotate policy
+rotated on 2026-10-04.
+
+**The fix is now verified on the live host, so OPS-35 is closed 2026-10-04.** The
+earlier statement in this section — "the first run after deployment is the
+evidence that it works" — was correct as written and is now satisfied. The
+fix commit `8cb21bb` is dated 2026-10-03 21:18:29 −0700; the nightly timer fired
+at 2026-10-04 03:35:37, the first run after it. Both sides of the claim, taken
+independently:
+
+```
+$ grep 'restic-run.sh' /ALWAYSON/logs/backup.log | tail -1
+2026-10-04T10:35:39+00:00 actor=root script=restic-run.sh snapshot=0548f116 result=OK restic backup completed
+
+$ journalctl -u ao-restic-backup.service --since '2026-10-04 03:00' --until '2026-10-04 04:00' \
+    | grep -oE 'snapshot [0-9a-f]{8} saved'
+snapshot 0548f116 saved
+```
+
+`0548f116` on both sides. This is the first run whose journal ID is not stale,
+and it is distinct from all three historical values (`548d9910`, `e79edfbf`,
+`fbc25f93`) — which is what rules out the coincidence of the ID simply being
+frozen in some other way.
+
+Two things this verification is **not**, recorded so the next agent does not
+over-read it. The run is a `SUCCESS` in both journal and systemd
+(`ExecStart=…/restic-run.sh (code=exited, status=0/SUCCESS)`), but it does not by
+itself re-prove that the backup covers the right paths — that is OPS-09, still
+open. And one correct run demonstrates the selection logic works on a repository
+whose newest snapshot is the nightly one; the original defect only appeared where
+snapshots of *different* path sets shared a repository, which is a state this
+repository is not currently in. The fix is verified against the failure's root
+cause (maximum `time` rather than array position) and against the live host, and
+that is the whole of what is claimed.
 
 ## 17.2 Monitoring
 
@@ -5851,8 +6314,48 @@ Rules live in `config/platform/monitoring/alwayson-alerts.yml`, loaded from
 `prometheus.yml` through `rule_files`. It is a separate file because Prometheus
 rejects a top-level `groups:` key in `prometheus.yml` itself (measured:
 `promtool check config` → `field groups not found in type config.plain`), so the
-rules cannot be inlined. Both files are read-only bind mounts on
-`ao-prometheus.container`.
+rules cannot be inlined. The repository Quadlet declares both files as read-only
+bind mounts on `ao-prometheus.container`.
+
+**But the running container has neither the second mount nor the updated config,
+so no rule is loaded. Corrected against the live host 2026-10-04.** This
+supersedes the earlier claim in this section that the rules "are mounted
+read-only by `ao-prometheus.container` and loaded via `rule_files`". That was
+true of the repository file and false of the running service, which is the
+load-bearing trap recorded in §16.1.1: Quadlets deploy **flat copies**, so
+editing `quadlet/operations/ao-prometheus.container` changes nothing live.
+
+Measured, three independent facts that each alone would have been filed as
+"done":
+
+| Measure | Value |
+|---|---|
+| Repository Quadlet, `Volume=` lines | **2** — `prometheus.yml` and `alwayson-alerts.yml` |
+| Deployed copy `~/.config/containers/systemd/ao-prometheus.container` | **1** — `prometheus.yml` only, dated Oct 1 14:06 |
+| `podman exec ao-prometheus ls /etc/prometheus/` | `prometheus.yml` only; `alwayson-alerts.yml` → *No such file* |
+| `GET /api/v1/rules` → `data.groups` length | **0** |
+| Container start vs config mtime | started Oct 1 15:08; config written Oct 3 21:18 |
+
+**A second, subtler failure sits behind the first.** The deployed Quadlet *does*
+mount `prometheus.yml`, and a bind mount of a file follows the **inode**, not the
+path. The in-tree file was replaced rather than edited in place, so the running
+container is still bound to the **old inode**:
+
+| File | Inode | Size |
+|---|---|---|
+| Host `/ALWAYSON/config/platform/monitoring/prometheus.yml` | 18223436 | 2503 B |
+| Container `/etc/prometheus/prometheus.yml` | **18219046** | **1881 B** |
+
+The container's copy has no `rule_files:` key at all. So even a redeploy that
+only added the alerts mount would still have loaded the *stale* config. This is
+the same class of error as OPS-35's: **a measurement taken from the repository
+proves the repository, not the service.** Both the mount list and the mounted
+content have to be checked, from inside the container.
+
+Nothing was redeployed. Restarting `ao-prometheus` would pick up the config
+change and drop the currently-observed scrape targets until they return, so it is
+left as an operator action and OPS-11 stays open on this ground as well as on
+the missing routing target.
 
 ### 17.2.2 Thresholds
 
@@ -6033,12 +6536,43 @@ need root and this session has no sudo (measured: `sudo -n true` →
 
 | Path | Rotation | Retention | Status |
 |---|---|---|---|
-| `logs/*.log` (top level) | `logrotate-alwayson.conf`, daily | 14 files, uncompressed | **Staged, not installed** |
-| `logs/operations/` | staged, daily | 400 rotations | **Staged, not installed** |
-| `logs/installation/` | staged, daily | 400 rotations | **Staged, not installed** |
-| `logs/backup/` | staged, daily | 400 rotations | **Staged, not installed** |
-| `logs/gpu-runtime/` | staged, daily | 400 rotations | **Staged, not installed** |
-| journald | `journald-alwayson.conf` drop-in | `SystemMaxUse=4G`, `MaxRetentionSec=90day` | **Staged, not installed** |
+| `logs/*.log` (top level) | `logrotate-alwayson.conf`, daily | 14 files, uncompressed | **Installed and rotating** |
+| `logs/operations/` | staged, daily | 400 rotations | **Installed and rotating** |
+| `logs/installation/` | staged, daily | 400 rotations | **Installed and rotating** |
+| `logs/backup/` | staged, daily | 400 rotations | **Installed and rotating** |
+| `logs/gpu-runtime/` | staged, daily | 400 rotations | **Installed and rotating** |
+| journald | `journald-alwayson.conf` drop-in | `SystemMaxUse=4G`, `MaxRetentionSec=90day` | **NOT installed** |
+
+**Corrected against the live host 2026-10-04: the logrotate policy is installed,
+and the table above previously said "staged, not installed" for all five log
+blocks.** That was true when written and stopped being true; the distinction now
+drawn is between the two halves, which are genuinely in different states.
+
+Measured:
+
+- `/etc/logrotate.d/alwayson` exists, root-owned, 5237 B, and is **byte-identical**
+  to the in-tree `config/host/logrotate-alwayson.conf` (`cmp` → no output).
+- It describes **5** rotating patterns (`logrotate -d` → count 5).
+- It has **already rotated**: 13 files match `logs/*.log.[0-9]` and **67** match
+  `logs/operations/*.log.[0-9]`. Rotations are real, not merely configured.
+- `find /ALWAYSON/logs -name '*.log' ! -user scottw` → **0**, so the ownership
+  precondition the policy needs holds.
+
+**The journald half is genuinely still uninstalled**, and the evidence is
+stronger than "not found":
+
+```
+$ ls -la /etc/systemd/journald.conf.d/
+ls: cannot access '/etc/systemd/journald.conf.d/': No such file or directory
+```
+
+The drop-in *directory* does not exist at all, so nothing could be installed into
+it. The effective caps remain the shipped defaults with every limit commented
+out (`/etc/systemd/journald.conf` lines 27, 28, 35 all `#`-prefixed), and
+`journalctl --disk-usage` reports **3.9G** in use. So `SystemMaxUse=4G` and
+`MaxRetentionSec=90day` remain aspirational. This is the second half of OPS-26
+and it needs one privileged command, which this session does not have
+(`sudo -n true` → `sudo: interactive authentication is required`).
 
 Compression is deliberately omitted from the logrotate policy because it is the
 only step that reads whole files; a full system pass measured 0.008 s and
@@ -7280,14 +7814,7 @@ delivery, and the proposal says so rather than letting the 200 stand in for prog
 <td valign="top">§9.2.2</td>
 <td valign="top">MeshChatX text carried over PEOPLE-RADIO in both directions, recorded as LoRaWAN-related communication, with the separate 915/917 MHz bands maintained.</td>
 </tr>
-<tr>
-<td valign="top">FIELD-08</td>
-<td valign="top"><strong><code>ao-fabrication</code> deployed with <code>a_fab</code></strong></td>
-<td valign="top">ST-30</td>
-<td valign="top"><strong>Open</strong></td>
-<td valign="top">§3.3.0, ES.1</td>
-<td valign="top">Domain created on <code>10.89.12.0/24</code> (<code>Internal=true</code>); <strong>per-machine production data pulled from at least one individual machine into <code>a_fab</code></strong>; separation from <code>ao-sim-fabrication</code> demonstrated (simulation holds no production data); <code>a_fab</code> registered in <code>network-cidrs.yaml</code>.</td>
-</tr>
+
 <tr>
 <td valign="top">FIELD-09</td>
 <td valign="top"><strong>QGC over LoRa to the RPi5</strong></td>
@@ -7414,7 +7941,31 @@ tabulated in §9.4.1, so the edit is prepared but unapplied.<br><br><strong>Evid
 <td valign="top">ST-07, ST-08</td>
 <td valign="top"><strong>Open</strong></td>
 <td valign="top">§10.1, §10.2</td>
-<td valign="top">Vehicle and fabrication GUI clients deployed; separate DDS/interface policy decided.</td>
+<td valign="top">Vehicle and fabrication GUI clients deployed; separate DDS/interface policy decided.<br><br><strong>STILL OPEN by 10-simulation-architecture.</strong> SIM-01 stays open on both limbs, and neither is close to done.
+
+The **DDS policy** limb has no artifact. I grepped both Quadlet directories for
+`CYCLONEDDS`, `RMW_IMPLEMENTATION`, `FASTRTPS` and `dds` and got nothing. There is no
+documented middleware choice and no `Environment=` line enforcing one, so each container
+falls back to its own compiled-in default. That is not necessarily broken today — the
+fabrication pair works because `GZ_PARTITION` and `GZ_IP` isolate them and they share a
+network — but "it happens to work" is not a decided policy, and it will not survive
+adding the vehicle side.
+
+The **GUI clients** limb is half done. `ao-sim-fabrication-gz` and
+`ao-sim-fabrication-foxglove` are both up and have been for 15 and 38 hours. The vehicle
+side has **no GUI client container at all** — `quadlet/sim-vehicle/` holds exactly one file,
+`ao-ardupilot-sitl.container`, which is the SITL process, not a viewer. So there is nothing
+to decide the policy for until that is built.
+
+I did not build the vehicle GUI client: it is new Quadlet work on a network I have not been
+asked to extend, and SIM-08/SIM-04 gate what should be exposed. I did not modify any
+network, no `Environment=` line, and no running container.
+
+**What I got wrong.** I first ran the GUI-client grep expecting to find a vehicle viewer,
+because §19 phrases SIM-01 as "clients deployed" and I had assumed the vehicle side was
+merely unverified like the fabrication side had been. Listing the Quadlet directory is what
+showed the file does not exist at all. Absent is a different finding from inactive, and I
+nearly filed them as the same thing.<br><br><strong>Evidence:</strong><br><code>Measured 2026-10-04. The fabrication GUI client exists and runs; the vehicle one<br>does not, and the DDS/interface policy is unwritten in both places it would live.</code></td>
 </tr>
 <tr>
 <td valign="top">SIM-02</td>
@@ -7422,7 +7973,26 @@ tabulated in §9.4.1, so the edit is prepared but unapplied.<br><br><strong>Evid
 <td valign="top">ST-07, ST-08</td>
 <td valign="top"><strong>Open</strong></td>
 <td valign="top">§10.2</td>
-<td valign="top">Path confirmed by the operator. Currently recorded as an open decision, not a guess.</td>
+<td valign="top">Path confirmed by the operator. Currently recorded as an open decision, not a guess.<br><br><strong>STILL OPEN by 10-simulation-architecture.</strong> SIM-02 stays open, and it stays open for the right reason: this is an **operator decision**,
+not a defect. §19 says "path confirmed by the operator", and an operator confirmation is the
+one thing I cannot manufacture or infer from the filesystem.
+
+What I can report is that the path is already load-bearing. `/ALWAYSON/GAZEBO` exists and
+holds the four SketchUp meshes, the container build inputs under `containers/`, the portal,
+the simulation data under `sim/`, and `worlds/factory.world`. It is already referenced by
+live configuration in `loopback-services.yaml` and `version-matrix.yaml`, so the portal
+service resolves it today. That is evidence the layout is in use and working — it is not
+evidence the operator approved it, and I am not going to record the second as though it were
+the first.
+
+I made no change. Moving the folder is out of scope and would break the live portal, which
+serves a path already wired into three config files.
+
+**What I got wrong.** I started this item intending to confirm the path myself, on the
+reasoning that the directory existing with the right contents settles the question. That is
+exactly backwards: the item asks whether a person agreed to it, and the filesystem is
+silent on agreement. Checking that the layout is sane was useful — it is reported above —
+but it answers a different question, and I nearly let it stand in for the answer.<br><br><strong>Evidence:</strong><br><code>Measured 2026-10-04. The subfolder exists and is populated; §19 asks the operator to<br>confirm the path, and I cannot supply that confirmation.</code></td>
 </tr>
 <tr>
 <td valign="top">SIM-03</td>
@@ -7430,7 +8000,25 @@ tabulated in §9.4.1, so the edit is prepared but unapplied.<br><br><strong>Evid
 <td valign="top">ST-21</td>
 <td valign="top"><strong>Open</strong></td>
 <td valign="top">§10.1</td>
-<td valign="top">Interactive SITL workflow validated end to end.</td>
+<td valign="top">Interactive SITL workflow validated end to end.<br><br><strong>STILL OPEN by 10-simulation-architecture.</strong> SIM-03 stays open. There is no QGroundControl workflow to validate, because neither end of it
+exists in a running state.
+
+QGroundControl is not installed — not on the host, not as a container. The SITL unit it
+would attach to, `ao-ardupilot-sitl.service`, is present but both **masked and inactive**.
+That is a deliberate state, not a fault: an outward-facing radio-ish control link that
+nobody has asked to expose stays masked, and I am not unmasking it to see what happens.
+
+I did not install QGroundControl. It is a large GUI application with its own network
+behaviour and a MAVLink link to a SITL instance; installing it unattended is a
+configuration change to a masked unit's counterpart that §4.1 rule 12 covers, and SIM-03's
+own acceptance criteria are about *validating* a workflow rather than provisioning one. The
+validation has to be human-in-the-loop anyway — it ends with someone flying the vehicle.
+
+**What I got wrong.** I checked `which` and `/opt` and concluded "not installed", then began
+drafting as if a Quadlet might already be staged for it under a name I had not guessed. I
+should have listed the Quadlet directory and grepped the container set in one pass, as I did
+for SIM-01, instead of assuming a hidden unit existed. The two items share the same lesson:
+a name I did not try is not an absence, and `podman ps -a` plus `ls quadlet/` settles it.<br><br><strong>Evidence:</strong><br><code>Measured 2026-10-04. QGroundControl is not on this host in any form, and the SITL<br>stack it would attach to is not started.</code></td>
 </tr>
 <tr>
 <td valign="top">SIM-04</td>
@@ -7438,7 +8026,29 @@ tabulated in §9.4.1, so the edit is prepared but unapplied.<br><br><strong>Evid
 <td valign="top">ST-07</td>
 <td valign="top"><strong>Open</strong></td>
 <td valign="top">ES.1, §10.1.2</td>
-<td valign="top">World setup scripted and repeatable; boning frame and tolerances measurable and exported; RL objects addressable and resettable; the world fully settable and operable from the browser-served HTML portal.</td>
+<td valign="top">World setup scripted and repeatable; boning frame and tolerances measurable and exported; RL objects addressable and resettable; the world fully settable and operable from the browser-served HTML portal.<br><br><strong>STILL OPEN by 10-simulation-architecture.</strong> SIM-04 stays open, and unlike most of my group it is not partially done — **the vehicle 3D
+world does not exist**. `GAZEBO/worlds/` contains exactly one file, `factory.world`, which is
+the fabrication world. There is no vehicle world, so all four acceptance limbs are unmet
+rather than partly met: there is nothing to script, no vehicle boning data to export, no
+vehicle RL objects, and the portal serves the fabrication world only.
+
+Worth recording because it is the opposite of what the item's wording suggests: the
+*scaffolding* for the vehicle side is well advanced. `GAZEBO/` holds
+`09-SIMULATIONVEHICLES-ARMS.dae`, and `scripts/simulation/` contains both
+`run-vehicle-scenario.sh` and `export-vehicle-manifest.sh`. So this is a missing
+assembly rather than a project that never started, and that is a real distinction for whoever
+picks it up.
+
+I did not build a vehicle world. That is new Gazebo content, it needs the real vehicle
+geometry and a boned frame agreed against the actual airframe, and fabricating a plausible
+world file here would produce exactly the kind of invented geometry this session is supposed
+to be eliminating.
+
+**What I got wrong.** I opened SIM-04 planning to check whether the *boning* was right,
+carrying SIM-09's framing across from the fabrication side. On the vehicle side there is no
+boning to check — no world, no `boning.yaml`, no datum. I was auditing the correctness of
+something that had not been built, which is the §10.3 lesson again: establish that the
+artifact exists before measuring it.<br><br><strong>Evidence:</strong><br><code>Measured 2026-10-04. The vehicle 3D world does not exist. There is one world in the<br>repository and it is the fabrication one.</code></td>
 </tr>
 <tr>
 <td valign="top">SIM-05</td>
@@ -7446,7 +8056,36 @@ tabulated in §9.4.1, so the edit is prepared but unapplied.<br><br><strong>Evid
 <td valign="top">ST-08</td>
 <td valign="top"><strong>Open</strong></td>
 <td valign="top">ES.1, §10.2.1</td>
-<td valign="top">As SIM-04, for <code>ao-sim-fabrication</code>, with cell and machine datum frames and boning checked against the real machine envelopes.</td>
+<td valign="top">As SIM-04, for <code>ao-sim-fabrication</code>, with cell and machine datum frames and boning checked against the real machine envelopes.<br><br><strong>STILL OPEN by 10-simulation-architecture.</strong> SIM-05 stays open. It is the most nearly-complete item in my group, and the reason it
+cannot close is not effort — it is that **the fourth acceptance limb asks for something the
+portal is architected to refuse.**
+
+The criteria require the world to be "fully settable and operable from the browser-served
+HTML portal". The portal is deliberately view-only: `do_POST` returns 405 for every write
+verb and `/api/health` advertises `view_only: true, controls: null`. Those are good
+properties for a service that reports on a facility, and I am not proposing to weaken them
+to satisfy a line of an acceptance table. Making the portal able to set and operate the
+world is a change to the safety posture of a browser-reachable service, and it needs the
+operator to say yes explicitly. That is a decision, not a ticket.
+
+The other three limbs are genuinely advanced. The world exists and renders (SIM-06, verified
+today). Boning is measurable and served at `/api/boning` with real datum frames, and the
+safety-zone check passes on all four zones with honest GAPs for the two machines whose datum
+origin is operator-declared rather than measured. RL objects are addressable as nine live
+links. What is missing is export — `find artifacts -iname '*boning*'` returns nothing, so
+boning is servable but not exported — and the runner script, which is a stub exiting 3.
+
+One correction from this session: `/api/objects` was serving `"resettable": true` copied
+from the YAML, which read as a verified capability when the portal exposes no reset endpoint
+at all. It now sits beside `reset_available: false` and a note naming the discrepancy. That
+makes the portal honest; it does not deliver reset, so this limb stays open on both counts.
+
+**What I got wrong.** I opened by reading limb 4 as "the portal needs a few control routes
+added" and started costing that out. Reading the handler changed my mind entirely: the
+refusal is a documented design decision with a comment explaining why, not an oversight. I
+was about to recommend removing a safety property of a browser-reachable service because an
+acceptance table mentioned the word "operable". Matching the requirement's wording against
+its actual intent is a step I skipped.<br><br><strong>Evidence:</strong><br><code>Measured 2026-10-04. Three of four limbs are delivered; the fourth is not merely<br>missing but contradicted by the portal's own design, which makes this a decision<br>for the operator rather than work for me.</code></td>
 </tr>
 <tr>
 <td valign="top">SIM-06</td>
@@ -7526,7 +8165,33 @@ itself. The certificate is the whole story; the mirror was never reached.<br><br
 <td valign="top">ST-08</td>
 <td valign="top"><strong>Open</strong></td>
 <td valign="top">§10.2.1</td>
-<td valign="top">The 3D viewer and its eight read-only camera feeds are verified working on the local path and <strong>not published</strong> (operator decision 2026-10-02). <code>ao-html-window</code> (<code>10.89.14.0/24</code>, <code>Internal=true</code>) exists for public-facing windows on local services and is the network the Foxglove bridge joins for this purpose. Outstanding when it proceeds: confirm the hostname, add the ingress route to <code>~/.cloudflared/config.yml</code> (a customer-facing production config, not changed unilaterally), and decide whether the viewer alone or the portal too is published, since the portal renders boning derived from real machines</td>
+<td valign="top">The 3D viewer and its eight read-only camera feeds are verified working on the local path and <strong>not published</strong> (operator decision 2026-10-02). <code>ao-html-window</code> (<code>10.89.14.0/24</code>, <code>Internal=true</code>) exists for public-facing windows on local services and is the network the Foxglove bridge joins for this purpose. Outstanding when it proceeds: confirm the hostname, add the ingress route to <code>~/.cloudflared/config.yml</code> (a customer-facing production config, not changed unilaterally), and decide whether the viewer alone or the portal too is published, since the portal renders boning derived from real machines<br><br><strong>STILL OPEN by 10-simulation-architecture.</strong> SIM-08 stays open and I did nothing toward it. This is the clearest stop-condition item in my
+group and I am reporting it as untouched rather than as progress.
+
+The viewer works on the local path — the portal service is active and `/viewer` returns 200
+on loopback — but nothing is published. §19 records the operator's decision of 2026-10-02
+that it is verified locally and deliberately not published, and I have no reason to revisit
+that.
+
+Two things I found that matter for whenever it does proceed. `ao-html-window.network`, the
+network that exists specifically for public-facing windows on local services, is **inactive**
+— so even a configured route would have nothing to land on. And the remaining work named in
+§19 all touches things I am not permitted to change unilaterally: confirming the hostname,
+editing `~/.cloudflared/config.yml` (a customer-facing production config), and the
+decision of whether to publish the viewer alone or the portal too — the portal renders
+boning derived from real machines, so that is a data-exposure decision, not a technicality.
+
+I changed no public port, no firewall policy, no ingress route, and no Cloudflare
+configuration. I confirmed `config.yml` exists and its size and did not read or print its
+contents.
+
+**What I got wrong.** I listed `~/.cloudflared/config.yml` expecting to check whether a
+hostname route for the viewer already existed, on the reasoning that a read-only check is
+harmless and would tell me how far along this is. Reading a customer-facing production
+ingress config to satisfy my own curiosity is not a neutral act — the file is the kind of
+thing where contents inform topology I have no mandate over. Existence and size are the
+whole of what I needed; I should have stopped there rather than constructing a reason to read
+it.<br><br><strong>Evidence:</strong><br><code>Measured 2026-10-04. Untouched, deliberately. Publishing is a stop condition and<br>the operator already decided against it on 2026-10-02.</code></td>
 </tr>
 
 <tr>
@@ -7535,7 +8200,34 @@ itself. The certificate is the whole story; the mirror was never reached.<br><br
 <td valign="top">ST-08</td>
 <td valign="top"><strong>Open</strong></td>
 <td valign="top">§10.2.1</td>
-<td valign="top">Walls, conveyor belts, arms and conveyor gears carry distinct materials; doors do not, because <code>massing_fab.dae</code> has no semantic part names (anonymous <code>group_0</code>–<code>group_25</code>) and <code>split-collada-parts.py</code> returns a degenerate cube signature for every part of that file, so no size distinguishes a door. Re-export the model from SketchUp with named groups (<code>door</code>, <code>wall</code>, <code>floor</code>) and the splitter will separate it. Until then doors keep the wall material rather than being guessed at</td>
+<td valign="top">Walls, conveyor belts, arms and conveyor gears carry distinct materials; doors do not, because <code>massing_fab.dae</code> has no semantic part names (anonymous <code>group_0</code>–<code>group_25</code>) and <code>split-collada-parts.py</code> returns a degenerate cube signature for every part of that file, so no size distinguishes a door. Re-export the model from SketchUp with named groups (<code>door</code>, <code>wall</code>, <code>floor</code>) and the splitter will separate it. Until then doors keep the wall material rather than being guessed at<br><br><strong>STILL OPEN by 10-simulation-architecture.</strong> SIM-10 stays open, blocked on a SketchUp re-export that only the operator can perform.
+§19's diagnosis is confirmed precisely rather than approximately.
+
+The massing mesh has **34 parts and 33 of them are exact cubes** — `size(n, n, n)` for
+n = 81, 149, 150, 151, 152, 153, 154, 157, 158, 159, 161, 162, 163, 165, 167, 170, 173,
+190, 191, 215, 269/271, 274 and others. The single exception is `size(56, 56, 61)`. The
+splitter separates parts by size precisely because the parts are anonymous (`group_0`
+through `group_25` plus the rest), and a door standing in a wall is not smaller than the
+wall in a way that survives rounding to an integer cube.
+
+The remedy is already understood by the tooling and needs no code change: re-export
+`massing_fab.dae` from SketchUp with semantic group names — door, wall, floor — and
+`split-collada-parts.py` will separate them by name instead of by size. That is a modelling
+action on the operator's file. I did not re-export it, did not modify the mesh, and did not
+hand-assign a door material.
+
+I want to be explicit about what I did **not** do. It would have been easy to make one of
+those 33 cubes render a different colour and call the item done. That would be a guess
+dressed as a fix: I cannot tell which cube is the door, I would be choosing on no evidence,
+and a wrong guess is harder to detect later than an obviously-unresolved wall. Doors
+keeping the wall material is the accurate state of the world, and §10 records it as such.
+
+**What I got wrong.** I ran the splitter with no arguments first and got an argparse usage
+error, and I recorded its `echo "exit=$?"` as `0` because the pipeline through `head` masked
+the real exit status. The fault is measuring `$?` after a pipe instead of inside it — it
+would have let me write "exit 0" as evidence of success for a command that never ran. I
+re-ran it properly with `--list` and a real file argument; every result in this proposal
+comes from that second run.<br><br><strong>Evidence:</strong><br><code>Measured 2026-10-04. §19's diagnosis reproduces exactly: the massing mesh has<br>34 parts and every one is a cube signature, so size cannot distinguish a door.</code></td>
 </tr>
 <tr>
 <td valign="top">SIM-11</td>
@@ -8185,6 +8877,48 @@ verification checks against the running system. Nothing listed here is outstandi
 </tr>
 </thead>
 <tbody>
+<tr>
+<td valign="top">FIELD-08</td>
+<td valign="top"><strong><code>ao-fabrication</code> deployed with <code>a_fab</code></strong></td>
+<td valign="top">ST-30</td>
+<td valign="top"><strong>Implemented</strong></td>
+<td valign="top">§3.3.0, ES.1</td>
+<td valign="top"><strong>CLOSED 03-high-level-architecture.</strong> **FIELD-08 closes on all four criteria, each measured.** The owning section is
+`03-high-level-architecture` (§3.3.0), which I do not own — so I changed **nothing in my
+own two section files** for this item. This proposal carries the evidence instead.
+
+| # | Criterion | Verdict | Evidence |
+|---|---|---|---|
+| 1 | Domain on `10.89.12.0/24`, `Internal=true` | **met** | subnet + gateway + `internal: true`, `ao-fabrication-db` at `10.89.12.3/24` |
+| 2 | Per-machine production data from ≥1 real machine into `a_fab` | **met** | 17 rows, all `printer-01`, a real Klipper machine at `10.42.0.96` |
+| 3 | Separation from `ao-sim-fabrication` demonstrated | **met** | disjoint container sets, disjoint mounts, no `machine_production` in any sim container |
+| 4 | `a_fab` registered in `network-cidrs.yaml` | **met** | `network-cidrs.yaml:12` |
+
+Criterion 2 is the load-bearing one and it is satisfied with **actual rows**, not merely a
+wired-up path. Criterion 3 is *demonstrated* three ways rather than asserted.
+
+**Caveat the compiler must carry, not bury.** The data is **stale** — newest row is
+2026-10-01 00:35 UTC and it is 2026-10-04 — and the collector is failing every pass because
+`printer-01` is powered off. The item closes because the criterion is *"data pulled from at
+least one individual machine"*, and 17 rows prove the pipeline works end to end; it does
+**not** close because ingestion is healthy. The collector infrastructure itself is provably
+alive: the timer is `enabled`/`active`, fires every ~5 minutes, and correctly isolates a
+per-machine outage (`0 ok, 0 failed, 1 offline`) rather than failing the unit. **Please do
+not render FIELD-08 as "ingestion currently working".**
+
+**What I got wrong, and the reason.** My first pass ran `psql -U postgres` and got
+`FATAL: role "postgres" does not exist`, and I was one step from treating that as "the
+database is unreachable, FIELD-08 cannot be evidenced". Wrong twice over. The role name was
+*my assumption* — the project's own convention is `POSTGRES_USER` from the container env
+(§3.3.0: "a separate logical database with its own application role"; and
+`fetch-kwallet-secret.sh:136` states explicitly that the role is `fabrication_role` while
+`a_fab` is the database name). **Reason: I guessed a default credential instead of reading
+the credential the deployment actually declares, and then let one command's error generalise
+into a verdict on the entire item.** Reading `podman inspect --format '{{range
+.Config.Env}}...'` first costs one command. Generalisable lesson for every session here: on
+this project, take the credential from the container environment before concluding anything
+about a database.<br><br><strong>Evidence:</strong><br><code># (3) separation from ao-sim-fabrication: disjoint networks, disjoint mounts, no sim data<br>$ podman network inspect ao-sim-fabrication --format '{{range .Containers}}{{.Name}} {{end}}'<br>ao-sim-fabrication-foxglove ao-sim-fabrication-gz<br>$ podman exec ao-fabrication-db psql -U fabrication_role -d a_fab -c '\dt'<br> public | machine_production | table | fabrication_role<br>$ podman exec ao-sim-fabrication-gz sh -c 'find / -maxdepth 3 -name "*machine_production*"'<br>(no output — simulation holds no production data)<br>$ podman inspect ao-sim-fabrication-gz --format '{{range .Mounts}}{{.Source}} -&gt; {{.Destination}}{{"\n"}}{{end}}'<br>/ALWAYSON/data/sim-fabrication/fuel -&gt; /gzfuel<br>/ALWAYSON/data/sim-fabrication/plugins -&gt; /gzplugins<br>/ALWAYSON/data/sim-fabrication/results -&gt; /results<br>/ALWAYSON/GAZEBO -&gt; /ALWAYSON/GAZEBO<br>/ALWAYSON/data/sim-fabrication/gzhome -&gt; /gzhome<br>$ podman inspect ao-fabrication-db --format '{{range .Mounts}}{{.Source}} -&gt; {{.Destination}}{{"\n"}}{{end}}'<br>/home/scottw/webodm/fabrication-dbdata -&gt; /var/lib/postgresql/data</code></td>
+</tr>
 <tr>
 <td valign="top">OPS-25</td>
 <td valign="top"><strong>Install the logrotate policy</strong></td>
