@@ -310,6 +310,102 @@ running host are in §19.1, and where the two differ §19.1 is the fact.
 | Host PostgreSQL | PostgreSQL 18, loopback-only |
 | Host Redis | Redis 8, loopback-only |
 
+## 2.3 Packages the Verification Steps Depend On
+
+The install list is written in §12.3, which another session owns. The requirement belongs here,
+because a package is part of the platform baseline if the platform's own verification asserts
+on it. Measured 2026-10-03:
+
+| Package | Needed by | Installed on this host |
+|---|---|---|
+| `apparmor-utils` | `aa-enforce`, `aa-decode`, `aa-genprof`, `aa-logprof` — the profile tools §4.1 relies on | **No.** `dpkg -S /usr/sbin/aa-status` returns `apparmor: /usr/sbin/aa-status`, i.e. `aa-status` ships in the base `apparmor` package; `apt-cache policy apparmor-utils` → `Installed: (none)`. `aa-enforce`, `aa-complain`, `aa-decode`, `aa-logprof` and `aa-genprof` are all `MISSING` |
+| `nvidia-container-toolkit` (+ `libnvidia-container1`, `libnvidia-container-tools`, `nvidia-container-toolkit-base`) | GPU access from rootless containers via CDI; the `nvidia.com/gpu=0` device the version matrix records | Yes — all four at **1.20.1-1** |
+
+**Consequence.** The §12.3 verify block runs `sudo aa-status`, which succeeds today only
+because the base `apparmor` package happens to provide that one binary. Any assertion that
+actually *changes* or *inspects* a profile — `aa-enforce`, `aa-complain` — would fail on a
+freshly provisioned host. `apparmor-utils` is therefore required by §12.3's own verification,
+and its absence from the install list is a real gap, not a cosmetic one.
+
+**Correction to a stale claim.** `config/platform/version-matrix.yaml` records
+`nvidia-container-toolkit 1.20.0 installed 2026-08-25`. `dpkg-query -W` reports **1.20.1-1**.
+The matrix is a version record, so this row is wrong; it is recorded here rather than edited,
+because the matrix file is not owned by this session.
+
+## 2.4 Baseline Verification Must Assert
+
+§12.3's verify block currently **prints**; it does not **assert**. Reproduced 2026-10-03 by
+running its five commands as written:
+
+```
+Linger=yes
+cgroups v2 active
+cgroup line rc=0
+--- now simulate the cgroup check FAILING:
+last rc=1  <-- silent, no output, script continues
+OVERALL SCRIPT EXIT=0
+```
+
+Two defects, both reproduced above:
+
+1. The cgroup line `test "$(stat -fc %T /sys/fs/cgroup)" = "cgroup2fs" && echo "..."` is
+   **silent on failure** — it prints nothing and returns non-zero, and nothing reads that
+   return code.
+2. The block's **overall exit status is 0 either way**. A script that cannot fail cannot
+   verify anything, so the §19.2 evidence it supports cannot be re-run and trusted (this is
+   the same defect `OPS-15` records).
+
+**Requirement.** The §12.3 verify block must exit non-zero when any check fails, and must name
+the expected value beside each observed one so a failure is readable without re-running it.
+The block as written cannot be closed by this session: §12.3 is owned by the OPS-B session.
+See `agents/COORDINATION/proposals/plat-PLAT-04.md`.
+
+## 2.5 Version Matrix Audit
+
+`config/platform/version-matrix.yaml` is the machine-readable baseline. It is not owned by
+this session, so the audit result is recorded here and the file left untouched. Run
+2026-10-03.
+
+**Six of the 25 running containers are tag-only, and all six are strays, not Quadlet units.**
+`podman ps --format '{{.Names}}\t{{.Image}}' | grep -v '@sha256:'` returns six rows — four
+Grafana containers on `:11.6.0` tags and two on `localhost/foxglove-bridge:latest` — and
+**every one has a generated `podman run` name** (`ao-sqli3`, `keen_bhabha`, `confident_khayyam`,
+`relaxed_tharp`, `dreamy_rosalind`, `vigorous_shannon`), so no Quadlet unit owns them. They
+are residue from earlier manual runs and duplicate the pinned `ao-grafana` and
+`ao-sim-fabrication-foxglove`. **They are not removed here** — that is container deletion and
+README §4.1 rule 3 requires operator approval; §19 `OPS-16` already tracks stray containers.
+
+In the repository, `grep -rh '^Image=' quadlet/ | grep -vc '@sha256:'` → **2**: the deliberate
+`ardupilot-sitl:latest` (a moving SITL tag) and the local `localhost/gz-sim10-resolute:gui-svgfix`
+build. Every other unit image is digest-pinned.
+
+**The `nginx:alpine` row named in `PLAT-02` no longer exists as an unpinned image.**
+`grep -rn 'nginx:alpine' . --exclude-dir=.git` returns **no file under `quadlet/` or
+`config/`** — only historical mentions in `docs/compliance/installation-status.md`,
+`GAZEBO/`, an archived `TOPOLOGY/` JSON, and the §19 text itself. `quadlet/sim-fabrication/ao-sim-fabrication-portal.service`
+records why: the throwaway `gazebo-portal` nginx container was replaced by a `python3` host
+process. **That half of `PLAT-02` is already satisfied**; §19.2 said as much on 2026-10-01
+and `PLAT-02` was not updated to match.
+
+**Drift found between the matrix and the running host** — three rows are stale:
+
+| Matrix row | Records | Actually is |
+|---|---|---|
+| `host.kernel` | `7.0.0-34-generic` | `7.0.0-38-generic` (`uname -r`) |
+| `gpu.container_runtime_integration` | `nvidia-container-toolkit 1.20.0` | `1.20.1-1` (`dpkg-query -W`) |
+| `operations.image_postgres_shared` | `postgres@sha256:a65e6a84…` | `postgres@sha256:d74eeac9…` is what `ao-sales-db`, `mastodon-db` and `ao-fabrication-db` actually run |
+
+The PostgreSQL row is the one that matters: the matrix names a digest no container is
+running, so it cannot be used to verify what is deployed. Note also that four digests are
+running but absent from the matrix — `gz-sim10-server`, `foxglove-bridge`, and the two Redis
+digests `c6eabf74…` (used by both `ao-webodm-broker` and `mastodon-redis`, while the matrix
+records the older `91d0f7e8…`).
+
+**Remaining for `PLAT-02`:** the matrix is still hand-edited rather than captured by a
+generator, and these three rows plus the four missing digests need correcting.
+Verifying it by hand is what found the drift, so the capture automation matters — but that
+automation is `OPS-02`, assigned to OPS-B.
+
 # 3. High-Level Architecture
 
 ## 3.1 Isolation Detail View
@@ -2737,20 +2833,30 @@ operation unsuitable.
 
 ## 13.2 Podman Store Model
 
-Every ALWAYS ON container runs **rootless** under the operator account, with user-level
-Quadlet units in `~/.config/containers/systemd/`, exactly as §13.1 prescribes. The
-system/rootful store is not used by any workload.
+**Designated runtime: rootless, single-store.** Every ALWAYS ON workload runs **rootless**
+under the operator account `scottw` (uid 1000), with user-level Quadlet units in
+`~/.config/containers/systemd/`, exactly as §13.1 prescribes. The system/rootful store is
+not used by any workload. **This is a designation, measured 2026-10-03** — the commands and
+their output are in `agents/COORDINATION/proposals/plat-PLAT-01.md`.
+
+| Question | Measured answer |
+|---|---|
+| Is the operator Podman rootless? | `podman info --format '{{.Host.Security.Rootless}}'` → `true` |
+| Which store backs it? | `podman info --format '{{.Store.GraphRoot}}'` → `/home/scottw/.local/share/containers/storage` |
+| Do any Quadlet units name a `User=` or `Group=`? | none — `grep -rn '^User=\|^Group=' quadlet/` returns nothing |
+| Are there system-level `.container` units? | `systemctl list-unit-files 'ao-webodm*'` → 0; every mapping unit is `systemctl --user`, state `generated` (Quadlet generator output) |
+| Are the WebODM containers in the operator store? | `podman ps` lists `ao-webodm-{webapp,worker,db,broker}` and `ao-nodeodm` from the rootless store above |
+| Are the declared extra connections real? | `podman system connection list` → header only; `~/.config/containers/podman-connections.json` is `{"Connection":{},"Farm":{}}` |
+| Does `/run/ao-podman/` exist? | `ls /run/ao-podman` → `No such file or directory` |
+| Is `ao-podman-bridge.service` active? | `systemctl is-enabled ao-podman-bridge.service` → `disabled`; `systemctl --user is-enabled` → `not-found` |
 
 The container store therefore has one owner. Podman Desktop, `podman system connection`,
-and the `socat` bridge path are all pointed at the operator account's local rootless socket,
-and `podman-connections.json` declares no separate connections.
+and any GUI path are all pointed at the operator account's local rootless socket, and
+`podman-connections.json` declares no separate connections.
 
 **Rules.**
 
-- No per-service container store is created. The `alwayson-sales` (uid 993),
-  `alwayson-ledger` (994) and `alwayson-mapping` (997) ownership model and the
-  `/run/ao-podman/<domain>.sock` `socat` bridges are not part of this design and must not be
-  introduced.
+- No per-service container store is created. No workload runs under a per-service account.
 - `ao-podman-bridge.service` is not part of this design and is disabled.
 - `/run/ao-podman/` holds no sockets. The directory is `tmpfs`-backed and clears on reboot.
 
@@ -2761,6 +2867,37 @@ here. Two are specific to this model:
 
 - Explicit bind mounts are limited to approved mapping paths (§5.3).
 - systemd resource limits and a restart policy are set on every unit.
+
+### 13.2.1 Recorded deviation — per-service accounts exist but run nothing
+
+The design forbids a per-service store, and no workload uses one. **However, the accounts and
+one system unit from that rejected design are still present on the host.** Recording them here
+is what closes the disagreement between this section and the §19.2 row that described a
+"mixed-store deviation": there is no mixed store. What exists is unused scaffolding.
+
+| Artefact | Measured state | Meaning |
+|---|---|---|
+| `ao-sales` (uid 993), `ao-ledger` (994), `ao-mapping` (997) | accounts exist with home directories `/home/alwayson-{sales,ledger,mapping}` | accounts only |
+| `loginctl show-user ao-mapping` | `Failed to get user: User ID 997 is not logged in or lingering` | not lingering, so it cannot own a user-level Quadlet unit |
+| `ps -eo user,comm \| awk '$1 ~ /ao-\|alwayson/'` | no rows | no process runs as any of the three |
+| `/etc/systemd/system/ao-podman-bridge.service` | present, `systemctl is-enabled` → `disabled` | the rejected bridge unit, masked by being disabled |
+| `/run/ao-podman/` | `No such file or directory` | the rejected socket directory was never created |
+| `/var/lib/containers/storage` | exists, `db.sql` last written 2026-09-30 | **OPEN** — see below |
+
+**Deviation.** The host carries three unused service accounts and one disabled system unit
+that this design does not authorise. They hold no container store, no socket and no process,
+so the single-store designation above is unaffected. They are **left in place**: removing an
+account or a unit file is a deletion, and README §4.1 rule 3 requires explicit operator
+approval. **This is an OPEN item for the operator**, not a defect in the running system.
+
+**OPEN — the rootful store could not be enumerated.** `/var/lib/containers/storage` exists
+and its `db.sql` was modified 2026-09-30, so something has written to it. Its contents are
+`drwx------ root root` and `sudo` on this host requires interactive authentication, so
+`sudo ls /var/lib/containers/storage/overlay-images/` returned `Permission denied`. **This
+document therefore claims the system store is *unused by any workload*, not that it is
+*empty*.** The distinction matters: a stale image or container left in the rootful store is
+not a workload, but it is data an operator may want reclaimed. Enumerating it needs one
+`sudo` command and operator approval — recommended action, no automatic action taken.
 
 `ao-sales` and `ao-reporting-egress` are non-internal by recorded decision; that
 exception belongs to §5.1, not to the store model.
