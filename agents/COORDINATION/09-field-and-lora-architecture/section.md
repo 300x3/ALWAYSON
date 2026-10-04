@@ -716,3 +716,99 @@ quote none.
 Reason I got it wrong: I inferred a counting error from an unrelated warning line instead of
 running the comparison. The `-a` flag was already the right instinct for *reading* the file, but
 I projected it onto `-c` where it makes no difference.
+
+### 9.5.8 Second re-verification 2026-10-04 15:59 — all six blockers still live
+
+§9.5.7 was measured at 15:09 the same day. Re-measured at 15:59 before relying on it.
+**Nothing recovered.** The only numbers that move are the continuously-growing retry totals.
+
+```bash
+$ date -Is
+2026-10-04T15:59:52-07:00
+
+$ grep -ah 'is configured and powered up' ~/.reticulum-meshchatx/logs/meshchatx.log* | tail -2
+[2026-09-25 16:27:08] [Notice]   RNodeInterface[PEOPLE-RADIO] is configured and powered up
+[2026-09-25 16:27:11] [Notice]   RNodeInterface[DRONE-RADIO] is configured and powered up
+                                  # unchanged: last success for DRONE-RADIO is still 2026-09-25
+
+$ for f in ~/.reticulum-meshchatx/logs/meshchatx.log{,.1,.2,.3}; do \
+    printf '%-16s %s\n' "$(basename $f)" "$(grep -ac 'unrecoverable error' $f)"; done
+meshchatx.log    4063      # was 3667 at 15:09
+meshchatx.log.1  7800
+meshchatx.log.2  2389
+meshchatx.log.3  29
+                 ----
+                 14281     # was 13,885; +396 in 50 minutes, consistent with ~1 per 7s
+
+$ tail -3 ~/.reticulum-meshchatx/logs/meshchatx.log
+[2026-10-04 15:59:46] [Error]    The interface RNodeInterface[DRONE-RADIO] experienced an unrecoverable error and is now offline.
+[2026-10-04 15:59:46] [Error]    Reticulum will attempt to reconnect the interface periodically.
+[2026-10-04 15:59:51] [Notice]   Opening serial port /dev/serial/by-path/pci-0000:05:00.0-usb-0:1:1.0-port0...
+```
+
+**The retry loop is the same loop, still cycling, in the same order, 50 minutes later.** This is
+the strongest available confirmation that the fault is persistent hardware/software state and not
+a transient: an intermittent board would produce intermittent recoveries, and there is not one.
+
+**Drone still absent** (§9.5.6 unchanged — `getent` returns nothing, no `~/.ssh/config`, both
+`10.42.0.96` and `10.42.0.5` still `FAILED`):
+
+```bash
+$ getent hosts raspberrypi raspbianpios alwayondrone rpi5
+(no output)
+$ ls ~/.ssh/config
+ls: cannot access '/home/scottw/.ssh/config': No such file or directory
+$ ip neigh
+169.254.207.81 dev eno1 lladdr 30:05:5c:ee:a2:9b STALE
+10.42.0.96 dev eno1 FAILED
+10.42.0.5    dev eno1 FAILED
+192.168.87.1  dev wlp3s0 lladdr 16:22:3b:67:bd:98 REACHABLE
+```
+
+**The `:4242` decision still holds** (§9.3.1, FIELD-04) — listener unchanged and still reachable
+from the LAN address:
+
+```bash
+$ ss -ltnp | grep -E '18000|4242'
+LISTEN 0 128  127.0.0.1:18000  0.0.0.0:*  users:(("ReticulumMeshCh",pid=840861,fd=17))
+LISTEN 0 1    0.0.0.0:4242     0.0.0.0:*  users:(("ReticulumMeshCh",pid=840861,fd=46))
+$ timeout 5 bash -c 'exec 3<>/dev/tcp/192.168.87.135/4242' && echo lan-OK
+lan-OK
+```
+
+**The firewall mechanism is still unverifiable from here** — privilege wall, and still no policy
+document anywhere under `config/`:
+
+```bash
+$ ufw status
+ERROR: You need to be root to run this script
+$ sudo -n true
+sudo: interactive authentication is required
+$ find config -iname '*firewall*' -o -iname '*ufw*'
+(no output)
+```
+
+**The live radio settings are unchanged**, so §9.4.1's profile-vs-live comparison remains valid
+as of now — 915 MHz / 125 kHz / SF7 / 17 dBm and 917 MHz / 250 kHz / SF7 / 17 dBm:
+
+```bash
+$ grep -A12 'RNodeInterface' ~/.reticulum/config | grep -E 'frequency|bandwidth|spreadingfactor|txpower'
+frequency = 915000000
+bandwidth = 125000
+spreadingfactor = 7
+txpower = 17
+frequency = 917000000
+bandwidth = 250000
+spreadingfactor = 7
+txpower = 17
+```
+
+**Two corrections to how I have been quoting these totals.** First, §9.5.7's own advice — *quote
+a total with its timestamp or quote none* — is what I have done here; the 14,281 figure is only
+true at 15:59 and is already wrong. Second, my first pass in this pass used `grep -ah` on the
+glob while §9.5.7 used a per-file loop; the two agree (`4063+7800+2389+29 = 14281`), so the
+totals are not sensitive to that choice, but the **`-a` flag is** — see §9.5.7, where a file
+that `grep` calls binary is still counted correctly without it.
+
+**Nothing was touched.** No radio, no serial port, no firewall, no config file. Every blocker in
+§9.5.5 still requires physical repair or operator action.

@@ -404,6 +404,92 @@ as consistently as it propagates the intent.
   locked out is the symptom of that policy working, not of it failing. The fix is to add the
   operator to the mapping group, **not** to relax the mode to `777`.
 
+### 8.5.3 Re-verification 2026-10-04 15:59 — both mapping blockers are still live
+
+§8.5.1 and §8.5.2 were measured earlier the same day. Every prerequisite was re-measured before
+relying on them. **Nothing has recovered and no claim is weakened.** One *new* finding is
+recorded below: the `title:` key the proposal compiler silently requires.
+
+**FIELD-10 — the validator is still green on a tree that still does not satisfy §8.2:**
+
+```bash
+$ bash scripts/validation/check-photogrammetry-mount.sh
+OK: photogrammetry mount valid: systemd-1
+/dev/sdb1; 434G free
+rc=0
+```
+
+The validator still exits 0. Per §8.5.1 this must **not** be cited as evidence that §8.2 holds.
+
+**FIELD-10 / FIELD-15 — the operator is still locked out, and the database is still off-drive:**
+
+```bash
+$ stat -c '%n owner=%U group=%G mode=%a' /media/scottw/500GBPHOTOGRAM/tmp \
+      /media/scottw/500GBPHOTOGRAM/webodm/media \
+      /media/scottw/500GBPHOTOGRAM/retention/pending-review
+.../tmp                      owner=ao-mapping group=alwayson-mapping mode=770
+.../webodm/media             owner=scottw       group=ao-mapping       mode=770
+.../retention/pending-review owner=scottw       group=scottw          mode=770
+
+$ getent group alwayson-mapping
+alwayson-mapping:x:975:            # still no members
+
+$ mkdir /media/scottw/500GBPHOTOGRAM/tmp/processing
+mkdir: Permission denied           # rc=1
+
+$ podman inspect ao-webodm-db --format '{{range .Mounts}}{{.Source}} -> {{.Destination}}{{end}}'
+/home/scottw/webodm/dbdata -> /var/lib/postgresql/data
+                               # still the root filesystem, not the photogrammetry drive
+```
+
+The three-way depth inconsistency (`alwayson-mapping` / `ao-mapping` / `scottw`) persists, and
+the repair remains `sudo usermod -aG alwayson-mapping scottw` — **not** a mode change. See §8.5.2
+for why loosening to `777` would be a regression against §8.2.
+
+**FIELD-15 — new: the proposal compiler silently requires a `title:` key on `action: new`, and
+omitting it produces an unlabelled row in §19.1.** My own FIELD-15 proposal rendered with an
+**empty Item cell** and the whole proposal body dumped into the criteria cell as raw markdown:
+
+```bash
+$ for f in agents/COORDINATION/proposals/*.md; do a=$(grep -m1 '^action:' "$f" | sed 's/action: *//'); \
+    [ "$a" = new ] && printf '%-22s title:%s\n' "$(basename $f)" "$(grep -cm1 '^title:' "$f")"; done
+field-FIELD-15.md   title:0        # <- mine
+ops-a-OPS-35.md     title:0
+sec-SEC-04.md       title:0
+spec-NET-51.md      title:0
+spec-OPS-35.md      title:0
+spec-OPS-36.md      title:0
+                                     # 6 of 6 omit it
+
+$ # every action:new row in 19.1 with an empty Item cell:
+EMPTY ITEM CELL: NET-51
+EMPTY ITEM CELL: FIELD-15
+EMPTY ITEM CELL: OPS-36
+EMPTY ITEM CELL: OPS-35
+```
+
+Cause, measured in `scripts/orchestration/compile-proposals.py` lines 133-136:
+
+```python
+row = (... % (item, esc(p.get("title", "")), esc(p.get("body"))))
+                         ^^^^^^^^^^^^^^^^^^^^^^ absent key -> empty cell, no warning
+```
+
+`p.get("title", "")` returns `""` for a missing key, and `proposals/README.md` never documents
+`title:` as a field (`grep -n 'title:' proposals/README.md` → no match). **So this is a
+documentation gap in a shared file, not a mistake unique to my proposal** — four other sessions
+hit it identically. **The `new` action cannot render a usable row without it.** I have added
+`title:` to my own proposal; the other five belong to their own sessions and I report rather
+than edit them. This is a **cross-session finding for the compiler session**, not a FIELD item,
+so no new FIELD ID is taken for it.
+
+**Also worth the compiler's attention:** §19.1's FIELD group header still reads *"14 items, all
+Open"* while the block now holds **9 open rows** (`FIELD-15, 01, 02, 03, 06, 07, 09, 10, 14`) plus
+6 closed in §19.2 (`04, 05, 08, 11, 12, 13`). The header is not recomputed on close or on `new`.
+
+**Not attempted.** No directory created, no group membership changed, no data directory moved,
+no profile edited. All remain operator decisions under §4.1 rule 12.
+
 ## 8.6 3D Model Identity and Database Cross-Referencing
 
 Every 3D model, model revision, component, assembly, and derived artifact must be
