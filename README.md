@@ -2927,6 +2927,7 @@ their output are in `agents/COORDINATION/proposals/plat-PLAT-01.md`.
 | Are the declared extra connections real? | `podman system connection list` → header only; `~/.config/containers/podman-connections.json` is `{"Connection":{},"Farm":{}}` |
 | Does `/run/ao-podman/` exist? | `ls /run/ao-podman` → `No such file or directory` |
 | Is `ao-podman-bridge.service` active? | `systemctl is-enabled ao-podman-bridge.service` → `disabled`; `systemctl --user is-enabled` → `not-found` |
+| Does the **rootful** store hold any workload? | **No — measured 2026-10-04.** `/var/lib/containers/storage/db.sql` is world-readable and its `ContainerConfig`, `ContainerState`, `ContainerExitCode`, `VolumeConfig`, `PodConfig` and `ContainerDependency` tables are **all empty** (row count `0` each). Enumerated without `sudo`; see §13.2.1 |
 
 The container store therefore has one owner. Podman Desktop, `podman system connection`,
 and any GUI path are all pointed at the operator account's local rootless socket, and
@@ -2960,7 +2961,7 @@ is what closes the disagreement between this section and the §19.2 row that des
 | `ps -eo user,comm \| awk '$1 ~ /ao-\|alwayson/'` | no rows | no process runs as any of the three |
 | `/etc/systemd/system/ao-podman-bridge.service` | present, `systemctl is-enabled` → `disabled` | the rejected bridge unit, masked by being disabled |
 | `/run/ao-podman/` | `No such file or directory` | the rejected socket directory was never created |
-| `/var/lib/containers/storage` | exists, `db.sql` last written 2026-09-30 | **OPEN** — see below |
+| `/var/lib/containers/storage` | exists, `db.sql` last written 2026-09-30 | **enumerated 2026-10-04** — zero containers/pods/volumes; residual images unverified, see below |
 
 **Deviation.** The host carries three unused service accounts and one disabled system unit
 that this design does not authorise. They hold no container store, no socket and no process,
@@ -2968,14 +2969,55 @@ so the single-store designation above is unaffected. They are **left in place**:
 account or a unit file is a deletion, and README §4.1 rule 3 requires explicit operator
 approval. **This is an OPEN item for the operator**, not a defect in the running system.
 
-**OPEN — the rootful store could not be enumerated.** `/var/lib/containers/storage` exists
-and its `db.sql` was modified 2026-09-30, so something has written to it. Its contents are
-`drwx------ root root` and `sudo` on this host requires interactive authentication, so
-`sudo ls /var/lib/containers/storage/overlay-images/` returned `Permission denied`. **This
-document therefore claims the system store is *unused by any workload*, not that it is
-*empty*.** The distinction matters: a stale image or container left in the rootful store is
-not a workload, but it is data an operator may want reclaimed. Enumerating it needs one
-`sudo` command and operator approval — recommended action, no automatic action taken.
+**CORRECTION 2026-10-04 (measured): the rootful store is *not* inaccessible, and the previous
+recording of this OPEN item was wrong.** The section said the store's "contents are
+`drwx------ root root`" and that `sudo ls` returned `Permission denied`, so enumeration needed
+operator approval. **Both are wrong, and the mistake was generalising a mode from a child
+directory to the store root.** Measured:
+
+```
+$ stat -c '%A %U:%G %n' /var/lib/containers/storage
+drwxr-xr-x root:root /var/lib/containers/storage
+$ ls -la /var/lib/containers/storage/ | head -4
+-rw-r--r-- 1 root root 114688 Sep 30 20:26 db.sql          # world-READABLE
+drwx------ 2 root root   4096 Aug 26 19:13 overlay-images  # the 0700 parts are the CHILDREN
+$ stat -c '%A %n' /var/lib/containers/storage/overlay-images/
+drwx------                                                 # <- what I generalised upward
+```
+
+So the **top level and `db.sql` are readable by uid 1000 with no `sudo` at all**, and the store
+can be substantially enumerated. `sqlite3(3)` is not installed, but Python's `sqlite3` module is
+sufficient and needs no package:
+
+```
+$ python3 -c "import sqlite3; c=sqlite3.connect('file:/var/lib/containers/storage/db.sql?mode=ro',uri=True); print({t: c.execute('select count(*) from '+t).fetchone()[0] for t in ('ContainerConfig','ContainerState','ContainerExitCode','VolumeConfig','PodConfig','ContainerDependency')})"
+{'ContainerConfig': 0, 'ContainerState': 0, 'ContainerExitCode': 0,
+ 'VolumeConfig': 0, 'PodConfig': 0, 'ContainerDependency': 0}
+```
+
+**Every container-, pod- and volume-bearing table is empty.** The rootful store holds **no
+containers, no pods, no volumes and no dependency records**. It has no `Image` table at all —
+in `containers/storage` images live in the `overlay-images/` bolt databases, not in `db.sql`:
+
+```
+$ python3 -c "import sqlite3; c=sqlite3.connect('file:/var/lib/containers/storage/db.sql?mode=ro',uri=True); print([r[0] for r in c.execute(\"select name from sqlite_master where type='table'\")])"
+['ContainerDependency','ContainerExitCode','PodState','VolumeConfig','DBConfig','IDNamespace',
+ 'ContainerConfig','ContainerVolume','PodConfig','VolumeState','ContainerState','ContainerExecSession']
+any image table: NONE
+```
+
+**This materially strengthens the single-store designation.** The store is not merely
+"unused by any workload" as the previous revision had to concede — it holds **no workload
+records whatsoever**, and the earlier claim that this could only be resolved with operator
+approval was wrong on both counts: the mode was misread, and no approval was ever needed.
+
+**Still open, and narrower than stated: residual image data.** `overlay-images/` is mode `0700`
+and `ls` on it returns `Permission denied` as uid 1000, so **whether any image blobs remain is
+still unverified**. This is consistent with the last write being `2026-09-30` (images were pulled
+before the rootless migration) but does not prove it. For contrast the rootless store has 102
+image records and is fully enumerable by the operator. Enumerating the rootful remainder needs
+one `sudo` command and operator approval — recommended action, **no automatic action taken**, and
+no deletion is proposed.
 
 `ao-sales` and `ao-reporting-egress` are non-internal by recorded decision; that
 exception belongs to §5.1, not to the store model.
