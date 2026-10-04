@@ -50,14 +50,14 @@ on it. Measured 2026-10-03:
 
 | Package | Needed by | Installed on this host |
 |---|---|---|
-| `apparmor-utils` | `aa-enforce`, `aa-decode`, `aa-genprof`, `aa-logprof` — the profile tools §4.1 relies on | **No.** `dpkg -S /usr/sbin/aa-status` returns `apparmor: /usr/sbin/aa-status`, i.e. `aa-status` ships in the base `apparmor` package; `apt-cache policy apparmor-utils` → `Installed: (none)`. `aa-enforce`, `aa-complain`, `aa-decode`, `aa-logprof` and `aa-genprof` are all `MISSING` |
-| `nvidia-container-toolkit` (+ `libnvidia-container1`, `libnvidia-container-tools`, `nvidia-container-toolkit-base`) | GPU access from rootless containers via CDI; the `nvidia.com/gpu=0` device the version matrix records | Yes — all four at **1.20.1-1** |
+| `apparmor-utils` | `aa-enforce`, `aa-decode`, `aa-genprof`, `aa-logprof` — the profile tools §4.1 relies on | **Yes, installed 2026-10-04.** `dpkg -s apparmor-utils` → `Status: install ok installed`, `Version: 5.0.2-0ubuntu1~26.04.1`. All five binaries now resolve: `/usr/sbin/aa-enforce`, `aa-complain`, `aa-decode`, `aa-logprof`, `aa-genprof` |
 
-**Consequence.** The §12.3 verify block runs `sudo aa-status`, which succeeds today only
-because the base `apparmor` package happens to provide that one binary. Any assertion that
-actually *changes* or *inspects* a profile — `aa-enforce`, `aa-complain` — would fail on a
-freshly provisioned host. `apparmor-utils` is therefore required by §12.3's own verification,
-and its absence from the install list is a real gap, not a cosmetic one.
+**Resolved 2026-10-04.** `apparmor-utils` is installed, so a profile can now be
+enforced or inspected on this host — which is what §4.1 depends on. The gap
+recorded earlier (2026-10-03) is closed, and `verify-host-baseline.sh` will now
+report `aa-enforce present (profile enforcement possible)` instead of a WARN,
+because it tests for the binary rather than for `aa-status`, which shipped in
+the base `apparmor` package and succeeded misleadingly all along.
 
 **Correction to a stale claim.** `config/platform/version-matrix.yaml` records
 `nvidia-container-toolkit 1.20.0 installed 2026-08-25`. `dpkg-query -W` reports **1.20.1-1**.
