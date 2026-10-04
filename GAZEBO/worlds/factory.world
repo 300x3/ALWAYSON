@@ -118,7 +118,7 @@
     </physics>
 
     <light type="directional" name="sun">
-      <cast_shadows>true</cast_shadows>
+      <cast_shadows>false</cast_shadows>
       <pose>0 0 10 0 0 0</pose>
       <diffuse>1.0 0.95 0.86 1</diffuse>
       <specular>0.35 0.35 0.35 1</specular>
@@ -185,10 +185,10 @@
             </mesh>
           </geometry>
             <material>
-              <ambient>0.30 0.21 0.14 1</ambient>
-              <diffuse>0.46 0.33 0.21 1</diffuse>
-              <specular>0.10 0.10 0.10 1</specular>
-              <shininess>6</shininess>
+              <ambient>0.72 0.72 0.74 1</ambient>
+              <diffuse>0.72 0.72 0.74 1</diffuse>
+              <specular>0.02 0.02 0.02 1</specular>
+              <shininess>2</shininess>
               </material>
         </visual>
         <collision name="collision">
@@ -798,5 +798,639 @@
     </model>
     <!-- END GENERATED: safety_zones -->
 
+    <!-- BEGIN GENERATED: conveyor_loops -->
+    <model name="fridge_conveyor">
+      <static>true</static>
+      <pose>0 0 0 0 0 0</pose>
+      <link name="belt_frame">
+        <visual name="fridge_freezer_l0_belt0">
+          <geometry><box><size>0.62 0.13 0.014</size></box></geometry>
+          <pose>1.01 3.165 0.45 0 0 0</pose>
+          <material>
+            <ambient>0.04 0.08 0.18 1</ambient>
+            <diffuse>0.14 0.29 0.68 1</diffuse>
+            <specular>0.30 0.32 0.36 1</specular>
+            <shininess>32</shininess>
+          </material>
+        </visual>
+        <visual name="fridge_freezer_l0_belt1">
+          <geometry><box><size>0.62 0.13 0.014</size></box></geometry>
+          <pose>1.01 3.375 0.45 0 0 0</pose>
+          <material>
+            <ambient>0.04 0.08 0.18 1</ambient>
+            <diffuse>0.14 0.29 0.68 1</diffuse>
+            <specular>0.30 0.32 0.36 1</specular>
+            <shininess>32</shininess>
+          </material>
+        </visual>
+        <visual name="fridge_freezer_l0_ret0">
+          <geometry><box><size>0.16 0.08 0.014</size></box></geometry>
+          <pose>0.78 3.27 0.45 0 0 0</pose>
+          <material>
+            <ambient>0.04 0.08 0.18 1</ambient>
+            <diffuse>0.14 0.29 0.68 1</diffuse>
+            <specular>0.30 0.32 0.36 1</specular>
+            <shininess>32</shininess>
+          </material>
+        </visual>
+        <visual name="fridge_freezer_l0_ret1">
+          <geometry><box><size>0.16 0.08 0.014</size></box></geometry>
+          <pose>1.24 3.27 0.45 0 0 0</pose>
+          <material>
+            <ambient>0.04 0.08 0.18 1</ambient>
+            <diffuse>0.14 0.29 0.68 1</diffuse>
+            <specular>0.30 0.32 0.36 1</specular>
+            <shininess>32</shininess>
+          </material>
+        </visual>
+        <visual name="fridge_freezer_l1_belt0">
+          <geometry><box><size>0.62 0.13 0.014</size></box></geometry>
+          <pose>1.01 3.555 0.45 0 0 0</pose>
+          <material>
+            <ambient>0.04 0.08 0.18 1</ambient>
+            <diffuse>0.14 0.29 0.68 1</diffuse>
+            <specular>0.30 0.32 0.36 1</specular>
+            <shininess>32</shininess>
+          </material>
+        </visual>
+        <visual name="fridge_freezer_l1_belt1">
+          <geometry><box><size>0.62 0.13 0.014</size></box></geometry>
+          <pose>1.01 3.765 0.45 0 0 0</pose>
+          <material>
+            <ambient>0.04 0.08 0.18 1</ambient>
+            <diffuse>0.14 0.29 0.68 1</diffuse>
+            <specular>0.30 0.32 0.36 1</specular>
+            <shininess>32</shininess>
+          </material>
+        </visual>
+        <visual name="fridge_freezer_l1_ret0">
+          <geometry><box><size>0.16 0.08 0.014</size></box></geometry>
+          <pose>0.78 3.66 0.45 0 0 0</pose>
+          <material>
+            <ambient>0.04 0.08 0.18 1</ambient>
+            <diffuse>0.14 0.29 0.68 1</diffuse>
+            <specular>0.30 0.32 0.36 1</specular>
+            <shininess>32</shininess>
+          </material>
+        </visual>
+        <visual name="fridge_freezer_l1_ret1">
+          <geometry><box><size>0.16 0.08 0.014</size></box></geometry>
+          <pose>1.24 3.66 0.45 0 0 0</pose>
+          <material>
+            <ambient>0.04 0.08 0.18 1</ambient>
+            <diffuse>0.14 0.29 0.68 1</diffuse>
+            <specular>0.30 0.32 0.36 1</specular>
+            <shininess>32</shininess>
+          </material>
+        </visual>
+        <visual name="fridge_fridge_l0_belt0">
+          <geometry><box><size>0.62 0.13 0.014</size></box></geometry>
+          <pose>1.01 3.165 1.05 0 0 0</pose>
+          <material>
+            <ambient>0.04 0.08 0.18 1</ambient>
+            <diffuse>0.14 0.29 0.68 1</diffuse>
+            <specular>0.30 0.32 0.36 1</specular>
+            <shininess>32</shininess>
+          </material>
+        </visual>
+        <visual name="fridge_fridge_l0_belt1">
+          <geometry><box><size>0.62 0.13 0.014</size></box></geometry>
+          <pose>1.01 3.375 1.05 0 0 0</pose>
+          <material>
+            <ambient>0.04 0.08 0.18 1</ambient>
+            <diffuse>0.14 0.29 0.68 1</diffuse>
+            <specular>0.30 0.32 0.36 1</specular>
+            <shininess>32</shininess>
+          </material>
+        </visual>
+        <visual name="fridge_fridge_l0_ret0">
+          <geometry><box><size>0.16 0.08 0.014</size></box></geometry>
+          <pose>0.78 3.27 1.05 0 0 0</pose>
+          <material>
+            <ambient>0.04 0.08 0.18 1</ambient>
+            <diffuse>0.14 0.29 0.68 1</diffuse>
+            <specular>0.30 0.32 0.36 1</specular>
+            <shininess>32</shininess>
+          </material>
+        </visual>
+        <visual name="fridge_fridge_l0_ret1">
+          <geometry><box><size>0.16 0.08 0.014</size></box></geometry>
+          <pose>1.24 3.27 1.05 0 0 0</pose>
+          <material>
+            <ambient>0.04 0.08 0.18 1</ambient>
+            <diffuse>0.14 0.29 0.68 1</diffuse>
+            <specular>0.30 0.32 0.36 1</specular>
+            <shininess>32</shininess>
+          </material>
+        </visual>
+        <visual name="fridge_fridge_l1_belt0">
+          <geometry><box><size>0.62 0.13 0.014</size></box></geometry>
+          <pose>1.01 3.555 1.05 0 0 0</pose>
+          <material>
+            <ambient>0.04 0.08 0.18 1</ambient>
+            <diffuse>0.14 0.29 0.68 1</diffuse>
+            <specular>0.30 0.32 0.36 1</specular>
+            <shininess>32</shininess>
+          </material>
+        </visual>
+        <visual name="fridge_fridge_l1_belt1">
+          <geometry><box><size>0.62 0.13 0.014</size></box></geometry>
+          <pose>1.01 3.765 1.05 0 0 0</pose>
+          <material>
+            <ambient>0.04 0.08 0.18 1</ambient>
+            <diffuse>0.14 0.29 0.68 1</diffuse>
+            <specular>0.30 0.32 0.36 1</specular>
+            <shininess>32</shininess>
+          </material>
+        </visual>
+        <visual name="fridge_fridge_l1_ret0">
+          <geometry><box><size>0.16 0.08 0.014</size></box></geometry>
+          <pose>0.78 3.66 1.05 0 0 0</pose>
+          <material>
+            <ambient>0.04 0.08 0.18 1</ambient>
+            <diffuse>0.14 0.29 0.68 1</diffuse>
+            <specular>0.30 0.32 0.36 1</specular>
+            <shininess>32</shininess>
+          </material>
+        </visual>
+        <visual name="fridge_fridge_l1_ret1">
+          <geometry><box><size>0.16 0.08 0.014</size></box></geometry>
+          <pose>1.24 3.66 1.05 0 0 0</pose>
+          <material>
+            <ambient>0.04 0.08 0.18 1</ambient>
+            <diffuse>0.14 0.29 0.68 1</diffuse>
+            <specular>0.30 0.32 0.36 1</specular>
+            <shininess>32</shininess>
+          </material>
+        </visual>
+        <visual name="fridge_pantry_l0_belt0">
+          <geometry><box><size>0.62 0.13 0.014</size></box></geometry>
+          <pose>1.01 3.165 1.65 0 0 0</pose>
+          <material>
+            <ambient>0.04 0.08 0.18 1</ambient>
+            <diffuse>0.14 0.29 0.68 1</diffuse>
+            <specular>0.30 0.32 0.36 1</specular>
+            <shininess>32</shininess>
+          </material>
+        </visual>
+        <visual name="fridge_pantry_l0_belt1">
+          <geometry><box><size>0.62 0.13 0.014</size></box></geometry>
+          <pose>1.01 3.375 1.65 0 0 0</pose>
+          <material>
+            <ambient>0.04 0.08 0.18 1</ambient>
+            <diffuse>0.14 0.29 0.68 1</diffuse>
+            <specular>0.30 0.32 0.36 1</specular>
+            <shininess>32</shininess>
+          </material>
+        </visual>
+        <visual name="fridge_pantry_l0_ret0">
+          <geometry><box><size>0.16 0.08 0.014</size></box></geometry>
+          <pose>0.78 3.27 1.65 0 0 0</pose>
+          <material>
+            <ambient>0.04 0.08 0.18 1</ambient>
+            <diffuse>0.14 0.29 0.68 1</diffuse>
+            <specular>0.30 0.32 0.36 1</specular>
+            <shininess>32</shininess>
+          </material>
+        </visual>
+        <visual name="fridge_pantry_l0_ret1">
+          <geometry><box><size>0.16 0.08 0.014</size></box></geometry>
+          <pose>1.24 3.27 1.65 0 0 0</pose>
+          <material>
+            <ambient>0.04 0.08 0.18 1</ambient>
+            <diffuse>0.14 0.29 0.68 1</diffuse>
+            <specular>0.30 0.32 0.36 1</specular>
+            <shininess>32</shininess>
+          </material>
+        </visual>
+        <visual name="fridge_pantry_l1_belt0">
+          <geometry><box><size>0.62 0.13 0.014</size></box></geometry>
+          <pose>1.01 3.555 1.65 0 0 0</pose>
+          <material>
+            <ambient>0.04 0.08 0.18 1</ambient>
+            <diffuse>0.14 0.29 0.68 1</diffuse>
+            <specular>0.30 0.32 0.36 1</specular>
+            <shininess>32</shininess>
+          </material>
+        </visual>
+        <visual name="fridge_pantry_l1_belt1">
+          <geometry><box><size>0.62 0.13 0.014</size></box></geometry>
+          <pose>1.01 3.765 1.65 0 0 0</pose>
+          <material>
+            <ambient>0.04 0.08 0.18 1</ambient>
+            <diffuse>0.14 0.29 0.68 1</diffuse>
+            <specular>0.30 0.32 0.36 1</specular>
+            <shininess>32</shininess>
+          </material>
+        </visual>
+        <visual name="fridge_pantry_l1_ret0">
+          <geometry><box><size>0.16 0.08 0.014</size></box></geometry>
+          <pose>0.78 3.66 1.65 0 0 0</pose>
+          <material>
+            <ambient>0.04 0.08 0.18 1</ambient>
+            <diffuse>0.14 0.29 0.68 1</diffuse>
+            <specular>0.30 0.32 0.36 1</specular>
+            <shininess>32</shininess>
+          </material>
+        </visual>
+        <visual name="fridge_pantry_l1_ret1">
+          <geometry><box><size>0.16 0.08 0.014</size></box></geometry>
+          <pose>1.24 3.66 1.65 0 0 0</pose>
+          <material>
+            <ambient>0.04 0.08 0.18 1</ambient>
+            <diffuse>0.14 0.29 0.68 1</diffuse>
+            <specular>0.30 0.32 0.36 1</specular>
+            <shininess>32</shininess>
+          </material>
+        </visual>
+      </link>
+    </model>
+    <model name="storage_conveyor">
+      <static>true</static>
+      <pose>0 0 0 0 0 0</pose>
+      <link name="belt_frame">
+        <visual name="storage_low_l0_belt0">
+          <geometry><box><size>0.62 0.13 0.014</size></box></geometry>
+          <pose>1.01 1.165 0.45 0 0 0</pose>
+          <material>
+            <ambient>0.04 0.08 0.18 1</ambient>
+            <diffuse>0.14 0.29 0.68 1</diffuse>
+            <specular>0.30 0.32 0.36 1</specular>
+            <shininess>32</shininess>
+          </material>
+        </visual>
+        <visual name="storage_low_l0_belt1">
+          <geometry><box><size>0.62 0.13 0.014</size></box></geometry>
+          <pose>1.01 1.375 0.45 0 0 0</pose>
+          <material>
+            <ambient>0.04 0.08 0.18 1</ambient>
+            <diffuse>0.14 0.29 0.68 1</diffuse>
+            <specular>0.30 0.32 0.36 1</specular>
+            <shininess>32</shininess>
+          </material>
+        </visual>
+        <visual name="storage_low_l0_ret0">
+          <geometry><box><size>0.16 0.08 0.014</size></box></geometry>
+          <pose>0.78 1.27 0.45 0 0 0</pose>
+          <material>
+            <ambient>0.04 0.08 0.18 1</ambient>
+            <diffuse>0.14 0.29 0.68 1</diffuse>
+            <specular>0.30 0.32 0.36 1</specular>
+            <shininess>32</shininess>
+          </material>
+        </visual>
+        <visual name="storage_low_l0_ret1">
+          <geometry><box><size>0.16 0.08 0.014</size></box></geometry>
+          <pose>1.24 1.27 0.45 0 0 0</pose>
+          <material>
+            <ambient>0.04 0.08 0.18 1</ambient>
+            <diffuse>0.14 0.29 0.68 1</diffuse>
+            <specular>0.30 0.32 0.36 1</specular>
+            <shininess>32</shininess>
+          </material>
+        </visual>
+        <visual name="storage_low_l1_belt0">
+          <geometry><box><size>0.62 0.13 0.014</size></box></geometry>
+          <pose>1.01 1.555 0.45 0 0 0</pose>
+          <material>
+            <ambient>0.04 0.08 0.18 1</ambient>
+            <diffuse>0.14 0.29 0.68 1</diffuse>
+            <specular>0.30 0.32 0.36 1</specular>
+            <shininess>32</shininess>
+          </material>
+        </visual>
+        <visual name="storage_low_l1_belt1">
+          <geometry><box><size>0.62 0.13 0.014</size></box></geometry>
+          <pose>1.01 1.765 0.45 0 0 0</pose>
+          <material>
+            <ambient>0.04 0.08 0.18 1</ambient>
+            <diffuse>0.14 0.29 0.68 1</diffuse>
+            <specular>0.30 0.32 0.36 1</specular>
+            <shininess>32</shininess>
+          </material>
+        </visual>
+        <visual name="storage_low_l1_ret0">
+          <geometry><box><size>0.16 0.08 0.014</size></box></geometry>
+          <pose>0.78 1.66 0.45 0 0 0</pose>
+          <material>
+            <ambient>0.04 0.08 0.18 1</ambient>
+            <diffuse>0.14 0.29 0.68 1</diffuse>
+            <specular>0.30 0.32 0.36 1</specular>
+            <shininess>32</shininess>
+          </material>
+        </visual>
+        <visual name="storage_low_l1_ret1">
+          <geometry><box><size>0.16 0.08 0.014</size></box></geometry>
+          <pose>1.24 1.66 0.45 0 0 0</pose>
+          <material>
+            <ambient>0.04 0.08 0.18 1</ambient>
+            <diffuse>0.14 0.29 0.68 1</diffuse>
+            <specular>0.30 0.32 0.36 1</specular>
+            <shininess>32</shininess>
+          </material>
+        </visual>
+        <visual name="storage_high_l0_belt0">
+          <geometry><box><size>0.62 0.13 0.014</size></box></geometry>
+          <pose>1.01 1.165 1.15 0 0 0</pose>
+          <material>
+            <ambient>0.04 0.08 0.18 1</ambient>
+            <diffuse>0.14 0.29 0.68 1</diffuse>
+            <specular>0.30 0.32 0.36 1</specular>
+            <shininess>32</shininess>
+          </material>
+        </visual>
+        <visual name="storage_high_l0_belt1">
+          <geometry><box><size>0.62 0.13 0.014</size></box></geometry>
+          <pose>1.01 1.375 1.15 0 0 0</pose>
+          <material>
+            <ambient>0.04 0.08 0.18 1</ambient>
+            <diffuse>0.14 0.29 0.68 1</diffuse>
+            <specular>0.30 0.32 0.36 1</specular>
+            <shininess>32</shininess>
+          </material>
+        </visual>
+        <visual name="storage_high_l0_ret0">
+          <geometry><box><size>0.16 0.08 0.014</size></box></geometry>
+          <pose>0.78 1.27 1.15 0 0 0</pose>
+          <material>
+            <ambient>0.04 0.08 0.18 1</ambient>
+            <diffuse>0.14 0.29 0.68 1</diffuse>
+            <specular>0.30 0.32 0.36 1</specular>
+            <shininess>32</shininess>
+          </material>
+        </visual>
+        <visual name="storage_high_l0_ret1">
+          <geometry><box><size>0.16 0.08 0.014</size></box></geometry>
+          <pose>1.24 1.27 1.15 0 0 0</pose>
+          <material>
+            <ambient>0.04 0.08 0.18 1</ambient>
+            <diffuse>0.14 0.29 0.68 1</diffuse>
+            <specular>0.30 0.32 0.36 1</specular>
+            <shininess>32</shininess>
+          </material>
+        </visual>
+        <visual name="storage_high_l1_belt0">
+          <geometry><box><size>0.62 0.13 0.014</size></box></geometry>
+          <pose>1.01 1.555 1.15 0 0 0</pose>
+          <material>
+            <ambient>0.04 0.08 0.18 1</ambient>
+            <diffuse>0.14 0.29 0.68 1</diffuse>
+            <specular>0.30 0.32 0.36 1</specular>
+            <shininess>32</shininess>
+          </material>
+        </visual>
+        <visual name="storage_high_l1_belt1">
+          <geometry><box><size>0.62 0.13 0.014</size></box></geometry>
+          <pose>1.01 1.765 1.15 0 0 0</pose>
+          <material>
+            <ambient>0.04 0.08 0.18 1</ambient>
+            <diffuse>0.14 0.29 0.68 1</diffuse>
+            <specular>0.30 0.32 0.36 1</specular>
+            <shininess>32</shininess>
+          </material>
+        </visual>
+        <visual name="storage_high_l1_ret0">
+          <geometry><box><size>0.16 0.08 0.014</size></box></geometry>
+          <pose>0.78 1.66 1.15 0 0 0</pose>
+          <material>
+            <ambient>0.04 0.08 0.18 1</ambient>
+            <diffuse>0.14 0.29 0.68 1</diffuse>
+            <specular>0.30 0.32 0.36 1</specular>
+            <shininess>32</shininess>
+          </material>
+        </visual>
+        <visual name="storage_high_l1_ret1">
+          <geometry><box><size>0.16 0.08 0.014</size></box></geometry>
+          <pose>1.24 1.66 1.15 0 0 0</pose>
+          <material>
+            <ambient>0.04 0.08 0.18 1</ambient>
+            <diffuse>0.14 0.29 0.68 1</diffuse>
+            <specular>0.30 0.32 0.36 1</specular>
+            <shininess>32</shininess>
+          </material>
+        </visual>
+      </link>
+    </model>
+    <model name="storage_low_l0_motorbox">
+      <pose>0.78 1.27 0.378 0 0 0</pose>
+      <link name="gearbox">
+        <inertial>
+          <mass>24.0</mass>
+          <inertia><ixx>0.09</ixx><iyy>0.09</iyy><izz>0.11</izz><ixy>0</ixy><ixz>0</ixz><iyz>0</iyz></inertia>
+        </inertial>
+        <visual name="housing">
+          <geometry><box><size>0.16 0.13 0.13</size></box></geometry>
+          <pose>0 0 0 0 0 0</pose>
+          <material>
+            <ambient>0.17 0.18 0.19 1</ambient>
+            <diffuse>0.62 0.64 0.67 1</diffuse>
+            <specular>0.85 0.86 0.90 1</specular>
+            <shininess>72</shininess>
+          </material>
+        </visual>
+        <collision name="collision">
+          <geometry><box><size>0.16 0.13 0.13</size></box></geometry>
+        </collision>
+      </link>
+    </model>
+    <model name="storage_low_l1_motorbox">
+      <pose>0.78 1.66 0.378 0 0 0</pose>
+      <link name="gearbox">
+        <inertial>
+          <mass>24.0</mass>
+          <inertia><ixx>0.09</ixx><iyy>0.09</iyy><izz>0.11</izz><ixy>0</ixy><ixz>0</ixz><iyz>0</iyz></inertia>
+        </inertial>
+        <visual name="housing">
+          <geometry><box><size>0.16 0.13 0.13</size></box></geometry>
+          <pose>0 0 0 0 0 0</pose>
+          <material>
+            <ambient>0.17 0.18 0.19 1</ambient>
+            <diffuse>0.62 0.64 0.67 1</diffuse>
+            <specular>0.85 0.86 0.90 1</specular>
+            <shininess>72</shininess>
+          </material>
+        </visual>
+        <collision name="collision">
+          <geometry><box><size>0.16 0.13 0.13</size></box></geometry>
+        </collision>
+      </link>
+    </model>
+    <model name="storage_high_l0_motorbox">
+      <pose>0.78 1.27 1.078 0 0 0</pose>
+      <link name="gearbox">
+        <inertial>
+          <mass>24.0</mass>
+          <inertia><ixx>0.09</ixx><iyy>0.09</iyy><izz>0.11</izz><ixy>0</ixy><ixz>0</ixz><iyz>0</iyz></inertia>
+        </inertial>
+        <visual name="housing">
+          <geometry><box><size>0.16 0.13 0.13</size></box></geometry>
+          <pose>0 0 0 0 0 0</pose>
+          <material>
+            <ambient>0.17 0.18 0.19 1</ambient>
+            <diffuse>0.62 0.64 0.67 1</diffuse>
+            <specular>0.85 0.86 0.90 1</specular>
+            <shininess>72</shininess>
+          </material>
+        </visual>
+        <collision name="collision">
+          <geometry><box><size>0.16 0.13 0.13</size></box></geometry>
+        </collision>
+      </link>
+    </model>
+    <model name="storage_high_l1_motorbox">
+      <pose>0.78 1.66 1.078 0 0 0</pose>
+      <link name="gearbox">
+        <inertial>
+          <mass>24.0</mass>
+          <inertia><ixx>0.09</ixx><iyy>0.09</iyy><izz>0.11</izz><ixy>0</ixy><ixz>0</ixz><iyz>0</iyz></inertia>
+        </inertial>
+        <visual name="housing">
+          <geometry><box><size>0.16 0.13 0.13</size></box></geometry>
+          <pose>0 0 0 0 0 0</pose>
+          <material>
+            <ambient>0.17 0.18 0.19 1</ambient>
+            <diffuse>0.62 0.64 0.67 1</diffuse>
+            <specular>0.85 0.86 0.90 1</specular>
+            <shininess>72</shininess>
+          </material>
+        </visual>
+        <collision name="collision">
+          <geometry><box><size>0.16 0.13 0.13</size></box></geometry>
+        </collision>
+      </link>
+    </model>
+    <model name="fridge_freezer_l0_motorbox">
+      <pose>0.78 3.27 0.378 0 0 0</pose>
+      <link name="gearbox">
+        <inertial>
+          <mass>24.0</mass>
+          <inertia><ixx>0.09</ixx><iyy>0.09</iyy><izz>0.11</izz><ixy>0</ixy><ixz>0</ixz><iyz>0</iyz></inertia>
+        </inertial>
+        <visual name="housing">
+          <geometry><box><size>0.16 0.13 0.13</size></box></geometry>
+          <pose>0 0 0 0 0 0</pose>
+          <material>
+            <ambient>0.17 0.18 0.19 1</ambient>
+            <diffuse>0.62 0.64 0.67 1</diffuse>
+            <specular>0.85 0.86 0.90 1</specular>
+            <shininess>72</shininess>
+          </material>
+        </visual>
+        <collision name="collision">
+          <geometry><box><size>0.16 0.13 0.13</size></box></geometry>
+        </collision>
+      </link>
+    </model>
+    <model name="fridge_freezer_l1_motorbox">
+      <pose>0.78 3.66 0.378 0 0 0</pose>
+      <link name="gearbox">
+        <inertial>
+          <mass>24.0</mass>
+          <inertia><ixx>0.09</ixx><iyy>0.09</iyy><izz>0.11</izz><ixy>0</ixy><ixz>0</ixz><iyz>0</iyz></inertia>
+        </inertial>
+        <visual name="housing">
+          <geometry><box><size>0.16 0.13 0.13</size></box></geometry>
+          <pose>0 0 0 0 0 0</pose>
+          <material>
+            <ambient>0.17 0.18 0.19 1</ambient>
+            <diffuse>0.62 0.64 0.67 1</diffuse>
+            <specular>0.85 0.86 0.90 1</specular>
+            <shininess>72</shininess>
+          </material>
+        </visual>
+        <collision name="collision">
+          <geometry><box><size>0.16 0.13 0.13</size></box></geometry>
+        </collision>
+      </link>
+    </model>
+    <model name="fridge_fridge_l0_motorbox">
+      <pose>0.78 3.27 0.978 0 0 0</pose>
+      <link name="gearbox">
+        <inertial>
+          <mass>24.0</mass>
+          <inertia><ixx>0.09</ixx><iyy>0.09</iyy><izz>0.11</izz><ixy>0</ixy><ixz>0</ixz><iyz>0</iyz></inertia>
+        </inertial>
+        <visual name="housing">
+          <geometry><box><size>0.16 0.13 0.13</size></box></geometry>
+          <pose>0 0 0 0 0 0</pose>
+          <material>
+            <ambient>0.17 0.18 0.19 1</ambient>
+            <diffuse>0.62 0.64 0.67 1</diffuse>
+            <specular>0.85 0.86 0.90 1</specular>
+            <shininess>72</shininess>
+          </material>
+        </visual>
+        <collision name="collision">
+          <geometry><box><size>0.16 0.13 0.13</size></box></geometry>
+        </collision>
+      </link>
+    </model>
+    <model name="fridge_fridge_l1_motorbox">
+      <pose>0.78 3.66 0.978 0 0 0</pose>
+      <link name="gearbox">
+        <inertial>
+          <mass>24.0</mass>
+          <inertia><ixx>0.09</ixx><iyy>0.09</iyy><izz>0.11</izz><ixy>0</ixy><ixz>0</ixz><iyz>0</iyz></inertia>
+        </inertial>
+        <visual name="housing">
+          <geometry><box><size>0.16 0.13 0.13</size></box></geometry>
+          <pose>0 0 0 0 0 0</pose>
+          <material>
+            <ambient>0.17 0.18 0.19 1</ambient>
+            <diffuse>0.62 0.64 0.67 1</diffuse>
+            <specular>0.85 0.86 0.90 1</specular>
+            <shininess>72</shininess>
+          </material>
+        </visual>
+        <collision name="collision">
+          <geometry><box><size>0.16 0.13 0.13</size></box></geometry>
+        </collision>
+      </link>
+    </model>
+    <model name="fridge_pantry_l0_motorbox">
+      <pose>0.78 3.27 1.578 0 0 0</pose>
+      <link name="gearbox">
+        <inertial>
+          <mass>24.0</mass>
+          <inertia><ixx>0.09</ixx><iyy>0.09</iyy><izz>0.11</izz><ixy>0</ixy><ixz>0</ixz><iyz>0</iyz></inertia>
+        </inertial>
+        <visual name="housing">
+          <geometry><box><size>0.16 0.13 0.13</size></box></geometry>
+          <pose>0 0 0 0 0 0</pose>
+          <material>
+            <ambient>0.17 0.18 0.19 1</ambient>
+            <diffuse>0.62 0.64 0.67 1</diffuse>
+            <specular>0.85 0.86 0.90 1</specular>
+            <shininess>72</shininess>
+          </material>
+        </visual>
+        <collision name="collision">
+          <geometry><box><size>0.16 0.13 0.13</size></box></geometry>
+        </collision>
+      </link>
+    </model>
+    <model name="fridge_pantry_l1_motorbox">
+      <pose>0.78 3.66 1.578 0 0 0</pose>
+      <link name="gearbox">
+        <inertial>
+          <mass>24.0</mass>
+          <inertia><ixx>0.09</ixx><iyy>0.09</iyy><izz>0.11</izz><ixy>0</ixy><ixz>0</ixz><iyz>0</iyz></inertia>
+        </inertial>
+        <visual name="housing">
+          <geometry><box><size>0.16 0.13 0.13</size></box></geometry>
+          <pose>0 0 0 0 0 0</pose>
+          <material>
+            <ambient>0.17 0.18 0.19 1</ambient>
+            <diffuse>0.62 0.64 0.67 1</diffuse>
+            <specular>0.85 0.86 0.90 1</specular>
+            <shininess>72</shininess>
+          </material>
+        </visual>
+        <collision name="collision">
+          <geometry><box><size>0.16 0.13 0.13</size></box></geometry>
+        </collision>
+      </link>
+    </model>
+    <!-- END GENERATED: conveyor_loops -->
 </world>
 </sdf>

@@ -62,6 +62,7 @@
       px
       <button id="fit" style="margin-left:8px">Fit</button>
       <button id="full">Full</button>
+      <label style="font-size:12px;margin-left:10px;white-space:nowrap"><input id="edges" type="checkbox" checked> edge lines</label>
     </div>
   </div>
   <aside>
@@ -93,6 +94,41 @@
 
 <script>
 // ---------------------------------------------------------------------------
+
+/* Sobel edge overlay: keep the flat tone, darken where the gradient is strong.
+   Operates in place on the ImageData built from the decoded frame. */
+function applySobel(imgData, w, h) {
+  const px = imgData.data;
+  const lum = new Float32Array(w * h);
+  for (let i = 0, n = w * h; i < n; i++) {
+    const o = i * 4;
+    lum[i] = 0.299 * px[o] + 0.587 * px[o+1] + 0.114 * px[o+2];
+  }
+  const GX = [-1,0,1,-2,0,2,-1,0,1], GY = [-1,-2,-1,0,0,0,1,2,1];
+  for (let y = 1; y < h - 1; y++) {
+    for (let x = 1; x < w - 1; x++) {
+      let gx = 0, gy = 0, k = 0;
+      for (let dy = -1; dy <= 1; dy++) {
+        const row = (y + dy) * w;
+        for (let dx = -1; dx <= 1; dx++, k++) {
+          const v = lum[row + x + dx];
+          gx += GX[k] * v; gy += GY[k] * v;
+        }
+      }
+      const m = Math.sqrt(gx * gx + gy * gy);
+      if (m < EDGE_MIN) continue;
+      // ramp: below EDGE_MAX is fully inked, then fades out
+      const t = Math.min(1, (m - EDGE_MIN) / (EDGE_MAX - EDGE_MIN));
+      const k2 = 1 - t * 0.97;
+      const o = (y * w + x) * 4;
+      px[o]   = px[o]   * k2;
+      px[o+1] = px[o+1] * k2;
+      px[o+2] = px[o+2] * k2;
+    }
+  }
+}
+const EDGE_MIN = 5, EDGE_MAX = 46;
+
 // Minimal CDR decoder for sensor_msgs/msg/Image, then blit to a canvas.
 //
 // WHY hand-rolled: the bridge serves the image as CDR (binary), not JSON. A
@@ -213,8 +249,16 @@ function render(msg) {
   if (decodeCanvas.width !== img.width || decodeCanvas.height !== img.height) {
     decodeCanvas.width = img.width; decodeCanvas.height = img.height;
   }
+
+  // gz-sim 10 ships no outline/post-process pass: gazebo.material only offers
+  // polygon_mode wireframe, which draws every DAE TRIANGLE rather than real
+  // edges. So the linework is derived here, on the decoded frame. With the
+  // structure flattened to one tone, a Sobel gradient is almost entirely
+  // silhouette and corner response, which is exactly the drawn-line look.
+  if ($('edges').checked) applySobel(out, img.width, img.height);
   const dctx = decodeCanvas.getContext('2d');
   dctx.putImageData(out, 0, 0);
+
 
   // fit-to-viewport, letterboxed. Clear first so any area not covered by the
   // letterbox bars is background, not a ghost of the previous frame.
