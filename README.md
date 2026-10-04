@@ -9975,6 +9975,156 @@ create a credential, and did not enable the unit.<br><br><strong>Evidence:</stro
 
 <tr><td colspan="6" style="background-color:#c9ccd1; border-top:2px solid #8a8f98; border-bottom:1px solid #8a8f98; padding:5px 8px; font-weight:bold; letter-spacing:0.04em;">SEC · Secrets, credentials and identity — 3 items, all Open</td></tr>
 <tr>
+<td valign="top">SEC-04</td>
+<td valign="top"></td>
+<td valign="top"></td>
+<td valign="top"><strong>Open</strong></td>
+<td valign="top"></td>
+<td valign="top">**New item, not a closure.** SEC-01 through SEC-03 are policy/documentation items blocked on
+one operator decision. This is a different kind of thing: a live fault in the delivery
+mechanism, found by re-measuring rather than inherited, and it is not covered by any of the
+three.
+
+Recorded as **§14.1.7**. What that subsection contains, all of it measured above: the absent
+`ao-payment` folder; the file-older-than-process staleness; the `ExecStartPre=-` prefix that
+silences the failure; the live `sales-db-password` embedded in the stale DSN and the resulting
+correction to ST-12; and the guard carve-out that makes the file invisible.
+
+Also added to §14.2.5 as **break-glass step 2**: compare env-file mtime against the unit's
+`ActiveEnterTimestamp`. This is now the cheapest check in the list and the only reliable
+signal for this class of fault, because a fetch failing under `-` produces no log line at
+all. Existing steps renumbered 3–5 to make room; no step was removed.
+
+Why this is not folded into SEC-01: SEC-01 asks the operator to ratify a deviation or
+authorise a migration. This is a service running now on stale credential material, and it
+needs a decision independently of how the deviation is ratified — the answer could be "create
+the four wallet entries" whether or not the deviation is ever approved.
+
+**Not fixed. Not touched.** The fix touches payment credentials and a running payment
+service: a stop condition in this session's brief, and README §4.1 rules 12 and 14.
+Specifically not done: creating the `ao-payment` folder or its four entries; removing or
+altering the `-` prefix on line 63; restarting the unit; deleting `payment.env`. All four
+are the operator's.
+
+Recommended order, in the section and here: create the four `ao-payment` entries first — it
+is ST-12's own outstanding action and fixes staleness as a side effect — then decide whether
+the `-` prefix stays. Rotation of `sales-db-password` is **not** required: the value was
+never committed to Git, a backup set, or an external network, and the exposure is a local
+`0600` file. Rotation becomes required only if the operator judges the host account
+untrusted.
+
+Cross-group: the ST-12 row needs its "runs with no DSN" text corrected and ST-12 is the
+compiler's, not mine. The `ao-payment` wallet-entry provisioning is already ST-12's
+outstanding action.
+
+What I got wrong: my first draft of the §14.1.7 evidence block quoted
+
+    sed -n 's|^PAYMENT_DSN=.*|\1|p' payment.env
+
+which is wrong twice — there is no capture group in that pattern, so `sed` exits with
+"invalid reference \1", and even if it ran it would replace the whole line with the empty
+string. I had pasted the pattern from memory instead of from the shell. I caught it because
+the documented `wc -c` output was 49 and I re-ran the command to check; the bad form returns
+0 *and* errors, so it could not have produced a wrong-but-plausible number silently.
+Corrected in the section to the form actually run, and re-run to confirm 49 / `03521083973b`.
+
+What I got wrong, second: I initially recorded the seven `ao-*` folders as holding "39
+entries". Measured, it is **37**; 39 is `ao-*` (37) plus `Passwords` (2), which is how §14.1.4
+phrases it. The number I gave was wrong, but the conclusion drawn from it — that §14.1.4's 39
+is still current — survived, because 37+2=39 exactly. I only caught this because the count
+felt high and I re-measured instead of asserting it. Total across all 15 folders is 52,
+including 11 unrelated application folders; an unqualified "entries in the wallet" count is
+meaningless, and that is the trap.
+
+
+  ### Supporting measurement detail
+
+`grep -rn 'ExecStartPre=-' quadlet/` returns exactly one hit — this line. The `-`
+makes systemd discard the exit status, converting a recurring hard fetch
+failure into silence.
+
+The stale file is NOT inert, and §19 ST-12's "runs with no DSN" is wrong:
+
+    $ sed -n 's|^PAYMENT_DSN=postgresql://[^:]*:\([^@]*\)@.*|\1|p' payment.env | wc -c
+    49
+    $ … | tr -d '\n' | sha256sum | cut -c1-12
+    03521083973b
+
+48-char password, sha256 prefix identical to the LIVE `sales-db-password`
+(§14.1.6 records `03521083973b`, len 48). The DSN is
+`postgresql://sales_migration_role:&lt;password&gt;@127.0.0.1:15432/salesdb` and it is
+present. ST-12's conclusion that the adapter "cannot accept a payment" rests
+on a measurement that does not hold.
+
+`check-secrets-exposure.sh` cannot see the file either:
+
+    $ bash scripts/validation/check-secrets-exposure.sh
+    OK: no secret-shaped content in tracked files      (rc=0)
+
+Cause is the carve-out at `check-secrets-exposure.sh:79` — `PAYMENT_DSN` is not
+in `$secret_key_re` because the key name is a DSN, not a "secret-shaped" name.
+
+## Third pass, 2026-10-04 (this session)
+
+### This proposal did not parse until this pass
+
+**The defect, and it mattered.** When I read this file back to merge it, `yaml.safe_load` on its
+frontmatter failed outright:
+
+    YAML ERROR: while scanning an alias
+      in "&lt;unicode string&gt;", line 37, column 1:
+    **New item, not a closure.** SEC ...
+    expected alphabetic or numeric character, but found '*'
+
+`grep -n '^---'` returned exactly two hits — line 1 and line 119. The closing fence was
+missing, so lines 37–117 (the entire prose body) were absorbed into the `evidence:` block scalar,
+and a bare `**bold**` line is not valid YAML. Any merge script that parses these proposals would
+have raised on this file, or silently skipped it. **The one proposal describing a live
+unreported payment fault was the one that could not be read.**
+
+Fixed: the frontmatter now closes after the evidence, and the orphaned duplicate evidence block
+that had been stranded after the body (lines 94–119, a second copy of the `-`-prefix and DSN
+measurements) is re-indented into prose under a "Supporting measurement detail" heading. Nothing
+was deleted; the duplicated measurements were kept because they are evidence. Verified by
+parsing all four `sec-*.md` files:
+
+    sec-SEC-01.md OK action=update item=SEC-01
+    sec-SEC-02.md OK action=update item=SEC-02
+    sec-SEC-03.md OK action=close  item=SEC-03
+    sec-SEC-04.md OK action=new    item=SEC-04
+
+**I own this defect.** The file is a `sec-*` proposal, so it is mine; I am not reporting it as
+someone else's.
+
+### Re-verification: the fault is still live
+
+Re-measured from scratch, not inherited:
+
+    $ systemctl --user is-active ao-ingress-payment.service
+    active
+    $ systemctl --user show ao-ingress-payment.service -p ExecStartPre
+    ExecStartPre={ … ignore_errors=yes ; … }
+
+`ignore_errors=yes` is systemd's own rendering of the `-`, so the silencing is confirmed from
+runtime state, not only from the quadlet source. `payment.env` mtime is still 2026-09-30
+23:18:29 against an `ActiveEnterTimestamp` of 2026-10-01 15:08:41. `hasFolder` confirms
+`ao-payment` and `ao-archive` absent, the other seven `ao-*` folders present.
+
+### What I got wrong
+
+A regex. I enumerated `legacy-alwayson-folder.env` with `^([A-Za-z0-9_]+)=` and got **zero
+pairs**, when `wc -l` says the file has 4 lines and 3 of the 4 key names contain hyphens. Read
+literally, "zero pairs" would have meant the file holding three live database passwords was now
+empty — a false claim about a security improvement that never happened. Corrected to
+`^([A-Za-z0-9_-]+)=`, which reproduces §14.1.6's table exactly. **A zero from a parser needs an
+independent check before it is recorded.**
+
+Two API traps, also recorded in §14.1.7.1: `folderList` returned 14022 rows on one call and
+14274 on the next on an unchanged wallet, so it is unusable as a count — use `hasFolder`, which
+is what `kwallet-provision.sh:42` uses. And `entryList` (`as`) is not `entriesList` (`a{sv}`);
+calling `int()` on the former raises `TypeError`.</td>
+</tr>
+<tr>
 <td valign="top">SEC-01</td>
 <td valign="top"><strong>Unattended secret delivery decision</strong></td>
 <td valign="top">ST-24</td>
@@ -11549,7 +11699,41 @@ grants exactly the right privileges.
 broken paths is arguably a PAY/SALES item, not an OPS one. I did not renumber
 or edit anything outside §17.
 
-Files changed: none for this item (measurement only).<br><br><strong>Evidence:</strong><br><code># HALF 1 — the Metabase application database exists and is in use.<br># (names only, no credential values)<br>$ podman logs ao-metabase | grep -i 'application database'<br>2026-10-01 22:22:54 INFO db.setup :: Successfully verified PostgreSQL 18.6<br>    (Ubuntu 18.6-0ubuntu0.26.04.1) application database connection.<br>2026-10-01 22:22:56 INFO db.setup :: Database Migrations Current ...<br>$ podman exec ao-metabase sh -c 'env | sed "s/=.*/=&lt;redacted&gt;/"' | grep MB_DB<br>MB_DB_DBNAME  MB_DB_HOST  MB_DB_PASS  MB_DB_PORT<br>MB_DB_SSL  MB_DB_TYPE  MB_DB_USER          # all values redacted<br>$ podman inspect ao-metabase --format '{{range .Mounts}}…'<br>/metabase-postgres-data &lt;- …/volumes/ao-metabase-postgres-data/_data<br># a named volume, so state survives restart</code></td>
+Files changed: none for this item (measurement only).<br><br><strong>Evidence:</strong><br><code># HALF 1 — the Metabase application database exists and is in use.<br># (names only, no credential values)<br>$ podman logs ao-metabase | grep -i 'application database'<br>2026-10-01 22:22:54 INFO db.setup :: Successfully verified PostgreSQL 18.6<br>    (Ubuntu 18.6-0ubuntu0.26.04.1) application database connection.<br>2026-10-01 22:22:56 INFO db.setup :: Database Migrations Current ...<br>$ podman exec ao-metabase sh -c 'env | sed "s/=.*/=&lt;redacted&gt;/"' | grep MB_DB<br>MB_DB_DBNAME  MB_DB_HOST  MB_DB_PASS  MB_DB_PORT<br>MB_DB_SSL  MB_DB_TYPE  MB_DB_USER          # all values redacted<br>$ podman inspect ao-metabase --format '{{range .Mounts}}…'<br>/metabase-postgres-data &lt;- …/volumes/ao-metabase-postgres-data/_data<br># a named volume, so state survives restart</code><br><br><strong>PROGRESS by 17-backup-restore-monitoring-and-completion-criteria.</strong> Adds **§17.2.0**, recording that the persistence half of OPS-01 is already met
+and — more usefully — that `ao-metabase-postgres-data` is a **vestigial, never-written
+volume**. It is 4 KB, empty, and has been since it was created on 2026-09-24.
+
+That is correct, not a fault. `MB_DB_HOST=10.42.0.1` points Metabase at the host
+PostgreSQL cluster via the `metabase_app` role created by
+`scripts/ops/provision-reporting-postgres.sh`, so saved questions, dashboards
+and subscriptions live in the `metabase` database on the host. The deployment
+migrated off embedded H2 on 2026-09-25 (liquibase `v47.00-002` is the last H2
+migration in `metabase-h2-migrate-final.log.1`).
+
+The reason this is worth writing down: **the mount is declared in both the
+repository Quadlet and the deployed copy, and an agent auditing persistence by
+volume size would correctly conclude that Metabase is losing all its state.** It
+is not. Flagged for removal as separate cleanup — deliberately **not** done here,
+because removing a declared volume mount is a container-definition change outside
+the backup/monitoring remit.
+
+**OPS-01 stays OPEN, blocked, on the read-only half.** Creating the per-source
+read-only roles means running `config/platform/postgresql/metaread-grants.sql` as
+the PostgreSQL superuser with a bound password, and all three escalation routes
+are refused to this session (evidence above). Running the verification query also
+requires a `metaread` password from KDE Wallet and a Metabase session — inside the
+"secrets and credentials" stop condition. Neither step is guessed at or marked
+done. The remaining work for whoever picks this up: create `metaread`, restart
+`ao-metabase`, confirm state survives, then run one ad-hoc `SELECT` and confirm
+zero source writes.
+
+What I got worth recording: I opened this item expecting the empty volume to be
+the bug, because "container app-data volume is empty" is a familiar failure shape
+and I had a plausible story ready for it — H2 never migrated. The migration logs
+show the opposite migration direction (H2 **out**, PostgreSQL **in**, on
+2026-09-25) and the env vars settle it. Checking the direction of a migration
+before theorising about it cost one command; assuming it would have cost a
+false finding filed as fact.<br><br><strong>Evidence:</strong><br><code># The Metabase persistence half of OPS-01 is ALREADY SATISFIED, and the reason<br># is counter-intuitive enough to record: the app-data volume is empty.</code></td>
 </tr>
 
 
@@ -11736,7 +11920,46 @@ the ten thresholds stand, and `AoBackupStale` / `AoRestoreTestStale` /
 once deployed, those three cannot fire.
 
 Files changed: `agents/COORDINATION/…/17-…/section.md` (§17.2.1 rewritten;
-§17.2.2 and §17.2.3 unchanged and still accurate).<br><br><strong>Evidence:</strong><br><code># *** THE PRIOR PROPOSAL'S FIRST EVIDENCE LINE WAS A FALSE PASS. ***<br># It cited `groups: 0` as proof the rules were loaded. data.groups having<br># length zero means Prometheus is evaluating NO RULE GROUPS AT ALL.<br># The remaining lines in it (promtool on a --rm throwaway container) are<br># valid evidence that the FILES are correct. They say nothing about the<br># RUNNING service, which is what this correction is about.<br>$ curl -s http://127.0.0.1:9090/api/v1/rules \<br>    | python3 -c 'import json,sys; print(len(json.load(sys.stdin)["data"]["groups"]))'<br>0</code></td>
+§17.2.2 and §17.2.3 unchanged and still accurate).<br><br><strong>Evidence:</strong><br><code># *** THE PRIOR PROPOSAL'S FIRST EVIDENCE LINE WAS A FALSE PASS. ***<br># It cited `groups: 0` as proof the rules were loaded. data.groups having<br># length zero means Prometheus is evaluating NO RULE GROUPS AT ALL.<br># The remaining lines in it (promtool on a --rm throwaway container) are<br># valid evidence that the FILES are correct. They say nothing about the<br># RUNNING service, which is what this correction is about.<br>$ curl -s http://127.0.0.1:9090/api/v1/rules \<br>    | python3 -c 'import json,sys; print(len(json.load(sys.stdin)["data"]["groups"]))'<br>0</code><br><br><strong>PROGRESS by 17-backup-restore-monitoring-and-completion-criteria.</strong> Adds **§17.2.1.1**, which takes the "three rules reference metrics nothing
+exports" note that both prior OPS-11 proposals mention in passing and makes it
+the measured, primary statement.
+
+`AoBackupStale`, `AoRestoreTestStale` and `AoRepositoryVerifyStale` are the only
+three of the ten rules built from custom series rather than `node_*`/`up`, and
+**no exporter, textfile collector, recording rule or scrape job produces any
+`ao_*` series anywhere in the repository.** The single repo-wide grep returns
+exactly one file: the rule file that consumes them. Prometheus currently holds
+zero `ao_*` series.
+
+Consequence, which is the point: adding the missing `Volume=` line and
+restarting `ao-prometheus` would load all ten rules, but these three would
+evaluate to an **empty vector**. An expression over a non-existent series does
+not fire and does not report "no data" — it is silent. So the redeploy does not
+fix OPS-11; the remaining work is a missing collector, not a threshold and not a
+deployment. The `data/prometheus-textfile/` channel already used by
+`ao-db-security.prom` is the obvious implementation. I have not written it,
+because it changes what `ops` emits into a shared monitoring path and it is the
+mechanism by which an operator would be paged about backup failure — new
+alerting behaviour, which is operator territory.
+
+**Also corrected the §17.2.2 threshold table, now transcribed from the `expr:`
+lines.** The previous entry claimed `AoBackupStale` fires at 900 s (15 m); the
+file says 93600 s (26 h). The old names (`ao_restic_backup_last_success`,
+`ao_restore_test_last_run`, `ao_repository_verify_last_success`) were likewise
+reconstructed rather than read, and were wrong the same way.
+
+What I got wrong, and it is the same failure mode twice in one session: I wrote
+a threshold table from what the rules are *for* instead of reading the values.
+The invented 900 s against a nightly job was **twenty-six times tighter** than
+the real threshold — a reader tuning against it would have concluded the nightly
+backup breaches its own SLO on every run. The real 93600 s is a 26 h threshold
+against a 24 h job: a 2 h grace window, which is a deliberate decision someone
+made. My "sensible" number was the wrong one. A retuned table must be diffed
+against its source, however confident it feels; and a threshold that looks loose
+deserves a question rather than a correction.
+
+Files changed: `agents/COORDINATION/…/17-…/section.md` (new §17.2.1.1;
+§17.2.2 table corrected).<br><br><strong>Evidence:</strong><br><code># THIRD proposal on OPS-11. Corrects a table in the section file and adds the<br># open ground that survives the redeploy OPS-11 already requires.</code></td>
 </tr>
 <tr>
 <td valign="top">OPS-12</td>
@@ -11925,7 +12148,74 @@ Files changed: `config/host/journald-alwayson.conf` (new),
 <td valign="top">ST-18</td>
 <td valign="top"><strong>Open</strong></td>
 <td valign="top">§17.1</td>
-<td valign="top"><strong>Repository exists and verifies; deliberately not scheduled. 2026-10-03.</strong> Merged with the earlier duplicate of this item. The operator chose <code>/media/scottw/1TBSAMSUNGDATA/PCLOUD_STORAGE/ALWAYSON-BACKUPS</code>, which sits inside the running pCloud sync root, so the repository replicates to pCloud without a separate rclone remote. Initialised and proven: snapshot <code>56bf1af5</code>, 63 files, <code>restic check</code> no errors. It reuses the local repository password, so the existing <code>ao-admin/restic-repository-password</code> wallet entry governs both. <strong>Deliberately not live:</strong> no timer, no cron, no reference from <code>restic-run.sh</code> — the nightly job still writes only to the local repository. Enabling it is an operator decision.</td>
+<td valign="top"><strong>Repository exists and verifies; deliberately not scheduled. 2026-10-03.</strong> Merged with the earlier duplicate of this item. The operator chose <code>/media/scottw/1TBSAMSUNGDATA/PCLOUD_STORAGE/ALWAYSON-BACKUPS</code>, which sits inside the running pCloud sync root, so the repository replicates to pCloud without a separate rclone remote. Initialised and proven: snapshot <code>56bf1af5</code>, 63 files, <code>restic check</code> no errors. It reuses the local repository password, so the existing <code>ao-admin/restic-repository-password</code> wallet entry governs both. <strong>Deliberately not live:</strong> no timer, no cron, no reference from <code>restic-run.sh</code> — the nightly job still writes only to the local repository. Enabling it is an operator decision.<br><br><strong>PROGRESS by 17-backup-restore-monitoring-and-completion-criteria.</strong> **New proposal for OPS-30 — the one item of my thirteen that had no proposal of
+its own.** (Everything below is re-measured today, 2026-10-04; nothing is carried
+over from the earlier run unverified.)
+
+**The row's title is now false in a good way.** "Off-site restic repository does
+not exist" — it does exist, it decrypts with the production credential, it
+verifies clean, and **this run establishes something the earlier proposals did
+not: it has replicated to pCloud.**
+
+```
+$ stat -c '%d %i %n' /media/…/PCLOUD_STORAGE/ALWAYSON-BACKUPS \
+                      /home/scottw/pCloudDrive/PCLOUD_STORAGE/ALWAYSON-BACKUPS
+2049 5505025 /media/…/PCLOUD_STORAGE/ALWAYSON-BACKUPS
+ 218 211841 /home/scottw/pCloudDrive/PCLOUD_STORAGE/ALWAYSON-BACKUPS
+```
+
+Different device id (2049 local ext4 vs 218 pCloud FUSE) **and** different inode,
+so these are two real trees. The FUSE mount is live (`pCloud.fs`), and the
+replicated repository opens and checks clean from the pCloud side:
+
+```
+$ RESTIC_REPOSITORY=/home/scottw/pCloudDrive/PCLOUD_STORAGE/ALWAYSON-BACKUPS \
+    restic check --read-data-subset=1/10
+no errors were found
+```
+
+That is the meaningful upgrade: a copy that has actually left the machine, which
+is what "off-site" is supposed to mean. My earlier proposals described the USB-disk
+copy only and were careful to call it local-but-disjoint; that understated it.
+
+**Honest limit on that claim.** This proves the files are present and restorable
+through the pCloud mount. It does **not** independently prove the remote account
+holds them — that needs a pCloud-side status query I did not run, and I am not
+going to assert account state I did not measure. Read it as "off-site and
+verifiable from the mount: proven", "uploaded to the account: supported, unconfirmed".
+
+**Why it stays Open anyway.** The repository is real but it is not yet a backup:
+
+- it holds **one** snapshot, `56bf1af5`, tagged `alwayson-offsite-proof`;
+- that snapshot is **304 KiB / 103 files, `config` and `artifacts` only** — no
+  `data/`, no `logs/`, no `backups/`;
+- `grep -c 'ALWAYSON-BACKUPS\|offsite' restic-run.sh` → **0**, and the only
+  restic timer is `ao-restic-prefetch.timer`. Nothing refreshes it.
+
+So it is a verified proof of mechanism, not a maintained copy of anything that
+would be lost with the host. **The acceptance criterion that actually matters is
+not "create a repository" — it is "the off-host repository carries the same path
+set as the nightly job".** That is a larger copy than the operator has approved
+for automatic off-site transfer.
+
+**One property worth stating because it is easy to over-credit:** the 1TB disk is
+*removable, locally attached* media that happens to sit inside a synced folder.
+When it is not attached, nothing is written and nothing detects that. The real
+guarantee is "a copy exists and replicates when the disk is attached", not "a copy
+is maintained". Only scheduling plus a liveness check upgrades it.
+
+**Blocked on an operator decision, deliberately not taken.** Scheduling a recurring
+privileged job that writes backup media into the live pCloud sync root touches
+backup data and creates a recurring privileged action. I stopped rather than doing
+it unasked. Enabling it, and approving the off-site path set, are both operator
+calls.
+
+Files changed: `agents/COORDINATION/…/17-…/section.md` (new §17.1.1.2; §17.1
+device table now carries the pCloud row).
+
+*Related, and a retraction to carry forward: see my revised `ops-a-OPS-29.md`.
+I had wrongly reported `ALWAYSON-RESTIC2PCLOUD` as absent. It exists and is
+empty, exactly as OPS-29 states. Do not merge that row away on my earlier say-so.*<br><br><strong>Evidence:</strong><br><code># The repository exists, opens with the production credential, and verifies:<br>$ set -a; . /run/user/1000/ao-restic.env; set +a<br>$ export RESTIC_REPOSITORY=/media/scottw/1TBSAMSUNGDATA/PCLOUD_STORAGE/ALWAYSON-BACKUPS<br>$ restic cat config<br>{ "version": 2,<br>  "id": "d22cddc074532b53bcea8ee739c3b7b7107d9fd3baa3224125d0e569fbfb94be",<br>  "chunker_polynomial": "33c903993a9dcf" }<br>$ restic snapshots<br>56bf1af5  2026-10-03 08:59:59  scottw-ms7b44  alwayson-offsite-proof<br>          /ALWAYSON/artifacts  304.564 KiB<br>          /ALWAYSON/config<br>1 snapshots<br>$ restic check --read-data-subset=1/10<br>no errors were found</code></td>
 </tr>
 <tr>
 <td valign="top">OPS-31</td>
