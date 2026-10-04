@@ -445,14 +445,14 @@ this path.
 — i.e. genuine per-machine production data. Note that Moonraker currently serves
 **unauthenticated reads**; see §3.3.0 for the open item on API keys.
 
-**Re-checked 2026-10-10: the machine is not currently reachable.** The host's own address on
+**Re-checked 2026-10-04: the machine is not currently reachable.** The host's own address on
 the equipment LAN answers normally, so the segment is healthy and the absence is at the
 machine end, not a network fault:
 
 ```
-ping 10.42.0.1     1 received, 0% packet loss        (host, equipment LAN up)
+ping 10.42.0.1     2 received, 0% packet loss        (host, equipment LAN up)
 ip neigh 10.42.0.96    dev eno1 FAILED               (no ARP resolution)
-connect 10.42.0.96:7125  unreachable
+connect 10.42.0.96:7125  No route to host
 ```
 
 The 2026-09-30 verification therefore remains valid as a statement about that machine at that
@@ -511,7 +511,7 @@ installed package or desktop settings module.
 | **PostgreSQL 17** | Sales database service | Container `ao-sales-db` on `ao-sales`, database `salesdb` | Authoritative source for customers, orders, products, payments, receipts, entitlements, and audit history |
 | **PostgreSQL 17** | Mastodon web/background workers | Container `mastodon-db` on `ao-sales`, database `mastodon` | Accounts, posts, media metadata, federation state, and background-job application data |
 | **PostgreSQL 17** | Fabrication database service | Container `ao-fabrication-db` on `ao-fabrication`, database `a_fab`, role `fabrication_role` | Per-machine production data pulled from each individual machine (§3.3.0). Separate from `ao-sim-fabrication`, which holds none |
-| **PostgreSQL 9.5** | WebODM web/worker | Container `ao-webodm-db` on `ao-mapping`, database `webodm` (host-side data dir `~/webodm/dbdata`) | Mapping projects, processing state, users, and geospatial data. The app reads database `webodm_dev` in that container. **PostGIS is available in the image but is not installed in either database** — the only installed extension is `plpgsql` |
+| **PostgreSQL 9.5** | WebODM web/worker | Container `ao-webodm-db` on `ao-mapping`, database `webodm` (host-side data dir `~/webodm/dbdata`) | Mapping projects, processing state, users, and geospatial data. The app reads database `webodm_dev` in that container. **PostGIS is installed in `webodm_dev` (version 2.3.2) but not in `webodm`** — so the only installed extension in `webodm` is `plpgsql`, and the geospatial extension lives in the database the app actually reads. Re-measured 2026-10-04; an earlier revision of this row said PostGIS was absent from *both* databases, which was wrong |
 | **PostgreSQL 9.5** | NodeODM | The same `ao-webodm-db` container, plus filesystem processing data | Processing-node state and coordination; large image/output artifacts remain filesystem data |
 | **PostgreSQL 18** | Corda 5 node | `cordadb` (dedicated Corda PostgreSQL database in the host cluster, per §11.1) | Receipt, entitlement, and provenance state. Built on Corda 5 against `cordadb`. |
 | **Redis 8** | Host Redis service | Host Redis database 0 | General low-latency cache/coordination layer; no current application data confirmed |
@@ -995,9 +995,10 @@ detail in §3.3; this table records only what is unique to each tool's role here
 **Both application databases live on the host PostgreSQL 18 cluster**, not in their own
 containers, and are reached differently. Grafana mounts the host's `/var/run/postgresql` and
 connects over the Unix socket with `GF_DATABASE_HOST=/var/run/postgresql`. Metabase connects
-over TCP to the host's `10.42.0.1` on `ao-reporting-egress`. Measured 2026-10-10; both
+over TCP to the host's `10.42.0.1` on `ao-reporting-egress`. Measured 2026-10-04; both
 containers are also on `ao-admin`. Both are loopback-and-socket scoped, which is why neither
-needs a public port.
+needs a public port. Measured listeners: Grafana `127.0.0.1:3001` and Metabase
+`127.0.0.1:3002`, loopback-bound only (`ss -ltn`).
 
 **Metabase and Corda.** Metabase may report on approved Corda-derived business and
 provenance data only through a deliberate read-only reporting projection, approved views, a
@@ -1020,9 +1021,16 @@ operator-access implementation must comply with this subsection and §§4, 5, 14
 - Reporting identities must enforce read-only access to source databases or
   services. Grafana and Metabase each keep their own application database and read the
   business databases over per-source read-only roles, writing to none of them.
-  *Verified 2026-10-10 on `salesdb`: `sales_reporting_role` holds `SELECT` on 5 tables and
-  nothing else, is not a superuser, and has no `CREATE`/`CREATEDB`/`CREATEROLE`. The
-  separate `metabase_app` role exists **only** on the Metabase application database, not on
+  *Verified 2026-10-04 on `salesdb`: `sales_reporting_role` holds `SELECT` on **five views**
+  and nothing else — `v_reporting_orders`, `v_reporting_receipts`, `v_reporting_entitlements`,
+  `v_reporting_sale_provenance`, `v_corda_entry_readiness`. It is not a superuser and has no
+  `CREATE`/`CREATEDB`/`CREATEROLE`. It holds no privilege on any base table: reading `orders`
+  directly fails with `permission denied for table orders`, while reading `v_reporting_orders`
+  succeeds. That is the read-only boundary holding, not merely declared.*
+  *Note the word **views** — an earlier revision of this bullet said "5 tables". The grant is on
+  views owned by `sales_migration_role`, and the underlying tables are granted to
+  `sales_api_role` and `sales_backup_role`, never to the reporting role.*
+  *The separate `metabase_app` role exists **only** on the Metabase application database, not on
   `salesdb`, so the reporting path to the business data is `sales_reporting_role`.*
   *One thing to watch, not a breach: `sales_migration_role` on the same cluster **is** a
   superuser with `CREATEDB` and `CREATEROLE`. That is the migration identity and it is not
@@ -1042,23 +1050,40 @@ operator-access implementation must comply with this subsection and §§4, 5, 14
 The machine-readable inventory that implements this requirement is
 `/ALWAYSON/config/platform/gui-boundary-matrix.yaml`.
 
-#### 6.A.3.1 Known staleness in that inventory (measured 2026-10-10)
+#### 6.A.3.1 Known staleness in that inventory (re-measured 2026-10-04)
 
 The YAML is **behind both this subsection and the live network list**. It remains a valid
-record of the 2026-08-29 review it declares, but three of its claims no longer hold, and a
-reader must not take it as current:
+record of the 2026-08-29 review it declares, and these claims no longer hold:
 
 | Field in the YAML | Measured state | Evidence |
 |---|---|---|
 | `matrix.reviewed: "2026-08-29"` and `podman_networks_verified` lists **10** networks | The host runs **14** `ao-*` networks | `podman network ls` |
 | same list | Omits `ao-fabrication`, `ao-html-window`, `ao-build-update`, `ao-reporting-egress` | as above |
 | entries (10) name `ao-egress-community` and `ao-ardupilot-sitl` | **Neither network exists** — `ao-egress-community` is not found, and it is not in `network-cidrs.yaml`; `10.89.11.0/24` is unallocated and folded into `ao-sales` | `podman network inspect ao-egress-community` → *network not found*; `grep 10.89.11 config/platform/network-cidrs.yaml` → no match |
-| the WebODM / NodeODM rows imply provisioned datasources | `config/platform/monitoring/grafana/provisioning/datasources/` is **empty** — no datasource is provisioned | `ls` of the directory |
 
-So §5.1 group D (18 rows) is the current statement, and the YAML is a lagging subset of it.
-Reconciling the YAML is **not** mine to do — it is a config file outside the three section
-files I own, and the `ao-egress-community` name/CIDR question is an existing §19.1 item
-belonging to another group. This subsection records the gap so the next reader is not misled.
+**Withdrawn — do not repeat an earlier claim from this subsection.** A previous revision
+asserted that `config/platform/monitoring/grafana/provisioning/datasources/` was **empty**,
+implying no datasource is provisioned. **That is no longer true**, and it was measured, not
+guessed:
+
+```
+$ ls config/platform/monitoring/grafana/provisioning/datasources/
+postgres-aostatus.yml
+sqlite-snapshots.yml
+```
+
+`postgres-aostatus.yml` provisions a single `ALWAYS ON Status` PostgreSQL datasource by URL
+over the host Unix socket. The current state of the Grafana datasource inventory is a
+**monitoring** concern for the OPS group and is deliberately **not** asserted here — verifying
+it needs host PostgreSQL access (`sudo -u postgres psql ... grafana`), which did not succeed
+non-interactively during this review, so the live DB contents are unconfirmed and the file
+alone is not proof of what Grafana has actually loaded.
+
+So §5.1 group D (18 rows, counted) is the current statement, and the YAML is a lagging subset
+of it. Reconciling the YAML is **not** mine to do — it is a config file outside the three
+section files I own, and the `ao-egress-community` name/CIDR question is an existing §19.1
+item belonging to another group. This subsection records the gap so the next reader is not
+misled.
 
 ---
 

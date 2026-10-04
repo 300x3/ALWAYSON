@@ -133,14 +133,14 @@ this path.
 — i.e. genuine per-machine production data. Note that Moonraker currently serves
 **unauthenticated reads**; see §3.3.0 for the open item on API keys.
 
-**Re-checked 2026-10-10: the machine is not currently reachable.** The host's own address on
+**Re-checked 2026-10-04: the machine is not currently reachable.** The host's own address on
 the equipment LAN answers normally, so the segment is healthy and the absence is at the
 machine end, not a network fault:
 
 ```
-ping 10.42.0.1     1 received, 0% packet loss        (host, equipment LAN up)
+ping 10.42.0.1     2 received, 0% packet loss        (host, equipment LAN up)
 ip neigh 10.42.0.96    dev eno1 FAILED               (no ARP resolution)
-connect 10.42.0.96:7125  unreachable
+connect 10.42.0.96:7125  No route to host
 ```
 
 The 2026-09-30 verification therefore remains valid as a statement about that machine at that
@@ -199,7 +199,7 @@ installed package or desktop settings module.
 | **PostgreSQL 17** | Sales database service | Container `ao-sales-db` on `ao-sales`, database `salesdb` | Authoritative source for customers, orders, products, payments, receipts, entitlements, and audit history |
 | **PostgreSQL 17** | Mastodon web/background workers | Container `mastodon-db` on `ao-sales`, database `mastodon` | Accounts, posts, media metadata, federation state, and background-job application data |
 | **PostgreSQL 17** | Fabrication database service | Container `ao-fabrication-db` on `ao-fabrication`, database `a_fab`, role `fabrication_role` | Per-machine production data pulled from each individual machine (§3.3.0). Separate from `ao-sim-fabrication`, which holds none |
-| **PostgreSQL 9.5** | WebODM web/worker | Container `ao-webodm-db` on `ao-mapping`, database `webodm` (host-side data dir `~/webodm/dbdata`) | Mapping projects, processing state, users, and geospatial data. The app reads database `webodm_dev` in that container. **PostGIS is available in the image but is not installed in either database** — the only installed extension is `plpgsql` |
+| **PostgreSQL 9.5** | WebODM web/worker | Container `ao-webodm-db` on `ao-mapping`, database `webodm` (host-side data dir `~/webodm/dbdata`) | Mapping projects, processing state, users, and geospatial data. The app reads database `webodm_dev` in that container. **PostGIS is installed in `webodm_dev` (version 2.3.2) but not in `webodm`** — so the only installed extension in `webodm` is `plpgsql`, and the geospatial extension lives in the database the app actually reads. Re-measured 2026-10-04; an earlier revision of this row said PostGIS was absent from *both* databases, which was wrong |
 | **PostgreSQL 9.5** | NodeODM | The same `ao-webodm-db` container, plus filesystem processing data | Processing-node state and coordination; large image/output artifacts remain filesystem data |
 | **PostgreSQL 18** | Corda 5 node | `cordadb` (dedicated Corda PostgreSQL database in the host cluster, per §11.1) | Receipt, entitlement, and provenance state. Built on Corda 5 against `cordadb`. |
 | **Redis 8** | Host Redis service | Host Redis database 0 | General low-latency cache/coordination layer; no current application data confirmed |
