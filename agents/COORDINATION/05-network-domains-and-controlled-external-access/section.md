@@ -135,6 +135,9 @@ which prints one row per registered network and a footer carrying the asserted
 counts. The two prose columns — what the network belongs to, and what is attached
 to it — are architecture, not runtime state, and are maintained here.
 
+Every network's *Attached now* count below was re-measured against the running
+host on **2026-10-04**, and every row now agrees with it.
+
 | Network | Subnet | Internal | Belongs to (§5.1) | Attached now |
 |---|---|---|---|---|
 | `ao-sales` | 10.89.0.0/24 | **false** | Mastodon stack, `ao-sales-db`, orders and AI chat | `mastodon-web` `-sidekiq` `-db` `-redis` `-streaming`, `ao-sales-db` (6) |
@@ -142,19 +145,71 @@ to it — are architecture, not runtime state, and are maintained here.
 | `ao-field` | 10.89.2.0/24 | true | Heltec gateway, RNS/MeshChatX, telemetry spool, mission-release | **none** — gateway runs on host USB serial (ST-22) |
 | `ao-mapping` | 10.89.3.0/24 | true | WebODM, NodeODM, Redis, mapping DB, imagery intake/exporter | `ao-webodm-webapp` `-worker` `-db` `-broker`, `ao-nodeodm` (5) |
 | `ao-sim-vehicle` | 10.89.4.0/24 | true | ROS 2, Gazebo, ArduPilot SITL, MAVLink, QGC | **none** — Gazebo is host-installed; `ao-ardupilot-sitl.container` never deployed |
-| `ao-sim-fabrication` | 10.89.5.0/24 | true | ROS 2, Gazebo; rehearses the engineering/production flow | `ao-sim-fabrication-gz` (1) |
+| `ao-sim-fabrication` | 10.89.5.0/24 | true | ROS 2, Gazebo; rehearses the engineering/production flow | `ao-sim-fabrication-gz`, `ao-sim-fabrication-foxglove` (2) |
 | `ao-ledger-ingest` | 10.89.6.0/24 | true | mTLS validation gateway, authorization, audit, idempotency | **none** |
 | `ao-ledger-core` | 10.89.7.0/24 | true | Corda node, Corda database, certificate/keystore | **none** |
 | `ao-data` | 10.89.8.0/24 | true | Narrow controlled data plumbing **where unavoidable** | **none — correct by design.** ST-29: host services stay loopback-only; §5.1 forbids it becoming a universal shared network |
 | `ao-admin` | 10.89.9.0/24 | true | Prometheus, node_exporter, Grafana, Metabase, backup/restore | `ao-grafana`, `ao-metabase`, `ao-prometheus`, `ao-node-exporter` (4) |
-| `ao-reporting-egress` | 10.89.10.0/24 | **false** | Egress for reporting sources only | `ao-grafana`, `ao-metabase` (also on `ao-admin`) |
+| `ao-reporting-egress` | 10.89.10.0/24 | **false** | Egress for reporting sources only | `ao-grafana`, `ao-metabase` (2) (also on `ao-admin`) |
 | `ao-fabrication` | 10.89.12.0/24 | true | Real (non-simulated) fabrication; per-machine production data | `ao-fabrication-db` (1) |
 | `ao-build-update` | 10.89.13.0/24 | **false** | Controlled software-update acquisition (§5.2.1) | none — scaffolded, not enabled |
-| `ao-html-window` | 10.89.14.0/24 | true | View-only HTML window for the 300x3.com storefront (ES.2) | none |
+| `ao-html-window` | 10.89.14.0/24 | true | Operator-facing read-only display network for local 3D/2D HTML renders; `Internal=true` deliberately, reached by loopback `PublishPort` only | `ao-sim-fabrication-foxglove` (1) — dual-homed with `ao-sim-fabrication`, see below |
 
 Two `ao-*` networks named in earlier drafts appear in the topology but were in no
 table; both are now rows above: `ao-html-window` (`10.89.14.0/24`) and
 `ao-build-update` (`10.89.13.0/24`).
+
+### 5.1.2 The one dual-homed container, and why
+
+The *one network per component* rule above permits a second attachment only where
+the approved access path says so explicitly. Exactly one container holds two:
+`ao-sim-fabrication-foxglove`, on `ao-sim-fabrication` (its own domain) and on
+`ao-html-window` (the read-only display network).
+
+```text
+$ podman inspect ao-sim-fabrication-foxglove \
+    --format '{{range $k,$v := .NetworkSettings.Networks}}{{$k}} {{end}}'
+ao-html-window ao-sim-fabrication
+```
+
+Both halves are load-bearing, and the reason is mechanical rather than a
+convenience: two `Internal=true` bridges do not route to each other, so a
+container on one cannot reach a peer on the other. The bridge must sit on both to
+carry Gazebo topics out to the browser-facing surface. The `Network=` lines in
+`quadlet/sim-fabrication/ao-sim-fabrication-foxglove.container` state this, and
+§10.2 records the operational consequence.
+
+The security consequence is bounded and worth stating plainly: the two networks
+are joined by one container, so anything reachable on `ao-sim-fabrication` is
+reachable from `ao-html-window` by going through it. Both are `Internal=true`, so
+neither carries a route off the host, and the bridge publishes nothing but its
+loopback `127.0.0.1:8081` WebSocket. This is a bridge between two internal
+segments, not an egress path.
+
+**This row previously said "none" was attached, and that was wrong** — it was
+written when the network was empty and never re-measured after the Foxglove
+bridge was deployed. The whole *Attached now* column is host state and goes
+stale silently; it is stated here as measured on the date below, not as a
+permanent fact. `--emit-table` covers only the two generated columns, so the
+attachment column must be re-measured directly:
+
+```bash
+for n in ao-sales ao-payment ao-field ao-mapping ao-sim-vehicle \
+         ao-sim-fabrication ao-ledger-ingest ao-ledger-core ao-data ao-admin \
+         ao-reporting-egress ao-fabrication ao-build-update ao-html-window; do
+  printf '%-22s %s\n' "$n" \
+    "$(podman network inspect "$n" --format \
+        '{{range .Containers}}{{.Name}} {{end}}' | wc -w)"
+done
+```
+
+**`ao-html-window` is not the storefront window.** ES.2 describes it as
+public-facing egress to 300x3.com, and this row used to repeat that. The
+deployed unit and network file say otherwise: the network is `Internal=true`
+with no route off the host, and it serves the operator's own browser over
+loopback. ES.2 is not my file and I have not edited it; the divergence is
+recorded in `proposals/net-NET-05.md` for the executive-summary session and the
+operator. I corrected only my own row, to match the deployed unit.
 
 `10.89.11.0/24` is deliberately unallocated and is reserved for
 `ao-egress-community`, which is **retired**. Verified 2026-10-03: no podman
@@ -302,12 +357,17 @@ and could not perform acquisition. `ao-admin` is `Internal=true` and is
 additionally the monitoring and reporting plane, so an update audit record does
 not belong on it. No workload container is attached to this network.
 
-**Containment — required, not yet enforced.** Acquisition over HTTPS/443 to the
-registry hosts named in `config/build-update/registry-allowlist.yaml` is the
-*only* outbound this adapter is permitted to make. See the status note above:
-that restriction is not currently enforced by any mechanism, and this paragraph
-states the requirement the adapter must meet, not a control that is operating.
-The allowlist is mounted read-only, so the adapter cannot widen its own boundary.
+**Containment — enforced in code, unenforced at the segment.** Acquisition over
+HTTPS/443 to the registry hosts named in
+`config/build-update/registry-allowlist.yaml` is the *only* outbound this
+adapter is permitted to make. That restriction **is** a working control in this
+script: it reads the allowlist at runtime and refuses anything not on it, and
+refuses unpinned references, exiting non-zero on both (verified by execution
+above). What is *not* enforced is the network segment — see the status note.
+This paragraph previously said the restriction was "not currently enforced by
+any mechanism", which contradicted the verified results directly above it and
+was wrong; it conflated the two controls the status note separates. The
+allowlist is mounted read-only, so the adapter cannot widen its own boundary.
 `packages.ros.org` is on an explicit deny list rather than merely absent, because
 it fails TLS verification from this host and that verification is deliberately
 not disabled. The adapter publishes no port and serves no listener; it runs as a
