@@ -1226,13 +1226,75 @@ the adapter, are recorded as **OPEN**:
 A third defect sits in the normalized event model rather than the verifier: for a
 real PayPal `PAYMENT.CAPTURE.COMPLETED` payload the money is at
 `resource.amount.value`, which `normalize()` does not read, so `amount_cents`
-comes back `None` and the amount is silently lost. Coinbase payloads nest their
-reference at `charge.id`, which `normalize()` also does not read, producing an
-empty `provider_ref` that the adapter then rejects with 400.
+comes back `None` and the amount is silently lost. For Coinbase the
+money-bearing reference is `charge.id`, which `normalize()` also does not read;
+it falls through to the top-level **event** id, so the adapter records the event
+that arrived rather than the charge being reconciled. A 2026-10-10 correction to
+an earlier statement in this session: that reference is **not** empty, because a
+real Coinbase payload does carry a top-level `id`, so the adapter does not reject
+it with 400. The reference it records is simply the wrong one, which breaks
+reconciliation without looking like a failure.
 
 These are payment-verification defects. Correcting them changes how money-bearing
 events are accepted, so the fix is prepared and reported for operator approval
 rather than applied by this session.
+
+### 7.2.1 Prepared verifier correction, proven offline 2026-10-10
+
+The correction has been **written and proven, and deliberately not applied.** The
+live adapter is unchanged — `scripts/payment/ao-payment-adapter.py` still hashes to
+`sha256:71a74988b0731695f61a7d56d9580a3c8364a3371906fa333c1784638d399f58`, its
+sha256 as measured before this work began, and the running service still answers
+`{"ok": true, "enabled": true}` on `127.0.0.1:8899`.
+
+PayPal's construction was re-read from the vendor rather than from the previous
+session's notes. Per developer.paypal.com, "Integrate webhooks" → *Self
+verification method*, the signed message is
+`transmissionId | timeStamp | webhookId | crc32`, where `crc32` is the CRC-32 of
+the **original raw body** in decimal, and the signature is checked with the
+**RSA public key** from the certificate at `paypal-cert-url`. `webhookId`
+arrives in **no header and no body** — it is listener configuration, which is why
+the adapter could not have been correct as written.
+
+The candidate was built in `/tmp` from a copy of the live file and proven two
+ways. A unit harness generated a throwaway 2048-bit RSA keypair in-process, stubbed
+the certificate fetch so the host allowlist and certificate-to-key extraction
+still execute, and ran **18 of 18 checks**: the candidate accepts a
+PayPal-documented signature and rejects a tampered body, a wrong `webhookId`, a
+stale timestamp, an HMAC forgery in the adapter's *current* scheme, and two
+non-PayPal certificate URLs. `verify_coinbase()` accepts a genuine Coinbase HMAC
+and rejects a PayPal-shaped event.
+
+The acceptance criterion — "A test payment event produces a verified normalized
+record" — was then proven **end to end over HTTP** against the candidate on a
+spare loopback port in `--dry-run`, so no row could be written:
+
+| Step | Request | Result |
+|---|---|---|
+| 1 | Genuine PayPal event, PayPal-documented signature | `200 {"accepted": true}` |
+| 2 | Same event, one byte of body tampered | `401 signature verification failed` |
+| 3 | Genuine Coinbase event, HMAC over the raw body | `200 {"accepted": true}` |
+| 4 | PayPal-shaped event to the Coinbase path | `401` — the 200-from-defect-2 no longer happens |
+| 5 | Zelle POST | `501` — still manual-reconciliation only |
+
+and the adapter's own log shows the normalized records it produced, carrying the
+amount and currency that the live code drops:
+
+```text
+DRY-RUN (no DSN): event provider=paypal type=PAYMENT.CAPTURE.COMPLETED
+  ref=paypal:3b97c70f1e963687d2da6dbd62f7d7bd amount_cents=50000 currency=USD verified=True
+DRY-RUN (no DSN): event provider=coinbase type=charge:confirmed
+  ref=coinbase:9871540c485e614b22a7e30fda45d736 amount_cents=1234 currency=USD verified=True
+```
+
+**This is prepared, not applied.** Approving it changes which money-bearing
+events are trusted to create business state — README §4.1 rule 14 and the first
+stop condition of this session's brief. Deployment also needs
+`PAYPAL_WEBHOOK_ID` and `COINBASE_WEBHOOK_SECRET` as real configuration, and
+`COINBASE_WEBHOOK_SECRET` is currently provisioned but read by nothing. The
+operator decision requested is narrower than "fix the verifier": it is whether to
+accept PayPal and Coinbase webhooks at all, because the honest consequence of
+today's code is that neither provider can complete a payment.
 
 **How each form is verified.**
 
