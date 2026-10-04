@@ -58,6 +58,19 @@ DECISIONS = {
 }
 
 ANSWERS_PATH = os.path.join(ROOT, "artifacts/dashboard/answers.json")
+CLAR_PATH = os.path.join(ROOT, "artifacts/dashboard/clarifications.json")
+
+def load_clarifications():
+    """Items where the operator's answer is ambiguous, asks me a question back,
+    or contradicts another answer. Rendered highlighted with a reworded question."""
+    if os.path.exists(CLAR_PATH):
+        try:
+            return json.load(open(CLAR_PATH, encoding="utf-8")).get("items", {})
+        except ValueError:
+            return {}
+    return {}
+
+CLAR = load_clarifications()
 
 def load_answers():
     if os.path.exists(ANSWERS_PATH):
@@ -186,12 +199,18 @@ def main():
             prev = ANSWERS.get(item, {}).get("answer", "")
         done = ANSWERS.get(item, {}).get("answered_at", "")
         mark = " answered %s" % done[:10] if done else ""
+        clar = CLAR.get(item)
+        cls = "ansrow unclear" if clar else "ansrow"
+        badge = ('<span class=flag>needs clarification</span>' if clar else "")
+        why = ('<p class=why><strong>Why this is unclear:</strong> %s</p>'
+               '<p class=reword><strong>My reworded question:</strong> %s</p>'
+               % (html.escape(clar["why"]), html.escape(clar["q"]))) if clar else ""
         qs.append(
-            '<li class=ansrow><div class=qline><span class=qid>%s</span> %s'
-            '<span class=when>%s</span></div>'
+            '<li class=%s><div class=qline><span class=qid>%s</span> %s'
+            '<span class=when>%s</span>%s</div>%s'
             '<input class=ans id="a_%s" placeholder="type your decision here&hellip;" value="%s">'
             '<input type=hidden class=ts id="t_%s" value="%s"></li>'
-            % (html.escape(item), html.escape(DECISIONS[item]), mark,
+            % (cls, html.escape(item), html.escape(DECISIONS[item]), mark, badge, why,
                html.escape(item), html.escape(prev), html.escape(item), html.escape(done)))
     if qs:
         questions = (
@@ -251,6 +270,13 @@ tr.tot td{border-top:2px solid #dfe3e8;font-weight:700;background:#fafbfc}
 ol.qs{margin:0;padding-left:0;list-style:none;counter-reset:q}
 ol.qs li{padding:7px 10px;border-left:3px solid #e0c48c;background:#fff;margin-bottom:6px;
  font-size:13.5px;line-height:1.5}
+.ansrow.unclear{background:#fff8d6;border:1px solid #e0c14f;border-left:5px solid #e0a800;
+ border-radius:4px;padding:9px 11px}
+.when{margin-right:2px}
+.ansrow.unclear .flag{margin-left:10px;background:#e0a800;color:#221c00;font-size:10px;font-weight:700;
+ text-transform:uppercase;letter-spacing:.04em;padding:2px 7px;border-radius:9px;white-space:nowrap}
+.why,.reword{margin:5px 0 0;font-size:12px;line-height:1.4;color:#4a3f16}
+.reword{color:#2d2606;background:#fffdf0;border-left:3px solid #e0c14f;padding:5px 8px;border-radius:0 3px 3px 0}
 .qid{display:inline-block;min-width:82px;font-weight:700;color:#7a5c15;
  font-family:"DejaVu Sans Mono",monospace;font-size:12px}
 #approvals .form{display:flex;flex-direction:column;gap:10px}

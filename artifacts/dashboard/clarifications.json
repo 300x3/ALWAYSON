@@ -1,0 +1,20 @@
+{
+  "_comment": "Items where the operator's answer is ambiguous, is a question back to me, or contradicts another answer. Rendered with a yellow highlight and a reworded question. Operator-only file.",
+  "items": {
+    "COMM-05": {"why": "Answer asks me a question back ('what is MX') and proposes email instead.", "q": "Mail for 300x3.com has no MX record. (1) Accept that no mail is deliverable to the domain, or (2) set up a third-party mail relay? If (2), which provider?"},
+    "COMM-07": {"why": "Answer asks me what would be published - the scope is not stated.", "q": "Which specific content should go public: (a) the whole ALWAYS ON README, (b) only the item list and status, or (c) a separate short summary page? Publishing is one-way once the site is live."},
+    "COMM-06": {"why": "Answer begins 'for what, updates?' - the confirmation is conditional.", "q": "Confirm: clone the most recent repository, and verify it against the running system? Or clone only, with no verification step?"},
+    "OPS-07": {"why": "Answer names a concept ('the default log and journal folder') but not a path.", "q": "Confirm the canonical journal root is /ALWAYSON/logs/ ? Should subdirectories such as operations/ and journal/ move under it, or stay where they are?"},
+    "OPS-09": {"why": "Answer asks how large a backup may be - a budget decision only you can set.", "q": "Set the retention budget: how many GB total, and over how many versions/days? I will size the restic prune policy to fit that."},
+    "OPS-11": {"why": "Answer asks 'for what?' - the purpose of alerting is not stated.", "q": "Which failures should page you, and by what channel? Backup failure and disk above 80% are my default proposal; confirm or replace."},
+    "OPS-13": {"why": "Answer asks 'for what?' - unclear whether this is still wanted.", "q": "Confirm linger should stay enabled for the systemd user services, so backups and monitoring survive logout and reboot."},
+    "OPS-14": {"why": "Answer asks me to explain the difference rather than deciding.", "q": "I will write the explanation into the item and then apply the default. Confirm you want that, or tell me which store model you prefer."},
+    "PLAT-02": {"why": "Answer asks 'of what?' - the scope of the matrix is not stated.", "q": "Which versions should the matrix cover - only what is currently installed on this host, or also released versions we have not installed?"},
+    "SEC-01": {"why": "Answer contains two things: a question to me plus an instruction ('migrate the three').", "q": "Confirm the three databases to move to systemd credentials, and confirm whether KDE Wallet stores only the master keys while systemd holds the rest."},
+    "SIM-07": {"why": "Answer is an instruction to me to find a link, not a decision. Nothing is unblocked yet.", "q": "Once I post the ROS 2 / Gazebo DDS documentation link, do you want the recommended DDS profile applied to the sim containers?"},
+    "OPS-30": {"why": "Answer points to OPS-09, but OPS-09 is unanswered (it is a question back to me). So neither is resolved.", "q": "Off-site repo cannot exist until the OPS-09 budget is set and the pCloud entry from LEDGER-04 is filled in. Confirm you want me to wait on both."},
+    "PAY-02": {"why": "Answer says the provider was already named; I cannot find it recorded in the README.", "q": "Record the decision: build the verifier for PayPal, Zelle and Coinbase, all three, with no live payments until you approve each one?"},
+    "OPS-24": {"why": "Bare 'OK' with no scope - I cannot tell if it covers the drill only or also the scheduled automation.", "q": "Confirm the restore drill should run on a schedule as well as once now, and how often."},
+    "SIM-08": {"why": "Answer changes the target: placed inside the modal rather than at the top level of the site.", "q": "Confirm: Gazebo viewer renders inside the existing simulation modal, launched via 'open in new tab', and nothing is added to the site nav?"}
+  }
+}
