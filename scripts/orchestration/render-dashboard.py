@@ -254,7 +254,7 @@ ol.qs li{padding:7px 10px;border-left:3px solid #e0c48c;background:#fff;margin-b
 .qid{display:inline-block;min-width:82px;font-weight:700;color:#7a5c15;
  font-family:"DejaVu Sans Mono",monospace;font-size:12px}
 #approvals .form{display:flex;flex-direction:column;gap:10px}
-ol.qs{display:grid;grid-template-columns:repeat(auto-fill,minmax(430px,1fr));gap:10px}
+ol.qs{display:grid;grid-template-columns:1fr;gap:12px}
 ol.qs li{margin-bottom:0}
 .ans{width:100%;box-sizing:border-box;padding:6px 8px;font:13px/1.4 inherit;
  border:1px solid #d8cdb0;border-radius:5px;background:#fff;color:#1b1f24}
@@ -307,12 +307,28 @@ button.ghost{background:#fff;color:#7a5c15}
     var rows=collect();
     if(!rows.length){ st.textContent='nothing filled in yet'; st.className='status'; return; }
     st.textContent='saving '+rows.length+'…';
-    fetch('answers',{method:'POST',headers:{'Content-Type':'application/json'},
-                     body:JSON.stringify({answers:rows})})
+    var ep = (location.protocol==='file:') ? 'http://127.0.0.1:8766/answers'
+                                           : 'answers';
+    if (location.protocol==='file:')
+      st.textContent = 'page opened from disk - posting to the local writer at 8766. '+
+                       'If this fails, run:  python3 scripts/orchestration/dashboard-writer.py';
+    fetch(ep,{method:'POST',headers:{'Content-Type':'application/json'},
+              body:JSON.stringify({answers:rows})})
       .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status);
                           return r.text(); })
       .then(function(){ mark('saved '+rows.length+' decision(s) at '+new Date().toLocaleTimeString()); })
-      .catch(function(e){ st.textContent='NOT saved - '+e.message+
+      .catch(function(e){
+        // Never lose typed text: fall back to a download the operator can drop in.
+        try{
+          var blob=new Blob([JSON.stringify({answers:rows},null,1)],
+                            {type:'application/json'});
+          var a=document.createElement('a');
+          a.href=URL.createObjectURL(blob);
+          a.download='answers.json'; a.click();
+          st.textContent='writer unreachable ('+e.message+') - downloaded answers.json '+
+                         'instead; save it to artifacts/dashboard/answers.json';
+        }catch(_){}
+        st.textContent='NOT saved - '+e.message+
                                     ' (is the writer running? see scripts/orchestration/dashboard-writer.py)';
                           st.className='status'; });
   });
