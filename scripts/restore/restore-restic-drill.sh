@@ -36,7 +36,13 @@ done
 [ -n "$scratch" ] || { echo "ERROR: --scratch is required (never defaults to a live path)" >&2; exit 2; }
 
 command -v restic >/dev/null || { echo "ERROR: restic not installed" >&2; exit 3; }
-: "${RESTIC_PASSWORD:?ERROR: RESTIC_PASSWORD must be set in the environment, never passed as an argument}"
+
+# The safety refusals below come BEFORE the credential check, deliberately. They
+# protect the live tree, so they must not be reachable only by someone who
+# already holds the repository password. Measured 2026-10-04: with the
+# RESTIC_PASSWORD check ahead of them, `--scratch /ALWAYSON/data/evil` aborted
+# with a credential error instead of the refusal message, so the README 17.4
+# safety evidence did not reproduce unless a password happened to be exported.
 
 # Refuse any scratch path inside the live tree, checked on the resolved absolute
 # path so a relative path or a symlink cannot evade it.
@@ -53,6 +59,11 @@ if [ -e "$scratch_abs" ] && [ -n "$(ls -A "$scratch_abs" 2>/dev/null)" ]; then
   echo "A restore drill must never overwrite existing content." >&2
   exit 2
 fi
+
+# Credentials are required only once the scratch path is known to be safe, and
+# still before anything is created on disk.
+: "${RESTIC_PASSWORD:?ERROR: RESTIC_PASSWORD must be set in the environment, never passed as an argument}"
+
 mkdir -p "$scratch_abs"
 
 # Step 0: resolve the snapshot under test. With no explicit --snapshot, take the
