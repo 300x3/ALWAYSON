@@ -2,14 +2,17 @@
 item: OPS-26
 action: update
 evidence: |
-  # journald today: 4G in use, shipped caps all commented out
-  $ journalctl --disk-usage
-  Archived and active journals take up 4G in the file system.
-  $ grep -n '^#*SystemMaxUse\|^#*MaxRetentionSec' /etc/systemd/journald.conf
+  # the drop-in directory itself does not exist, so nothing could be installed
+  $ ls -la /etc/systemd/journald.conf.d/
+  ls: cannot access '/etc/systemd/journald.conf.d/': No such file or directory
+  $ grep -n '^#\?SystemMaxUse\|^#\?SystemKeepFree\|^#\?MaxRetentionSec' /etc/systemd/journald.conf
   27:#SystemMaxUse=
+  28:#SystemKeepFree=
   35:#MaxRetentionSec=0
-  $ df -h /
-  /dev/nvme0n1p2  458G  308G  127G  71% /
+  $ journalctl --disk-usage
+  Archived and active journals take up 3.9G in the file system.
+  $ df -h / | tail -1
+  /dev/nvme0n1p2  458G  307G  128G  71% /
 
   # the staged drop-in, effective settings only:
   $ grep -vE '^\s*#|^\s*$' config/host/journald-alwayson.conf
@@ -62,13 +65,34 @@ limit at all. Backup and restore evidence is **not** lost to the 90-day cap —
 it lives in `/ALWAYSON/logs/` and `/ALWAYSON/backups/` on the 400-day budget,
 not in journald.
 
-**Measurement error I made and corrected:** I first ran `du -sh logs/...` from
-the session worktree and got `No such file or directory` for all four, then
-almost recorded the sizes from the worktree as absent. The live tree at
-`/ALWAYSON` is the authority and returns the values above. Re-measuring also
-showed `operations/` had grown 572K → 580K as concurrent sessions logged,
-which is itself evidence these directories are append-only and live — so the
-§17.5 text was updated rather than left quoting the stale figure.
+**Status corrected 2026-10-04: the log blocks are installed and rotating; only
+the journald half remains aspirational.** The table above previously marked all
+six rows "Staged, not installed". The logrotate half was installed in the interim
+(`/etc/logrotate.d/alwayson`, root-owned, 5237 B, byte-identical to source by
+`cmp`) and has genuinely rotated — 13 files match `logs/*.log.[0-9]`, 67 match
+`logs/operations/*.log.[0-9]`. The journald half is still absent, and the
+evidence is now stronger than "not found":
+
+    $ ls -la /etc/systemd/journald.conf.d/
+    ls: cannot access '/etc/systemd/journald.conf.d/': No such file or directory
+
+The drop-in *directory* does not exist, so nothing could have been installed
+into it. `journalctl --disk-usage` re-measured at **3.9G**, and every effective
+cap is still commented out (`SystemMaxUse`, `SystemKeepFree`, `MaxRetentionSec`
+all `#`-prefixed). So `SystemMaxUse=4G` and `MaxRetentionSec=90day` remain
+proposals, and this half of OPS-26 needs one privileged command.
+
+Everything below about the *design* of the budgets stands unchanged — the 400-day
+subdirectory budget, the reasoning against `maxsize`, and the staging decision
+are unaffected by which half is installed. Only the "is it live" column changed.
+
+**Measurement error worth preserving from the first pass of this item:** I ran
+`du -sh logs/...` from the session worktree and got `No such file or directory`
+for all four directories, and nearly recorded the sizes as absent. The live tree
+at `/ALWAYSON` is the authority and returns real values. This is the same
+worktree-vs-live confusion that produced the wrong "not deployed" claim in
+OPS-10 and the wrong "not installed" claim here — three items in one session,
+all from measuring the wrong tree or the wrong directory.
 
 The drop-in is staged as `journald-alwayson.conf` for installation at
 `/etc/systemd/journald.conf.d/60-alwayson-retention.conf`, deliberately **not**
