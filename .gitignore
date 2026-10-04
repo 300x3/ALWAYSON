@@ -38,9 +38,19 @@ __pycache__/
 # Moved 2026-10-10 to agents/handoffs/ when this material was consolidated
 # under agents/. The old name contained SPACES, which broke `git check-ignore`
 # whenever the path was quoted (git reads the quotes as part of the pattern).
-# The new path has no spaces. The exclusion itself is unchanged and still
-# deliberate: this repository is PUBLIC and these files name the host.
-agents/handoffs/
+# The new path has no spaces.
+#
+# 2026-10-10 (operator decision): the session runbooks are now TRACKED. They are
+# instructions for the AI sessions, they contain no host, account or credential
+# data (verified: 0 matches for user/home/IP/key patterns), and they were local
+# only by accident of the blanket rule -- so the other sessions could not see
+# them on GitHub.
+#
+# The exclusion itself REMAINS for the rest of the folder: the narrative
+# handoffs still name the host, the operator account, versions and open
+# security findings, and this repository is PUBLIC.
+agents/handoffs/*
+!agents/handoffs/SESSION ASSIGNMENTS/
 
 # Runtime coordination folders that must never enter the index.
 .playwright-mcp/
