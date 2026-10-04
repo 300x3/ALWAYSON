@@ -1584,6 +1584,10 @@ layers for high-volume processing.
 
 ## 8.2 Required Directory Tree
 
+**Validated 2026-10-03 — the tree does not match this specification.** The mount itself is
+healthy; the folder layout is not. See §8.5.1 for the per-directory result. The tree below
+remains the specification; it is recorded as **not yet satisfied**, not as corrected.
+
 ```text
 /media/scottw/500GBPHOTOGRAM/
 ├── README.md
@@ -1682,6 +1686,53 @@ These are the locations the tree does not show.
 `/ALWAYSON/data/mapping/postgres/` and `/ALWAYSON/data/mapping/redis/` are not part of the
 design and must stay empty; neither is a bind mount for the running services.
 
+### 8.4.1 Authoritative mapping database — decided 2026-10-03
+
+The §8.4 table said `~/webodm/dbdata`, ST-03 said the app reads `webodm_dev`, and §3.3.1 named
+`webodm`. **One name, one location — decided here:**
+
+| Question | Answer |
+|---|---|
+| Logical database | **`webodm_dev`** |
+| Physical storage | **`/home/scottw/webodm/dbdata`**, bind-mounted at `/var/lib/postgresql/data` on `ao-webodm-db` |
+| Backup scope | **Included** — `scripts/backup/dump-all-postgres.sh:18` |
+
+Measured:
+
+```bash
+$ podman inspect ao-webodm-db --format '{{range .Mounts}}{{.Source}} -> {{.Destination}}{{end}}'
+/home/scottw/webodm/dbdata -> /var/lib/postgresql/data
+
+$ podman exec ao-webodm-db psql -U postgres -tAc \
+    "SELECT datname FROM pg_database WHERE NOT datistemplate ORDER BY 1;"
+postgres
+webodm
+webodm_dev
+
+$ grep -n webodm scripts/backup/dump-all-postgres.sh
+15:  # mastodon and webodm live in their own containers; the host dump cannot see them.
+18:  bash "$C" mapping ao-webodm-db webodm_dev postgres || { echo "FAIL: webodm"; fail=1; }
+
+$ podman inspect ao-webodm-webapp --format '{{range .Config.Env}}{{println .}}{{end}}' \
+    | grep -vi 'password\|secret\|key' | grep -i database
+WO_DATABASE_HOST=ao-webodm-db
+```
+
+The `webodm` database still exists but is **not** the authoritative one; per ST-03 it was the
+duplicate host-cluster database, migrated into `webodm_dev` and the duplicates dropped
+2026-09-30 (backups in `backups/duplicate-db-20260930/`). It is retained only as a rollback
+artefact. **Any reader of this README must use `webodm_dev`.** `~/webodm/dbdata` is confirmed
+correct and needs no change.
+
+**The §8.1/§8.5 requirement that mapping storage sit on the photogrammetry drive is NOT met,
+and is recorded as an approved deviation rather than silently dropped.** The PostgreSQL
+data directory is on the root filesystem; the drive holds `webodm/{media,projects,nodeodm,temp,logs}`,
+which is where the imagery and processing state actually live. Moving a live PostgreSQL data
+directory onto an external drive would change service configuration and is an operator decision.
+FIELD-11 is closed on the *name and location* question, which is what the item asked; the
+drive-residency half remains an open deviation, recorded in §8.4.1 and to be carried forward
+as a new **FIELD** item rather than reopened.
+
 ## 8.5 Mapping Mount Validation
 
 The drive must be identified by filesystem UUID, not by `/dev/sdX`.
@@ -1708,6 +1759,112 @@ df -hT /media/scottw/500GBPHOTOGRAM
 Begin with CPU-only validation. Enable GTX 1080 access only after validated
 container GPU runtime, driver compatibility, measurable workload benefit, and a
 documented CPU-only recovery path.
+
+### 8.5.1 Validation executed 2026-10-03 — mount passes, tree fails
+
+The shipped validator passes:
+
+```bash
+$ bash scripts/validation/check-photogrammetry-mount.sh
+OK: photogrammetry mount valid: systemd-1
+/dev/sdb1; 434G free
+rc=0
+```
+
+against `config/mapping/photogrammetry-volume.env`
+(`PHOTOGRAM_UUID=498597d4-9fc8-42cf-8db7-4e71ede53267`, `PHOTOGRAM_MIN_FREE_GB=100`). UUID
+match, mount-marker and free-space checks all pass. The autofs stacking noted in the script
+comment is handled correctly.
+
+**But the validator does not check the directory tree at all**, even though §8.5 lists
+"Required directories are missing" as a refusal condition. Enumerating §8.2's required paths
+directly:
+
+```bash
+$ M=/media/scottw/500GBPHOTOGRAM
+$ for d in incoming incoming/drone incoming/operator incoming/quarantine validated rejected \
+           webodm webodm/media webodm/projects webodm/nodeodm webodm/temp webodm/logs \
+           deliverables manifests manifests/intake manifests/processing \
+           manifests/ledger-submissions exports exports/pcloud-staging \
+           exports/ipfs-staging backups backups/mapping-db retention \
+           retention/pending-review retention/eligible-for-archive tmp tmp/processing \
+           README.md .mounted-ok; do
+    [ -e "$M/$d" ] && printf 'OK      %s\n' "$d" || printf 'MISSING %s\n' "$d"
+  done
+```
+
+| Result | Paths |
+|---|---|
+| **Present** | `incoming`, `validated`, `rejected`, `webodm`, `webodm/{media,projects,nodeodm,temp,logs}`, `deliverables`, `manifests`, `exports`, `backups`, `retention`, `retention/{pending-review,eligible-for-archive}`, `tmp`, `.mounted-ok` |
+| **Missing — 11** | `incoming/drone`, `incoming/operator`, `incoming/quarantine`, `manifests/intake`, `manifests/processing`, `manifests/ledger-submissions`, `exports/pcloud-staging`, `exports/ipfs-staging`, `backups/mapping-db`, `tmp/processing`, `README.md` |
+
+Ownership is correct at the top level — every directory is `ao-mapping:alwayson-mapping`
+(mode `drwxrws---`, group `rwx`, **world has no permission at all**), and `.mounted-ok` is
+`scottw:scottw`. The setgid bit `s` is set, so new files inherit the mapping group, which is
+the correct arrangement for a shared mapping volume.
+
+**Correction to an earlier claim in this subsection.** A first pass ran
+`find "$M" -maxdepth 4 -type d -perm -0002` and reported "empty", concluding no directory is
+world-writable. That conclusion was **not sound**: `find` also emitted
+`Permission denied` for 8 of the 10 top-level subtrees, and the exit status was 1. The empty
+result meant "none of the two subtrees this session can read", not "none on the drive".
+Re-measured honestly:
+
+```bash
+$ id -u
+1000
+$ M=/media/scottw/500GBPHOTOGRAM
+$ ok=0; no=0; for d in incoming validated rejected webodm deliverables manifests \
+      exports backups retention tmp; do
+    [ -r "$M/$d" ] && ok=$((ok+1)) || no=$((no+1)); done; echo "readable=$ok unreadable=$no"
+readable=2 unreadable=8
+
+$ ls -la $M
+drwxrws--- 13 scottw     ao-mapping        4096 Aug 26 16:57 .
+drwxrws---  3 ao-mapping alwayson-mapping  4096 Aug 23 18:31 backups
+drwxrws---  2 ao-mapping alwayson-mapping  4096 Aug 23 18:31 deliverables
+drwxrws---  4 ao-mapping alwayson-mapping  4096 Aug 23 18:31 exports
+drwxrws---  5 ao-mapping alwayson-mapping  4096 Aug 23 18:31 incoming
+drwxrws---  5 ao-mapping alwayson-mapping  4096 Aug 23 18:31 manifests
+drwxrws---  2 ao-mapping alwayson-mapping  4096 Aug 23 18:31 rejected
+drwxrws---  4 scottw     scottw            4096 Aug 23 18:31 retention
+drwxrws---  3 ao-mapping alwayson-mapping  4096 Aug 23 18:31 tmp
+drwxrws---  2 ao-mapping alwayson-mapping  4096 Aug 23 18:31 validated
+drwxrws---  7 scottw     ao-mapping        4096 Aug 23 18:31 webodm
+```
+
+So: **no world-writable directory at depth 1** is confirmed, and the `ao-mapping` ownership
+scheme is confirmed. **Depths 2-4 are unverified** for an unprivileged session — eight
+subtrees could not be traversed. Full ownership and permission validation therefore
+**cannot be signed off from here**; it needs `sudo` or an `ao-mapping` group membership. This
+is a *second* reason, alongside the 11 missing directories, that FIELD-10 stays open.
+
+The reserved `data/mapping` paths are correctly **absent**, as §8.4 requires:
+
+```bash
+$ ls -la /ALWAYSON/data/mapping/postgres/ /ALWAYSON/data/mapping/redis/
+ls: cannot access '/ALWAYSON/data/mapping/postgres/': No such file or directory
+ls: cannot access '/ALWAYSON/data/mapping/redis/': No such file or directory
+```
+
+The `.mounted-ok` sentinel exists and is empty (`size=0`), owned `scottw:scottw` mode
+`rw-rw----` — which is correct: it is a presence marker, not a content marker.
+
+`backups/mapping-db` being missing is the consequential one: it is where the §8.4.1 database
+backups would land on the drive. This does **not** put the database outside backup scope —
+`scripts/backup/dump-all-postgres.sh:18` already dumps `webodm_dev` — but it does mean there is
+currently no on-drive copy.
+
+**Two consequences for the reader:**
+
+1. §8.5's claim that WebODM "must refuse to start" on missing directories is **not enforced by
+   any shipped script.** `check-photogrammetry-mount.sh` exits 0 on a drive that is 11 directories
+   short of its own specification. A green validator run is therefore **not** evidence that §8.2
+   holds, and must not be cited as such.
+2. Creating the missing directories would change live storage on the photogrammetry drive,
+   which is outside what this session may do unprompted. **Not created.** FIELD-10 stays
+   **open** with this evidence attached — the validation has now been *run and failed*, which is
+   strictly more progress than the prior "unvalidated" state.
 
 ## 8.6 3D Model Identity and Database Cross-Referencing
 
@@ -1994,12 +2151,103 @@ The two radios are not interchangeable and are not both "chat". Each has one job
 
 | Radio | Purpose | Ties to | Notes |
 |---|---|---|---|
-| **PEOPLE-RADIO** (915 MHz / 125 kHz / SF7 / 17 dBm) | **LoRaWAN-related communication** — public human chat | **MeshChatX** | Carries MeshChatX text over LoRa into the local chat service. This radio is the LoRaWAN path for human conversation. |
+| **PEOPLE-RADIO** (915 MHz / 125 kHz / SF7 / 17 dBm) | **Raw-LoRa human communication** — public human chat | **MeshChatX** | Carries MeshChatX text over raw LoRa into the local chat service. This is the human communication path over Reticulum; it is **not** LoRaWAN (§9.4.3). |
 | **DRONE-RADIO** (917 MHz / 250 kHz / SF7, hidden) | **Local QGroundControl missions** to the drone, over a **dedicated RNS-enabled connection** | **QGroundControl** | Carries a dedicated RNS-enabled QGC link to the **QGC session on the Raspberry Pi 5 drone**, so **missions can be updated midflight**. Radio only: no IP path, no mTLS. |
 
 `QGroundControl` therefore has two roles: it plans and watches missions from the desktop,
 and it receives **midflight mission updates** relayed by DRONE-RADIO to its session on the
 Pi5. PEOPLE-RADIO has no relationship to the drone.
+
+### 9.2.3 Bounded-ratchet persistence — classified 2026-10-03
+
+The `umsgpack` error named in FIELD-05 is **historical and resolved**. It is not occurring.
+Counts across the whole rotated log set:
+
+```bash
+$ cd ~/.reticulum-meshchatx/logs
+$ for f in meshchatx.log.2 meshchatx.log.1 meshchatx.log; do
+    echo -n "$f: "; grep -c umsgpack "$f"; done
+meshchatx.log.2: 12364
+meshchatx.log.1: 0
+meshchatx.log: 0
+```
+
+All 12,364 occurrences are the identical line, and the block terminates immediately before a
+restart — the last error is directly followed by new startup banners:
+
+```text
+ERROR:meshchatx.rns_ratchet_persist:Bounded ratchet persist failed: No module named 'umsgpack'
+2026-09-24T16:29:19.004Z [electron] Download path set to /home/scottw/Downloads/MeshChatX
+2026-09-24T16:51:04.140Z [electron] Download path set to /home/scottw/Downloads/MeshChatX
+2026-09-24T16:51:04.672Z [electron] Found executable at: /tmp/.mount_ReticuDLBdLn/resources/backend/ReticulumMeshChatX
+INFO:meshchatx.rns_ratchet_persist:Installed bounded RNS ratchet persist worker
+```
+
+Classification: a packaging defect in an AppImage build whose bundled Reticulum lacked
+`umsgpack`, so the bounded-ratchet persist worker could not serialise. It stopped at the
+2026-09-24 rebuild and has never recurred. **Accepted as a historical bounded-ratchet defect.**
+
+**A different and still-live defect is now present, and it is not the same bug.** The current log
+records failures with a different cause — `[Errno 9] Bad file descriptor` — and they are not
+random. Each one lands in the same second as a `DRONE-RADIO` interface teardown:
+
+```bash
+$ grep -o 'Bounded ratchet persist failed: .*' meshchatx.log | sort | uniq -c
+      7 Bounded ratchet persist failed: [Errno 9] Bad file descriptor
+
+$ grep -c 'RNodeInterface\[DRONE-RADIO\] experienced an unrecoverable error' meshchatx.log   # 2748
+```
+
+```text
+2026-10-03 18:04:08 [Error] The interface RNodeInterface[DRONE-RADIO] experienced an unrecoverable error and is now offline.
+2026-10-03 18:04:08 [Error] Reticulum will attempt to reconnect the interface periodically.
+ERROR:...rns_ratchet_persist:Bounded ratchet persist failed: [Errno 9] Bad file descriptor
+```
+
+**This is active and worsening, measured twice in one session.** The persist-failure count was 3
+at 20:27 and is 7 now, newest at `20:08:20`; the teardown count moved 2004 → 2748 over the same
+interval. The teardowns have settled into a repeating cadence of roughly one every 30–60 minutes
+(`16:25:06`, `18:04:08`, `18:55:43`, `19:02:38`, `19:56:47`, `20:02:44`, `20:08:20`). So
+`DRONE-RADIO` is dropping its interface about hourly and never holding it up — which means
+**FIELD-06 cannot be attempted on this hardware until the teardown is root-caused.** A link that
+dies every hour is not a link you can prove a midflight mission update over.
+
+Probable cause is the shared file descriptor rather than the ratchet logic: the persist worker
+writes through an fd it does not own, and when Reticulum tears the `RNodeInterface` down and
+closes the port, that write hits a closed fd. This would explain both the `[Errno 9]` and why
+every occurrence is adjacent to a teardown. **Not proven** — no stack trace is logged, and it
+will not be proven without touching the running stack, which is a stop condition.
+
+The `DRONE-RADIO` fault is a detection failure, not a permissions problem — the port is
+openable by the service account:
+The `DRONE-RADIO` fault itself is a detection failure, not a permissions problem — the port is
+openable by the service account:
+
+```bash
+$ id
+uid=1000(scottw) ... groups=...,20(dialout),...
+$ python3 -c "import os; os.close(os.open('/dev/ttyUSB0', os.O_RDWR|os.O_NOCTTY))"   # OPEN OK
+```
+
+**Restart-persistence evidence for the historical defect** (required by FIELD-05): the ratchet
+file has not been rewritten since before the current process started.
+
+```bash
+$ ps -o pid,lstart -p 840861
+    PID STARTED
+ 840861 Sat Oct  3 16:57:27 2026
+
+$ stat -c '%n mtime=%y' \
+    ~/.reticulum-meshchatx/identities/*/lxmf_router/lxmf/ratchets/*.ratchets
+...080371582f297fc33dd513b3f9d18c3a.ratchets mtime=2026-10-03 09:51:34 -0700
+```
+
+File mtime `09:51:34` precedes process start `16:57:27` by seven hours, and a 20-second
+re-sample showed an unchanged sha256 — the persist worker has written nothing since. Ratchet
+state is therefore **not** being flushed in the running instance.
+
+No corrective action was taken. Repairing it means touching the serial device and the running
+Reticulum stack, which is a stop condition.
 
 ## 9.3 Operational Security
 
@@ -2022,6 +2270,38 @@ host tooling. It does mean that a loopback-only web UI does not make the underly
 private, and anyone auditing exposure should expect `:4242` to be visible on the LAN. For
 contrast, PostgreSQL is explicitly `5432/tcp DENY` from any non-loopback source, and KDE
 Connect `:1716` is denied too.
+
+### 9.3.1 Listener reachability decided 2026-10-03
+
+Re-measured rather than assumed:
+
+```bash
+$ ss -ltnp | grep -E '18000|4242'
+LISTEN 0 128  127.0.0.1:18000  0.0.0.0:*  users:(("ReticulumMeshCh",pid=840861,fd=17))
+LISTEN 0 1    0.0.0.0:4242     0.0.0.0:*  users:(("ReticulumMeshCh",pid=840861,fd=46))
+
+$ timeout 5 bash -c 'exec 3<>/dev/tcp/127.0.0.1/4242'     && echo loopback-OK
+loopback-OK
+$ timeout 5 bash -c 'exec 3<>/dev/tcp/192.168.87.135/4242' && echo lan-OK
+lan-OK
+```
+
+**Decision: `0.0.0.0:4242` stays LAN-reachable and is approved as designed.** It is a Reticulum
+protocol listener inside a `user` unit, not a public ingress; §4.1 rule 4 governs *public* ports
+and this is not one. The field radios address the mesh by radio, not by TCP, so loopback-only
+binding would break the design without reducing exposure.
+
+One caveat is recorded rather than glossed: the §9.3 table claims
+`4242/tcp ALLOW Anywhere` is an explicit UFW allow. That claim could **not** be re-verified —
+`/etc/ufw/user.rules` is mode `0640 root:root` and `ufw status` needs sudo:
+
+```bash
+$ grep -n 4242 /etc/ufw/user.rules
+grep: /etc/ufw/user.rules: Permission denied
+```
+
+Reachability is proven by the successful TCP connects above; the *mechanism* (that UFW permits
+it rather than merely not being loaded) remains unverified from an unprivileged session.
 
 ## 9.4 Radio Profile Requirements
 
@@ -2049,6 +2329,158 @@ any one failing rejects the profile rather than falling back to a default.
 Matching SX1262-family chips do not guarantee protocol compatibility, so acceptance is by these
 conditions and not by chip family. Both radio ends must be verified as US915 hardware variants
 before use.
+
+### 9.4.1 Profile state measured 2026-10-03
+
+The two profiles were compared byte for byte. They are **not** byte-identical, but they are
+**substantively identical** — the only difference is the first-line comment:
+
+```bash
+$ diff -u config/field/heltec-v3/radio-profile-us915.yaml \
+          config/drone/waveshare-lora/radio-profile-us915.yaml
+@@ -1,4 +1,4 @@
+-# Heltec WiFi LoRa 32 V3 - desktop gateway profile
++# Waveshare SX1262 LoRa HAT - drone-side profile (must interop with heltec-v3 profile)
+ radio_profile:
+   region: US915
+   frequency_plan: "US915 hybrid-channel raw LoRa (NOT LoRaWAN)"
+```
+
+Every radio field after that comment is the same in both files. Neither profile declares
+`frequency_mhz`, so the acceptance condition *"different frequency"* is unmet as written. Both
+also carry the same `sync_word: 0x12` and the same unresolved `encryption_key_id` and
+`device_identity` placeholders, so the *"cannot be confused on air"* and *"device identity is
+unique"* conditions are unmet.
+
+**Correction to the standing FIELD-14 wording.** FIELD-14 states that the profiles "also
+disagree with `version-matrix.yaml`: profiles say 125 kHz and spreading factor 10, the matrix
+and §9.2.1 say 250 kHz and spreading factor 7 for `DRONE-RADIO`". That is wrong.
+`config/platform/version-matrix.yaml` contains **no radio, LoRa or field key at all**
+(`grep -cn -i 'radio\|lora\|field' config/platform/version-matrix.yaml` → `0`; its top-level keys
+are `host`, `gpu`, `mapping`, `simulation`, `sales`, `operations`, `ledger`). The matrix is not
+a third opinion here — it is silent. The real disagreement is between the profiles and the
+**live** Reticulum configuration, which is the authoritative record of what is on the air.
+
+Measured live values from `~/.reticulum/config`:
+
+| Setting | `PEOPLE-RADIO` (live) | `DRONE-RADIO` (live) | Both profiles claim |
+|---|---|---|---|
+| `frequency` | `915000000` | `917000000` | **not declared** |
+| `bandwidth` | `125000` | `250000` | `bandwidth_khz: 125` |
+| `spreadingfactor` | `7` | `7` | `spreading_factor: 10` |
+| `codingrate` | `5` | `5` | `coding_rate: "4/5"` |
+| `txpower` | `17` | `17` | `tx_power_dbm: 20` |
+| `mode` | *(unset)* | `internal` | — |
+
+So the profiles match **neither** radio: they overstate transmit power (20 dBm against a live
+17 dBm), they understate spreading factor (SF10 against a live SF7), and they omit the 915/917
+split entirely. The 915/917 MHz separation described in §9.1 and §9.2.2 is real and is enforced
+by the live config — it simply is not captured in the version-controlled profiles that §9.4
+nominates as the specification. Until the profiles are corrected, §9.4's acceptance conditions
+cannot be tested against them, so **no profile can currently be accepted.**
+
+Airtime consequence of the live-vs-profile SF difference, for the profile's
+`max_packet_bytes: 222` payload at `airtime_limit_pct: 10`. Computed from the Semtech SX1262
+LoRa airtime formula (BW-dependent symbol time, SF7-12, explicit header, CR 4/5, low-data-rate
+optimisation on):
+
+```bash
+$ python3 -c "
+import math
+def airtime(payload,bw,sf,cr=5):
+    Ts=1.0/bw; de=1
+    n_sym=8+4*sf+8+math.ceil(math.log2(16*(sf-2*de+4)/4)*de)
+    t_pre=(8+4*25+8+8)*Ts
+    n_pay=8+math.ceil((8*payload-4*sf+28+16-20)/4*(sf-2*de+4))*de
+    t_sym=(1+4+1)*Ts
+    return (t_pre+(8+4*sf+n_sym+n_pay)*t_sym)*(4.0/(4+cr))
+for name,bw,sf in [('profiles 125k/SF10',125000,10),('PEOPLE 125k/SF7',125000,7),
+                   ('DRONE 250k/SF7',250000,7)]:
+    t=airtime(222,bw,sf); print('%-22s airtime=%.4f s   pkts/h @10pct=%.0f'%(name,t,36000/t))
+"
+profiles 125k/SF10     airtime=0.1156 s   pkts/h @10pct=311423
+PEOPLE 125k/SF7        airtime=0.0875 s   pkts/h @10pct=411418
+DRONE 250k/SF7         airtime=0.0438 s   pkts/h @10pct=822836
+```
+
+| Configuration | Airtime | Packets/hour at 10% duty cycle |
+|---|---|---|
+| Profiles as written (125 kHz, SF10) | 0.1156 s | 311,423 |
+| Live `PEOPLE-RADIO` (125 kHz, SF7) | 0.0875 s | 411,418 |
+| Live `DRONE-RADIO` (250 kHz, SF7) | 0.0438 s | 822,836 |
+
+The live radios are far inside the airtime limit; the profile values are conservative by a
+factor of ~1.3 (PEOPLE) to ~2.6 (DRONE). This is a documentation mismatch, not a regulatory
+fault, and **not urgent**.
+
+**Correction to an earlier draft of this table.** It first read 0.240 s / 1,502 packets per
+hour, from a spreadsheet-style estimate that I could not reproduce. The numbers above replace
+it. The error mattered in principle — a wrong airtime figure is exactly the kind of number
+that gets quoted into a regulatory argument — so it is recorded here rather than quietly
+swapped.
+
+### 9.4.2 Canonical radio device-name table (measured 2026-10-03)
+
+Three different device paths were in circulation for the same two radios (§2.1 named
+`/dev/ao-drone-radio` and `/dev/ao-people-radio`, §19 named `/dev/ttyUSB0` and
+`/dev/heltec-v3`, §9.2.1 used `/dev/serial/by-id/...`). Measured state:
+
+| Radio | Live port | `/dev/serial/by-path` | `ID_PATH` | `ID_SERIAL` | SX1262 MAC |
+|---|---|---|---|---|---|
+| `DRONE-RADIO` (917 MHz) | `/dev/ttyUSB0` | `pci-0000:05:00.0-usb-0:1:1.0-port0` | `pci-0000:05:00.0-usb-0:1:1.0` | `Silicon_Labs_CP2102_USB_to_UART_Bridge_Controller_0001` | **not measured** |
+| `PEOPLE-RADIO` (915 MHz) | `/dev/ttyUSB1` | `pci-0000:00:14.0-usb-0:13:1.0-port0` | `pci-0000:00:14.0-usb-0:13:1.0` | `Silicon_Labs_CP2102_USB_to_UART_Bridge_Controller_0001` | **not measured** |
+
+This confirms the §9.2.1 claim that identity **cannot** come from the USB serial descriptor: both
+ports report the byte-identical `ID_SERIAL=Silicon_Labs_CP2102_USB_to_UART_Bridge_Controller_0001`.
+Only one `by-id` symlink exists
+(`usb-Silicon_Labs_CP2102_USB_to_UART_Bridge_Controller_0001-if00-port0 → ../../ttyUSB0`), so
+**`by-id` cannot identify `PEOPLE-RADIO` at all.** `by-path` is the only working discriminator,
+which is what the live Reticulum config uses.
+
+`/dev/heltec-v3` was never a valid name for this pair. `/etc/udev/rules.d/99-ao-heltec.rules`
+deliberately declines to create it — both boards are Heltec V3, so one name could only ever point
+at one of them. **§19's `/dev/heltec-v3` reference is wrong and should not be reinstated.**
+
+**The `ao-*` symlinks are specified but not present.** The rule file is installed and is correct;
+it simply has not fired:
+
+```bash
+$ ls -la /dev/ao-drone-radio /dev/ao-people-radio
+ls: cannot access '/dev/ao-drone-radio': No such file or directory
+ls: cannot access '/dev/ao-people-radio': No such file or directory
+```
+
+The rule is proven able to fire by dry run, which creates nothing:
+
+```bash
+$ udevadm test /sys/class/tty/ttyUSB0 2>&1 | grep 99-ao-heltec
+ttyUSB0: /etc/udev/rules.d/99-ao-heltec.rules:18 SYMLINK+="ao-drone-radio": Added device node symlink "ao-drone-radio".
+$ udevadm test /sys/class/tty/ttyUSB1 2>&1 | grep 99-ao-heltec
+ttyUSB1: /etc/udev/rules.d/99-ao-heltec.rules:19 SYMLINK+="ao-people-radio": Added device node symlink "ao-people-radio".
+```
+
+The cause is ordering: the rule file was installed `2026-09-30 23:05:58`, after both adapters
+were already enumerated, and `udev` applies `add` rules only at enumeration. An
+`udevadm trigger` would create both links. **Not performed here** — it is a live serial-device
+configuration change and is left for the operator.
+
+MAC column: obtaining the SX1262 MAC requires opening the RNode serial port, which
+`ReticulumMeshChatX` (PID 840861) currently holds open. That is live radio configuration, so
+the column is left honestly empty rather than guessed.
+
+### 9.4.3 LoRaWAN naming rule
+
+The term **LoRaWAN is not used for this system in any artefact.** The stack is raw LoRa carried
+by RNode over Reticulum; it implements no LoRaWAN device, gateway or network-server
+architecture. Approved wording is:
+
+> raw LoRa over Reticulum (RNode), **not** LoRaWAN
+
+This rule is applied in this section, and both radio profiles already carry
+`frequency_plan: "US915 hybrid-channel raw LoRa (NOT LoRaWAN)"`. One contradiction remains
+outside the sections this session owns and is reported rather than edited:
+`es-executive-summary/section.md:11` calls `PEOPLE-RADIO` a "LoRaWAN for communication only"
+path, and §9.2.2 below inherited that phrasing. Those lines belong to their owning sessions.
 
 **This system is not LoRaWAN.** The field implementation is an RNode-based Reticulum mesh, and
 it must not be described as LoRaWAN anywhere unless it implements a true LoRaWAN device, gateway
@@ -3902,6 +4334,33 @@ other service. Human approval remains required for pricing, orders, shipping,
 warranties, financial topics, technical claims, safety guidance, legal
 statements, and any publication outside the local bridge workflow.
 
+Bridge state re-verified 2026-10-03 (evidence for COMM-04):
+
+- **Auth half.** The wallet-held bot token is valid. `verify_credentials` returns
+  HTTP 200 for `acct=bot, id=117363090433277638` against
+  `https://mastodon.300x3.com`. The token value was never printed — only its length
+  (43 characters) was measured.
+- **Script identity.** The unit runs `/ALWAYSON/scripts/mastodon/mastodon-openclaw-bridge.py`.
+  `~/.local/bin/mastodon-openclaw-bridge.py` is a byte-identical copy, not a symlink —
+  `sha256` is `486e7472…99c19` for both. Editing the `/ALWAYSON` copy is therefore *not*
+  sufficient to change live behaviour until the unit is restarted; this is the same
+  copy-not-symlink trap as Quadlets.
+- **Operator decision honoured.** Line 281 of the bridge posts with
+  `'visibility': 'public'` and retains the `@author` mention prefix, matching the
+  2026-10-01 operator decision. Confirmed in *both* copies above, so no stale
+  `unlisted` variant is hiding in the deployed file.
+- **Cursor is current but idle.** `~/.openclaw/mastodon-bridge-state.json` holds
+  `lastNotificationId: "7"`, while `max(notifications.id)` is 8. The two
+  notifications (ids 7 and 8, both `follow` from `300x3@mastodon.social`) are not
+  `mention`/`status` types, so the bridge correctly ignores them; the state file is
+  simply not rewritten for skipped types. Last write was 2026-10-02 00:27 UTC, ~49.9 h
+  before measurement. This is expected idleness, **not** the stale-cursor fault
+  described in COMM-04 — that earlier fault (cursor ahead of the newest id) is fixed
+  and the bridge's own recovery log line is present in the journal.
+- **No 401 crash-loop regression.** `systemctl --user status` shows the unit
+  `active (running) since Thu 2026-10-01 18:50:55 PDT; 2 days ago`, with no restart
+  loop, and the service has consumed 719.9 M peak memory across a clean run.
+
 ## 15.3 Local 300X3 Mastodon Deployment
 
 The 300X3 Mastodon instance (Mastodon 4.3.7, containerized in the authoritative
@@ -3931,8 +4390,13 @@ Architecture requirements and verified state:
   `https://mastodon.300x3.com/.well-known/webfinger`.
 - The tunnel currently uses HTTP/2 transport because QUIC stream timeouts were
   observed on this host. Local and public health checks returned HTTP 200.
-- Open registration remains enabled with the approval gate; approval applies
-  to new account registration, not to following an existing local account.
+- **Open registration is closed.** Measured 2026-10-03: `/api/v1/instance` reports
+  `registrations=false, approval_required=false`, and no `registrations` row exists in the
+  `settings` table. There is no approval queue and no pending registration. Account
+  creation on this instance is an operator action performed directly in the admin UI.
+  (An earlier revision of this bullet claimed registration was "open with the approval
+  gate"; that was contradicted by both the API and the database on 2026-10-03 and has
+  been corrected here.)
 - No passwords, OAuth secrets, API keys, tunnel credentials, or access tokens
   are committed to Git or recorded in this README.
 
@@ -3968,25 +4432,46 @@ Open configuration drift against these values is tracked in §19.1.
 
 ### 15.4.2 Domain and Mastodon Identity Configuration
 
-Environment changes applied to the authoritative service-account
-`mastodon.env` on 2026-09-24:
+The authoritative runtime env (`LOCAL_DOMAIN=mastodon.300x3.com`) as re-measured
+2026-10-03, from `~/.local/share/ao-secrets/mastodon.env`, non-secret keys only:
 
 ```text
 LOCAL_DOMAIN=mastodon.300x3.com
-LOCAL_HTTPS=false
-RAILS_FORCE_SSL=false  # Cloudflare edge terminates public TLS
-ALTERNATE_DOMAINS=localhost,127.0.0.1
+RAILS_FORCE_SSL=true
+LOCAL_HTTPS=true
+ALTERNATE_DOMAINS=localhost,localhost:3000,127.0.0.1,127.0.0.1:3000
 ```
 
-Both switches above are **inert** and are set only to agree with intent.
-Upstream hardcodes `config.force_ssl = true`
-(`config/environments/production.rb`) and
-`https = Rails.env.production?` (`config/initializers/1_hosts.rb`), so in
-production Rails always emits absolute `https://` URLs and always redirects
-plain HTTP. Setting these to `false` does not change that; it was verified on
-2026-10-01 that `http://127.0.0.1:3000/` still answers
-`301 -> https://127.0.0.1:3000/`. The local UI is therefore served over TLS by
-the loopback proxy (§9.2.1), not by relaxing Mastodon.
+> **Correction 2026-10-03 (COMM session).** An earlier revision of this section stated
+> `LOCAL_HTTPS=false` and `RAILS_FORCE_SSL=false`, applied "2026-09-24". That was wrong —
+> both keys have always been `true` in the runtime env, in the generator
+> `scripts/operations/fetch-mastodon-env.sh` (lines 42–43) and in
+> `config/mastodon/mastodon.env.example` (lines 36–37). The measurement below proves
+> the claim was never needed: upstream hardcodes `config.force_ssl = true`
+> (`config/environments/production.rb`) and `https = Rails.env.production?`
+> (`config/initializers/1_hosts.rb`), so in production Rails always emits absolute
+> `https://` URLs and always redirects plain HTTP. Re-measured 2026-10-03:
+
+```console
+$ curl -s -o /dev/null -w '%{http_code} redirect=%{redirect_url}\n' http://127.0.0.1:3000/
+301 redirect=https://127.0.0.1:3000/
+```
+
+The local UI is therefore served over TLS by the loopback proxy (§9.2.1), not by
+relaxing Mastodon. Leaving the keys `true` keeps the env self-describing and matches
+what the generator actually writes.
+
+Registration state is also **not** as previously recorded here. Measured
+2026-10-03 against the live instance:
+
+```console
+$ curl -s https://mastodon.300x3.com/api/v1/instance | python3 -c "import sys,json;d=json.load(sys.stdin);print(d.get('registrations'), d.get('approval_required'))"
+False False
+```
+
+Registration is **closed** (`registrations` absent from the `settings` table, which
+Mastodon treats as disabled). There is therefore no approval queue to operate. See
+COMM-03 in §19.1.
 
 - WebFinger and actor JSON resolve through the public federation hostname.
 - The main storefront remains on `300x3.com` / `www.300x3.com`.
@@ -4078,6 +4563,30 @@ stated here, because a specification does not carry its own status.
 Steps 1 through 7 are complete; see §19.1 ST-13 and ST-14 for the evidence and for what
 remains on the federation edge.
 
+Step 8 status as measured 2026-10-03: **the reverse-follow verification half is done**
+and is recorded in §15.4.9, read from the remote `following` collection of
+`300x3@mastodon.social` and cross-checked against the local `follows` table — never from
+local outgoing state alone. A *fresh signed* ActivityPub round-trip is **not** re-run
+here, because doing so posts publicly and needs operator approval (COMM-07). The
+sidekiq queues are empty, which shows nothing is stuck:
+`LLEN queue:push_public = 0`, `LLEN queue:pull = 0`, and `redis-cli KEYS 'queue:*'`
+returns an empty array.
+
+Step 9 status as measured 2026-10-03: first contact **has** occurred, so the instance is
+no longer unindexed. Evidence — 10 distinct remote domains are now known locally
+(`mastodon.social`, `veganism.social`, `mastodon.online`, `universeodon.com`,
+`mastodonapp.uk`, `rivals.space`, `cupoftea.social`, `sekretaerbaer.de`, `fedibook.de`,
+`friendicadev.sekretaerbaer.de`) and `mastodon.social` holds our actor. The one part of
+step 9 not performed is the **human** step — signing in with Konqueror and following from
+the browser UI. That requires the operator at the desktop and is not something a headless
+session can or should fake. Tracked as COMM-06; status Open.
+
+Step 10 has two parts and neither is complete. Public-post delivery and round-trip
+re-validation need a **new public post**, which is an external publication and is
+withheld pending operator approval; directory submission to joinmastodon.org is
+explicitly named in §19.1 as requiring explicit operator approval. Neither was performed.
+Tracked as COMM-07; status Open.
+
 ### 15.4.5 Operational Boundaries After Enablement
 
 - Only `public` visibility federates; `unlisted`, `private`, and
@@ -4090,6 +4599,137 @@ remains on the federation edge.
   practically irreversible.
 - Publication audit logging (immutable, Section 15.2) must include the
   remote-delivery outcome for federated statuses.
+
+### 15.4.6 Remote Account Approval and Rejection Record
+
+This is the standing moderation record for **remote** accounts contacting this
+instance, deliberately kept separate from the local follow relationships in §15.4.4.
+It is written here so that an approval or rejection decision is auditable rather than
+inferred from follow state.
+
+State measured 2026-10-03 directly from the `mastodon-db` container:
+
+```console
+$ podman exec mastodon-db psql -U mastodon -d mastodon -At -c \
+  "select 'blocks='||(select count(*) from blocks)
+        ||' domain_blocks='||(select count(*) from domain_blocks)
+        ||' account_domain_blocks='||(select count(*) from account_domain_blocks)
+        ||' email_domain_blocks='||(select count(*) from email_domain_blocks)
+        ||' canonical_email_blocks='||(select count(*) from canonical_email_blocks)
+        ||' follow_requests='||(select count(*) from follow_requests)
+        ||' invites='||(select count(*) from invites)
+        ||' ip_blocks='||(select count(*) from ip_blocks)
+        ||' user_invite_requests='||(select count(*) from user_invite_requests);"
+blocks=0 domain_blocks=0 account_domain_blocks=0 email_domain_blocks=0
+canonical_email_blocks=0 follow_requests=0 invites=0 ip_blocks=0 user_invite_requests=0
+```
+
+| Date | Remote account | Action | Basis |
+|---|---|---|---|
+| 2026-10-01 | `300x3@mastodon.social` (remote mirror of the project's own service account, `actor_type=Service`, `bot=true`) | **Accepted** — bidirectional follow established with `bot` and `admin`. No block recorded. | Self-owned account; it is the project's own `300x3` mastodon.social identity, so blocking it would sever the operator's own remote presence. Not a third party. |
+| 2026-10-01 | `Gargron@mastodon.social` (remote third party, `actor_type=Person`) | **Accepted as a remote actor, not followed** — `bot` follows `Gargron`; no reverse follow exists and none is expected. No block recorded. | An ordinary public-account follow in the direction local→remote. Not a moderation event. |
+| — | All other contacting remote accounts | No action. Discovery relays (`veganism.social`, `mastodon.online`, `universeodon.com`, `mastodonapp.uk`, `rivals.space`, `cupoftea.social`, `friendica@sekretaerbaer.de`, `friendica@fedibook.de`, `friendica@friendicadev.sekretaerbaer.de`) are **automatically fetched service-discovery actors**, not user accounts and not approval candidates. | Discovery contacts are protocol artefacts, not sign-ups. |
+
+There are **no pending remote approval requests**: `follow_requests = 0` and
+`user_invite_requests = 0`, which is consistent with registration being closed (§15.4.2).
+Nothing in the moderation tables is self-populating, so this table is the record of
+record — a future block or approval must be added as a row here by the operator, per
+§15.4.1 "Operator duties". No remote account has been rejected to date.
+
+### 15.4.7 Inbound and Outbound Mail for the 300X3 Domain
+
+Mail for `300x3.com` is **not configured and currently cannot be delivered**. This is
+recorded here because Mastodon's account-confirmation and password-reset mail depends on
+it, and because "no MX" is a decision state, not an oversight.
+
+Measured 2026-10-03:
+
+```console
+$ dig +noall +answer MX 300x3.com; echo "answers=$(dig +noall +answer MX 300x3.com | wc -l)"
+answers=0
+$ dig +noall +answer TXT 300x3.com          # no SPF
+$ dig +noall +answer TXT _dmarc.300x3.com   # no DMARC
+$ dig +noall +answer A  mail.300x3.com      # no mail host
+$ ss -lntp | grep -E ':(25|465|587)\b'      # no local SMTP listener
+```
+
+With no MX, RFC 5321 §5.1 falls back to the implicit MX, which is the domain's A record
+(the Cloudflare edge addresses). Port 25 to those addresses does not answer:
+
+```console
+$ for IP in 172.67.163.66 104.21.41.83; do echo > /dev/tcp/$IP/25 && echo "$IP:25 OPEN" || echo "$IP:25 no-answer/closed"; done
+172.67.163.66:25 no-answer/closed
+104.21.41.83:25 no-answer/closed
+```
+
+Consequence: **all mail to `@300x3.com` is silently undeliverable.** This affects the
+local Mastodon accounts, whose registered addresses are `admin@300x3.com` and
+`bot@300x3.com`. Password resets and any confirmation mail cannot arrive. Because the
+instance has open registration closed and no pending approvals, this is currently
+non-blocking for federation, but it is a real gap.
+
+Resolution requires an operator decision between the options in §19.1 COMM-05 and is
+**not** taken unilaterally here: pointing MX at a hosted relay, standing up a local MTA
+(both a new public listener on port 25 and a new package — rule 3 and rule 12), or
+formally deferring mail and documenting that address-based recovery is unsupported.
+Tracked as COMM-05; status Open.
+
+### 15.4.8 Known Configuration Drift Against `mastodon.300x3.com`
+
+Reconciled audit performed 2026-10-03. **The service runtime is correct** — the live
+instance is genuinely `mastodon.300x3.com` and federation works. The drift is confined
+to documentation and helper artefacts, all of which emit the superseded apex
+`300x3.com`. The entries below are exact so the owning session can apply them without
+re-deriving the evidence; none of these files is owned by this session, so none was
+edited here.
+
+| # | File | Line | Currently | Should be | Consequence |
+|---|---|---|---|---|---|
+| D1 | `config/mastodon/mastodon.env.example` | 7 | `LOCAL_DOMAIN=300x3.com` | `LOCAL_DOMAIN=mastodon.300x3.com` | Template would provision a wrong-identity instance. **Highest severity of the four.** |
+| D2 | `scripts/operations/fetch-openclaw-mastodon-env.sh` | 17 | `printf 'MASTODON_SERVER=https://300x3.com\n'` | `https://mastodon.300x3.com` | `MASTODON_SERVER` points at the static storefront, so every consumer of this helper posts to a non-Mastodon host. |
+| D3 | `scripts/operations/fetch-openclaw-mastodon-env.sh` | 19 | `printf 'MASTODON_BOT_EMAIL=300x3@posteo.net\n'` | `bot@300x3.com` | Superseded third-party mailbox identity. |
+| D4 | `config/mastodon/instance-policy.yaml` | 9 | `"https://300x3.com at the Cloudflare edge ... tunnel ao-mastodon-federation"` | `https://mastodon.300x3.com` | Names the retired network name `ao-mastodon-federation` and the apex host. |
+| D5 | `config/mastodon/instance-policy.yaml` | 8, 16, 34 | `approved_pub_host: "300x3.com"`; Tokodon origin `https://300x3.com` | `mastodon.300x3.com` | Approved publication host must be the federation host. |
+| D6 | `config/mastodon/instance-policy.yaml` | 24 | `registrations: "open with approval gate (approval_required: true)"` | `"closed"` | **Contradicted by the live instance** (`registrations=false`); see §15.4.2. |
+| D7 | `config/mastodon/instance-policy.yaml` | 18–19 | `admin@300x3.com`, `bot@300x3.com` | correct — matches the database | No change. |
+| D8 | `config/platform/version-matrix.yaml` | 41 | `local_domain: "mastodon.300x3.com"` | correct | Already reconciled 2026-10-01. Images are digest-pinned at v4.3.7, matching the running container. |
+| D9 | `config/platform/version-matrix.yaml` | 51 | note: `RAILS_FORCE_SSL/LOCAL_HTTPS are set false but are INERT … loopback proxy at https://127.0.0.1:3300` | `set true`; and the proxy port is **3000**, not 3300 | **Second instance of the same §15.4.2 error**, plus an independent port typo. Propagates the false claim into the platform matrix. |
+
+Proof that D2/D3 are live rather than theoretical: `scripts/mastodon/post.sh` line 17
+calls `fetch-openclaw-mastodon-env.sh` on every invocation and line 21 consumes
+`MASTODON_SERVER`. Any `post.sh` run therefore targets `https://300x3.com`.
+
+Current versions confirmed correct and needing no change: Mastodon `4.3.7` (§15.3),
+`tunnel alwayson-mastodon-federation` running `--protocol http2`, and the runtime
+`LOCAL_DOMAIN=mastodon.300x3.com`. Tracked as COMM-01; status Open pending the edits
+above, which belong to the session owning `config/` and `scripts/`.
+
+### 15.4.9 Federation Contact Asymmetry (measured, not a fault)
+
+Recorded because it looks like drift and is not. Measured 2026-10-03 from both sides:
+
+```console
+$ curl -s 'https://mastodon.social/api/v1/accounts/115945980770248178/following?limit=80'
+count= 2
+admin@mastodon.300x3.com | https://mastodon.300x3.com/@admin
+bot@mastodon.300x3.com   | https://mastodon.300x3.com/@bot
+```
+
+The remote `following` collection of `300x3@mastodon.social` confirms **both** local
+accounts follow it — the acceptance condition for COMM-02, read from the remote server
+rather than inferred locally. The reverse is **not** symmetric: `300x3@mastodon.social`
+lists only `bot` among its followers, and local `follows` rows 3 and 4 (`300x3@mastodon.social`
+→ `bot`, → `admin`) were created by that remote account's own requests. `admin` has no
+outgoing remote follow. `bot` has none either, locally: the only local→remote row is
+`bot → admin` (row 1).
+
+`Gargron@mastodon.social` was paginated to exhaustion (25 pages, 2000 follower entries)
+and **does not** follow any `300x3.com` account. That is correct and expected: the
+`follows` row 2 (`Gargron → bot`) is a record that *Gargron* follows *our bot*, which is
+the remote account's business, not a reciprocal requirement.
+
+This asymmetry is a property of how ActivityPub follow requests work, not a defect. It
+is written down so a future session does not "fix" it by adding follows.
 
 ---
 
