@@ -152,16 +152,45 @@ sudo apt install -y \
   python3-pip
 ```
 
-Verify:
+Verify — **this block asserts and exits non-zero on failure**:
 
 ```bash
-podman version
-podman info --debug
-systemctl --user status
-loginctl show-user "$USER" -p Linger
-test "$(stat -fc %T /sys/fs/cgroup)" = "cgroup2fs" && echo "cgroups v2 active"
-sudo aa-status || true
+./scripts/validation/verify-host-baseline.sh
 ```
+
+That script is the asserting replacement for the block this section used to
+carry. The old block was replaced because it **could not fail**: the cgroup
+test `test "$(stat -fc %T /sys/fs/cgroup)" = "cgroup2fs" && echo ...` is
+silent when the test fails, nothing read its return code, and the block's
+overall exit status was 0 either way. Reproduced 2026-10-03 — breaking the
+cgroup check changed nothing and the block still exited 0. A check that
+cannot fail verifies nothing, so no §19.2 evidence could rest on it.
+
+The replacement was tested in both directions, because a verifier that only
+ever passes is the same defect wearing a new hat:
+
+```
+$ ./scripts/validation/verify-host-baseline.sh
+  PASS  podman responds (5.7.0)
+  PASS  systemd --user manager reachable
+  PASS  linger enabled (survives logout)
+  PASS  cgroup v2 unified hierarchy
+  PASS  aa-status present
+  WARN  aa-enforce MISSING - apparmor-utils not installed ...
+  --- 5 passed, 0 failed ---
+RESULT: PASS                                    # exit 0
+
+# with stat and loginctl stubbed to report a broken host:
+  FAIL  linger is 'Linger=no', expected 'yes' - containers stop at logout (OPS-13)
+  FAIL  cgroup fs type is 'tmpfs', expected 'cgroup2fs'
+  --- 3 passed, 2 failed ---
+RESULT: FAIL (2 check(s) failed)                # exit 1
+```
+
+It asserts the **value** of `Linger` rather than the presence of the key, and
+reports `aa-enforce` as a WARN with the reason, instead of passing on
+`aa-status` — which ships in the base `apparmor` package and succeeds even
+though no profile can actually be enforced on this host (see §2.3).
 
 ## 12.4 Rebuilding This Host From Nothing
 

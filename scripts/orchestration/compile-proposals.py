@@ -24,6 +24,8 @@ def esc(s):
     """Escape markdown-significant chars for an HTML cell, then re-mark code."""
     return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
+MARK = "<!-- proposal-applied:"
+
 def read_props():
     out = []
     for f in sorted(glob.glob(os.path.join(PROP, "*.md"))):
@@ -57,6 +59,23 @@ def main():
     props = read_props()
     if not props:
         print("no proposals"); return 0
+
+    # Idempotence: a ledger of applied proposals. Without it, re-running the
+    # compiler re-applied every update (PROGRESS text duplicated) and appended
+    # a second OPS-35 row - measured: OPS-35 appeared 3 times and the PROGRESS
+    # marker count went 30 -> 87 after two extra runs.
+    ledger_path = os.path.join(PROP, ".applied")
+    applied = set()
+    if os.path.exists(ledger_path):
+        applied = {l.strip() for l in open(ledger_path) if l.strip()}
+    fresh = [p for p in props if p["file"] not in applied]
+    skipped = [p for p in props if p["file"] in applied]
+    if skipped:
+        print("already applied, skipped : %d" % len(skipped))
+    props = fresh
+    if not props:
+        print("nothing new to apply"); return 0
+
     t = open(SEC, encoding="utf-8").read()
     i1, i2 = t.index("## 19.1"), t.index("## 19.2")
     # BUG (line 62): was `log1, log2 = t[:i1], t[i1:i2]`, so every close/update
@@ -118,6 +137,10 @@ def main():
         log1 = log1[:idx] + "\n" + row + log1[idx:]
 
     open(SEC, "w", encoding="utf-8").write(log1 + tail)
+    with open(ledger_path, "a") as fh:
+        for p in read_props():
+            if p["file"] in {q["file"] for q in fresh}:
+                fh.write(p["file"] + "\n")
     print("proposals read      : %d" % len(props))
     print("closed -> 19.2      : %d  (%s)" % (len(moved), " ".join(moved)))
     print("updated, stay in 19.1: %d" % len(updated))

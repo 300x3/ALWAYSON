@@ -3934,16 +3934,45 @@ sudo apt install -y \
   python3-pip
 ```
 
-Verify:
+Verify — **this block asserts and exits non-zero on failure**:
 
 ```bash
-podman version
-podman info --debug
-systemctl --user status
-loginctl show-user "$USER" -p Linger
-test "$(stat -fc %T /sys/fs/cgroup)" = "cgroup2fs" && echo "cgroups v2 active"
-sudo aa-status || true
+./scripts/validation/verify-host-baseline.sh
 ```
+
+That script is the asserting replacement for the block this section used to
+carry. The old block was replaced because it **could not fail**: the cgroup
+test `test "$(stat -fc %T /sys/fs/cgroup)" = "cgroup2fs" && echo ...` is
+silent when the test fails, nothing read its return code, and the block's
+overall exit status was 0 either way. Reproduced 2026-10-03 — breaking the
+cgroup check changed nothing and the block still exited 0. A check that
+cannot fail verifies nothing, so no §19.2 evidence could rest on it.
+
+The replacement was tested in both directions, because a verifier that only
+ever passes is the same defect wearing a new hat:
+
+```
+$ ./scripts/validation/verify-host-baseline.sh
+  PASS  podman responds (5.7.0)
+  PASS  systemd --user manager reachable
+  PASS  linger enabled (survives logout)
+  PASS  cgroup v2 unified hierarchy
+  PASS  aa-status present
+  WARN  aa-enforce MISSING - apparmor-utils not installed ...
+  --- 5 passed, 0 failed ---
+RESULT: PASS                                    # exit 0
+
+# with stat and loginctl stubbed to report a broken host:
+  FAIL  linger is 'Linger=no', expected 'yes' - containers stop at logout (OPS-13)
+  FAIL  cgroup fs type is 'tmpfs', expected 'cgroup2fs'
+  --- 3 passed, 2 failed ---
+RESULT: FAIL (2 check(s) failed)                # exit 1
+```
+
+It asserts the **value** of `Linger` rather than the presence of the key, and
+reports `aa-enforce` as a WARN with the reason, instead of passing on
+`aa-status` — which ships in the base `apparmor` package and succeeds even
+though no profile can actually be enforced on this host (see §2.3).
 
 ## 12.4 Rebuilding This Host From Nothing
 
@@ -6368,41 +6397,7 @@ OPS-B; and the matrix rows need editing, and `config/platform/version-matrix.yam
 to edit. Recorded in §2.5, left for the compiler and OPS-B.<br><br><strong>Evidence:</strong><br><code># the nginx:alpine row PLAT-02 names is already gone<br>$ grep -rn 'nginx:alpine' . --exclude-dir=.git | grep -E '^\./(quadlet|config)/'<br>(no output)<br>$ sed -n '6,7p' quadlet/sim-fabrication/ao-sim-fabrication-portal.service<br># THIS REPLACES "gazebo-portal". That container was a throwaway nginx whose<br># docroot was the stock /usr/share/nginx/html<br>$ grep -n 'image_nginx' config/platform/version-matrix.yaml<br>46:  image_nginx: "not in use - the :8765 portal is the ao-sim-fabrication-portal.service python3 host process"</code></td>
 </tr>
 
-<tr>
-<td valign="top">PLAT-04</td>
-<td valign="top">Asserting install verification</td>
-<td valign="top">ST-01, ST-25</td>
-<td valign="top"><strong>Open</strong></td>
-<td valign="top">§12.3</td>
-<td valign="top">The §12.3 verify block prints values without asserting them, and the cgroup check is silent on failure. Add real assertions.<br><br><strong>PROGRESS by 02-platform-baseline.</strong> **§12.3's verify block cannot fail, so it verifies nothing.** I ran its five commands as
-written and then broke the cgroup check. The output above is the reproduction: the failing
-`test` prints nothing, returns 1, nothing reads that return code, and **the script's overall
-exit status is 0 either way**.
 
-Two distinct defects:
-
-1. The line `test "$(stat -fc %T /sys/fs/cgroup)" = "cgroup2fs" &amp;&amp; echo "cgroups v2 active"` is
-   **silent on failure**. The `&amp;&amp;` makes the `echo` conditional, so a failing check produces no
-   output at all — indistinguishable from a check that was never run.
-2. No `set -e`, no aggregate status, no expected-vs-observed reporting. Even the checks that do
-   print (`loginctl show-user -p Linger`) state no expected value, so a reader cannot tell a
-   passing check from an unexpected value.
-
-This is the same defect §19 `OPS-15` records — evidence rows without a command, a date, and a
-criterion — showing up in the verify block that is supposed to produce that evidence.
-
-**Requirement recorded** in new **§2.4** of my section: the verify block must exit non-zero
-when any check fails, and name the expected value beside each observed one. Recorded as a
-requirement rather than fixed, because **§12.3 is owned by the OPS-B session** and I do not edit
-another group's section file.
-
-**What I got wrong.** My first instinct was to fix the block, since it is a shell snippet and
-I could have written a corrected one into a proposal in under a minute. I did not, because the
-text that must change is inside §12.3 — a file that belongs to OPS-B and that the compiler
-merges. A correct patch sitting in a proposal would not change the document anyone reads, so it
-would have looked like a fix while changing nothing. Unblocking OPS-B with a diagnosis was
-worth more than a patch to the wrong file.<br><br><strong>Evidence:</strong><br><code># §12.3's verify block run exactly as written<br>$ bash /tmp/verify-asis.sh<br>Linger=yes<br>cgroups v2 active<br>cgroup line rc=0<br>--- now simulate the cgroup check FAILING:<br>last rc=1  &lt;-- silent, no output, script continues<br>OVERALL SCRIPT EXIT=0</code></td>
-</tr>
 <tr><td colspan="6" style="background-color:#c9ccd1; border-top:2px solid #8a8f98; border-bottom:1px solid #8a8f98; padding:5px 8px; font-weight:bold; letter-spacing:0.04em;">NET · Networks, adapters and isolation — 4 items, all Open</td></tr>
 <tr>
 <td valign="top">NET-01</td>
@@ -8257,6 +8252,35 @@ verification checks against the running system. Nothing listed here is outstandi
 </tr>
 </thead>
 <tbody>
+<tr>
+<td valign="top">PLAT-04</td>
+<td valign="top">Asserting install verification</td>
+<td valign="top">ST-01, ST-25</td>
+<td valign="top"><strong>Implemented</strong></td>
+<td valign="top">§12.3</td>
+<td valign="top"><strong>CLOSED 12-host-installation-and-configuration.</strong> §12.3's verify block now asserts. The old block is replaced by
+`scripts/validation/verify-host-baseline.sh`, which exits non-zero on any
+failure and names the check that failed.
+
+The defect was that the block could not fail at all. Its cgroup line was
+`test "$(stat -fc %T /sys/fs/cgroup)" = "cgroup2fs" &amp;&amp; echo ...`, which is
+silent when the test fails; nothing read its return code; and the block's
+overall exit status was 0 either way. Reproduced before the change: breaking
+the cgroup check left the output unchanged and the script still exited 0.
+
+Two details worth recording. It asserts the **value** of `Linger`, not merely
+that the key exists, because without linger every container stops at logout.
+And it reports `aa-enforce` as a WARN naming the cause rather than passing on
+`aa-status` — `aa-status` ships in the base `apparmor` package and succeeds
+even though no profile can be enforced on this host, since `apparmor-utils`
+is not installed. That absence is recorded in §2.3 and installing it needs
+operator approval, so it is surfaced, not silently passed.
+
+Tested in both directions on purpose: a verifier that only ever passes would
+be the same defect in new clothing. The failing case above is a genuine
+negative control run with `stat` and `loginctl` stubbed, not a claim about a
+host in that state.<br><br><strong>Evidence:</strong><br><code>$ bash scripts/validation/verify-host-baseline.sh ; echo "exit=$?"<br>=== ALWAYS ON host baseline verification (asserting) ===<br>  PASS  podman responds (5.7.0)<br>  PASS  systemd --user manager reachable<br>  PASS  linger enabled (survives logout)<br>  PASS  cgroup v2 unified hierarchy<br>  PASS  aa-status present<br>  WARN  aa-enforce MISSING - apparmor-utils not installed, so no profile can be<br>  WARN    enforced or inspected. §2.3 records this; install needs operator approval.<br>--- 5 passed, 0 failed ---<br>RESULT: PASS<br>exit=0</code></td>
+</tr>
 <tr>
 <td valign="top">SIM-14</td>
 <td valign="top"><strong>RL objects are a catalogue, not world entities</strong></td>
