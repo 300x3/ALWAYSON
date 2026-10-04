@@ -8,7 +8,7 @@ History only exists from when collect-metrics.py started running. With a single
 record the graph has one point and says so, rather than drawing a flat line
 that implies a measured trend.
 """
-import json, os, html, datetime as dt
+import json, os, re, html, datetime as dt
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 SRC = os.path.join(ROOT, "artifacts/dashboard/metrics/19-progress.jsonl")
@@ -17,6 +17,45 @@ GROUPS = ["PLAT", "NET", "SEC", "LEDGER", "PAY", "COMM", "FIELD", "SIM", "OPS"]
 COL = {"PLAT": "#4c78a8", "NET": "#f58518", "SEC": "#e45756", "LEDGER": "#72b7b2",
        "PAY": "#54a24b", "COMM": "#eeca3b", "FIELD": "#b279a2", "SIM": "#ff9da6",
        "OPS": "#9d755d"}
+
+# Items that cannot proceed without an operator decision. Kept here as data so
+# the dashboard derives the questions from the log instead of maintaining a
+# separate list that drifts.
+DECISIONS = {
+ "PLAT-02":  "Approve the version-matrix refresh scope, or defer it?",
+ "NET-01":   "Enable ao-build-update egress, or keep it scaffolded and disabled?",
+ "SEC-01":   "Migrate the three databases to Podman secrets / systemd credentials, "
+             "or record an approved deviation with compensating controls?",
+ "SEC-02":   "Record the env-file secret-delivery deviation, or migrate? "
+             "(also closes the ~/secrets/fabrication-db.env noted in ST-30)",
+ "LEDGER-01": "Perform the Corda key/certificate ceremony, or defer the ledger?",
+ "LEDGER-02": "Build Corda 5 against PostgreSQL 18 - approve the build?",
+ "LEDGER-03": "Define the approved-signed-data test for ingest, and who signs?",
+ "LEDGER-04": "pCloud archive credentials - provision, or defer off-site archiving?",
+ "LEDGER-07": "Build the Corda node now, or leave the ledger non-production?",
+ "PAY-01":   "Provision payment credentials into KDE Wallet ao-payment?",
+ "PAY-02":   "Approve the payment verifier and normalized event model before build?",
+ "PAY-05":   "Ship live HTML views for product modals, or keep static?",
+ "COMM-01":  "Approve the Mastodon configuration drift reconciliation (D1-D9)?",
+ "COMM-05":  "300x3.com has no MX - set mail routing, or accept undeliverable mail?",
+ "COMM-06":  "Bootstrap discovery for remote servers - approve the mechanism?",
+ "COMM-07":  "Publish publicly: directory submission and live round trips?",
+ "SIM-01":   "Set the DDS/Gazebo GUI policy - which clients may connect?",
+ "SIM-07":   "ROS 2 package source is unreachable over TLS - mirror, or work around?",
+ "SIM-08":   "Publish the Gazebo viewer at www.300x3.com?",
+ "OPS-01":   "Metabase: approve the persistence schema and first read-only query?",
+ "OPS-07":   "One canonical journal root - which path wins?",
+ "OPS-09":   "Approve the restic path set covering every data class?",
+ "OPS-11":   "Set alerting thresholds, or accept silent failure?",
+ "OPS-13":   "Enable and verify linger (needs a reboot-free change)?",
+ "OPS-14":   "Reconcile the Podman store model - rootless single-store, or mixed?",
+ "OPS-16":   "Clean up stray simulation containers and world backups in the tree?",
+ "OPS-24":   "Approve an isolated restore-test path so the restore drill can run?",
+ "OPS-28":   "Prometheus is on a loopback port any local process can query - bind policy?",
+ "OPS-30":   "Off-site restic repository: provision, or accept no off-site copy?",
+ "OPS-31":   "Backup shares a filesystem with its data - move to separate media?",
+ "OPS-29":   "(duplicate of OPS-30 - same question, closing one closes both)",
+}
 
 def load():
     recs = []
@@ -122,6 +161,30 @@ def main():
     svg.append("</svg>")
     graph = "".join(svg)
 
+    # ---- approval questions: always rendered, derived from the log ----
+    sec = open(os.path.join(ROOT, "agents/COORDINATION/19-current-status-and-outstanding-work/section.md"), encoding="utf-8").read()
+    def cl(x): return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", "", x)).strip()
+    orows = [[cl(c) for c in re.findall(r"<td[^>]*>(.*?)</td>", r, re.S)]
+             for r in sec[sec.index("## 19.1"):sec.index("## 19.2")].split("<tr>")]
+    open_ids = {r[0] for r in orows
+                if len(r) == 6 and re.match(r"^[A-Z]+-\d+$", r[0]) and r[3] == "Open"}
+    qs = []
+    for item in sorted(DECISIONS):
+        if item in open_ids:
+            qs.append('<li><span class=qid>%s</span> %s</li>'
+                       % (html.escape(item), html.escape(DECISIONS[item])))
+    if qs:
+        questions = (
+            '<div class=panel id=approvals>'
+            '<h2>Decisions needed from you</h2>'
+            '<p class=note2>These %d items are blocked on an operator decision and cannot '
+            'be completed by an agent. Answer any of them and the owning session can '
+            'proceed. Items disappear from this list as they close.</p>'
+            '<ol class=qs>%s</ol></div>' % (len(qs), "".join(qs)))
+    else:
+        questions = ('<div class=panel id=approvals><h2>Decisions needed from you</h2>'
+                     '<p class=note2>Nothing is blocked on a decision right now.</p></div>')
+
     hist = ("history: %d hourly record%s%s" % (n, "" if n == 1 else "s",
             " — the graph fills in as the hourly job runs"
             if n == 1 else ""))
@@ -157,6 +220,14 @@ tr.tot td{border-top:2px solid #dfe3e8;font-weight:700;background:#fafbfc}
 .lg{fill:#5b6472;font-size:11px}
 .k{stroke:#9aa3b0;stroke-width:2}
 .note{color:#6b7280;font-size:12px;margin-top:8px}
+#approvals{border-color:#e0c48c;background:#fffdf7}
+#approvals h2{font-size:15px;margin:0 0 4px;color:#7a5c15}
+.note2{color:#6b5a2e;font-size:12.5px;margin:0 0 10px}
+ol.qs{margin:0;padding-left:0;list-style:none;counter-reset:q}
+ol.qs li{padding:7px 10px;border-left:3px solid #e0c48c;background:#fff;margin-bottom:6px;
+ font-size:13.5px;line-height:1.5}
+.qid{display:inline-block;min-width:82px;font-weight:700;color:#7a5c15;
+ font-family:"DejaVu Sans Mono",monospace;font-size:12px}
 </style><div class=wrap>
 <h1>ALWAYS ON &mdash; section 19 work items</h1>
 <div class=sub>outstanding (19.1) vs completed (19.2) per work group &middot; snapshot @WHEN@ UTC</div>
@@ -170,6 +241,7 @@ tr.tot td{border-top:2px solid #dfe3e8;font-weight:700;background:#fafbfc}
 <thead><tr><th>Work group</th><th>Outstanding</th><th>Completed</th><th>Total</th>
 <th>Done</th><th>Items</th></tr></thead><tbody>@ROWS@</tbody></table></div>
 <div class=panel>@GRAPH@<div class=note>@HIST@</div></div>
+@QUESTIONS@
 </div></html>"""
     # Token substitution, not %-formatting: the stylesheet is full of literal
     # % and {} which %-formatting and str.format both mangle.
@@ -181,7 +253,8 @@ tr.tot td{border-top:2px solid #dfe3e8;font-weight:700;background:#fafbfc}
             .replace("@PCT@", str(int(100.0 * td / (to + td)) if (to + td) else 0))
             .replace("@ROWS@", "".join(rows))
             .replace("@GRAPH@", graph)
-            .replace("@HIST@", hist))
+            .replace("@HIST@", hist)
+            .replace("@QUESTIONS@", questions))
 
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     open(OUT, "w", encoding="utf-8").write(page)
