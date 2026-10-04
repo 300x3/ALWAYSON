@@ -1,0 +1,207 @@
+# ALWAYS ON - Prometheus alerting rules (README 17.2, OPS-11). Added 2026-10-03.
+#
+# Referenced from prometheus.yml via rule_files. It is a SEPARATE file because
+# Prometheus rejects a top-level `groups:` key in prometheus.yml itself
+# (measured: promtool check config -> "line 69: field groups not found in type
+# config.plain"). rule_files entries are glob-relative to Prometheus's working
+# directory inside the container, so this file must be bind-mounted at
+# /etc/prometheus/alwayson-alerts.yml -- see the ao-prometheus quadlet.
+#
+# Coverage is deliberately partial; the header comment above the rules below
+# lists exactly which README 17.2 conditions are covered and which are not,
+# and why. Do not delete that block when editing.
+#
+# MEASURED BEFORE WRITING: `curl -s localhost:9090/api/v1/rules` returned
+# data.groups: 0. The eleven required alert conditions in README 17.2 had NO
+# implementation and no rule file existed in this directory. This is the first
+# rule set.
+#
+# COVERAGE IS DELIBERATELY PARTIAL. Each rule names the README 17.2 condition
+# it covers. The remainder are absent because the metric does not exist on this
+# host, NOT because the condition was forgotten:
+#
+#   covered .... disk pressure, filesystem read-only, backup staleness,
+#                restore-test staleness, repository verify staleness, host
+#                memory, host load, kernel errors, exporter health
+#   NOT covered  failed payment verification, radio disconnection, WebODM
+#                backlog, GPU contention, expired certificates, denied
+#                cross-domain traffic, unexpected listeners
+#
+# For those, §17.2 names the condition but nothing exports the metric.
+# Measured: node_systemd_unit_state returns 0 series (no systemd exporter),
+# and this file scrapes exactly two jobs -- prometheus and node-host -- so
+# per-domain conditions have no source. An alert on an absent metric fires
+# forever or never, which is worse than an acknowledged gap. OPS-11 stays OPEN
+# for the remainder.
+#
+# Every expression below was checked against a live query first; the measured
+# series counts are in the comments.
+# ---------------------------------------------------------------------------
+groups:
+  - name: ao-storage
+    interval: 60s
+    rules:
+      # README 17.2 "disk pressure".
+      # Measured: node_filesystem_avail_bytes 12 series, size_bytes 12 series.
+      # 15% free for 30m. The photogrammetry drive is deliberately NOT
+      # excluded: it is the WebODM target volume, so filling it stops mapping.
+      - alert: AoFilesystemLowSpace
+        expr: |
+          (
+            node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs"}
+            / node_filesystem_size_bytes{fstype!~"tmpfs|overlay|squashfs"}
+          ) < 0.15
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "ALWAYS ON: less than 15% free on {{ $labels.mountpoint }}"
+          description: >-
+            Filesystem {{ $labels.device }} at {{ $labels.mountpoint }} is below
+            15% free. The nightly restic backup writes into this filesystem, so
+            a full disk fails the backup as well as the domain.
+
+      - alert: AoFilesystemCriticallyFull
+        expr: |
+          (
+            node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs"}
+            / node_filesystem_size_bytes{fstype!~"tmpfs|overlay|squashfs"}
+          ) < 0.05
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "ALWAYS ON: less than 5% free on {{ $labels.mountpoint }}"
+          description: >-
+            {{ $labels.device }} at {{ $labels.mountpoint }} is critically full.
+            Neither backups nor restores can be trusted in this state.
+
+      # A read-only mount is a silent data-loss condition: writes fail and
+      # nothing reports an error anywhere.
+      - alert: AoFilesystemReadOnly
+        expr: node_filesystem_readonly{fstype!~"tmpfs|overlay|squashfs"} == 1
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "ALWAYS ON: {{ $labels.mountpoint }} is read-only"
+          description: >-
+            {{ $labels.device }} at {{ $labels.mountpoint }} is mounted
+            read-only. Writes are failing silently.
+  - name: ao-backup
+    interval: 60s
+    rules:
+    # README 17.2 "backup failure" / "Last success".
+    #
+    # The source is /ALWAYSON/logs/backup.log, already ingested through the
+    # node_exporter textfile collector. That is the only mechanism available
+    # without installing a systemd exporter (measured: node_systemd_unit_state
+    # returns 0 series).
+    #
+    # ao_backup_last_success_timestamp_seconds is the metric this rule needs.
+    # Until the collector emits it this rule is INERT and must not be counted
+    # as coverage -- see the partial-coverage note at the top.
+    #
+    # 93600s = 26h = the 24h backup interval plus 2h margin. ao-restic-backup
+    # fires 03:30 with RandomizedDelaySec=600 (measured from the installed
+    # unit), so 26h tolerates one skipped or delayed slot without flapping.
+    - alert: AoBackupStale
+      expr: (time() - ao_backup_last_success_timestamp_seconds) > 93600
+      for: 15m
+      labels:
+        severity: critical
+      annotations:
+        summary: "ALWAYS ON: no successful restic backup in over 26 hours"
+        description: >-
+          ao-restic-backup.timer (03:30 daily, README 17.1) has not recorded a
+          success within one backup interval plus 2h margin. The recovery
+          point objective in README 17.4 is exceeded.
+  
+    # README 17.2 "restore-test result". README 17.1 makes the isolated
+    # restore test MONTHLY, so the budget is 35 days (3024000s), not 26h.
+    # A backup that has never been restored is an assumption, not a backup.
+    - alert: AoRestoreTestStale
+      expr: (time() - ao_restore_test_last_pass_timestamp_seconds) > 3024000
+      for: 1h
+      labels:
+        severity: warning
+      annotations:
+        summary: "ALWAYS ON: no passing restore test in over 35 days"
+        description: >-
+          README 17.1 requires a monthly isolated restore test. Absent a pass,
+          recovery capability is unproven.
+  
+    # README 17.2 "repository health". ao-restic-verify runs Sun 04:30, so
+    # 777600s = 9 days = one weekly interval plus margin. Integrity problems
+    # otherwise stay invisible until a restore is actually needed.
+    - alert: AoRepositoryVerifyStale
+      expr: (time() - ao_backup_last_verify_timestamp_seconds) > 777600
+      for: 1h
+      labels:
+        severity: warning
+      annotations:
+        summary: "ALWAYS ON: no repository integrity check in over 9 days"
+        description: >-
+          ao-restic-verify.timer (Sun 04:30, README 17.1) has not recorded a
+          successful repository check.
+  
+  - name: ao-host
+    interval: 60s
+    rules:
+    # README 17.2 Host row.
+    # Measured 2026-10-03: node_memory_MemAvailable_bytes 1 series,
+    # node_load1 1 series.
+    - alert: AoMemoryLow
+      expr: |
+        node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes < 0.10
+      for: 15m
+      labels:
+        severity: warning
+      annotations:
+        summary: "ALWAYS ON: less than 10% memory available"
+        description: >-
+          Available memory below 10% of total for 15 minutes. Gazebo, WebODM
+          and Mastodon share this host, so pressure hits all three.
+  
+    - alert: AoLoadHigh
+      expr: node_load1 / count(node_cpu_seconds_total{mode="idle"}) > 1.5
+      for: 30m
+      labels:
+        severity: warning
+      annotations:
+        summary: "ALWAYS ON: load average above 1.5 per CPU"
+        description: "Sustained load above 1.5 per logical CPU for 30 minutes."
+  
+  - name: ao-collector
+    interval: 60s
+    rules:
+    # Scraper health. Without this rule a dead exporter silently disables
+    # every rule above: `up` going to 0 is the only thing that distinguishes
+    # "the system is fine" from "we stopped watching".
+    # Measured 2026-10-03: both targets up (node-host, prometheus).
+    - alert: AoExporterDown
+      expr: up == 0
+      for: 5m
+      labels:
+        severity: critical
+      annotations:
+        summary: "ALWAYS ON: target {{ $labels.instance }} ({{ $labels.job }}) is down"
+        description: >-
+          Scrape target {{ $labels.instance }} for job {{ $labels.job }} has
+          been failing for 5 minutes. Every rule in this file is blind while
+          a target is down.
+  
+    # collect-db-security.py is a host-side timer, not a scrape target. If
+    # its output stops, the alwayson_db_* security facts go stale silently
+    # rather than failing loudly. Budget 3600s matches its 60s schedule with
+    # generous margin.
+    - alert: AoDbSecurityCollectorStale
+      expr: (time() - ao_db_security_collector_last_run_timestamp_seconds) > 3600
+      for: 30m
+      labels:
+        severity: warning
+      annotations:
+        summary: "ALWAYS ON: database security collector has not run in over an hour"
+        description: >-
+          collect-db-security.py is scheduled every 60s. A stale timestamp
+          means the alwayson_db_* series are frozen, not current.

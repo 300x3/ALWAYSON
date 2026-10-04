@@ -36,3 +36,15 @@ scrape_configs:
   #
   # No credential is ever given to Prometheus. The collector holds the
   # wallet-backed read identity and writes only metric lines.
+
+# Alerting rules live in a SEPARATE file, alwayson-alerts.yml, loaded here via
+# rule_files. Prometheus rejects a top-level `groups:` key in prometheus.yml
+# itself (measured: `promtool check config` -> "field groups not found in type
+# config.plain"), so the rules cannot be inlined. That file also lists which
+# README 17.2 alert conditions are covered and which are deliberately left
+# open, and why -- do not drop it.
+#
+# rule_files paths are resolved inside the container, so alwayson-alerts.yml
+# must be bind-mounted at this path. See the ao-prometheus quadlet.
+rule_files:
+  - /etc/prometheus/alwayson-alerts.yml
