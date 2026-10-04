@@ -68,6 +68,37 @@ them and the units that run them.
 | Repository integrity check | `scripts/backup/verify-backup.sh` | `ao-restic-verify.service` | `ao-restic-verify.timer` | Sun 04:30 |
 | Seven-step restore test | `scripts/restore/restore-restic-drill.sh` | none yet — see below | none yet | manual; **OPS-24 stays open until a timer exists** |
 
+**The seven-step contract has an executor: OPS-04 closed 2026-10-04.** The
+requirement is not owned by the `check-*.sh` validators — those verify the
+installed state, and none of them opens a repository or restores anything. It is
+owned by `scripts/restore/restore-restic-drill.sh`, one script, one function per
+step, each printing a `STEP n:` banner. The mapping is not a claim about intent,
+it is the script's own control flow:
+
+| §17.1 requirement | Implemented at | How it is proved to be able to fail |
+|---|---|---|
+| 1. Restore to an isolated path or host | L77 `restic restore --target "$scratch_abs"` | Three refusals, all reproduced 2026-10-04 (below) |
+| 2. Validate database integrity | L84 gzip `-t` plus a 1024-byte floor per dump | A truncated or empty dump increments `db_bad`, which forces `result=FAIL` |
+| 3. Recalculate artifact hashes | L104 `sha256sum` over every restored file | Writes `.drill-hashes.txt`; count is printed and asserted against the find |
+| 4. Compare with stored manifests | L110 per-file compare against the **live** tree | Three buckets: drift, suspect (mtime older than snapshot), live-only. `suspect > 0` forces `result=FAIL` |
+| 5. Verify Corda receipts/manifests | L162 finds `pending-ledger-submissions` manifests | Prints an explicit "path-set observation, not a pass" when zero are found |
+| 6. Record operator, ID, result, exceptions | L170 prints operator, snapshot, repo and all counters | The `result=` line is the only value step 7 branches on |
+| 7. Alert on failure | L179 non-zero exit plus an operator-facing instruction | Exit 1 is what any caller or unit would detect |
+
+**One honest deviation, recorded rather than smoothed over.** §17.1 step 4 says
+"compare hashes with stored manifests". There is no stored per-file manifest of
+the backed-up set — measured: `find artifacts -maxdepth 2 -name '*.sha256*'`
+returns only three upstream Corda download checksums
+(`artifacts/corda-5.2.2/*.sha256sum`), which are vendor checksums for jars and
+packages, not a manifest of what restic backed up. The drill therefore compares
+the restored tree against the **live** tree, which answers a different question:
+*did anything change since the snapshot*, rather than *does the snapshot match a
+recorded baseline*. That is arguably the more useful question for a restore drill
+and it is stricter about corruption, because the suspect-bucket test can fail
+where a manifest comparison would only report a mismatch. But it is not the
+requirement's wording, and inventing a baseline manifest would mean new backup
+behaviour, which is OPS-09's decision and not this session's.
+
 `install-backup-schedule.sh` installs the two root-level restic units. The
 `ao-db-dump` timer is armed only during a graphical session because host-database
 passwords come from KDE Wallet, so a pre-login firing could only fail;
