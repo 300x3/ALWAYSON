@@ -20,8 +20,9 @@ runs Kubuntu 26.04 LTS on an Intel Core i7-8700K with an NVIDIA GTX 1080. Comput
 production workloads may move to an immersion-cooled server rack and a Raspberry Pi
 edge-computing cluster.
 
-Kubuntu is the desktop for four reasons: it is built on Ubuntu LTS with support through April
-2031, giving a predictable maintenance horizon; it carries the ROS 2 and Gazebo toolchain plus
+Kubuntu is the desktop for four reasons: it is built on Ubuntu LTS with standard security
+maintenance to May 2031, giving a predictable maintenance horizon; it carries the ROS 2 and
+Gazebo toolchain plus
 QGroundControl that the simulation work depends on; KDE Plasma provides the login-gated KDE
 Wallet secret flow (§14.1) and Konqueror as the dedicated automation browser; and the KDE
 suite covers the desktop and portable hardware this system is built for.
@@ -71,3 +72,23 @@ operator runs `~/Documents/APP IMAGES/QGroundControl-x86_64.AppImage`, which has
 a locally built image (`localhost/foxglove-bridge`) rather than a pinned upstream digest. Those
 two are simulation-toolchain facts and belong to the SIM group's inventory; they are noted here
 only so §1 does not read as a package manifest.
+
+**Support-horizon correction, same date.** This paragraph previously gave the maintenance
+horizon as "April 2031". Canonical's published release-cycle table gives **May 2031**, and
+the month was the substance of the claim — a maintenance horizon is only useful if it is the
+right one. Measured 2026-10-04 from `ubuntu.com/about/release-cycle`:
+
+```
+26.04 LTS   Released: Apr 2026
+            Standard security maintenance    May 2031
+            Expanded security maintenance    May 2036
+```
+
+Two things follow that are worth more than the date. The horizon is **standard security
+maintenance, not full support** — extended to May 2036 with Ubuntu Pro, so the 2031
+figure is when routine maintenance stops, not when the release stops being usable. And this
+section's "Kubuntu" claim is about the *Ubuntu LTS base*, whose cycle is the table above;
+flavour cycles are maintained separately by their own communities and are not covered by
+Canonical's dates. Since this host is Ubuntu 26.04.1 LTS with KDE Plasma rather than
+Kubuntu proper (see the correction above), the base table is in fact the correct one to cite
+— but a reader should not take the flavour's support window to be the same number.
