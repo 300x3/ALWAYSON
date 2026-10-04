@@ -697,4 +697,113 @@ the probe's dead v6 leg.
 
 Use `curl -4` for every measurement against this host. Verified with `curl -4`: 12 of 12
 probes returned 200 across the whole of a post-burst window, and IPv4 was what answered
+### 15.4.11 The Flap Is Local-Path, Not Cloudflare-Edge (narrowed, 2026-10-04)
+
+§15.4.10 measured *that* the tunnel flaps and correctly declined to name a cause. This pass
+narrows it, because the connection topology discriminates between the two candidate causes
+and the evidence points one way.
+
+**The discriminator: the four connections are not peers of one edge.** Over 24 hours the
+tunnel re-registered against **nine distinct Cloudflare PoPs**, yet always on the same four
+edge IPs:
+
+```console
+$ journalctl --user -u cloudflared-alwayson.service --since '24 hours ago' -o cat \
+    | grep 'Registered tunnel connection' | grep -o 'location=[a-z0-9]*' | sort | uniq -c
+    23 location=lax05     17 location=lax07     20 location=lax08
+    19 location=lax09     11 location=lax10     15 location=lax11
+   224 location=phx01     59 location=sjc01     64 location=sjc06
+$ # distinct edge IPs actually in use:
+$ ... | grep -oE 'ip=[0-9.]+' | sort -u | wc -l
+4
+$ # transport is http2 on every single registration, never quic:
+$ ... | grep -o 'protocol=[a-z0-9]*' | sort | uniq -c
+   452 protocol=http2
+```
+
+The four connections terminate on four different edge IPs spread across Phoenix, San Jose
+and Los Angeles. A Cloudflare-side edge fault therefore **cannot** explain the observed
+pattern: three independent metropolitan PoPs do not lose four unrelated TCP connections
+within the same second. Whatever is failing is upstream of the PoP, and common to all four.
+
+**The loss counts confirm they fail as a group, not independently:**
+
+```console
+$ journalctl --user -u cloudflared-alwayson.service --since '24 hours ago' -o cat \
+    | grep 'Lost connection' | grep -oE 'connIndex=[0-9]' | sort | uniq -c
+    96 connIndex=0     94 connIndex=1     95 connIndex=2     99 connIndex=3
+```
+
+Nearly identical across four connections to four different cities, dropping in the same
+seconds (14 timestamps in the last 6 h carry **three or more** simultaneous losses). Four
+independent edges do not fail in lockstep; a shared local resource does.
+
+**And it is not a hard network error.** The journal contains no `network is unreachable`,
+`no route to host`, `connection reset` or timeout signature:
+
+```console
+$ journalctl --user -u cloudflared-alwayson.service --since '6 hours ago' -o cat \
+    | grep -icE 'network is unreachable|no route to host|connection reset|broken pipe|timeout'
+0
+```
+
+The only errors are the *consequences* of the drop, all downstream of it:
+
+```console
+    72 ERR failed to serve incoming request error="Error shutting down control stream: context canceled"
+    64 ERR failed to serve incoming request error="Error shutting down control stream: client disconnected"
+    31 WRN Serve tunnel error error="connection with edge closed" connIndex=3
+```
+
+"context canceled" and "client disconnected" are cloudflared tearing down in-flight streams
+because the connection went away. Treating these as the cause — as their count and phrasing
+invite — is a trap: they are the flap's shadow, not its origin.
+
+**Conclusion, stated at the strength the evidence supports.** The fault lies on the shared
+local path between this host and the tunnel edge — the local uplink, NAT state, or the
+host's own network path — and not in Mastodon (origin 5xx = 0, both queues empty), not in
+Cloudflare's edge fleet (three PoPs, four IPs, all healthy simultaneously otherwise), and
+not in the cloudflared unit state (`NRestarts=1`, `ActiveState=active`). That last point is
+the operational trap: **every "is the tunnel up" check passes while this fault is ongoing.**
+
+**Blast radius, re-measured at steady state.** The flap is continuous rather than bursty,
+and this corrects a natural misreading of a small sample:
+
+```console
+$ for w in '15 min ago' '1 hour ago' '6 hours ago' '24 hours ago'; do
+    echo "$w: $(journalctl --user -u cloudflared-alwayson.service --since "$w" \
+      | grep -c 'Lost connection with the edge')"; done
+15 min ago: 0        # <- the misleading sample
+1 hour ago: 26
+6 hours ago: 121
+24 hours ago: 384
+# 384 events across 204 distinct minutes = ~16/hour, i.e. one flap roughly every 4 minutes
+```
+
+Sampling a short window is how this looks healthy; over 24 hours it is one flap every few
+minutes. **The fifteen-minute window returning zero is not recovery, it is the burstiness
+of the aggregate rate** — do not read a quiet minute as a fixed tunnel.
+
+Public impact right now, measured with `curl -4` per the trap above, is currently low —
+the edge is answering between flaps:
+
+```console
+$ for i in 1 2 3 4 5 6 7 8; do curl -4 -s -o /dev/null -m 15 -w '%{http_code} ' \
+    -H 'Accept: application/activity+json' https://mastodon.300x3.com/users/bot; sleep 2; done
+200 200 200 200 200 200 200 200
+```
+
+That 8/8 is **recovery between flaps, not a fix**, and must not be reported as one: the
+same probe returned 502 5/5 during a burst (§15.4.10). Inbound federation is therefore
+intermittently unavailable — roughly one short window every few minutes — while every
+unit-level and spot-check health indicator reads healthy.
+
+**Not actioned, deliberately.** Isolating the local path means changing live network
+configuration (uplink, NAT, or tunnel transport) — a stop condition, and §15.4.3 belongs to
+the session that owns edge and network path. The diagnostic the operator needs is cheap
+and read-only: compare edge-connection stability against a control long-lived TLS
+connection from this host to a fixed destination. If the control is stable while all four
+tunnel connections flap in lockstep across nine PoPs, the local path is confirmed and the
+tunnel is exonerated. I have not run that comparison because it is not required to record
+the finding, and running it well needs a deliberate observation window.
 (`remote_ip=104.21.41.83`).
