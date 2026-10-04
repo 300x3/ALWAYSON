@@ -252,7 +252,7 @@ and quantity without changing the architecture.
 | Content | Static HTML and interactive iframe content from other servers |
 
 **Deployment roles.** The workstation is the development, integration and validation host. It
-runs Kubuntu 26.04 LTS on an AMD CPU with an EVGA NVIDIA GTX 1080. Compute-intensive
+runs Kubuntu 26.04 LTS on an Intel Core i7-8700K with an NVIDIA GTX 1080. Compute-intensive
 production workloads may move to an immersion-cooled server rack and a Raspberry Pi
 edge-computing cluster.
 
@@ -430,8 +430,12 @@ place either is recorded. **Verification evidence is §19.2.**
 
 ## 3.3 Databases and Data Stores
 
-PostgreSQL 18 is the system-wide relational platform: one host-managed installation with a
-separate logical database and a separate application role per consumer.
+PostgreSQL is the system-wide relational platform. There is **no single shared cluster**:
+a host-managed PostgreSQL 18 cluster, loopback-only, carries host administration and the
+Grafana and Metabase application databases, and each domain that owns authoritative data
+runs **its own dedicated PostgreSQL container** with its own image and its own version.
+Every consumer gets a separate logical database and a separate application role inside its
+own container. The measured version behind each row is recorded in §3.3.1.
 
 | Database | Holds |
 |---|---|
@@ -499,16 +503,25 @@ isolation model working correctly rather than a defect. `Internal=true` gives th
 no default route and no NAT, so a container sees only its own subnet:
 
 ```
-container on ao-fabrication:  eth0 10.89.12.4/24
-  ip route                     10.89.12.0/24 dev eth0 scope link   (no default route)
-  ping 10.42.0.1               Network unreachable
-  ping 10.89.12.1              OK                                 (host bridge reachable)
+container on ao-fabrication:  eth0 10.89.12.3/24
+  /proc/net/route            10.89.12.0/24 dev eth0   (no default route)
+  connect 10.42.0.1:5432     unreachable
 ```
 
-The host bridge at `10.89.12.1` **is** reachable from inside the domain. That is the
-path, and the project already uses the same shape for PostgreSQL:
-`ao-postgres-reporting-bridge` runs `socat` on the host and exposes a host service to
-containers that could not otherwise reach it.
+Measured on `ao-fabrication-db`, the container that owns `a_fab`. The routing table holds
+exactly one route — its own subnet — so there is no default route and no NAT out of the
+domain. This is what `Internal=true` means, and it is the isolation model working rather
+than a fault.
+
+The host bridge at `10.89.12.1` **is** reachable from inside the domain — its ARP entry
+resolves with a complete MAC (`/proc/net/arp`, flags `0x2`), so the gateway answers at
+layer 2 even though no route leaves the subnet. That is the path, and the project already
+uses the same shape for PostgreSQL: `ao-postgres-reporting-bridge` runs `socat` on the host
+and exposes a host service to containers that could not otherwise reach it.
+
+Note on evidence: a TCP connect test to the bridge fails, because nothing listens there
+(`ss -ltn` shows no `10.89.12.*` listener). Reachability must be judged from the ARP table,
+not from a refused connect.
 
 **Decision (operator, 2026-09-30): the collector runs on the HOST and pushes into
 `a_fab`.** The host already reaches the equipment LAN. A host-side collector polls each
@@ -522,11 +535,24 @@ adds an unnecessary inbound listener for every machine.
 Commanding live machinery is a separate authorisation decision and is out of scope for
 this path.
 
-**Verified first machine (2026-09-30).** `10.42.0.96` serves Mainsail with Moonraker
-`klippy_connected: true`, `klippy_state: ready`, and answers
+**Verified first machine (2026-09-30).** `10.42.0.96` served Mainsail with Moonraker
+`klippy_connected: true`, `klippy_state: ready`, and answered
 `/printer/objects/query?print_stats` with `print_duration`, `filament_used` and `state`
 — i.e. genuine per-machine production data. Note that Moonraker currently serves
 **unauthenticated reads**; see §3.3.0 for the open item on API keys.
+
+**Re-checked 2026-10-10: the machine is not currently reachable.** The host's own address on
+the equipment LAN answers normally, so the segment is healthy and the absence is at the
+machine end, not a network fault:
+
+```
+ping 10.42.0.1     1 received, 0% packet loss        (host, equipment LAN up)
+ip neigh 10.42.0.96    dev eno1 FAILED               (no ARP resolution)
+connect 10.42.0.96:7125  unreachable
+```
+
+The 2026-09-30 verification therefore remains valid as a statement about that machine at that
+time; it does **not** establish that a collector today would reach anything.
 
 #### 3.3.0.2 Domoticz for non-fabrication equipment
 
@@ -577,15 +603,16 @@ installed package or desktop settings module.
 
 | Database software | Software/program | Database name or store | Current role and reporting value |
 |---|---|---|---|
-| **PostgreSQL 18** | Host PostgreSQL service | Host cluster; `postgres` | Shared relational platform and administrative/maintenance cluster |
-| **PostgreSQL 18** | Sales database service | `salesdb` in `sales-db` | Authoritative source for customers, orders, products, payments, receipts, entitlements, and audit history |
-| **PostgreSQL 18** | Mastodon web/background workers | `mastodon` in `mastodon-db` | Accounts, posts, media metadata, federation state, and background-job application data |
-| **PostgreSQL/PostGIS** | WebODM web/worker | Container `ao-webodm-db`, database `webodm` (host-side data dir `~/webodm/dbdata`) | Mapping projects, processing state, users, and geospatial data. The app reads database `webodm_dev` in that container. |
-| **PostgreSQL/PostGIS** | NodeODM | WebODM PostgreSQL plus filesystem processing data | Processing-node state and coordination; large image/output artifacts remain filesystem data |
+| **PostgreSQL 18** | Host PostgreSQL service | Host cluster `18-main`; `postgres` | Shared relational platform and administrative/maintenance cluster. Also carries the Grafana and Metabase application databases. Loopback-only; containers reach it over the reporting bridge (§3.3.0.1) |
+| **PostgreSQL 17** | Sales database service | Container `ao-sales-db` on `ao-sales`, database `salesdb` | Authoritative source for customers, orders, products, payments, receipts, entitlements, and audit history |
+| **PostgreSQL 17** | Mastodon web/background workers | Container `mastodon-db` on `ao-sales`, database `mastodon` | Accounts, posts, media metadata, federation state, and background-job application data |
+| **PostgreSQL 17** | Fabrication database service | Container `ao-fabrication-db` on `ao-fabrication`, database `a_fab`, role `fabrication_role` | Per-machine production data pulled from each individual machine (§3.3.0). Separate from `ao-sim-fabrication`, which holds none |
+| **PostgreSQL 9.5** | WebODM web/worker | Container `ao-webodm-db` on `ao-mapping`, database `webodm` (host-side data dir `~/webodm/dbdata`) | Mapping projects, processing state, users, and geospatial data. The app reads database `webodm_dev` in that container. **PostGIS is available in the image but is not installed in either database** — the only installed extension is `plpgsql` |
+| **PostgreSQL 9.5** | NodeODM | The same `ao-webodm-db` container, plus filesystem processing data | Processing-node state and coordination; large image/output artifacts remain filesystem data |
 | **PostgreSQL 18** | Corda 5 node | `cordadb` (dedicated Corda PostgreSQL database in the host cluster, per §11.1) | Receipt, entitlement, and provenance state. Built on Corda 5 against `cordadb`. |
 | **Redis 8** | Host Redis service | Host Redis database 0 | General low-latency cache/coordination layer; no current application data confirmed |
-| **Redis 8** | Mastodon cache/queue service | `mastodon-redis` database 0 | Cache, queues, and background-job coordination; not authoritative business data |
-| **Redis 8** | WebODM broker | `broker` database 0 | Celery/task broker and worker coordination; not authoritative mapping data |
+| **Redis 7** | Mastodon cache/queue service | Container `mastodon-redis`, database 0 | Cache, queues, and background-job coordination; not authoritative business data |
+| **Redis 7** | WebODM broker | Container `ao-webodm-broker`, database `broker` | Celery/task broker and worker coordination; not authoritative mapping data |
 | **PostgreSQL 18** | Grafana | Grafana application database (dedicated) | Grafana users, dashboards, and datasource configuration. Its own application state, not business data |
 | **PostgreSQL 18** | Metabase | Metabase application database (dedicated) | Metabase application schema, saved questions, dashboards, filters, and subscriptions. Not a system of record and never written to by a reporting source |
 | **PostgreSQL / MySQL (read-only)** | Metabase reporting sources | Per-source read-only roles | Ad-hoc read-only reporting connections to the business databases. One read-only role per source, with no write, DDL, or owner privilege, so a report cannot modify a source |
@@ -1061,6 +1088,13 @@ detail in §3.3; this table records only what is unique to each tool's role here
 | **Corda management / API / CLI** | Corda lifecycle, configuration, certificate-aware administration, controlled maintenance | Uses a documented narrow management path after the required ceremony (§11.1); not replaced by Metabase or Grafana |
 | **Payment-provider dashboard** | Provider-authoritative charges, refunds, disputes, payouts, exports, reconciliation | External provider service with no Podman network attachment, and no replacement of local verified-event controls |
 
+**Both application databases live on the host PostgreSQL 18 cluster**, not in their own
+containers, and are reached differently. Grafana mounts the host's `/var/run/postgresql` and
+connects over the Unix socket with `GF_DATABASE_HOST=/var/run/postgresql`. Metabase connects
+over TCP to the host's `10.42.0.1` on `ao-reporting-egress`. Measured 2026-10-10; both
+containers are also on `ao-admin`. Both are loopback-and-socket scoped, which is why neither
+needs a public port.
+
 **Metabase and Corda.** Metabase may report on approved Corda-derived business and
 provenance data only through a deliberate read-only reporting projection, approved views, a
 supported status interface, or ledger-ingestion audit and status records. It must not become
@@ -1082,6 +1116,14 @@ operator-access implementation must comply with this subsection and §§4, 5, 14
 - Reporting identities must enforce read-only access to source databases or
   services. Grafana and Metabase each keep their own application database and read the
   business databases over per-source read-only roles, writing to none of them.
+  *Verified 2026-10-10 on `salesdb`: `sales_reporting_role` holds `SELECT` on 5 tables and
+  nothing else, is not a superuser, and has no `CREATE`/`CREATEDB`/`CREATEROLE`. The
+  separate `metabase_app` role exists **only** on the Metabase application database, not on
+  `salesdb`, so the reporting path to the business data is `sales_reporting_role`.*
+  *One thing to watch, not a breach: `sales_migration_role` on the same cluster **is** a
+  superuser with `CREATEDB` and `CREATEROLE`. That is the migration identity and it is not
+  handed to a reporting tool, but any future convenience that grants it to Metabase or
+  Grafana would void the read-only boundary above.*
 - `ao-admin` receives approved PostgreSQL reporting, exporter, status,
   projection, API, relay, tunnel, or push paths. It must not join every
   workload network.
@@ -1095,6 +1137,24 @@ operator-access implementation must comply with this subsection and §§4, 5, 14
 
 The machine-readable inventory that implements this requirement is
 `/ALWAYSON/config/platform/gui-boundary-matrix.yaml`.
+
+#### 6.A.3.1 Known staleness in that inventory (measured 2026-10-10)
+
+The YAML is **behind both this subsection and the live network list**. It remains a valid
+record of the 2026-08-29 review it declares, but three of its claims no longer hold, and a
+reader must not take it as current:
+
+| Field in the YAML | Measured state | Evidence |
+|---|---|---|
+| `matrix.reviewed: "2026-08-29"` and `podman_networks_verified` lists **10** networks | The host runs **14** `ao-*` networks | `podman network ls` |
+| same list | Omits `ao-fabrication`, `ao-html-window`, `ao-build-update`, `ao-reporting-egress` | as above |
+| entries (10) name `ao-egress-community` and `ao-ardupilot-sitl` | **Neither network exists** — `ao-egress-community` is not found, and it is not in `network-cidrs.yaml`; `10.89.11.0/24` is unallocated and folded into `ao-sales` | `podman network inspect ao-egress-community` → *network not found*; `grep 10.89.11 config/platform/network-cidrs.yaml` → no match |
+| the WebODM / NodeODM rows imply provisioned datasources | `config/platform/monitoring/grafana/provisioning/datasources/` is **empty** — no datasource is provisioned | `ls` of the directory |
+
+So §5.1 group D (18 rows) is the current statement, and the YAML is a lagging subset of it.
+Reconciling the YAML is **not** mine to do — it is a config file outside the three section
+files I own, and the `ao-egress-community` name/CIDR question is an existing §19.1 item
+belonging to another group. This subsection records the gap so the next reader is not misled.
 
 ---
 

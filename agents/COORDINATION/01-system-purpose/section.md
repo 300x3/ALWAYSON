@@ -16,7 +16,7 @@ and quantity without changing the architecture.
 | Content | Static HTML and interactive iframe content from other servers |
 
 **Deployment roles.** The workstation is the development, integration and validation host. It
-runs Kubuntu 26.04 LTS on an AMD CPU with an EVGA NVIDIA GTX 1080. Compute-intensive
+runs Kubuntu 26.04 LTS on an Intel Core i7-8700K with an NVIDIA GTX 1080. Compute-intensive
 production workloads may move to an immersion-cooled server rack and a Raspberry Pi
 edge-computing cluster.
 
