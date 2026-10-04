@@ -46,23 +46,48 @@ running host are in §19.1, and where the two differ §19.1 is the fact.
 
 The install list is written in §12.3, which another session owns. The requirement belongs here,
 because a package is part of the platform baseline if the platform's own verification asserts
-on it. Measured 2026-10-03:
+on it. **Re-measured 2026-10-04 09:22** — the `apparmor-utils` row changed under this section
+after it was first written, so both states are recorded:
 
 | Package | Needed by | Installed on this host |
 |---|---|---|
-| `apparmor-utils` | `aa-enforce`, `aa-decode`, `aa-genprof`, `aa-logprof` — the profile tools §4.1 relies on | **No.** `dpkg -S /usr/sbin/aa-status` returns `apparmor: /usr/sbin/aa-status`, i.e. `aa-status` ships in the base `apparmor` package; `apt-cache policy apparmor-utils` → `Installed: (none)`. `aa-enforce`, `aa-complain`, `aa-decode`, `aa-logprof` and `aa-genprof` are all `MISSING` |
+| `apparmor-utils` | `aa-enforce`, `aa-decode`, `aa-genprof`, `aa-logprof` — the profile tools §4.1 relies on | **Yes, as of 2026-10-04 09:07.** `dpkg-query -W` → `apparmor-utils 5.0.2-0ubuntu1~26.04.1`; all five binaries resolve under `/usr/sbin/`. *(It was **absent** when this row was first measured on 2026-10-03: `apt-cache policy` → `Installed: (none)` and all five tools `MISSING`.)* |
 | `nvidia-container-toolkit` (+ `libnvidia-container1`, `libnvidia-container-tools`, `nvidia-container-toolkit-base`) | GPU access from rootless containers via CDI; the `nvidia.com/gpu=0` device the version matrix records | Yes — all four at **1.20.1-1** |
 
-**Consequence.** The §12.3 verify block runs `sudo aa-status`, which succeeds today only
-because the base `apparmor` package happens to provide that one binary. Any assertion that
-actually *changes* or *inspects* a profile — `aa-enforce`, `aa-complain` — would fail on a
-freshly provisioned host. `apparmor-utils` is therefore required by §12.3's own verification,
-and its absence from the install list is a real gap, not a cosmetic one.
+**How the `apparmor-utils` state changed, and what did not change with it.** `/var/log/apt/history.log`
+records the install at `2026-10-04 09:07:11`, `Requested-By: scottw (1000)`, pulling in
+`apparmor-utils`, `python3-apparmor` and `python3-libapparmor` at `5.0.2-0ubuntu1~26.04.1`. This
+was an **interactive operator action, not a change to any install list** — the gap this section
+recorded is therefore still open:
+
+- `scripts/bootstrap/02-install-host-dependencies.sh` line 6 still does not name `apparmor-utils`.
+- `scripts/bootstrap/ao-bootstrap-privileged.sh` still does not name it.
+- `scripts/provision/provision.sh` contains **zero** occurrences of `apparmor`
+  (`grep -c apparmor scripts/provision/provision.sh` → `0`).
+
+So the host is fixed and the **provisioning path is not**. A host rebuilt from the repository's
+own bootstrap chain would not get `apparmor-utils`, and §4.1's profile workflow has no tooling.
+**This section must not read as "satisfied" on the strength of one host's package list.**
 
 **Correction to a stale claim.** `config/platform/version-matrix.yaml` records
 `nvidia-container-toolkit 1.20.0 installed 2026-08-25`. `dpkg-query -W` reports **1.20.1-1**.
 The matrix is a version record, so this row is wrong; it is recorded here rather than edited,
 because the matrix file is not owned by this session.
+
+**Traps recorded for the next session.**
+
+- **`aa-status` is a misleading success signal.** `dpkg -S /usr/sbin/aa-status` →
+  `apparmor: /usr/sbin/aa-status`: it ships in the **base `apparmor` package**, not in
+  `apparmor-utils`. Any verification that tests `command -v aa-status` will pass on a host with
+  no profile tooling installed at all. Test for `aa-enforce`, not `aa-status`.
+- **`aa-status` returns non-zero without privilege, and §12.3 throws that away.**
+  Unprivileged it prints `apparmor module is loaded.` on stdout, writes
+  `You do not have enough privilege to read the profile set.` to stderr and **exits 4** —
+  measured, not assumed. §12.3 line 163 is `sudo aa-status || true`, and the `|| true`
+  discards exactly the status that would have told the operator the profile set was
+  unreadable. Combined with `sudo` requiring interactive authentication on this host
+  (`sudo -n aa-status` → `sudo: interactive authentication is required`, rc=1), the line
+  cannot fail. This is the same class of defect as the cgroup check in §2.4.
 
 ## 2.4 Baseline Verification Must Assert
 
@@ -86,6 +111,29 @@ Two defects, both reproduced above:
 2. The block's **overall exit status is 0 either way**. A script that cannot fail cannot
    verify anything, so the §19.2 evidence it supports cannot be re-run and trusted (this is
    the same defect `OPS-15` records).
+
+**Third defect, found 2026-10-04: the `aa-status` line discards its own failure.** §12.3
+line 163 is `sudo aa-status || true`. Running the block **verbatim** (all six lines,
+`sudo` untouched):
+
+```
+--- verbatim §12.3 verify block (lines 158-163) ---
+podman version rc=0
+podman info rc=0
+systemctl --user status rc=0
+Linger=yes
+cgroups v2 active
+OVERALL EXIT=0
+
+[stderr]
+sudo: A terminal is required to authenticate
+```
+
+The AppArmor check **never ran** — `sudo` could not authenticate — and the block still
+reported success. An operator reading that output sees six green lines and concludes the
+profile set is in enforcing mode. It was not even inspected. Note the interaction with §2.3:
+`apparmor-utils` being newly installed makes this line *look* more meaningful than it is,
+because the tool now exists and `aa-status` still cannot read anything without privilege.
 
 **Requirement.** The §12.3 verify block must exit non-zero when any check fails, and must name
 the expected value beside each observed one so a failure is readable without re-running it.
