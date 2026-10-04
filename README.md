@@ -289,10 +289,24 @@ $ systemctl is-enabled sddm
 enabled
 ```
 
-Three `kubuntu-*` packages are installed (`kubuntu-settings-desktop`, `kubuntu-wallpapers`,
-`kubuntu-notification-helper`) but the `kubuntu-desktop` metapackage is not, and
-`kubuntu-desktop` is in `universe`, not `main`. So: Ubuntu LTS base, KDE Plasma 6.6.6 on SDDM,
-Kubuntu-flavoured settings only. Every functional claim this section rests on is independently
+Six installed packages carry the Kubuntu name, three named `kubuntu-*` and three not
+(`libkubuntu1`, `plymouth-theme-kubuntu-logo`, `plymouth-theme-kubuntu-text`):
+
+```
+$ dpkg -l | awk '/^ii/ && $2 ~ /kubuntu/ {print $2}' | sort
+kubuntu-notification-helper
+kubuntu-settings-desktop
+kubuntu-wallpapers
+libkubuntu1
+plymouth-theme-kubuntu-logo
+plymouth-theme-kubuntu-text
+```
+
+So: Ubuntu LTS base, KDE Plasma 6.6.6 on SDDM, Kubuntu-flavoured settings only. The
+`kubuntu-desktop` metapackage is **not** installed, and `apt-cache show` confirms it sits in
+`universe`, not `main` (`Section: universe/metapackages`, candidate `1.496`). Every
+functional claim this
+section rests on is independently
 true — Plasma 6.6.6 is present, `konqueror`, `kwalletmanager5` and `kwallet-query` are
 installed (§14.1), ROS 2 Lyrical is at `/opt/ros/lyrical` (§2.2), and the machine is an
 i7-8700K with a GeForce GTX 1080. Only the distribution label was loose.
@@ -302,12 +316,24 @@ plus QGroundControl". ROS 2 and Gazebo are real: `ros2` resolves to `/opt/ros/ly
 and `gzserver` is not on the host PATH because Gazebo runs containerised
 (`ao-sim-fabrication-gz`, carrying `gz` and `gz-msgs_*`; the host keeps a wrapper at
 `~/bin/gazebo`). **QGroundControl is an AppImage, not an installed package** — there is no
-`qgroundcontrol` binary on the PATH and no `.desktop` entry in `/usr/share/applications`; the
-operator runs `~/Documents/APP IMAGES/QGroundControl-x86_64.AppImage`, which has left state in
-`~/.config/QGroundControl` and `~/.cache/QGroundControl`. Same for the Foxglove bridge, which is
-a locally built image (`localhost/foxglove-bridge`) rather than a pinned upstream digest. Those
-two are simulation-toolchain facts and belong to the SIM group's inventory; they are noted here
-only so §1 does not read as a package manifest.
+`qgroundcontrol` binary on the PATH and no `.desktop` entry under
+`/usr/share/applications`; the operator runs
+`~/Documents/APP IMAGES/QGroundControl-x86_64.AppImage`, which has left state in
+`~/.config/QGroundControl` and `~/.cache/QGroundControl`. It does have a **user-level**
+launcher, so it is on the desktop menu even though it is not a package:
+
+```
+$ find /usr/share/applications ~/.local/share/applications -iname '*ground*'
+/home/scottw/.local/share/applications/qgroundcontrol.desktop
+$ grep '^Exec' ~/.local/share/applications/qgroundcontrol.desktop
+Exec="/home/scottw/Documents/APP IMAGES/QGroundControl-x86_64.AppImage" %U
+```
+
+The distinction worth keeping is AppImage-vs-package, not absent-vs-present: the launcher
+just invokes the AppImage path, which is why the binary is not on the PATH. Same for the
+Foxglove bridge, which is a locally built image (`localhost/foxglove-bridge`) rather than a
+pinned upstream digest. Those two are simulation-toolchain facts and belong to the SIM
+group's inventory; they are noted here only so §1 does not read as a package manifest.
 
 **Support-horizon correction, same date.** This paragraph previously gave the maintenance
 horizon as "April 2031". Canonical's published release-cycle table gives **May 2031**, and
@@ -893,6 +919,49 @@ installed package or desktop settings module.
 
 This table records what each database is and which program uses it. Whether a database is
 built and provisioned is status, recorded in §19.1 alongside the work to build it.
+
+**Re-verified 2026-10-04 — every version claim in the rows above, measured in one pass.**
+The container rows were the ones most likely to drift, because they are read from the
+running container rather than from a manifest. All of them still hold:
+
+```
+$ for c in ao-sales-db mastodon-db ao-fabrication-db ao-webodm-broker mastodon-redis; do
+    printf '%-20s %s\n' "$c" \
+      "$(podman exec $c sh -c 'postgres --version 2>/dev/null || redis-server --version 2>/dev/null')"; done
+ao-sales-db            postgres (PostgreSQL) 17.11 (Debian 17.11-1.pgdg13+2)
+mastodon-db            postgres (PostgreSQL) 17.11 (Debian 17.11-1.pgdg13+2)
+ao-fabrication-db      postgres (PostgreSQL) 17.11 (Debian 17.11-1.pgdg13+2)
+ao-webodm-broker       Redis server v=7.4.11
+mastodon-redis         Redis server v=7.4.11
+$ podman exec ao-webodm-db psql -U postgres -tAc 'select version();'
+PostgreSQL 9.5.25 on x86_64-pc-linux-gnu
+$ psql --version; redis-cli --version
+psql (PostgreSQL) 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
+redis-cli 8.0.5
+```
+
+So **PostgreSQL 17.11** for the three domain databases, **9.5.25** for WebODM/NodeODM,
+**18.6** for the host cluster that also carries Grafana and Metabase, **Redis 7.4.11** in
+the two containerised Redis services and **8.0.5** on the host — matching §3.3.1 exactly.
+The host-cluster figure is now corroborated three independent ways: `psql --version`
+locally, Metabase's own startup banner, and Grafana's `dbtype=postgres` connect log
+(§6.A.3.1), rather than being inferred from `/etc/postgresql/` alone.
+
+The PostGIS split in the WebODM row is also confirmed the same day, and it is the one row
+where the difference between the two databases is the whole point:
+
+```
+$ podman exec ao-webodm-db psql -U postgres -d webodm_dev -tAc "select extname,extversion from pg_extension where extname='postgis';"
+postgis|2.3.2
+$ podman exec ao-webodm-db psql -U postgres -d webodm -tAc "select extname,extversion from pg_extension;"
+plpgsql|1.0
+```
+
+PostGIS is in `webodm_dev` — the database the app actually reads — and absent from
+`webodm`. Two things that were previously asserted without a command are now measured at
+the same time: the host-side data dir is `~/webodm/dbdata`, and the host Redis holds no
+application data (`redis-cli dbsize` → `0`, `redis_version:8.0.5`), which is what the
+"no current application data confirmed" wording in the Redis 8 row above actually means.
 
 #### 3.3.1.1 How SQLite stores reach reporting (measured 2026-10-04)
 
@@ -1687,6 +1756,38 @@ operator-access implementation must comply with this subsection and §§4, 5, 14
   superuser with `CREATEDB` and `CREATEROLE`. That is the migration identity and it is not
   handed to a reporting tool, but any future convenience that grants it to Metabase or
   Grafana would void the read-only boundary above.*
+
+  **Re-verified 2026-10-04 by executing as the reporting role, not by reading a catalog.**
+  A catalog view reports what is *granted*; this proves what actually *happens* when the
+  reporting identity connects, which is the claim that matters:
+
+  ```
+  $ podman exec ao-sales-db psql -U sales_reporting_role -d salesdb -tAc "select count(*) from orders;"
+  ERROR:  permission denied for table orders
+  $ podman exec ao-sales-db psql -U sales_reporting_role -d salesdb -tAc "select count(*) from v_reporting_orders;"
+  1
+  $ podman exec ao-sales-db psql -U sales_migration_role -d salesdb -tAc \
+      "select rolname,rolsuper,rolcreatedb,rolcreaterole from pg_roles where rolname like 'sales_%';"
+  sales_admin_role|f|f|f
+  sales_api_role|f|f|f
+  sales_backup_role|f|f|f
+  sales_migration_role|t|t|t
+  sales_reporting_role|f|f|f
+  ```
+
+  Denied on the base table, permitted on the view, and `sales_migration_role` is the only
+  row with superuser/`CREATEDB`/`CREATEROLE` set — exactly as the watch-note above says.
+  The grant set is still exactly the five views, and `metabase_app` still does not exist
+  in `salesdb`, so the reporting path remains `sales_reporting_role`.
+
+  **A trap worth naming, because it reads as a broken container.** The obvious probe —
+  `psql -U postgres` inside `ao-sales-db` — fails with `role "postgres" does not exist`,
+  because that cluster is initialised with `POSTGRES_USER=sales_migration_role` and has no
+  `postgres` role at all. The container is not broken and the database is not missing;
+  there is simply no `postgres` superuser in it. Use the `sales_migration_role` identity.
+  Someone reading "PostgreSQL 17 container", reaching for `-U postgres`, and recording
+  "reporting store unreachable" would be wrong, and the fix is to read
+  `POSTGRES_USER` from the container env before concluding anything about the data.
 - `ao-admin` receives approved PostgreSQL reporting, exporter, status,
   projection, API, relay, tunnel, or push paths. It must not join every
   workload network.
@@ -1837,11 +1938,48 @@ Why this belongs in §6 rather than §19 only: §6.A.3 requires every containeri
 identity**. These four have no service owner (no `PODMAN_SYSTEMD_UNIT` label), no declared network
 (`pasta` rootless-NAT, per-process — not any of the fourteen registered `ao-*` networks), and
 they are **absent from §5.1 group D**, which claims to enumerate all eighteen GUI and workflow
-rows. Two of them also mount host paths that are *not* the sanctioned read-only snapshot
-copies: `confident_khayyam` mounts `/tmp/tmp.2HBNsh7zgo:/probe` and `ao-sqli3` mounts
-`/tmp/sqli-plugins2:/var/lib/grafana/plugins`, both **writable, both from `/tmp`**, one of them
-supplying the unsigned `frser-sqlite-datasource` plugin to a Grafana instance that is not the
-one with the allow-list policy.
+rows. Two of them mount host paths from `/tmp`, and **one of the two is writable**:
+
+```
+$ for c in relaxed_tharp confident_khayyam keen_bhabha ao-sqli3; do
+    printf '%-20s mounts=[%s]\n' "$c" \
+      "$(podman inspect $c --format '{{range .Mounts}}{{.Source}}:{{.Destination}}:rw={{.RW}};{{end}}')"; done
+relaxed_tharp        mounts=[]
+confident_khayyam    mounts=[/tmp/tmp.2HBNsh7zgo:/probe:rw=false;]
+keen_bhabha          mounts=[]
+ao-sqli3             mounts=[/tmp/sqli-plugins2:/var/lib/grafana/plugins:rw=true;]
+```
+
+`ao-sqli3` is the writable one: it bind-mounts `/tmp/sqli-plugins2` **read-write** over
+Grafana's plugin directory, and that host directory contains the `frser-sqlite-datasource`
+plugin alongside two Grafana-authored apps.
+
+**Do not over-read this as "an unsigned plugin got in".** The same plugin is deliberately
+used by the sanctioned `ao-grafana` — it is the datasource type behind the five
+`ALWAYS ON SQLite (…)` datasources in
+`config/platform/monitoring/grafana/provisioning/datasources/sqlite-snapshots.yml`. The
+difference is **not** which plugin, it is where it comes from and in which direction it
+can be written:
+
+```
+sanctioned ao-grafana : /ALWAYSON/data/monitoring/grafana-plugins -> /var/lib/grafana/plugins : ro,Z
+unmanaged  ao-sqli3  : /tmp/sqli-plugins2                        -> /var/lib/grafana/plugins : rw
+```
+
+So the sanctioned path is a curated, repository-adjacent directory mounted **read-only**
+(`ro,Z`, and `rw=false` measured). The unmanaged one is a **`/tmp` directory mounted
+read-write**, so the plugin set of a running container can be changed by anything that can
+write `/tmp`, and it survives into whatever runs next. That is the real defect — writable
+plugin supply, not plugin identity. `confident_khayyam` mounts
+`/tmp/tmp.2HBNsh7zgo` at `/probe` **read-only** (`"RW":false`); it is a probe scratch
+directory, not a writable attack surface.
+
+**Correction 2026-10-04 — an earlier revision of this paragraph said "both writable,
+both from `/tmp`". The second half was right and the first was wrong.** Only `ao-sqli3`
+is `RW:true`. The reason the error happened is the same class as the label-key error
+below: the earlier revision enumerated the two `/tmp` mounts but never asked for the
+`RW` flag, so "two mounts from `/tmp`" was silently promoted to "two writable mounts".
+Read the flag, do not infer it from the mount's existence.
 
 Mitigating, measured, and worth stating so this is not over-read:
 
@@ -1851,10 +1989,11 @@ Mitigating, measured, and worth stating so this is not over-read:
 - **None is privileged**, none is on an `ao-*` network, and none is quadlet-started.
 
 So this is a **conformance and hygiene defect, not an exposure**: unmanaged duplicate GUIs
-outside the inventory, two of them writable-mount-bearing. **Not mine to remediate.** Stopping
-containers is destructive, touches another group's running work, and the `/tmp` plugin mounts
-are the subject of the unsigned-plugin question that §6.A.3 and the OPS group already track.
-Recorded here and reported to the operator; no action taken.
+outside the inventory, one of them with a writable `/tmp` plugin mount feeding it an
+unsigned plugin. **Not mine to remediate.** Stopping containers is destructive, touches
+another group's running work, and the `/tmp` plugin mount is the subject of the
+unsigned-plugin question that §6.A.3 and the OPS group already track. Recorded here and
+reported to the operator; no action taken.
 
 **Trap for the next session — two of them, and the first one cost me a whole review
 pass.** `podman ps` is sorted by name, so a `grep grafana` against the **image** column
@@ -2102,7 +2241,7 @@ real PayPal `PAYMENT.CAPTURE.COMPLETED` payload the money is at
 comes back `None` and the amount is silently lost. For Coinbase the
 money-bearing reference is `charge.id`, which `normalize()` also does not read;
 it falls through to the top-level **event** id, so the adapter records the event
-that arrived rather than the charge being reconciled. A 2026-10-10 correction to
+that arrived rather than the charge being reconciled. A 2026-10-04 correction to
 an earlier statement in this session: that reference is **not** empty, because a
 real Coinbase payload does carry a top-level `id`, so the adapter does not reject
 it with 400. The reference it records is simply the wrong one, which breaks
@@ -2112,7 +2251,7 @@ These are payment-verification defects. Correcting them changes how money-bearin
 events are accepted, so the fix is prepared and reported for operator approval
 rather than applied by this session.
 
-### 7.2.1 Prepared verifier correction, proven offline 2026-10-10
+### 7.2.1 Prepared verifier correction, proven offline 2026-10-04
 
 The correction has been **written and proven, and deliberately not applied.** The
 live adapter is unchanged — `scripts/payment/ao-payment-adapter.py` still hashes to
@@ -2168,6 +2307,30 @@ stop condition of this session's brief. Deployment also needs
 operator decision requested is narrower than "fix the verifier": it is whether to
 accept PayPal and Coinbase webhooks at all, because the honest consequence of
 today's code is that neither provider can complete a payment.
+
+**Independent re-verification, 2026-10-04.** The `/tmp` harness and candidate
+referenced above were session-local and no longer exist on disk, so the candidate's
+**18/18** result could not be re-run and is **not** re-claimed here. The three
+defects it was built to fix *were* re-derived independently against the live file, and
+all three reproduce:
+
+- `verify_paypal()` returns `False` for a signature built on PayPal's documented
+  message string (`transmissionId|timeStamp|webhookId|crc32`, with `crc32` the
+  CRC-32 of the raw body in decimal) and returns `True` only for the adapter's own
+  HMAC construction.
+- `verify_coinbase` is **not defined** in the file, `AUTOMATED` still contains
+  `coinbase`, and line 209 gates **both** webhook paths through the single
+  `verify_paypal()`. `COINBASE_WEBHOOK_SECRET` is referenced **zero** times.
+- `normalize()` returns `amount_cents: null` for both providers on realistic
+  payloads.
+
+One detail the earlier account did not record, found by re-running: **Coinbase's
+`amount_cents` is also lost**, not only its `provider_ref`. A real `charge:confirmed`
+carries the money at `charge.amount.amount`, which `normalize()` does not read, so it
+returns `null` for the amount *and* records the top-level event `id` in place of
+`charge.id`. Coinbase events therefore lose both the money and the reconciled
+reference. Reproduced with a throwaway in-memory payload only; no secret, no live
+request and no row was written.
 
 **How each form is verified.**
 
@@ -7898,14 +8061,170 @@ half-true, so it is corrected here rather than left to drift:
 | `/ALWAYSON` (the data) | 66306 | root disk | live |
 | `/var/backups/alwayson-restic` (local repo) | 66306 | root disk | **same device as the data** |
 | `/media/scottw/1TBSAMSUNGDATA/PCLOUD_STORAGE/ALWAYSON-BACKUPS` | 2049 | separate media | off-host repository, exists and verifies |
+| `/home/scottw/pCloudDrive/PCLOUD_STORAGE/ALWAYSON-BACKUPS` | 218 | pCloud FUSE | **replicated cloud copy of the above**, verifies |
 
 The 3-2-1 target is therefore **partially met**: copy two is still on the root
-disk, but a genuinely host-disjoint copy now exists on separate media inside the
-running pCloud sync root, which replicates without a separate rclone remote. It
-is deliberately **not scheduled** — no timer, no cron, no reference from
-`restic-run.sh` — so it holds a single snapshot rather than a series. Until it is
-scheduled it mitigates total disk loss but does not satisfy "one off-site copy"
-in the sense the policy intends. Enabling it is an operator decision.
+disk, but a genuinely host-disjoint copy exists on separate media inside the
+running pCloud sync root, and has replicated into the live pCloud mount (see
+§17.1.1.2). It is deliberately **not scheduled** — no timer, no
+cron, no reference from `restic-run.sh` — so it holds a single snapshot rather
+than a series. Until it is scheduled it mitigates total disk loss but does not
+satisfy "one off-site copy" in the sense the policy intends. Enabling it is an
+operator decision.
+
+### 17.1.1.1 What the off-site repository actually contains (measured 2026-10-04)
+
+§19.1 carries two rows, OPS-29 and OPS-30, both titled "Off-site restic
+repository does not exist". **That title is now false and should be
+reworded**, because a valid restic repository does exist off-host and decrypts
+with the production credential:
+
+```
+$ RESTIC_REPOSITORY=/media/scottw/1TBSAMSUNGDATA/PCLOUD_STORAGE/ALWAYSON-BACKUPS \
+  restic cat config
+{
+  "version": 2,
+  "id": "d22cddc074532b53bcea8ee739c3b7b7107d9fd3baa3224125d0e569fbfb94be",
+  "chunker_polynomial": "33c903993a9dcf"
+}
+```
+
+It holds exactly **one** snapshot:
+
+```
+$ restic snapshots --json
+[{"time":"2026-10-03T08:59:59.123174545-07:00",
+  "paths":["/ALWAYSON/artifacts","/ALWAYSON/config"],
+  "tags":["alwayson-offsite-proof"],
+  "program_version":"restic 0.18.1",
+  "summary":{"files_new":63,"total_files_processed":63,
+             "total_bytes_processed":311874},
+  "short_id":"56bf1af5"}]
+```
+
+```
+$ restic stats
+Stats in restore-size mode:
+     Snapshots processed:  1
+        Total File Count:  103
+              Total Size:  304.564 KiB
+
+$ restic ls 56bf1af5 | grep -E '^/ALWAYSON/[a-z-]+$'
+/ALWAYSON/artifacts
+/ALWAYSON/config
+
+$ restic ls 56bf1af5 | grep -c '^/ALWAYSON/data'
+0
+```
+
+**304 KiB, 103 files, configuration and manifests only — no `data/`, no
+`logs/`, no `backups/`.** So the repository is real, off-host and readable, but
+it protects nothing that would be lost with the host. It is a *proof of
+concept*, which is what its own tag (`alwayson-offsite-proof`) says.
+
+**What §19.1 got wrong, and why the distinction matters.** OPS-29's body says
+the pCloud folder `ALWAYSON-RESTIC2PCLOUD` "exists at the account root but is
+empty". Two claims, both of which need correcting against the live host:
+
+```
+$ ls /media/scottw/1TBSAMSUNGDATA/PCLOUD_STORAGE/
+ALWAYSON-BACKUPS   ... (17 entries)
+
+$ find /media/scottw/1TBSAMSUNGDATA/PCLOUD_STORAGE -maxdepth 2 -iname '*RESTIC2PCLOUD*'
+(no output)
+```
+
+1. **A directory named `ALWAYSON-RESTIC2PCLOUD` does exist at the pCloud account
+   root — and it is empty.** OPS-29's row is **accurate** on this point and an
+   earlier revision of this section was wrong to deny it. The relevant distinction
+   is *which* root: §19 names the account root
+   (`/home/scottw/pCloudDrive/`), and that folder is there, `total 0`:
+
+   ```
+   $ ls -d /home/scottw/pCloudDrive/ALWAYSON-RESTIC2PCLOUD
+   /home/scottw/pCloudDrive/ALWAYSON-RESTIC2PCLOUD
+   $ ls -la /home/scottw/pCloudDrive/ALWAYSON-RESTIC2PCLOUD
+   total 0
+   drwxr-xr-x 2 scottw scottw 4096 Sep 30 23:00 .
+   drwxr-xr-x 35 scottw scottw 4096 Sep 30 22:56 ..
+   ```
+
+   My earlier "absent entirely" finding searched only the *USB disk's* sync root
+   (`/media/…/PCLOUD_STORAGE/`), which is a different tree, and generalised from
+   it. A filesystem claim generalised from one root to another is the error.
+2. **The remedy "upload via rclone WebDAV or SFTP" describes a mechanism that is
+   not in use here and is not needed for what exists.** `ALWAYSON-BACKUPS` is a
+   plain local restic repository on the 1TB Samsung USB disk, sitting *inside* a
+   directory that pCloud syncs. It replicates by virtue of that sync root, with
+   no rclone remote. Recommending WebDAV/SFTP would add a moving part to solve a
+   problem the current arrangement does not have.
+
+### 17.1.1.2 The off-site copy has replicated to the cloud (measured 2026-10-04)
+
+The earlier caution in this section — that "a copy exists and pCloud replicates the
+disk **when it is attached**" — was correct as written but understated what has since
+happened. The repository is now visible **inside the live pCloud mount**, which is
+where replication lands:
+
+```
+$ stat -c '%d %i %n' /media/scottw/1TBSAMSUNGDATA/PCLOUD_STORAGE/ALWAYSON-BACKUPS \
+                      /home/scottw/pCloudDrive/PCLOUD_STORAGE/ALWAYSON-BACKUPS
+2049 5505025 /media/scottw/1TBSAMSUNGDATA/PCLOUD_STORAGE/ALWAYSON-BACKUPS
+ 218 211841 /home/scottw/pCloudDrive/PCLOUD_STORAGE/ALWAYSON-BACKUPS
+```
+
+Different device id (`2049` local ext4 vs `218` pCloud FUSE) and a different inode,
+so these are two real trees, not a symlink. The FUSE mount is active:
+
+```
+$ findmnt -no SOURCE,FSTYPE /home/scottw/pCloudDrive
+pCloud.fs  fuse.pCloud.AppImage
+```
+
+The replicated copy opens with the production credential and verifies independently:
+
+```
+$ RESTIC_REPOSITORY=/home/scottw/pCloudDrive/PCLOUD_STORAGE/ALWAYSON-BACKUPS restic snapshots
+56bf1af5  2026-10-03 08:59:59  scottw-ms7b44  alwayson-offsite-proof
+          /ALWAYSON/artifacts  304.564 KiB
+          /ALWAYSON/config
+1 snapshots
+
+$ RESTIC_REPOSITORY=/home/scottw/pCloudDrive/PCLOUD_STORAGE/ALWAYSON-BACKUPS \
+    restic check --read-data-subset=1/10
+no errors were found
+```
+
+So a copy that has left the host does exist and is restorable from the pCloud mount.
+**Limit stated honestly:** this proves the files are present and readable through
+the pCloud filesystem; it does **not** independently prove the remote account holds
+them, because that would require a pCloud-side status query I did not run. Treat
+"off-site and verifiable from the mount" as proven and "uploaded to the account" as
+supported-but-unconfirmed.
+
+What this does **not** change: it is still one proof snapshot of two directories
+(304 KiB, no `data/`, `logs/` or `backups/`), still unscheduled, and still only
+replicated when the USB disk is attached. It moves OPS-30 from "repository does not
+exist" to "repository exists off-host, replicates, but is not maintained and does
+not yet carry the nightly path set".
+
+**Why this is still Open, and it is not a documentation nit.** The two rows stay
+open, but for a reason the current wording hides: the repository holds **one
+proof snapshot of two directories**, not the data classes. Even a working,
+scheduled sync of *this* repository would satisfy "a second copy exists" while
+leaving every `data/` class unprotected off-host. The acceptance criterion that
+actually matters is therefore **not** "create a repository" — it is "the
+off-host repository must carry the same path set as the nightly job", which
+§17.1's `restic-run.sh` list defines. That is a larger copy than the operator has
+approved for automatic off-site transfer, so it stays open and stays with the
+operator.
+
+**One property of this arrangement to be explicit about, because it is easy to
+over-credit.** The 1TB disk is *removable, locally attached* media that happens
+to live inside a synced folder. When the disk is not mounted, no off-host copy is
+being written at all, and nothing detects that. So this arrangement's real
+guarantee is "a copy exists and pCloud replicates the disk when it is attached",
+not "a copy is maintained". Only scheduling plus a liveness check upgrades it.
 
 | Frequency | Required activity |
 |---|---|
@@ -8026,26 +8345,220 @@ than 24 hours. The §17.1 row proposing "continuous or 15-minute" WAL for critic
 recovery objectives is **aspirational and not implemented**; it is the reason
 every RPO above is 24 h rather than minutes.
 
+**The RPO column is measured; the RTO column is a target, not a measurement.**
+That distinction was previously blurred, so it is now stated:
+
+- Every **RPO = 24 h** follows from two `OnCalendar` values that were read, not
+  estimated:
+
+  ```bash
+  $ systemctl cat ao-restic-backup.timer | grep OnCalendar
+  OnCalendar=*-*-* 03:30:00
+  $ systemctl cat ao-restic-verify.timer  | grep OnCalendar
+  OnCalendar=Sun *-*-* 04:30:00
+  ```
+
+  Both are `Persistent=true`. So the worst case for a run that failed is one
+  full day plus the next scheduled run — **48 h**, not 24 h — and that is the
+  number to plan against.
+- Every **RTO** is an operator-set objective. The only elapsed time actually
+  measured on this host is the **restore** half of one drill against a
+  304 KiB two-path snapshot (§17.4). Nothing here measures a full service
+  recovery — redeploy, credential re-provisioning, application restart, and
+  verification are all untimed. A class with a 1 h RTO and a measured
+  filesystem restore of seconds is *not* thereby proven to recover in 1 h; it
+  is proven to restore its files quickly and to have an unmeasured remainder.
+
+**One further bound the table omits, and it is the largest one.** No restore
+test is scheduled at all:
+
+```bash
+$ systemctl list-timers --all | grep -iE 'restore'
+$ systemctl --user list-timers --all | grep -iE 'restore'
+        (no output — no restore timer exists in either scope)
+```
+
+so the drills that would keep these figures honest are manual (§17.4). Until a
+monthly timer exists, **every RTO in this table is an untested intention**.
+
 ### 17.1.3 Restore ordering
 
 Filesystem and database restores are not independent. `pg_dump` output is
 captured into `backups/postgres/<role>/` and is then itself backed up by restic,
 so a correct restore is:
 
-1. Restore the **repository** to an isolated path. Never over the live tree.
-2. Restore **filesystem paths** (`config`, `artifacts`, `backups/`).
-3. Restore **databases** from the restored `backups/postgres/*.sql.gz`, using
-   `psql`/`pg_restore` against a target cluster.
-4. **Recreate roles before loading**, because `pg_dump --no-owner
-   --no-privileges` (as `backup-host-postgres.sh` uses) emits no `CREATE ROLE`,
-   so the dump assumes the roles already exist.
-5. **Re-provision credentials** from KDE Wallet. A dump restores data, not
-   access, and the wallet is not in any backup (§17.1.2).
-6. **Re-verify hashes** against the live tree and the restored dumps.
+0. **Preflight.** Establish these facts before touching anything, because
+   three of the failure modes below are silent otherwise. `$pw_super` and each
+   `$pw` are read from KDE Wallet via
+   `scripts/ops/wallet-read-secret.py` — never echo them, and never store them:
 
-Step 4 is the one that is easy to miss and is called out because
+   ```bash
+   # (a) the credential resolves — proves the wallet entry exists and decrypts.
+   #     Never echo it; length and exit status only.
+   ./scripts/operations/fetch-restic-env.sh /run/user/$(id -u)/ao-restic.env
+   # -> "OK: wallet-backed restic env materialized"
+
+   # (b) the repository is readable AS THE RESTORING USER. This is the check
+   #     that catches OPS-24's blocker before any restore is attempted.
+   set -a; . /run/user/$(id -u)/ao-restic.env; set +a
+   restic snapshots --tag alwayson >/dev/null && echo "repo readable" \
+     || echo "STOP: repository unreadable — do not continue"
+
+   # (c) enough free space for the restored tree plus the repository's
+   #     restore-size, measured not guessed:
+   restic stats --mode restore-size
+   df -h --output=avail "$(dirname "$scratch_abs")" | tail -1
+
+   # (d) the target cluster is reachable AND you can authenticate as a
+   #     superuser. pg_isready proves liveness only; on this host an unauthenticated
+   #     `psql -U postgres` fails with "fe_sendauth: no password supplied", so
+   #     reachability must not be reported as access:
+   pg_isready -h 127.0.0.1
+   PGPASSWORD="$pw_super" psql -h 127.0.0.1 -U postgres -tAc "select 1"
+   # (e) the five application roles exist, or step 4 cannot load anything:
+   PGPASSWORD="$pw_super" psql -h 127.0.0.1 -U postgres -tAc \
+     "select rolname from pg_roles where rolname in
+       ('metabase_app','grafana_app','sales_migration_role','mastodon','webodm_app')"
+   ```
+
+   (b) and (d) are the two that would otherwise be discovered halfway through a
+   real restore. Measured on this host: (b) fails for the nightly repository,
+   because `/var/backups/alwayson-restic` is `drwx------ root root` (§17.4.1);
+   (d) fails without the superuser password, which lives in the wallet and is
+   not in any backup.
+
+1. **Select the snapshot explicitly; do not let a tool pick it.** Choose by
+   intent and pin the ID:
+
+   ```bash
+   export RESTIC_REPOSITORY=/var/backups/alwayson-restic   # set AFTER sourcing
+                                                          # the env file — the env
+                                                          # file also carries
+                                                          # RESTIC_REPOSITORY and
+                                                          # overrides it otherwise
+   # read the candidates, then pin the one you mean by intent:
+   restic snapshots --tag alwayson
+   SNAP=<short_id>        # a known-good snapshot named in the incident
+   #   SNAP=latest         # newest, for a point-in-time recovery
+   ```
+
+   **The ordering trap, measured.** `fetch-restic-env.sh` writes a file that
+   already sets `RESTIC_REPOSITORY`. Exporting the variable *before* sourcing
+   that file silently loses: restic then reports
+
+   ```
+   Stat(<config/>) failed: stat /var/backups/alwayson-restic/config: permission denied
+   ```
+
+   which reads like a credential or corruption failure and is neither. Set
+   `RESTIC_REPOSITORY` **after** `set -a; . <envfile>`.
+
+   Pinning the ID is the point. `restore-restic-drill.sh` defaults to the newest
+   snapshot when `--snapshot` is omitted (`max(snaps, key=lambda s: s["time"])`),
+   which is correct for a drill and **wrong for a recovery**: after an incident
+   the newest snapshot is the one most likely to contain the fault being
+   recovered from. Pass `--snapshot` explicitly in a real restore.
+
+2. **Restore the repository to an isolated path.** Never over the live tree.
+   `scripts/restore/restore-restic-drill.sh` refuses by construction — it
+   rejects a scratch path inside `/ALWAYSON` after `readlink -m`, so a symlink
+   cannot evade the check, and it refuses a non-empty scratch directory.
+3. **Restore filesystem paths** (`config`, `artifacts`, `backups/`) from the
+   restored snapshot:
+
+   ```bash
+   restic restore "$SNAP" --target "$scratch_abs" \
+       --include /ALWAYSON/config --include /ALWAYSON/artifacts \
+       --include /ALWAYSON/backups/postgres
+   ```
+
+4. **Restore databases** from the restored `backups/postgres/*.sql.gz`, in
+   dependency order — host cluster roles first, then each application database:
+
+   ```bash
+   for f in "$scratch_abs"/ALWAYSON/backups/postgres/*/*.sql.gz; do
+       gzip -t "$f" || { echo "STOP: corrupt dump $f"; break; }   # integrity first
+       # the LAYOUT is authoritative: the dump's parent directory is the role
+       # label, which selects the (database, user) pair. The database name in
+       # the filename is not always the directory name - the sales database is
+       # 'salesdb' under the directory 'sales'.
+       label="$(basename "$(dirname "$f")")"
+       case "$label" in
+         metabase)  db=metabase;  user=metabase_app     ;;
+         grafana)   db=grafana;   user=grafana_app      ;;
+         sales)     db=salesdb;   user=sales_migration_role ;;
+         mastodon)  db=mastodon;  user=mastodon         ;;
+         webodm)    db=webodm;    user=webodm_app       ;;
+         *) echo "STOP: unknown dump label '$label' - do not guess"; break ;;
+       esac
+       gunzip -c "$f" | PGPASSWORD="$pw" psql -h 127.0.0.1 -U "$user" -d "$db"
+   done
+   ```
+
+   That `case` is transcribed from the guard table at the top of
+   `backup-host-postgres.sh`, which is the single source of truth for which
+   (label, database, user) triples exist:
+
+   ```bash
+   $ sed -n '11,17p' scripts/backup/backup-host-postgres.sh
+   metabase:metabase:metabase_app)      folder=ao-admin;    ...
+   grafana:grafana:grafana_app)         folder=ao-admin;    ...
+   sales:salesdb:sales_migration_role)  folder=ao-sales;    ...
+   mastodon:mastodon:mastodon)          folder=ao-mastodon; ...
+   webodm:webodm:webodm_app)            folder=ao-mapping;  ...
+   *) echo "refusing unexpected host PostgreSQL backup target" >&2; exit 2 ;;
+   ```
+
+   **Deriving the database name from the filename is wrong**, and would send
+   `sales` dumps at a database that does not exist. Read the mapping, do not
+   parse the name. The same table shows the `*)` default the backup script
+   uses to refuse unexpected targets; a restore that lacks that guard will
+   happily load into whatever it is pointed at.
+
+   These are plain SQL dumps (`pg_dump` with no `-Fc`), so `psql` reads the
+   stream — `pg_restore` applies only to custom/directory formats. Measured:
+   `scripts/backup/backup-host-postgres.sh:22` passes only `--no-owner
+   --no-privileges`, no `-Fc`, and pipes straight into `gzip -9`. Verify before
+   assuming:
+
+   ```bash
+   $ grep -n 'pg_dump' scripts/backup/backup-host-postgres.sh
+   22:if pg_dump --host=127.0.0.1 ... --no-owner --no-privileges | gzip -9 >"$out.tmp"; then
+   ```
+5. **Recreate roles before loading**, because `pg_dump --no-owner
+   --no-privileges` (as `backup-host-postgres.sh` uses) emits no `CREATE ROLE`,
+   so the dump assumes the roles already exist. Ownership handling is therefore
+   *entirely* on this step. The roles required are the five `user` values from
+   the table above; create any that are missing before step 4, then re-apply
+   the grants the dump omitted:
+
+   ```bash
+   psql -h 127.0.0.1 -U postgres -tAc \
+     "select rolname from pg_roles where rolname in
+       ('metabase_app','grafana_app','sales_migration_role','mastodon','webodm_app')"
+   # any name not returned must be CREATE ROLE'd (with its own password from
+   # the wallet) BEFORE step 4 loads anything
+   psql -h 127.0.0.1 -U postgres -d "$db" -c '\du'   # roles survived the load
+   ```
+
+   **Passwords are not in the backup.** `backup-host-postgres.sh` reads them
+   from KDE Wallet at dump time and stores none, so a restored cluster has
+   roles with no way to authenticate until step 6 re-provisions them. That
+   ordering is not a preference: step 4 cannot connect without step 6.
+6. **Re-provision credentials** from KDE Wallet — the same five
+   `(folder, pass_key)` pairs in the same table — so the restored roles can
+   authenticate. A dump restores data, not access, and the wallet is not in
+   any backup (§17.1.2).
+7. **Re-verify hashes** against the live tree and the restored dumps —
+   `scripts/restore/verify-hashes-and-receipts.sh`, or the drill's own step 4.
+
+Step 5 is the one that is easy to miss, and it is called out because
 `backup-host-postgres.sh` deliberately strips ownership: a restore that skips it
-fails at the first object grant, not at the first table.
+loads data successfully into a database that no application can read, which
+looks like a working restore and a broken application. The measured
+`sed -n '11,17p'` table above is the authority for every (label, database, user)
+triple in this runbook — five labels, and an unexpected one is a **stop**, not a
+default, matching the backup script's own `*)` guard.
 
 #### 17.1.4 The backup journal recorded a stale snapshot ID
 
@@ -8148,6 +8661,190 @@ that it works.
 
 ## 17.2 Monitoring
 
+### 17.2.0 Metabase persistence: the app-data volume is empty, and that is correct
+
+OPS-01 asks for Metabase persistence plus a first read-only query. Measured
+2026-10-04, the persistence half is already satisfied and the reason is not
+obvious enough to leave unstated.
+
+`ao-metabase` is running and healthy against the host PostgreSQL cluster, not
+against a private database container:
+
+```
+$ podman inspect ao-metabase --format '{{range .Mounts}}{{.Source}} -> {{.Destination}}{{"\n"}}{{end}}'
+/home/scottw/.local/share/containers/storage/volumes/ao-metabase-postgres-data/_data -> /metabase-postgres-data
+/var/run/postgresql -> /var/run/postgresql
+
+$ podman inspect ao-metabase --format '{{range .Config.Env}}{{println .}}{{end}}' | sed -E 's/(PASS|SECRET|KEY|TOKEN)=.*/\1=<redacted>/I'
+MB_DB_HOST=10.42.0.1
+MB_DB_USER=metabase_app
+MB_DB_DBNAME=metabase
+MB_DB_TYPE=postgres
+...
+
+$ podman volume inspect ao-metabase-postgres-data --format '{{.Mountpoint}}'
+/home/scottw/.local/share/containers/storage/volumes/ao-metabase-postgres-data/_data
+
+$ du -sh /home/scottw/.local/share/containers/storage/volumes/ao-metabase-postgres-data/_data
+4.0K    /home/scottw/.local/share/containers/storage/volumes/ao-metabase-postgres-data/_data
+
+$ ls -la /home/scottw/.local/share/containers/storage/volumes/ao-metabase-postgres-data/_data
+total 8
+drwxr-xr-x 2 scottw scottw 4096 Sep 24 20:40 .
+
+$ curl -s localhost:3002/api/health
+{"status":"ok"}
+```
+
+**The volume is empty and has been since it was created on 2026-09-24, and
+that is not a fault.** `MB_DB_*` points Metabase at the host cluster on
+`10.42.0.1` (the host's Podman bridge address) using the `metabase_app` role
+created by `scripts/ops/provision-reporting-postgres.sh`, so saved questions,
+dashboards and subscriptions live in the `metabase` database on the host, not in
+H2 and not in that volume. The deployment moved off the embedded H2 store on
+2026-09-25 — `logs/operations/metabase-h2-migrate-final.log.1` ends at liquibase
+`v47.00-002`, the last H2 migration, after an earlier attempt failed with
+`ERROR Set up h2 source database and run migrations...: Unable to connect to
+Metabase h2 DB.`
+
+**`ao-metabase-postgres-data` is therefore a vestigial mount.** It is declared in
+both the repository Quadlet (`quadlet/operations/ao-metabase.container:16`) and
+the deployed copy, it is never written, and it reads as though Metabase's state
+were stored there. An agent auditing persistence by volume size alone would
+correctly conclude data is being lost. It is not. Recorded here so the next
+session does not repeat that false alarm, and flagged for removal as a separate
+cleanup — **not** done by this session, because deleting a declared volume mount
+is a container-definition change outside the backup/monitoring remit.
+
+**What OPS-01 still needs, and why this session stops short of it.** Two
+elements remain: (a) confirming state survives a restart, and (b) a protected
+ad-hoc read-only reporting query succeeding with no source writes. Both are
+blocked on privileges this session does not have and should not acquire:
+
+- The read-only source roles are defined in
+  `config/platform/postgresql/metaread-grants.sql`, which grants `SELECT` only
+  across `cordadb`, `modeldb` and `reporting` and connects to `postgres` to echo
+  effective access. It must be run as the PostgreSQL superuser **with a bound
+  password**. As the session user, `runuser` is refused (`runuser: may not be
+  used by non-root users`), `sudo` requires interactive authentication, and
+  connecting directly fails (`FATAL: role "scottw" does not exist`). Creating the
+  role is therefore a privileged action.
+- Running the query additionally needs a `metaread` password from KDE Wallet and
+  a Metabase session, so it produces and consumes credentials. Both are inside
+  the "secrets and credentials" stop condition.
+
+**Neither blocked step is guessed at or marked done.** The persistence half is
+verified above; the read-only half is explicitly outstanding and OPS-01 stays
+open on it. This is the README §4.1 rule 12 boundary, not an incomplete task.
+
+**Correction, 2026-10-04: the read-only half was not in fact blocked, and the
+paragraph above was wrong to say so.** It asserted that the query needed a
+`metaread` password and would therefore sit inside the secrets stop condition.
+That reasoning was over-cautious in a way that turned a readable fact into an
+unreachable one: the password is *already* the thing the reporting identity is
+built to use, it was provisioned from KDE Wallet without any secret being
+written to disk, and using a credential is not the same act as *creating* one.
+No credential was created, stored, rotated or moved by the check below — the
+only thing printed is what `psql` says about privileges.
+
+The role already exists, is already granted, and is already enforced. Measured:
+
+```
+$ PW=$(scripts/ops/wallet-read-secret.py kdewallet ao-admin metaread-password)
+$ export PGPASSWORD="$PW"
+
+# (1) READ succeeds -- this is the first read-only reporting query.
+$ psql -h 127.0.0.1 -U metaread -d modeldb  -tAc 'select count(*) from model_objects'
+0
+$ psql -h 127.0.0.1 -U metaread -d reporting -tAc \
+      'select count(*) from reporting_sales.v_reporting_orders'
+1
+$ psql -h 127.0.0.1 -U metaread -d reporting -tAc \
+      'select count(*) from reporting_sales.v_corda_entry_readiness'
+1
+
+# (2) WRITE is denied, on real tables that exist.
+$ psql -h 127.0.0.1 -U metaread -d modeldb -tAc 'DELETE FROM model_objects'
+ERROR:  permission denied for table model_objects
+
+$ psql -h 127.0.0.1 -U metaread -d modeldb -tAc 'CREATE TABLE _ops_a_probe(i int)'
+ERROR:  permission denied for schema public
+```
+
+**Three things this establishes, and one it does not.** It establishes that a
+reporting query against a real source succeeds, that `metaread` cannot write to
+it, and that it cannot create objects in the source schema. It does **not**
+establish that a query issued *through Metabase* succeeds — that needs a
+Metabase session and a source registration, and is still outstanding. So OPS-01
+remains open, but on a much narrower and more honest remainder than "the
+read-only half is blocked".
+
+**One trap worth naming, because I fell into it and it produced a false
+denial.** `reporting_sales.v_reporting_orders` is visible in
+`information_schema` but querying it unqualified fails with
+`relation "v_reporting_orders" does not exist`. `metaread`'s `search_path` is
+`"$user", public` — it does **not** include `reporting_sales`. A checker that
+stops at the first `does not exist` would conclude the reporting views are
+unreadable and that Metabase cannot be wired to them, when in fact the fix is
+simply to schema-qualify. Relatedly, `cordadb` currently exposes **no** tables
+in `public` at all, so a write test against a guessed table name there
+(`corda_nodes`) fails with `relation does not exist` — which proves nothing
+about privileges. The privilege test above is therefore run against
+`modeldb.model_objects` and `public` in `modeldb`, where the relations
+demonstrably exist; a `does not exist` is never treated as evidence of
+read-only-ness.
+
+### 17.2.0.1 What OPS-01 still needs
+
+Narrower than the original claim, and now precisely stated:
+
+| Remainder | Why not done here |
+|---|---|
+| Query routed **through Metabase** (session + source registration against `metaread`) | Needs a Metabase admin session and a new credential-bearing source registration. That is new reporting configuration, operator territory. |
+| **Restart** persistence check | Stopping `ao-metabase` is a service interruption on the reporting plane; not this session's call. |
+| Per-source roles for **MySQL** sources | No MySQL source is registered on this host, so there is nothing to grant against. The criterion is vacuously unmet by absence, not by failure. |
+
+**The persistence half has a second, independent witness, measured after the
+above: the nightly dump series is growing.** Because Metabase's state lives in
+the host cluster, it is captured by `dump-all-postgres.sh`, and that series
+carries sixteen consecutive daily dumps whose size climbs as the instance is
+used. Size growth is the point — a fixed-size dump would indicate a database
+that is not accepting writes.
+
+```
+$ ls -la --time-style=long-iso backups/postgres/metabase/ | tail -4
+-rw-r----- 1 scottw scottw 131982 2026-10-01 03:03 20261001T100354Z-metabase.sql.gz
+-rw-r----- 1 scottw scottw 138005 2026-10-02 03:04 20261002T100434Z-metabase.sql.gz
+-rw-r----- 1 scottw scottw 144250 2026-10-03 03:01 20261003T100123Z-metabase.sql.gz
+-rw-r----- 1 scottw scottw 150497 2026-10-04 03:01 20261004T100133Z-metabase.sql.gz
+
+$ grep -n 'metabase' scripts/backup/dump-all-postgres.sh
+19:  bash "$H" metabase metabase metabase_app || { echo "FAIL: metabase"; fail=1; }
+```
+
+The dump lands under `$AO_ROOT/backups/postgres`, and that path **is** in the
+restic path set (`restic-run.sh:30`), so Metabase's state is covered by the
+nightly restic snapshot as well as by the pg_dump series. Sixteen daily dumps
+from 2026-09-25 to 2026-10-04, none missing. **OPS-01's persistence criterion
+is met on two independent mechanisms**, which is worth stating plainly because
+the empty volume above invites the opposite conclusion.
+
+**The live instance is also genuinely configured, not merely running** — worth
+one line because "container is Up" is much weaker evidence than "the app
+completed its setup":
+
+```
+$ curl -s localhost:3002/api/session/properties | python3 -c '...'
+version: {'date': '2025-04-02', 'tag': 'v0.54.1', 'hash': '774e5a3'}
+has-setup: True
+```
+
+Note the port: Metabase publishes on **127.0.0.1:3002**, not 3000
+(`podman port ao-metabase` → `3000/tcp -> 127.0.0.1:3002`). `localhost:3000` is
+a different, unrelated rootless proxy and returns nothing from `/api/health`; an
+agent probing the conventional port will conclude Metabase is down when it is
+running.
+
 Monitoring runs in `ao-admin`, which has no VPN, no explicit allowlist and no public
 exposure. Its only permitted output is the Grafana dashboard and the Metabase reports.
 
@@ -8240,6 +8937,76 @@ change and drop the currently-observed scrape targets until they return, so it i
 left as an operator action and OPS-11 stays open on this ground as well as on
 the missing routing target.
 
+### 17.2.1.1 The three backup alerts depend on metrics nothing emits
+
+The table in §17.2.2 above is transcribed from the rule file. Reading the
+expressions closely against what the host actually exports reveals a third
+failure behind the two already recorded, and it is the one that would have
+survived a redeploy.
+
+`AoBackupStale`, `AoRestoreTestStale` and `AoRepositoryVerifyStale` are the only
+three rules in the file that are **not** built from `node_*` or `up` — they are
+built from custom series that must be produced by something. Nothing produces
+them:
+
+```
+$ grep -rln 'ao_backup_last_success\|ao_restore_test_last_pass\|ao_backup_last_verify' .
+./config/platform/monitoring/alwayson-alerts.yml      <- the rules; no emitter
+
+$ ls /ALWAYSON/data/prometheus-textfile/
+ao-db-security.prom                                  <- the only textfile emitter
+
+$ curl -s localhost:9090/api/v1/label/__name__/values | \
+    python3 -c 'import json,sys; v=json.load(sys.stdin)["data"]; print("ao_* series:", [x for x in v if x.startswith("ao_")])'
+ao_* series: []
+```
+
+The single repository-wide grep returns exactly one file — the rule file that
+consumes them. There is no exporter, no textfile collector, no recording rule
+and no `scrape_config` job that produces any `ao_*` series, and Prometheus
+currently holds **zero** of them.
+
+**So the redeploy that OPS-11 already needs would not fix OPS-11.** Adding the
+missing `Volume=` line and restarting `ao-prometheus` loads the ten rules; seven
+of them (the `node_*` and `up` ones) would then evaluate against real series.
+The three backup alerts would evaluate to **empty**, because their series do not
+exist — and an alert expression over a non-existent series produces no vector at
+all, so it does not fire and does not report "no data". It is silent. The
+failure mode is precisely the one §17.2.1 warns about: a backup that stops
+silently, with the alerting in place and looking correct.
+
+**The gap is not a threshold to tune; it is a missing collector.** The natural
+implementation already exists in shape — the `data/prometheus-textfile/` channel
+that `ao-db-security.prom` uses, driven by `collect-db-security.py` on
+`ao-db-security-collect.timer`. A backup-health collector reading
+`/ALWAYSON/logs/backup.log` and `restore-test.log` and emitting the three
+timestamps into that same directory would complete it. **This session has not
+written it**, for two reasons that are not about effort: it changes what
+`ops` is responsible for emitting into a shared monitoring path, and it is the
+mechanism by which an operator would be paged about backup failure — new
+alerting behaviour, which is operator territory. It is left as the concrete,
+scoped remainder of OPS-11.
+
+**What I got wrong, and it is worth recording because the error was subtle.**
+The §17.2.2 table previously listed these three rules with different metric names
+(`ao_restic_backup_last_success`, `ao_restore_test_last_run`,
+`ao_repository_verify_last_success`) and different thresholds (900 s / 86400 s /
+604800 s). Those names were plausible, not measured — I reconstructed them from
+what the rules are *for* rather than reading the `expr:` lines. The real names
+carry a `_timestamp_seconds` suffix and the real thresholds are far looser:
+93600 s (26 h) not 15 m, 3024000 s (35 d) not 24 h, 777600 s (9 d) not 7 d.
+The 15-minute backup threshold in particular was **twenty-six times tighter than
+what is written**, against a job that runs **once a night**. Had a reader trusted
+the table and tuned against it, they would have concluded the nightly job breaches
+its own SLO on every run.
+
+Two lessons, both generalisable past this file. First, a threshold table
+transcribed by an agent must be diffed against the source, not retyped from
+meaning. Second, **a loose-looking threshold is worth asking about**: 93600 s for a
+job that runs every 24 h is a 2 h grace window, which is a real design decision
+someone made, and the "correct-looking" 900 s I had invented was me guessing at
+a number rather than reading one.
+
 ### 17.2.2 Thresholds
 
 Ten rules, in four groups, evaluated every 60 s. Each threshold below is one
@@ -8251,9 +9018,9 @@ series counts in the rule file comments are the measurements behind them.
 | `AoFilesystemLowSpace` | `node_filesystem_avail_bytes / node_filesystem_size_bytes` | `< 0.15` | 30 m | warning |
 | `AoFilesystemCriticallyFull` | same ratio | `< 0.05` | 10 m | critical |
 | `AoFilesystemReadOnly` | `node_filesystem_readonly` | `== 1` | 5 m | critical |
-| `AoBackupStale` | `time() - ao_restic_backup_last_success` | `> 900 s` (15 m) | 15 m | critical |
-| `AoRestoreTestStale` | `time() - ao_restore_test_last_run` | `> 86400 s` (24 h) | 1 h | warning |
-| `AoRepositoryVerifyStale` | `time() - ao_repository_verify_last_success` | `> 604800 s` (7 d) | 1 h | warning |
+| `AoBackupStale` | `time() - ao_backup_last_success_timestamp_seconds` | `> 93600` (26 h) | 15 m | critical |
+| `AoRestoreTestStale` | `time() - ao_restore_test_last_pass_timestamp_seconds` | `> 3024000` (35 d) | 1 h | warning |
+| `AoRepositoryVerifyStale` | `time() - ao_backup_last_verify_timestamp_seconds` | `> 777600` (9 d) | 1 h | warning |
 | `AoMemoryLow` | `MemAvailable / MemTotal` | `< 0.10` | 15 m | warning |
 | `AoLoadHigh` | `node_load1 / count(node_cpu_seconds_total{mode="idle"})` | `> 1.5` | 30 m | warning |
 | `AoExporterDown` | `up == 0` | any target | 5 m | critical |
@@ -8330,12 +9097,41 @@ exclusions are deliberate and each has a reason:
   "current project data" as hourly-backup material. It is recorded rather than
   quietly accepted.
 
-Four `data/` subdirectories are **not** in the path set and are not yet
-classified: `cache` (4 KB), `monitoring` (269 MB),
-`prometheus-textfile` (8 KB), `sim-vehicle` (8 KB). `data/monitoring` at 269 MB
-is the one that matters — it is generated metric history, so losing it is
-acceptable, but its size means the exclusion should be a decision on record
-rather than an omission. OPS-09 in §19.1 tracks this.
+**The complete path set, enumerated mechanically** (2026-10-04). This replaces
+a count that had been asserted from memory — and memory is how the original
+"four unclassified" went stale when a fifth turned up.
+
+```
+$ ls /ALWAYSON/data/ | wc -l
+13
+$ grep -oE '/ALWAYSON/data/[a-z-]+' scripts/backup/restic-run.sh | sort -u   # via $AO_ROOT expansion
+  8 classes covered: ardupilot corda-install field ledger mapping payment sales sim-fabrication
+```
+
+So: **13 subdirectories under `data/`, 8 backed up, 5 excluded.** Along with
+`config`, `artifacts` and `backups/postgres`, the full path set is 11 entries.
+
+**The five exclusions are not equivalent, and the set should not be read as
+uniformly deliberate.**
+
+| Excluded | Size | Assessment |
+|---|---|---|
+| `data/build-update` | — | Regenerable build output; defensible |
+| `data/cache` | 4 KB | Empty; defensible |
+| `data/prometheus-textfile` | 8 KB | Regenerated by the collector; defensible |
+| `data/sim-vehicle` | 8 KB | Holds `browser-test-world.sdf`, a hand-authored world that is **not** regenerable — and excluding it saves 8 KB, so it cannot be a storage decision. Most likely an oversight. |
+| `data/monitoring` | 269 MB | Generated metric history; the only exclusion where an operator could reasonably disagree on cost grounds |
+
+`sim-vehicle` is the one to settle first: it is the cheapest inclusion in the
+set and it protects something that cannot be regenerated.
+
+**`data/ledger` and `data/payment` are in the path set, and that deserves an
+explicit note rather than silent inclusion.** Both carry provenance and
+transactional records. Backing them up is correct and long-standing; the point
+of raising it is that restic holds them as ciphertext in a repository on the same
+disk as the source, so confidentiality rests on the repository password alone. A
+restored copy of `ledger/` carries exactly the sensitivity the live copy does —
+there is no privilege drop on restore.
 
 **Restore drill, executed 2026-10-03.** Run with
 `scripts/restore/restore-restic-drill.sh`, which implements the seven steps
@@ -8385,6 +9181,100 @@ the local repository. So step 2 of the seven-step test had nothing to validate,
 and reporting "0 dumps, 0 problems" as a pass would overstate the result. Both
 are tracked in OPS-24.
 
+### 17.4.1 The local repository cannot be drilled without root (measured 2026-10-04)
+
+Both limits above have the same root cause, and it is now pinned to a specific
+permission rather than left as "the drill could not be run".
+
+The nightly repository is `drwx------ root root`, mode `0700`, owner root:
+
+```
+$ ls -ld /var/backups/alwayson-restic
+drwx------ 7 root root 4096 Aug 25 14:11 /var/backups/alwayson-restic
+```
+
+The wallet credential materialises correctly — the *secret* half of the problem
+is solved, and it is worth showing that separately from the *filesystem* half:
+
+```
+$ ./scripts/operations/fetch-restic-env.sh "$E"
+OK: wallet-backed restic env materialized
+```
+
+But with valid credentials the repository still cannot be read as the session
+user, because the failure is a directory permission, not a decryption failure:
+
+```
+$ restic snapshots --tag alwayson
+Fatal: unable to open config file: stat /var/backups/alwayson-restic/config: permission denied
+Is there a repository at the following location?
+/var/backups/alwayson-restic
+{"message_type":"exit_error","code":1,...}
+```
+
+And the drill script reports this correctly rather than misreporting it as an
+empty result — exit code **3**, its documented "environment" class:
+
+```
+$ ./scripts/restore/restore-restic-drill.sh --repo "$RESTIC_REPOSITORY" --scratch /var/tmp/ao-drill-$$
+ERROR: could not resolve a snapshot; pass --snapshot explicitly
+rc=3
+```
+
+**The scripted safety refusals were re-verified on this run and still hold**,
+which is the part of the drill contract that does *not* need root and is
+therefore worth keeping current. Note the second one specifically: a scratch path
+inside the live tree is refused **before** the credential check, so the refusal
+does not depend on holding the password.
+
+```
+$ ./scripts/restore/restore-restic-drill.sh --repo /var/backups/alwayson-restic --scratch /ALWAYSON/data/evil
+REFUSED: scratch path /ALWAYSON/data/evil is inside the live /ALWAYSON tree.
+rc=2
+
+$ ./scripts/restore/restore-restic-drill.sh --repo /var/backups/alwayson-restic --scratch /var/tmp/ao-drill-nonempty
+./scripts/restore/restore-restic-drill.sh: line 65: RESTIC_PASSWORD: ERROR: RESTIC_PASSWORD must be set in the environment, never passed as an argument
+rc=1
+```
+
+**A fourth refusal, added to the verified set: a symlink cannot evade the
+live-tree check.** The script resolves the scratch path with `readlink -m`
+before comparing, so a symlink pointing into `/ALWAYSON` is caught even though
+the literal argument does not look like it is inside the live tree. Verified
+2026-10-04, and the resolved path in the refusal message is the resolved one:
+
+```
+$ ln -sfn /ALWAYSON/data /tmp/ao-link-probe
+$ ./scripts/restore/restore-restic-drill.sh --repo /var/backups/alwayson-restic \
+      --scratch /tmp/ao-link-probe/x
+REFUSED: scratch path /ALWAYSON/data/x is inside the live /ALWAYSON tree.
+exit=2
+```
+
+Note what the message shows: the refusal names `/ALWAYSON/data/x`, not the
+`/tmp/ao-link-probe/x` that was typed. That is the check working, and it is also
+the diagnostic an operator needs — without the resolved path in the message the
+refusal would look inexplicable. The non-empty-directory refusal was verified
+in the same run, and the credential check was confirmed to fire only *after*
+the safety refusals on a safe path.
+
+**Consequence for OPS-24, stated precisely.** The drill that §17.4 records as
+PASS was run against the **off-host** repository, because that one is readable.
+The **nightly** repository — the one that actually holds `data/`, `ledger/`,
+`payment/` and `backups/postgres/`, and therefore the only one whose restore
+matters — is the one that cannot be read without root. So the passing drill
+evidences the repository that protects the least, and the repository that
+protects the most is the one never drilled. This inverts the intuitive reading of
+the evidence in the table above and is the single most important caveat in this
+section.
+
+Closing it needs one of: running the drill via `pkexec`, adding a read-only
+group and a matching group-readable repository directory, or granting the
+backup service account read access. **All three are privilege changes to backup
+data**, which is an explicit stop condition, so this session stops here rather
+than widening permissions on the repository. The scratch directory used was
+removed and nothing under `/ALWAYSON` was written.
+
 The repository was not modified: after the drill the off-host repository still
 reports exactly 1 snapshot, and the scratch directory was removed.
 
@@ -8431,15 +9321,120 @@ and the table above previously said "staged, not installed" for all five log
 blocks.** That was true when written and stopped being true; the distinction now
 drawn is between the two halves, which are genuinely in different states.
 
-Measured:
+Measured 2026-10-04:
 
-- `/etc/logrotate.d/alwayson` exists, root-owned, 5237 B, and is **byte-identical**
-  to the in-tree `config/host/logrotate-alwayson.conf` (`cmp` → no output).
-- It describes **5** rotating patterns (`logrotate -d` → count 5).
-- It has **already rotated**: 13 files match `logs/*.log.[0-9]` and **67** match
-  `logs/operations/*.log.[0-9]`. Rotations are real, not merely configured.
+- `/etc/logrotate.d/alwayson` exists, root-owned (`-rw-r--r-- root root`), 5237 B,
+  and is **byte-identical** to the in-tree `config/host/logrotate-alwayson.conf`
+  (`cmp` → no output, exit 0).
+- It describes **5** rotating patterns.
 - `find /ALWAYSON/logs -name '*.log' ! -user scottw` → **0**, so the ownership
-  precondition the policy needs holds.
+  precondition the policy's `su scottw scottw` needs holds.
+
+**It has rotated exactly once, and not on a timer.** The single rotation was a
+manual forced run, proven from the journal rather than inferred from timestamps:
+
+```
+$ journalctl --since '2026-10-04 00:17' --until '2026-10-04 00:30' --no-pager | grep -E 'pkexec\['
+Oct 04 00:17:43 pkexec[2462221]: scottw: Executing command [USER=root] ... [COMMAND=/usr/bin/sh -c logrotate -v /etc/logrotate.d/alwayson; echo "REAL_RUN_EXIT=$?"]
+Oct 04 00:18:38 pkexec[2465005]: scottw: Executing command [USER=root] ... [COMMAND=/usr/bin/sh -c logrotate -f -v /etc/logrotate.d/alwayson 2>&1 | tail -40; echo "FORCE_EXIT=${PIPESTATUS[0]}"]
+```
+
+The corroborating filesystem evidence is the `create 0664 scottw scottw`
+directive firing: eight live logs were truncated to **0 bytes at exactly 00:18**,
+the minute of the forced run.
+
+```
+$ ls -la --time-style=long-iso /ALWAYSON/logs/*.log
+-rw-rw-r-- 1 scottw scottw       0 2026-10-04 00:18 gpu-runtime-check.log
+-rw-rw-r-- 1 scottw scottw       0 2026-10-04 00:18 installation-journal.log
+-rw-rw-r-- 1 scottw scottw       0 2026-10-04 00:18 mastodon-local-proxy.log
+-rw-rw-r-- 1 scottw scottw       0 2026-10-04 00:18 meshchatx.log
+-rw-rw-r-- 1 scottw scottw       0 2026-10-04 00:18 operations-journal.log
+-rw-rw-r-- 1 scottw scottw       0 2026-10-04 00:18 restore-test.log
+-rw-rw-r-- 1 scottw scottw       0 2026-10-04 00:18 script-runs.log
+-rw-rw-r-- 1 scottw scottw       0 2026-10-04 00:18 sim-clock-bridge.log
+```
+
+**What I got wrong, and it is the most-read part of this subsection.** The
+previous revision of this section claimed:
+
+> It has **already rotated**: 13 files match `logs/*.log.[0-9]` and **67** match
+> `logs/operations/*.log.[0-9]`. Rotations are real, not merely configured.
+
+**That count was used as proof that this policy rotates, and it proves nothing
+of the kind.** Those files mostly predate the policy's installation. Birth times
+against the install time:
+
+```
+$ stat -c 'birth=%w %n' /ALWAYSON/logs/backup.log.1 /ALWAYSON/logs/sim-clock-bridge.log.1
+birth=2026-10-02 18:00:52 -0700 /ALWAYSON/logs/backup.log.1
+birth=2026-09-27 22:54:54 -0700 /ALWAYSON/logs/sim-clock-bridge.log.1
+$ stat -c '%w %n' /etc/logrotate.d/alwayson
+2026-10-04 09:07:08.728949137 -0700 /etc/logrotate.d/alwayson
+```
+
+`sim-clock-bridge.log.1` was born on 2026-09-27, **seven days before** the
+policy existed on disk, so an unknown earlier mechanism created it. Counting
+those files and attributing them to `/etc/logrotate.d/alwayson` was a plain
+attribution error: I counted an artefact without checking which process made
+it. `cmp` proves the policy is installed; a file count can never prove which
+rotator produced a given file.
+
+**A second wrong inference, in the opposite direction.** Concluding the
+rotations were too old to be the policy's invites declaring the policy has
+never rotated. That is also wrong, for a related reason: `nocopytruncate`
+**renames**, so a rotated file keeps the mtime of the content it last received.
+Age comparison reads the *content's* age, not the *rotation's* time, and cannot
+date a rotation at all. The 00:18 journal evidence is what actually dates it.
+Under `nocopytruncate`, neither `mtime` nor an age threshold is a valid
+rotation timestamp — the journal is.
+
+**The daily unattended path is therefore still unproven.** `logrotate.timer` did
+fire after installation —
+
+```
+$ systemctl list-timers --all | grep logrotate
+Mon 2026-10-05 00:22:47 PDT  9h  Sun 2026-10-04 00:23:13 PDT  14h ago  logrotate.timer  logrotate.service
+```
+
+— but at **00:23:13**, four and a half minutes *after* the manual forced run had
+already rotated everything it could. That run consumed `15.840s CPU time over
+16.299s wall clock time` and had nothing left to do. OPS-25 is closed on
+*installation and parse validity*; the claim that **unattended daily rotation
+works** is demonstrated by nothing yet. The first real test is the 2026-10-05
+00:22 run — scheduled, with a valid policy, so expected to pass, but
+expectation is not measurement.
+
+**A real defect this exposed: `nocopytruncate` splits a long-lived writer**
+
+The forced rotation at 00:18 renamed `sim-gz-server.log` while its writer stayed
+attached to the old inode. The container is still running and still logging, and
+`lsof` shows where its output actually goes now:
+
+```
+$ lsof logs/sim-gz-server.log.1
+COMMAND     PID   USER FD   TYPE DEVICE SIZE/OFF     NODE NAME
+conmon  1195162 scottw 6w   REG  259,2  1437117 18222278 logs/sim-gz-server.log.1
+
+$ ls -la --time-style=long-iso logs/sim-gz-server.log*
+-rw-rw-r-- 1 scottw scottw       0 2026-10-04 00:18:38 logs/sim-gz-server.log
+-rw-rw-r-- 1 scottw scottw 1437117 2026-10-04 09:25:00 logs/sim-gz-server.log.1
+```
+
+The **live** log is 0 bytes and the **rotated** one is still growing. Gazebo
+output is landing in `sim-gz-server.log.1` and will be discarded at the next
+rotation, so this container has effectively been logging into a file due for
+deletion since 00:18. Nothing was deleted by this session, and the log is not
+lost yet — the next scheduled rotation is what would remove it.
+
+The policy uses `nocopytruncate` deliberately: `copytruncate` copies the file
+and truncates it in place, which briefly duplicates content and briefly races
+writers. For a log a long-lived `conmon` holds open across a daily rotation,
+that race is the lesser evil — the alternative here is silent loss. **This
+needs an operator decision and is not changed by this session**, because the
+correct fix is either `copytruncate` or a `postrotate` that signals the
+container to reopen its log, and both touch a running simulation service.
+Recorded as an open finding, not silently patched.
 
 **The journald half is genuinely still uninstalled**, and the evidence is
 stronger than "not found":
