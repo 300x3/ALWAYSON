@@ -354,7 +354,18 @@ TLS requirements:
   Git or this README. Revoke by deleting/re-creating the tunnel.
 - `X-Forwarded-Proto: https` is supplied by cloudflared so Rails
   generates HTTPS URLs and Secure cookies (validated: instance JSON
-  reports `streaming_api: wss://300x3.com`).
+  reports `streaming_api: wss://mastodon.300x3.com`). Corrected
+  2026-10-04: this line previously read `wss://300x3.com`, which is the
+  static storefront and is not routed to Mastodon. The validation claim was
+  correct but the value quoted was the retired apex host, so the line cited
+  as proof that HTTPS rewriting works was itself an instance of the drift
+  catalogued in §15.4.8 — a self-contradicting one. Measured:
+
+  ```console
+  $ curl -4 -s https://mastodon.300x3.com/api/v1/instance \
+      | python3 -c "import sys,json;d=json.load(sys.stdin);print(d['urls'])"
+  {'streaming_api': 'wss://mastodon.300x3.com'}
+  ```
 
 Outbound delivery path:
 
@@ -410,14 +421,23 @@ sidekiq queues are empty, which shows nothing is stuck:
 `LLEN queue:push_public = 0`, `LLEN queue:pull = 0`, and `redis-cli KEYS 'queue:*'`
 returns an empty array.
 
-Step 9 status as measured 2026-10-03: first contact **has** occurred, so the instance is
+step 9 status as measured 2026-10-04: first contact **has** occurred, so the instance is
 no longer unindexed. Evidence — 10 distinct remote domains are now known locally
 (`mastodon.social`, `veganism.social`, `mastodon.online`, `universeodon.com`,
 `mastodonapp.uk`, `rivals.space`, `cupoftea.social`, `sekretaerbaer.de`, `fedibook.de`,
-`friendicadev.sekretaerbaer.de`) and `mastodon.social` holds our actor. The one part of
+`friendicadev.sekretaerbaer.de`) and `mastodon.social` holds our actor, confirmed again by
+`lookup?acct=bot@mastodon.300x3.com` → id `117327405745705562` and
+`lookup?acct=admin@mastodon.300x3.com` → id `117327389970897359`. The one part of
 step 9 not performed is the **human** step — signing in with Konqueror and following from
 the browser UI. That requires the operator at the desktop and is not something a headless
 session can or should fake. Tracked as COMM-06; status Open.
+
+**Correction to the tunnel-health claim in this step.** An earlier pass recorded here that
+the tunnel showed "all 4 connections registered ... no inbound fault". That was a
+single-registration reading taken between flaps and it was wrong as a health statement:
+the four connections were re-registering continuously. See §15.4.10 — 26 flap events in the
+hour, and a 502 on every public path during the burst. Discovery and the remote lookup
+above still hold; the claim that the edge path was fault-free does not.
 
 Step 10 has two parts and neither is complete. Public-post delivery and round-trip
 re-validation need a **new public post**, which is an external publication and is
@@ -569,4 +589,112 @@ the remote account's business, not a reciprocal requirement.
 This asymmetry is a property of how ActivityPub follow requests work, not a defect. It
 is written down so a future session does not "fix" it by adding follows.
 
+Re-measured 2026-10-04 and unchanged: the remote `following` collection still returns both
+local accounts (`count= 2`), and `followers` still returns only `bot`
+(`followers_count= 1`). The asymmetry conclusion stands. Note that the follow
+*relationship* is sound while the *edge path* carrying it is currently degraded — see
+§15.4.10. Those are independent, and a working `follows` row says nothing about whether
+the object can still be fetched.
+
 ---
+
+### 15.4.10 Cloudflare Tunnel Edge Instability (measured, and a real availability fault)
+
+This supersedes the "transient 502" reading recorded in §15.4.4 step 8 and in the COMM-02
+and COMM-06 evidence. Those passes saw a 502, retried, saw 200, and concluded the tunnel
+was healthy. The 502 was not a one-off. It recurred, and the cause is a **sustained
+cloudflared edge flap**, not a stray probe.
+
+Measured 2026-10-04 (times UTC):
+
+```console
+$ systemctl --user show cloudflared-alwayson.service -p ActiveEnterTimestamp -p NRestarts
+ActiveEnterTimestamp=Thu 2026-10-01 15:08:26 PDT
+NRestarts=1
+```
+
+The unit has **not** restarted since 2026-10-01, so this is invisible to `systemctl` and to
+any "is the service up" check. The process stays up while its four edge connections cycle:
+
+```console
+$ journalctl --user -u cloudflared-alwayson.service --since '60 min ago' \
+    | grep -c 'Lost connection with the edge'
+26
+$ journalctl --user -u cloudflared-alwayson.service --since '3 hours ago' \
+    | grep -c 'Lost connection with the edge'
+61
+$ journalctl --user -u cloudflared-alwayson.service --since '24 hours ago' \
+    | grep -c 'failed to serve incoming request'
+450
+```
+
+Each flap drops **all four** connections together and re-registers them within ~10 s:
+
+```text
+19:54:01 ERR failed to serve incoming request error="Error shutting down control stream: context canceled"
+19:54:01 INF Lost connection with the edge connIndex=0
+19:54:01 WRN Serve tunnel error error="connection with edge closed" connIndex=0
+19:54:02 ERR Connection terminated ... connIndex=1,2,3
+19:54:03 INF Registered tunnel connection connIndex=2 ... location=phx01 protocol=http2
+19:54:03 INF Registered tunnel connection connIndex=1 ... location=phx01 protocol=http2
+19:54:03 INF Registered tunnel connection connIndex=3 ... location=sjc01 protocol=http2
+```
+
+That all-connections-at-once pattern is why `NRestarts=1` is not evidence of health:
+individual `connIndex` connections are re-established inside the one long-lived process.
+**Health of this path must be judged by the flap count in the journal, not by unit state.**
+
+User-visible effect, observed rather than inferred. During a flap window the public edge
+returned 502 on every path, including the instance API and the site root:
+
+```console
+$ for i in 1 2 3 4 5; do curl -s -o /dev/null -m 15 -w '%{http_code} ' \
+    -H 'Accept: application/activity+json' https://mastodon.300x3.com/users/bot; done
+502 502 502 502 502
+$ # same moment, /api/v1/instance, /api/v2/instance and / all 502
+```
+
+A Mastodon actor endpoint answering 502 is exactly the failure that stops remote servers
+fetching this instance. Once the flap burst stopped, the same probes returned 200 twelve
+times out of twelve, which is why a spot check during recovery reports a healthy system.
+
+**What is *not* affected, measured rather than assumed:** the origin is fine. There were
+zero 5xx in three hours of `mastodon-web` logs (1,161 lines, no `" 5xx "` status lines), and
+no delivery or fetch errors in 1,872 lines of `mastodon-sidekiq` logs. Queues are empty
+(`LLEN queue:push_public = 0`, `LLEN queue:pull = 0`, `KEYS 'queue:*'` → empty array). The
+fault is at the Cloudflare edge-to-tunnel hop, not in Mastodon, and it degrades **inbound**
+federation (remote servers pulling our objects) more than outbound delivery.
+
+The flap window observed during this pass ran 2026-10-04T06:21:47Z through
+19:54:01Z. It has not been diagnosed beyond that: this is the signature of a marginal or
+throttled tunnel edge connection, and distinguishing a Cloudflare-side incident from a local
+network fault needs evidence this session does not have. Changing tunnel transport, protocol,
+or edge routing is **live network configuration** and is therefore a stop condition; it is
+recorded for the operator and for the session owning §15.4.3, not actioned here.
+
+#### Trap: probe this host with `curl -4`, or IPv6 confounds every measurement
+
+`mastodon.300x3.com` publishes AAAA records, but this host has **no global IPv6 address**:
+
+```console
+$ dig +short AAAA mastodon.300x3.com
+2606:4700:3032::6815:2953
+2606:4700:3035::ac43:a342
+$ ip -6 -o addr show scope global | wc -l
+0
+$ ping -6 -c 2 2606:4700::6815:2953
+ping: connect: Network is unreachable
+$ curl -6 -s -o /dev/null -m 10 https://mastodon.300x3.com/api/v1/instance ; echo $?
+7
+```
+
+A default-`curl` probe tries the AAAA address first, fails, and falls back to IPv4. The
+fallback usually succeeds, so a plain probe looks fine. But it makes the measurement
+**nondeterministic in a way that mimics the very fault being investigated**: under load or
+timing variation the failed v6 attempt can surface as `000` or as a 502 rather than a clean
+fallback, and the natural conclusion — "the tunnel is dropping requests" — is wrong. It is
+the probe's dead v6 leg.
+
+Use `curl -4` for every measurement against this host. Verified with `curl -4`: 12 of 12
+probes returned 200 across the whole of a post-burst window, and IPv4 was what answered
+(`remote_ip=104.21.41.83`).
