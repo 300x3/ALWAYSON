@@ -266,6 +266,48 @@ suite covers the desktop and portable hardware this system is built for.
 through systemd Quadlet definitions — never Kubernetes, Docker Compose, a Docker daemon, or
 shell-wrapper orchestration (§13).
 
+**Correction 2026-10-04 — what "Kubuntu" is worth, measured.** The Kubuntu rationale above is
+the *selection* rationale and stands. But the running host does not identify itself as Kubuntu,
+and a reader checking `lsb_release` will get a different answer than this paragraph gives. It
+is KDE Plasma on Ubuntu 26.04.1, not a Kubuntu-flavoured install:
+
+```
+$ lsb_release -a
+Distributor ID:	Ubuntu
+Description:	Ubuntu 26.04.1 LTS
+Release:	26.04
+Codename:	resolute
+$ cat /etc/kubuntu-release
+cat: /etc/kubuntu-release: No such file or directory
+$ apt-cache policy kubuntu-desktop
+kubuntu-desktop:
+  Installed: (none)
+$ plasmashell --version
+plasmashell 6.6.6
+$ systemctl is-enabled sddm
+enabled
+```
+
+Three `kubuntu-*` packages are installed (`kubuntu-settings-desktop`, `kubuntu-wallpapers`,
+`kubuntu-notification-helper`) but the `kubuntu-desktop` metapackage is not, and
+`kubuntu-desktop` is in `universe`, not `main`. So: Ubuntu LTS base, KDE Plasma 6.6.6 on SDDM,
+Kubuntu-flavoured settings only. Every functional claim this section rests on is independently
+true — Plasma 6.6.6 is present, `konqueror`, `kwalletmanager5` and `kwallet-query` are
+installed (§14.1), ROS 2 Lyrical is at `/opt/ros/lyrical` (§2.2), and the machine is an
+i7-8700K with a GeForce GTX 1080. Only the distribution label was loose.
+
+**Toolchain correction, same date.** §1 says the desktop "carries the ROS 2 and Gazebo toolchain
+plus QGroundControl". ROS 2 and Gazebo are real: `ros2` resolves to `/opt/ros/lyrical/bin/ros2`
+and `gzserver` is not on the host PATH because Gazebo runs containerised
+(`ao-sim-fabrication-gz`, carrying `gz` and `gz-msgs_*`; the host keeps a wrapper at
+`~/bin/gazebo`). **QGroundControl is an AppImage, not an installed package** — there is no
+`qgroundcontrol` binary on the PATH and no `.desktop` entry in `/usr/share/applications`; the
+operator runs `~/Documents/APP IMAGES/QGroundControl-x86_64.AppImage`, which has left state in
+`~/.config/QGroundControl` and `~/.cache/QGroundControl`. Same for the Foxglove bridge, which is
+a locally built image (`localhost/foxglove-bridge`) rather than a pinned upstream digest. Those
+two are simulation-toolchain facts and belong to the SIM group's inventory; they are noted here
+only so §1 does not read as a package manifest.
+
 # 2. Platform Baseline
 
 ## 2.1 Intended Platform Standard
@@ -589,14 +631,14 @@ this path.
 — i.e. genuine per-machine production data. Note that Moonraker currently serves
 **unauthenticated reads**; see §3.3.0 for the open item on API keys.
 
-**Re-checked 2026-10-10: the machine is not currently reachable.** The host's own address on
+**Re-checked 2026-10-04: the machine is not currently reachable.** The host's own address on
 the equipment LAN answers normally, so the segment is healthy and the absence is at the
 machine end, not a network fault:
 
 ```
-ping 10.42.0.1     1 received, 0% packet loss        (host, equipment LAN up)
+ping 10.42.0.1     2 received, 0% packet loss        (host, equipment LAN up)
 ip neigh 10.42.0.96    dev eno1 FAILED               (no ARP resolution)
-connect 10.42.0.96:7125  unreachable
+connect 10.42.0.96:7125  No route to host
 ```
 
 The 2026-09-30 verification therefore remains valid as a statement about that machine at that
@@ -642,6 +684,31 @@ the simulation domain does.
 `/ALWAYSON/quadlet/networks/ao-fabrication.network` because every other network there lets
 Podman auto-assign. See §2.2 for the reconciliation of the adjacent
 unregistered `10.89.10.0/24` and `10.89.11.0/24`.
+**Correction 2026-10-04 — the adjacent-subnet pointer in this subsection was stale.** The
+sentence above ends by pointing at §2.2 for "the reconciliation of the adjacent unregistered
+`10.89.10.0/24` and `10.89.11.0/24`". Both halves of that were already wrong, and a later
+revision corrected neither. Measured:
+
+```
+$ grep -nE 'ao-reporting-egress|ao-sales' /ALWAYSON/config/platform/network-cidrs.yaml
+14:ao-reporting-egress internal=false subnets=10.89.10.0/24
+15:ao-sales internal=false subnets=10.89.0.0/24
+$ grep -c '10.89.11' /ALWAYSON/config/platform/network-cidrs.yaml
+0
+```
+
+- **`10.89.10.0/24` is registered**, as `ao-reporting-egress` (`Internal=false`, deliberately —
+  it is the reporting egress path for `ao-grafana` and `ao-metabase`, §6.A.2). It is not
+  "adjacent" and not unregistered, and §2.2 lists it among the three deliberately
+  `Internal=false` networks.
+- **`10.89.11.0/24` is genuinely unallocated** — no match in the registry that §2.2 makes the
+  only authority. It is folded into `ao-sales` and is recorded as such in §5, which is where
+  the `ao-egress-community` name question now lives. §2.2 contains no reconciliation text at
+  all, so pointing there was never useful.
+
+The one surviving open item is the `ao-egress-community` / `10.89.11.0/24` name-versus-CIDR
+reconciliation. That is a rename decision belonging to another group, tracked in §19.1; it is
+deliberately left alone here.
 
 ### 3.3.1 Program-to-Database Map (single consolidated table)
 
@@ -655,7 +722,7 @@ installed package or desktop settings module.
 | **PostgreSQL 17** | Sales database service | Container `ao-sales-db` on `ao-sales`, database `salesdb` | Authoritative source for customers, orders, products, payments, receipts, entitlements, and audit history |
 | **PostgreSQL 17** | Mastodon web/background workers | Container `mastodon-db` on `ao-sales`, database `mastodon` | Accounts, posts, media metadata, federation state, and background-job application data |
 | **PostgreSQL 17** | Fabrication database service | Container `ao-fabrication-db` on `ao-fabrication`, database `a_fab`, role `fabrication_role` | Per-machine production data pulled from each individual machine (§3.3.0). Separate from `ao-sim-fabrication`, which holds none |
-| **PostgreSQL 9.5** | WebODM web/worker | Container `ao-webodm-db` on `ao-mapping`, database `webodm` (host-side data dir `~/webodm/dbdata`) | Mapping projects, processing state, users, and geospatial data. The app reads database `webodm_dev` in that container. **PostGIS is available in the image but is not installed in either database** — the only installed extension is `plpgsql` |
+| **PostgreSQL 9.5** | WebODM web/worker | Container `ao-webodm-db` on `ao-mapping`, database `webodm` (host-side data dir `~/webodm/dbdata`) | Mapping projects, processing state, users, and geospatial data. The app reads database `webodm_dev` in that container. **PostGIS is installed in `webodm_dev` (version 2.3.2) but not in `webodm`** — so the only installed extension in `webodm` is `plpgsql`, and the geospatial extension lives in the database the app actually reads. Re-measured 2026-10-04; an earlier revision of this row said PostGIS was absent from *both* databases, which was wrong |
 | **PostgreSQL 9.5** | NodeODM | The same `ao-webodm-db` container, plus filesystem processing data | Processing-node state and coordination; large image/output artifacts remain filesystem data |
 | **PostgreSQL 18** | Corda 5 node | `cordadb` (dedicated Corda PostgreSQL database in the host cluster, per §11.1) | Receipt, entitlement, and provenance state. Built on Corda 5 against `cordadb`. |
 | **Redis 8** | Host Redis service | Host Redis database 0 | General low-latency cache/coordination layer; no current application data confirmed |
@@ -1263,9 +1330,10 @@ detail in §3.3; this table records only what is unique to each tool's role here
 **Both application databases live on the host PostgreSQL 18 cluster**, not in their own
 containers, and are reached differently. Grafana mounts the host's `/var/run/postgresql` and
 connects over the Unix socket with `GF_DATABASE_HOST=/var/run/postgresql`. Metabase connects
-over TCP to the host's `10.42.0.1` on `ao-reporting-egress`. Measured 2026-10-10; both
+over TCP to the host's `10.42.0.1` on `ao-reporting-egress`. Measured 2026-10-04; both
 containers are also on `ao-admin`. Both are loopback-and-socket scoped, which is why neither
-needs a public port.
+needs a public port. Measured listeners: Grafana `127.0.0.1:3001` and Metabase
+`127.0.0.1:3002`, loopback-bound only (`ss -ltn`).
 
 **Metabase and Corda.** Metabase may report on approved Corda-derived business and
 provenance data only through a deliberate read-only reporting projection, approved views, a
@@ -1288,9 +1356,16 @@ operator-access implementation must comply with this subsection and §§4, 5, 14
 - Reporting identities must enforce read-only access to source databases or
   services. Grafana and Metabase each keep their own application database and read the
   business databases over per-source read-only roles, writing to none of them.
-  *Verified 2026-10-10 on `salesdb`: `sales_reporting_role` holds `SELECT` on 5 tables and
-  nothing else, is not a superuser, and has no `CREATE`/`CREATEDB`/`CREATEROLE`. The
-  separate `metabase_app` role exists **only** on the Metabase application database, not on
+  *Verified 2026-10-04 on `salesdb`: `sales_reporting_role` holds `SELECT` on **five views**
+  and nothing else — `v_reporting_orders`, `v_reporting_receipts`, `v_reporting_entitlements`,
+  `v_reporting_sale_provenance`, `v_corda_entry_readiness`. It is not a superuser and has no
+  `CREATE`/`CREATEDB`/`CREATEROLE`. It holds no privilege on any base table: reading `orders`
+  directly fails with `permission denied for table orders`, while reading `v_reporting_orders`
+  succeeds. That is the read-only boundary holding, not merely declared.*
+  *Note the word **views** — an earlier revision of this bullet said "5 tables". The grant is on
+  views owned by `sales_migration_role`, and the underlying tables are granted to
+  `sales_api_role` and `sales_backup_role`, never to the reporting role.*
+  *The separate `metabase_app` role exists **only** on the Metabase application database, not on
   `salesdb`, so the reporting path to the business data is `sales_reporting_role`.*
   *One thing to watch, not a breach: `sales_migration_role` on the same cluster **is** a
   superuser with `CREATEDB` and `CREATEROLE`. That is the migration identity and it is not
@@ -1310,23 +1385,126 @@ operator-access implementation must comply with this subsection and §§4, 5, 14
 The machine-readable inventory that implements this requirement is
 `/ALWAYSON/config/platform/gui-boundary-matrix.yaml`.
 
-#### 6.A.3.1 Known staleness in that inventory (measured 2026-10-10)
+#### 6.A.3.1 Known staleness in that inventory (re-measured 2026-10-04)
 
 The YAML is **behind both this subsection and the live network list**. It remains a valid
-record of the 2026-08-29 review it declares, but three of its claims no longer hold, and a
-reader must not take it as current:
+record of the 2026-08-29 review it declares, and these claims no longer hold:
 
 | Field in the YAML | Measured state | Evidence |
 |---|---|---|
 | `matrix.reviewed: "2026-08-29"` and `podman_networks_verified` lists **10** networks | The host runs **14** `ao-*` networks | `podman network ls` |
 | same list | Omits `ao-fabrication`, `ao-html-window`, `ao-build-update`, `ao-reporting-egress` | as above |
 | entries (10) name `ao-egress-community` and `ao-ardupilot-sitl` | **Neither network exists** — `ao-egress-community` is not found, and it is not in `network-cidrs.yaml`; `10.89.11.0/24` is unallocated and folded into `ao-sales` | `podman network inspect ao-egress-community` → *network not found*; `grep 10.89.11 config/platform/network-cidrs.yaml` → no match |
-| the WebODM / NodeODM rows imply provisioned datasources | `config/platform/monitoring/grafana/provisioning/datasources/` is **empty** — no datasource is provisioned | `ls` of the directory |
 
-So §5.1 group D (18 rows) is the current statement, and the YAML is a lagging subset of it.
-Reconciling the YAML is **not** mine to do — it is a config file outside the three section
-files I own, and the `ao-egress-community` name/CIDR question is an existing §19.1 item
-belonging to another group. This subsection records the gap so the next reader is not misled.
+**Withdrawn — do not repeat an earlier claim from this subsection.** A previous revision
+asserted that `config/platform/monitoring/grafana/provisioning/datasources/` was **empty**,
+implying no datasource is provisioned. **That is no longer true**, and it was measured, not
+guessed:
+
+```
+$ ls config/platform/monitoring/grafana/provisioning/datasources/
+postgres-aostatus.yml
+sqlite-snapshots.yml
+```
+
+`postgres-aostatus.yml` provisions a single `ALWAYS ON Status` PostgreSQL datasource by URL
+over the host Unix socket. The current state of the Grafana datasource inventory is a
+**monitoring** concern for the OPS group and is deliberately **not** asserted here — verifying
+it needs host PostgreSQL access (`sudo -u postgres psql ... grafana`), which did not succeed
+non-interactively during this review, so the live DB contents are unconfirmed and the file
+alone is not proof of what Grafana has actually loaded.
+
+**The blocker above is still a blocker — re-attempted 2026-10-04, same result.** A second
+review tried a different route and also failed:
+
+```
+$ sudo -n -u postgres psql -tAc "select datname from pg_database order by 1;"
+sudo: interactive authentication is required
+$ podman exec ao-grafana sh -c 'psql -h /var/run/postgresql -U "$GF_DATABASE_USER" -d postgres -tAc "..."'
+sh: psql: not found
+```
+
+The socket is correctly mounted read-only into the container
+(`Volume=/var/run/postgresql:/var/run/postgresql:ro`) and `GF_DATABASE_HOST=/var/run/postgresql`,
+so the *path* is proven — but the Grafana image ships no `psql` client, and `sudo -n` cannot
+authenticate non-interactively. What **is** now proven, from Grafana's own startup log, is that
+the application database on the host cluster is real and PostgreSQL, and that Grafana connected to
+it:
+
+```
+$ podman logs ao-grafana | grep -E 'Connecting to DB|migrator'
+logger=sqlstore t=2026-10-03T19:34:26.480251744Z level=info msg="Connecting to DB" dbtype=postgres
+logger=migrator t=2026-10-03T19:34:26.486028158Z level=info msg="Locking database"
+logger=migrator t=2026-10-03T19:34:26.507162277Z level=info msg="Unlocking database"
+```
+
+and Metabase independently reports the host cluster version, corroborating the "host PostgreSQL
+18" row in §3.3.1:
+
+```
+$ podman logs ao-metabase | grep -i 'verified postgres'
+2026-10-01 22:22:54,982 INFO db.setup :: Successfully verified PostgreSQL 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1) application database connection. ✅
+```
+
+So the **host PostgreSQL 18** claim in §3.3.1 and §6.A.2 is now measured from two independent
+sources rather than inferred from `/etc/postgresql/`. What remains unconfirmed is narrower and is
+the OPS group's to answer: *which datasources Grafana actually has loaded*, as distinct from
+which files are provisioned. Reading the `grafana` database's `datasource` table needs a
+`postgres` superuser role on the host cluster, which no non-interactive route currently reaches.
+
+So §5.1 group D (18 rows, counted) is the current statement, and the YAML is a lagging subset
+of it. Reconciling the YAML is **not** mine to do — it is a config file outside the three
+section files I own, and the `ao-egress-community` name/CIDR question is an existing §19.1
+item belonging to another group. This subsection records the gap so the next reader is not
+misled.
+
+#### 6.A.3.2 Four unmanaged Grafana containers are running (measured 2026-10-04)
+
+Beyond the YAML's staleness, `podman ps` shows **four Grafana containers that no Quadlet
+unit owns**, alongside the one sanctioned `ao-grafana`. All four are leftovers from
+2026-10-03 datasource/plugin investigation, two of them from an unnamed probe:
+
+```
+$ for c in relaxed_tharp confident_khayyam keen_bhabha ao-sqli3 ao-grafana; do
+    podman inspect $c --format '{{.Name}} created={{.Created}} nets={{range $k,$v := .NetworkSettings.Networks}}{{$k}} {{end}} netmode={{.HostConfig.NetworkMode}} priv={{.HostConfig.Privileged}} unit={{index .Config.Labels "io.podman.annotations.quadlet"}}'; done
+relaxed_tharp     created=2026-10-03 08:54:41 nets= netmode=pasta priv=false unit=
+confident_khayyam created=2026-10-03 09:00:35 nets= netmode=pasta priv=false unit=
+keen_bhabha       created=2026-10-03 11:50:02 nets= netmode=pasta priv=false unit=
+ao-sqli3          created=2026-10-03 11:50:58 nets= netmode=pasta priv=false unit=
+ao-grafana        created=(managed)   nets=ao-admin ao-reporting-egress netmode=bridge priv=false unit=ao-grafana.service
+```
+
+Why this belongs in §6 rather than §19 only: §6.A.3 requires every containerized GUI to have a
+**documented Podman-network membership, listener policy, service owner and least-privilege
+identity**. These four have no service owner (no Quadlet label), no declared network
+(`pasta` rootless-NAT, per-process — not any of the fourteen registered `ao-*` networks), and
+they are **absent from §5.1 group D**, which claims to enumerate all eighteen GUI and workflow
+rows. Two of them also mount host paths that are *not* the sanctioned read-only snapshot
+copies: `confident_khayyam` mounts `/tmp/tmp.2HBNsh7zgo:/probe` and `ao-sqli3` mounts
+`/tmp/sqli-plugins2:/var/lib/grafana/plugins`, both **writable, both from `/tmp`**, one of them
+supplying the unsigned `frser-sqlite-datasource` plugin to a Grafana instance that is not the
+one with the allow-list policy.
+
+Mitigating, measured, and worth stating so this is not over-read:
+
+- **No listener is exposed.** `podman port` reports nothing for all four (`map[]`, pasta
+  mode), and `ss -ltn` shows no new Grafana port. The only `3000/3001/3002` listeners belong to
+  `mastodon-web` (3000), `ao-grafana` (3001) and `ao-metabase` (3002), all loopback-bound.
+- **None is privileged**, none is on an `ao-*` network, and none is quadlet-started.
+
+So this is a **conformance and hygiene defect, not an exposure**: unmanaged duplicate GUIs
+outside the inventory, two of them writable-mount-bearing. **Not mine to remediate.** Stopping
+containers is destructive, touches another group's running work, and the `/tmp` plugin mounts
+are the subject of the unsigned-plugin question that §6.A.3 and the OPS group already track.
+Recorded here and reported to the operator; no action taken.
+
+**Trap for the next session.** `podman ps` is sorted by name, so a `grep grafana` against the
+**image** column finds these while a search for `ao-grafana` does not. The Foxglove containers
+are the same class of leftover: of three `localhost/foxglove-bridge` containers,
+`ao-sim-fabrication-foxglove` is the sanctioned, **digest-pinned** one, while `vigorous_shannon`
+and `dreamy_rosalind` are unnamed duplicates on the mutable `:latest` tag with no Quadlet label
+— the same §4.1 rule 9 pinning concern, already measured above. Enumerate by *label presence*,
+not by image string.
 
 ---
 
