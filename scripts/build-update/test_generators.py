@@ -25,6 +25,7 @@ from __future__ import annotations
 import importlib.util
 import os
 import shutil
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -273,6 +274,53 @@ class TestRollupsCanBeDrilledInto(unittest.TestCase):
         """A PDF that hides the drill-down reintroduces the dead end."""
         self.assertIn("@media print", pl.CSS)
         self.assertIn("details.drill", pl.CSS)
+
+    def test_the_apt_rollups_carry_their_members(self):
+        """The two apt roll-ups were the remaining dead ends.
+
+        The KDE and launcher roll-ups were drillable; "Ubuntu archive
+        packages" and "ROS 2 lyrical (whole train)" were still a bare count.
+        Both lists are already in `inv`, so this asserts the rows carry them.
+        """
+        inv = {"apt_packages": [
+            {"package": "libc6", "version": "2.42-1", "release": "Ubuntu 26.04"},
+            {"package": "ros-jazzy-rclcpp", "version": "1.0.0",
+             "release": "Third-party", "origin": "packages.ros.org",
+             "suite": "resolute"},
+        ], "os": {"pretty": "Ubuntu 26.04.1 LTS", "codename": "resolute"}}
+
+        for row in pl.ubuntu_summary(inv) + pl.ros_summary(inv):
+            self.assertTrue(row.get("members"),
+                            f"{row['item']} is a roll-up with no members: "
+                            f"a reader cannot drill into it")
+            for m in row["members"]:
+                self.assertIn(" (", m,
+                              f"member {m!r} carries no version; OPS-23 asks "
+                              f"for members with their own versions")
+
+    def test_a_package_rollup_renders_one_row_per_member(self):
+        """Thousands of members must not be joined into one table cell.
+
+        The first fix produced a single 40,000-character line for the Ubuntu
+        archive. That technically satisfied "the members are reachable" and
+        practically failed the reader just as badly as the bare count did.
+        """
+        r = dict(self.ROW, item="Ubuntu archive packages",
+                 package_rollup=True,
+                 members=["libc6 (2.42-1)", "zlib1g (1:1.3.dfsg-1)"])
+        md = pl.rollup_details_md([r])
+        self.assertIn("| `libc6` | `2.42-1` |", md)
+        self.assertIn("| `zlib1g` | `1:1.3.dfsg-1` |", md)
+        self.assertIn("expand to list all 2 packages", md)
+        # the package must not be glued to the version by the roll-up renderer
+        self.assertNotIn("libc6 (2.42-1)", md)
+
+    def test_a_launcher_rollup_is_not_a_package_rollup(self):
+        """The launcher grouping keeps its joined cell; only packages split."""
+        md = pl.rollup_details_md([dict(self.ROW)])
+        self.assertIn("expand to list every application entry", md)
+
+
 class TestVerbAllowlistAgreesAcrossFiles(unittest.TestCase):
     """apply-plan.py duplicates the verb list so it runs standalone.
 
@@ -632,6 +680,82 @@ class TestAptHistoryIsActuallyUsed(unittest.TestCase):
         rec = ah.parse_history(log_dir=tmp)["thing:amd64"]
         self.assertEqual(rec["versions"], ["1.2.3-1"])
         self.assertNotIn("automatic", rec["versions"])
+
+
+class TestImageDigestChecker(unittest.TestCase):
+    """OPS-02: the digest check must be able to say OK, not only DRIFT.
+
+    A checker observed only in its failing state proves nothing -- "7 rows
+    drifted" is exactly what a broken comparison also prints. Each case below
+    drives the real script against a synthetic tree and asserts the exit code,
+    so the OK path is exercised as carefully as the failing one.
+    """
+
+    SCRIPT = "scripts/validation/check-image-digests.sh"
+    ROOT = Path(__file__).resolve().parents[2]
+
+    def run_check(self, units, matrix_yaml, *args):
+        tmp = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, tmp, True)
+        (tmp / "units").mkdir()
+        for name, body in units.items():
+            (tmp / "units" / f"{name}.container").write_text(body)
+        (tmp / "m.yaml").write_text(matrix_yaml)
+        env = {**os.environ,
+               "AO_ROOT": str(self.ROOT),
+               "QUADLET_DEPLOY_DIR": str(tmp / "units"),
+               "VERSION_MATRIX": str(tmp / "m.yaml")}
+        return subprocess.run(["bash", str(self.ROOT / self.SCRIPT), *args],
+                              capture_output=True, text=True, env=env, cwd=self.ROOT)
+
+    D1 = "sha256:" + "1" * 64
+    D2 = "sha256:" + "2" * 64
+
+    def test_a_matrix_matching_the_deployed_units_reports_ok(self):
+        r = self.run_check({"a": f"Image=example.com/a@{self.D1}\n"},
+                           f'host:\n  images:\n    a: "example.com/a@{self.D1}"\n',
+                           "--check")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("RESULT: OK", r.stdout)
+
+    def test_a_stale_matrix_row_is_reported_and_fails_the_check(self):
+        r = self.run_check({"a": f"Image=example.com/a@{self.D1}\n"},
+                           f'host:\n  images:\n    a: "example.com/a@{self.D2}"\n',
+                           "--check")
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("DRIFT", r.stdout)
+        self.assertIn("host.images.a", r.stdout)
+
+    def test_a_tag_only_image_is_a_rule_9_violation(self):
+        """An Image= with no digest passes review for months."""
+        r = self.run_check({"a": f"Image=example.com/a@{self.D1}\n",
+                            "b": "Image=example.com/b:latest\n"},
+                           f'host:\n  images:\n    a: "example.com/a@{self.D1}"\n',
+                           "--check")
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("UNPINNED", r.stdout)
+
+    def test_a_truncated_digest_counts_as_unpinned(self):
+        """The OPS-22 lesson: a `sha256:` prefix is not a pinned reference.
+
+        `sha256:` plus 12 hex characters looks pinned and is not.
+        """
+        short = "sha256:" + "a" * 12
+        r = self.run_check({"a": f"Image=example.com/a@{short}\n"},
+                           'host:\n  images: {}\n', "--check")
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("UNPINNED", r.stdout)
+
+    def test_drift_is_reported_but_the_default_run_still_exits_zero(self):
+        """Reporting is the default; --check is the gate.
+
+        A validation script that always exits non-zero stops being run, so the
+        distinction has to be in the exit code and not only in the text.
+        """
+        r = self.run_check({"a": f"Image=example.com/a@{self.D1}\n"},
+                           f'host:\n  images:\n    a: "example.com/a@{self.D2}"\n')
+        self.assertEqual(r.returncode, 0)
+        self.assertIn("RESULT: DRIFT", r.stdout)
 
 
 def load_module(name, path):
