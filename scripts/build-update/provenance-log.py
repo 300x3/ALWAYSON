@@ -1598,17 +1598,70 @@ NEEDS_APPROVAL = {
 }
 
 
-def update_steps(r, unit_path=None):
-    """Exact ordered steps to apply this update, or [] when it must not be run.
+# Verbs a plan step is permitted to start a process with. A step is an argv
+# ARRAY, never a shell string, so nothing in this plan can ever reach `sh -c`.
+# The allowlist exists because "executable" must mean executable-and-safe: a
+# plan is generated from upstream data (image repositories, package names), and
+# upstream data is not trusted input. Anything not named here is emitted as
+# prose under `manual` instead, which no executor can run by accident.
+PLAN_VERBS = ("podman", "snap", "flatpak", "apt", "apt-get", "systemctl")
 
-    Deliberately returns STRINGS, not a runnable script. The Quadlet deploy step
-    is the part that is easy to forget and silently leaves the old image
+
+def _argv_is_safe(argv):
+    """True when an argv array may be executed as-is.
+
+    Three properties, all of which a plain string check would miss:
+      * argv[0] must be an allowlisted verb;
+      * no argument may be a shell metacharacter run, so the executor cannot be
+        talked into `sh -c` by a value that merely *looks* like a flag;
+      * no argument may be empty or whitespace, because an empty argument
+        silently becomes a different command to some tools.
+    """
+    if not isinstance(argv, (list, tuple)) or not argv:
+        return False
+    # A relative path to a repository script is itself an allowlisted action,
+    # named explicitly rather than matched by verb because its basename is a
+    # filename, not a verb. Checked FIRST: gating on the verb list before this
+    # would reject every script path and silently downgrade the Quadlet deploy
+    # step to prose, which is exactly the "eligible but not automatable" defect
+    # this function exists to remove.
+    if str(argv[0]).startswith("./scripts/"):
+        return str(argv[0]) == "./scripts/deploy/deploy-quadlet-domain.sh"
+    if os.path.basename(str(argv[0])) not in PLAN_VERBS:
+        return False
+    for a in argv[1:]:
+        s = str(a)
+        if not s.strip():
+            return False
+        if any(c in s for c in ";|&$`<>()\n\\\"'*?[]{}"):
+            return False
+    return True
+
+
+def update_steps(r, unit_path=None):
+    """Exact steps to apply this update, as `{"steps": [...], "manual": [...]}`.
+
+    The split is the whole point of the function, and it was what was missing.
+    Steps used to be a flat list of STRINGS mixing two different things:
+
+      "podman pull repo@sha256:<64>"      <- a machine could run this
+      "edit Image= in quadlet/mapping/x"  <- no machine could ever run this
+
+    An item was marked `eligible` on the strength of the first while carrying
+    the second, so "eligible" did not mean "automatable" and no executor could
+    tell which was which. `steps` is now a list of argv arrays drawn from the
+    verb allowlist; `manual` is prose a human reads. An executor consumes
+    `steps` and must refuse to act when it is empty, whatever `decision` says.
+
+    Deliberately emits NO command rather than a broken one. The Quadlet deploy
+    step is the part that is easy to forget and silently leaves the old image
     running: editing the repo unit does nothing, because
     ~/.config/containers/systemd/ holds copies, not symlinks.
     """
     via = str(r.get("via", ""))
     item = str(r.get("item", ""))
     tgt = str(r.get("rel_digest") or r.get("rel_hash", ""))
+    steps, manual = [], []
     if via.startswith("container"):
         # Never build a pull command from something that is not a real, COMPLETE
         # digest. Two separate defects lived here:
@@ -1622,31 +1675,46 @@ def update_steps(r, unit_path=None):
         # Emitting no command at all is strictly better than emitting a broken
         # one: a human reads the row, a script gates on `steps` being non-empty.
         if not is_complete_digest(tgt):
-            return []
-        return [
-            f"podman pull {str(r.get('repo','')).split(' ')[0]}@{tgt}",
-            f"edit Image= in {unit_path}",
-            f"./scripts/deploy/deploy-quadlet-domain.sh {unit_path.split('/')[1]}",
-            "systemctl --user daemon-reload",
-            f"systemctl --user restart {item}",
-        ]
-    if via.startswith("snap"):
-        steps = [f"snap refresh {item}"]
+            return {"steps": [], "manual": []}
+        repo = str(r.get("repo", "")).split(" ")[0]
+        steps.append(["podman", "pull", f"{repo}@{tgt}"])
+        if unit_path:
+            # Rewriting Image= in a Quadlet unit is a text edit with no safe
+            # mechanical form: the digest may appear in several keys and the
+            # line must stay parseable. It stays prose on purpose.
+            manual.append(f"set Image= in {unit_path} to {tgt}")
+            steps.append(["./scripts/deploy/deploy-quadlet-domain.sh",
+                          unit_path.split("/")[1]])
+        else:
+            manual.append(f"locate the Quadlet unit for {item} and set "
+                          f"Image= to {tgt}, then deploy the domain")
+        steps.append(["systemctl", "--user", "daemon-reload"])
+        steps.append(["systemctl", "--user", "restart", item])
+    elif via.startswith("snap"):
+        steps.append(["snap", "refresh", item])
     elif via.startswith("flatpak"):
-        steps = [f"flatpak update {item}"]
+        steps.append(["flatpak", "update", item])
     elif via.startswith("apt/third-party"):
-        steps = [f"apt install --only-upgrade {item}"]
+        steps.append(["apt", "install", "--only-upgrade", item])
     elif via.startswith("desktop app (apt)"):
         # The Item column is the application NAME an operator recognises
         # ("Account Wizard"), not a package name. Feeding that to apt produced
         # `apt install --only-upgrade Account` - a real command that would fail,
         # or worse, match some unrelated package. Use the owning package.
         pkg = str(r.get("repo", "")).replace("apt:", "").strip()
-        steps = [f"apt install --only-upgrade {pkg}"] if pkg else []
+        if pkg:
+            steps.append(["apt", "install", "--only-upgrade", pkg])
     else:
         # not dpkg-owned, vendor, local build, ROS: no mechanical step exists.
-        steps = []
-    return steps
+        pass
+    # A step that fails the safety check is downgraded to prose rather than
+    # dropped, so the operator still sees the intent but no executor can run it.
+    safe = [a for a in steps if _argv_is_safe(a)]
+    for a in steps:
+        if a not in safe:
+            manual.append("manual: " + " ".join(str(x) for x in a)
+                          + "   [rejected by the argv safety check]")
+    return {"steps": safe, "manual": manual}
 
 
 def write_update_plan(rows, out_path):
@@ -1655,14 +1723,29 @@ def write_update_plan(rows, out_path):
     Every item is either `eligible` with exact ordered steps, or `excluded`
     with the rule that excludes it. There is no third state and no implicit
     default, so an updater cannot act on an item whose status was never decided.
+
+    Schema note (OPS-19): `eligible` means **a machine can carry this out**,
+    not merely "no recorded rule forbids it". Each item carries two separate
+    lists:
+
+      "steps":  [ ["podman","pull","repo@sha256:<64>"], ... ]   argv arrays
+      "manual": [ "set Image= in quadlet/x.container to sha256:...", ... ] prose
+
+    `steps` is what an executor may run, and only without a shell. `manual` is
+    never executable. An executor must refuse to act when `steps` is empty,
+    whatever `decision` says.
     """
     plan = {
         "generated": now_utc(),
         "host": os.uname().nodename,
-        "policy": ("This plan is ADVISORY. `eligible` means the item is safe to "
-                   "apply mechanically; `excluded` means a recorded project rule "
-                   "forbids it without explicit operator approval. Nothing here "
-                   "is executed by this tool."),
+        "schema": 2,
+        "policy": ("This plan is ADVISORY. `eligible` means the item can be "
+                   "applied mechanically from `steps` alone; `excluded` means "
+                   "either a recorded project rule forbids it without explicit "
+                   "operator approval, or no machine-executable step exists and "
+                   "a human is required (see `manual`). `steps` entries are "
+                   "argv arrays: run them WITHOUT a shell. Nothing here is "
+                   "executed by this tool."),
         "items": [],
     }
     for r in sorted(rows, key=lambda x: str(x.get("item", ""))):
@@ -1682,7 +1765,8 @@ def write_update_plan(rows, out_path):
         approval = NEEDS_APPROVAL.get(item)
         pol_key = pol
         deliberate = pol != "mechanism-default"
-        steps = update_steps(r, unit)
+        sm = update_steps(r, unit)
+        steps, manual = sm["steps"], sm["manual"]
         if approval:
             decision, reason = "excluded", approval
         elif pol_key == "deliberate-float":
@@ -1694,9 +1778,17 @@ def write_update_plan(rows, out_path):
             decision, reason = ("excluded",
                                 f"deliberate decision on record: {why}")
         elif not steps:
+            # "eligible" is reserved for items a machine can ACTUALLY carry out.
+            # An item whose only instructions are prose is not automatable, and
+            # marking it eligible is what made this plan untrustworthy: a
+            # consumer gating on `decision == "eligible"` had no way to tell
+            # `podman pull <digest>` from `edit Image= in <file>`. Those items
+            # are now excluded with a reason that says a human is required, and
+            # the prose is preserved under `manual`.
             decision, reason = ("excluded",
-                                "no safe mechanical step exists for this "
-                                "source; needs a manual decision")
+                                "no machine-executable step exists for this "
+                                "source; the remainder is prose under `manual` "
+                                "and needs a human")
         elif verdict != "**NO**":
             # "?" means no upstream comparison was performed. That is not
             # evidence of being behind, so it must never authorise an update.
@@ -1720,7 +1812,11 @@ def write_update_plan(rows, out_path):
             "decision": decision,
             "reason": reason,
             "unit": unit,
+            # `steps` are argv arrays drawn from the verb allowlist in
+            # provenance-log.py; an executor MUST refuse to run them through a
+            # shell. `manual` is prose and is never executable.
             "steps": steps if decision == "eligible" else [],
+            "manual": manual,
         })
     n_el = sum(1 for i in plan["items"] if i["decision"] == "eligible")
     n_ex = len(plan["items"]) - n_el
@@ -2039,6 +2135,13 @@ CSS = ("body{font:15px/1.55 -apple-system,Segoe UI,Roboto,sans-serif;max-width:1
        "tr:nth-child(even) td{background:#f8f9fa}"
        "code{background:#eef1f5;padding:.1rem .3rem;border-radius:3px;font-size:11.5px}"
        "details{margin:1rem 0}summary{cursor:pointer;font-weight:600}"
+       # The inline roll-up drill-down lives inside a table cell, where a 1rem
+       # block margin would break the row height and a 6.6pt print rule would
+       # hide it entirely. It has to stay compact and always open when printed.
+       "details.drill{margin:.15rem 0}details.drill>summary{font-weight:500;"
+       "font-size:10.5px;color:#495057}details.drill ul{margin:.2rem 0 0 1rem;"
+       "padding-left:.6rem}@media print{details.drill{display:block}"
+       "details.drill ul{display:block}}"
        "h1,h2{border-bottom:1px solid #d0d3d6;padding-bottom:.3rem}"
        "blockquote{border-left:4px solid #adb5bd;margin:1rem 0;padding:.4rem 1rem;color:#495057}""h1{font-size:15pt} .counts{font-size:9pt;color:#444;margin:.2rem 0 .6rem}""tr.behind td{background:#fdecea}""@page{size:A4 landscape;margin:9mm}""thead{display:table-header-group} tr{page-break-inside:avoid}""body{font-size:6.6pt} table{font-size:6.2pt} th,td{padding:1px 2px}""code{font-size:5.8pt;background:none;padding:0}")
 
@@ -2077,6 +2180,18 @@ def rows_to_html(rows, counts, title, kde_members=None):
         rel = H.escape(str(r["released"])) + (f" ({H.escape(str(tag))})" if tag else "")
         _it = H.escape(str(r["item"]))
         _item = f"<em><code>{_it}</code></em>" if r.get("italic") else f"<code>{_it}</code>"
+        # A roll-up row is a dead end without its members: "plasma-workspace
+        # (28 launchers)" tells an operator nothing they cannot act on unless
+        # they can see which 28. The markdown path has a <details> block per
+        # roll-up, but the HTML table did not - those members were computed,
+        # carried on the row, and then silently dropped. So they are drilled
+        # into inline here, on the row itself, where the count promised them.
+        members = r.get("members") or []
+        if members:
+            lis = "".join(f"<li>{H.escape(str(m))}</li>" for m in members)
+            _item += (f"<details class='drill'><summary>"
+                      f"{len(members)} entries</summary>"
+                      f"<ul>{lis}</ul></details>")
         cells = [_item,
                  H.escape(str(r["via"])), H.escape(str(r["publisher"])),
                  H.escape(str(r["repo"])),
