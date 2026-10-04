@@ -55,6 +55,13 @@ WORLD = str(ROOT / "GAZEBO" / "worlds" / "factory.world")
 BEGIN = "    <!-- BEGIN GENERATED: rl_objects (scripts/simulation/build-rl-objects.py) -->"
 END = "    <!-- END GENERATED: rl_objects -->"
 
+# The generated region that must follow ours. The world carries four generated
+# regions in a fixed order -- rl_objects, safety_zones, conveyor_loops,
+# elevation cameras -- and rl_objects being the first of them is what makes a
+# reorder detectable at all. Verified by measurement, not assumed: the block
+# sits at line 543 with safety_zones at 695.
+SUCCESSOR = "safety_zones"
+
 # Per-class visual colours, distinct from the static world (walls dark tan,
 # belts blue, arms orange) so a trainable object is never mistaken for scenery.
 COLOURS = {
@@ -168,9 +175,77 @@ def render(cat: dict) -> str:
     return "\n".join(out)
 
 
+# The generated block is replaced IN PLACE. It was previously stripped and
+# re-appended immediately before </world>, which is not position-idempotent: any
+# real catalogue edit moved rl_objects to the end of the file and dragged
+# safety_zones and camera_elev_massing up after it. The world stayed valid and
+# lost no link, so nothing broke -- but a routine refresh produced a large
+# reorder diff that the next reader cannot tell from a real geometry change.
+# Fixing the block in place keeps a legitimate edit down to the block itself.
+# See proposals/sim-SIM-15.md.
+BLOCK_RE = re.compile(re.escape(BEGIN) + r".*?" + re.escape(END) + r"\n?", re.S)
+
+
 def strip_existing(s: str) -> str:
     """Remove a previously generated block so regeneration is idempotent."""
-    return re.sub(re.escape(BEGIN) + r".*?" + re.escape(END) + r"\n?", "", s, flags=re.S)
+    return BLOCK_RE.sub("", s)
+
+
+def successor_after(world: str, frm: int):
+    """Name of the next generated region after offset `frm`, or None."""
+    nxt = re.search(r"<!--\s*BEGIN GENERATED:\s*([A-Za-z_]+)", world[frm:])
+    return nxt.group(1) if nxt else None
+
+
+def splice(world: str, block: str) -> tuple:
+    """Return (new_world, how) placing `block` at its canonical position.
+
+    Canonical position is immediately before the SUCCESSOR region's BEGIN
+    marker. If our block is already there it is replaced where it lies, which
+    is what makes a routine refresh produce a diff confined to the block
+    instead of reordering the world (SIM-15). If it has drifted, it is lifted
+    out and re-inserted at the canonical position, so --write repairs a world
+    that an earlier run reordered.
+    """
+    anchor_re = r"^[ \t]*<!--\s*BEGIN GENERATED:\s*" + SUCCESSOR + r"\b"
+
+    def before_successor(text: str):
+        a = re.search(anchor_re, text, flags=re.M)
+        return a.start() if a else None
+
+    m = BLOCK_RE.search(world)
+    if m and successor_after(world, m.end()) == SUCCESSOR:
+        # Already canonical: replace where it lies, preserving the surrounding
+        # line breaks exactly.
+        return world[:m.start()] + block + "\n" + world[m.end():], "replaced in place"
+
+    if m:
+        # The block has drifted. Lift it out, then re-insert before the
+        # successor region. The junction is normalised to exactly one blank line
+        # so the result matches the layout an in-place write produces.
+        #
+        # Both details here were wrong in my first attempt and corrupted the XML:
+        # the anchor offset was taken from `world` but applied to the already
+        # shortened `stripped` text, and a blanket \n{3,} collapse ate blank
+        # lines elsewhere in the file. Caught by gz sdf failing to parse.
+        stripped = world[:m.start()].rstrip("\n") + "\n\n" + world[m.end():].lstrip("\n")
+        at = before_successor(stripped)
+        if at is None:
+            raise SystemExit(
+                f"cannot place rl_objects: no '{SUCCESSOR}' region in {WORLD} to "
+                "anchor to, and the existing block is misplaced. Refusing to guess.")
+        return stripped[:at] + block + "\n\n" + stripped[at:], \
+            f"relocated before {SUCCESSOR}"
+
+    at = before_successor(world)
+    if at is not None:
+        return world[:at] + block + "\n\n" + world[at:], f"inserted before {SUCCESSOR}"
+    # First run against a world with no generated regions at all. The block must
+    # stay INSIDE <world>; appending past </sdf> is junk after the document
+    # element and fails to parse.
+    tail = re.sub(r"\s*</world>\s*</sdf>\s*$", "\n", world, flags=re.S)
+    return tail.rstrip("\n") + "\n\n" + block + "\n\n</world>\n</sdf>\n", \
+        "inserted before </world>"
 
 
 def load() -> tuple:
@@ -190,26 +265,38 @@ def main() -> int:
     block = render(cat)
 
     if args.write:
-        if block in world:
+        # Content may already match while position is wrong -- an older --write
+        # could relocate the block. So decide on the splice result, not on
+        # `block in world`, or a reordered world could never be repaired.
+        new, how = splice(world, block)
+        if new == world:
             print("rl_objects block already current; nothing written")
             return 0
-        # The block belongs INSIDE <world>, immediately before its closing tag.
-        # Appending to the end of the file would land it after </sdf>, which is
-        # junk after the document element and fails to parse.
-        new = strip_existing(world)
-        new = re.sub(r"\s*</world>\s*</sdf>\s*$", "\n", new, flags=re.S)
-        new = new.rstrip("\n") + "\n\n" + block + "\n\n</world>\n</sdf>\n"
         with open(WORLD, "w") as fh:
             fh.write(new)
         total = sum(len(g["objects"]) for g in cat["groups"])
-        print(f"wrote {len(cat['groups'])} groups / {total} objects into {WORLD}")
+        print(f"wrote {len(cat['groups'])} groups / {total} objects ({how}) into {WORLD}")
         return 0
 
-    if block in world:
-        print("OK: rl_objects block matches objects.yaml")
-        return 0
-    print("STALE: run scripts/simulation/build-rl-objects.py --write", file=sys.stderr)
-    return 1
+    if block not in world:
+        print("STALE: run scripts/simulation/build-rl-objects.py --write", file=sys.stderr)
+        return 1
+    # Content matches, but content alone proved nothing about position. The
+    # world holds several generated regions and they have a canonical order;
+    # rl_objects is followed by safety_zones. Assert that successor directly.
+    # An earlier attempt used "a rewrite would be a no-op", which is worthless:
+    # replacing in place is a fixed point of relocation, so a world whose block
+    # had been moved to the end still reported OK. Measured, then discarded.
+    m = BLOCK_RE.search(world)
+    found = successor_after(world, m.end())
+    if found != SUCCESSOR:
+        print(f"MISPLACED: rl_objects block is followed by "
+              f"{found or 'nothing'}, expected {SUCCESSOR}. "
+              "A reorder, not a content change. Repair with --write",
+              file=sys.stderr)
+        return 1
+    print(f"OK: rl_objects block matches objects.yaml and precedes {SUCCESSOR}")
+    return 0
 
 
 if __name__ == "__main__":
