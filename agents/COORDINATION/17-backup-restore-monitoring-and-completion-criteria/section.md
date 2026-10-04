@@ -27,10 +27,12 @@ half-true, so it is corrected here rather than left to drift:
 | `/ALWAYSON` (the data) | 66306 | root disk | live |
 | `/var/backups/alwayson-restic` (local repo) | 66306 | root disk | **same device as the data** |
 | `/media/scottw/1TBSAMSUNGDATA/PCLOUD_STORAGE/ALWAYSON-BACKUPS` | 2049 | separate media | off-host repository, exists and verifies |
+| `/home/scottw/pCloudDrive/PCLOUD_STORAGE/ALWAYSON-BACKUPS` | 218 | pCloud FUSE | **replicated cloud copy of the above**, verifies |
 
 The 3-2-1 target is therefore **partially met**: copy two is still on the root
 disk, but a genuinely host-disjoint copy exists on separate media inside the
-running pCloud sync root. It is deliberately **not scheduled** — no timer, no
+running pCloud sync root, and has replicated into the live pCloud mount (see
+§17.1.1.2). It is deliberately **not scheduled** — no timer, no
 cron, no reference from `restic-run.sh` — so it holds a single snapshot rather
 than a series. Until it is scheduled it mitigates total disk loss but does not
 satisfy "one off-site copy" in the sense the policy intends. Enabling it is an
@@ -98,16 +100,79 @@ $ find /media/scottw/1TBSAMSUNGDATA/PCLOUD_STORAGE -maxdepth 2 -iname '*RESTIC2P
 (no output)
 ```
 
-1. **No directory named `ALWAYSON-RESTIC2PCLOUD` exists anywhere in the sync
-   root.** So the row's remedy — "point the restic repository at it" — names a
-   target that was never created. The repository that does exist is
-   `ALWAYSON-BACKUPS`, a different path the row does not mention.
+1. **A directory named `ALWAYSON-RESTIC2PCLOUD` does exist at the pCloud account
+   root — and it is empty.** OPS-29's row is **accurate** on this point and an
+   earlier revision of this section was wrong to deny it. The relevant distinction
+   is *which* root: §19 names the account root
+   (`/home/scottw/pCloudDrive/`), and that folder is there, `total 0`:
+
+   ```
+   $ ls -d /home/scottw/pCloudDrive/ALWAYSON-RESTIC2PCLOUD
+   /home/scottw/pCloudDrive/ALWAYSON-RESTIC2PCLOUD
+   $ ls -la /home/scottw/pCloudDrive/ALWAYSON-RESTIC2PCLOUD
+   total 0
+   drwxr-xr-x 2 scottw scottw 4096 Sep 30 23:00 .
+   drwxr-xr-x 35 scottw scottw 4096 Sep 30 22:56 ..
+   ```
+
+   My earlier "absent entirely" finding searched only the *USB disk's* sync root
+   (`/media/…/PCLOUD_STORAGE/`), which is a different tree, and generalised from
+   it. A filesystem claim generalised from one root to another is the error.
 2. **The remedy "upload via rclone WebDAV or SFTP" describes a mechanism that is
    not in use here and is not needed for what exists.** `ALWAYSON-BACKUPS` is a
    plain local restic repository on the 1TB Samsung USB disk, sitting *inside* a
    directory that pCloud syncs. It replicates by virtue of that sync root, with
    no rclone remote. Recommending WebDAV/SFTP would add a moving part to solve a
    problem the current arrangement does not have.
+
+### 17.1.1.2 The off-site copy has replicated to the cloud (measured 2026-10-04)
+
+The earlier caution in this section — that "a copy exists and pCloud replicates the
+disk **when it is attached**" — was correct as written but understated what has since
+happened. The repository is now visible **inside the live pCloud mount**, which is
+where replication lands:
+
+```
+$ stat -c '%d %i %n' /media/scottw/1TBSAMSUNGDATA/PCLOUD_STORAGE/ALWAYSON-BACKUPS \
+                      /home/scottw/pCloudDrive/PCLOUD_STORAGE/ALWAYSON-BACKUPS
+2049 5505025 /media/scottw/1TBSAMSUNGDATA/PCLOUD_STORAGE/ALWAYSON-BACKUPS
+ 218 211841 /home/scottw/pCloudDrive/PCLOUD_STORAGE/ALWAYSON-BACKUPS
+```
+
+Different device id (`2049` local ext4 vs `218` pCloud FUSE) and a different inode,
+so these are two real trees, not a symlink. The FUSE mount is active:
+
+```
+$ findmnt -no SOURCE,FSTYPE /home/scottw/pCloudDrive
+pCloud.fs  fuse.pCloud.AppImage
+```
+
+The replicated copy opens with the production credential and verifies independently:
+
+```
+$ RESTIC_REPOSITORY=/home/scottw/pCloudDrive/PCLOUD_STORAGE/ALWAYSON-BACKUPS restic snapshots
+56bf1af5  2026-10-03 08:59:59  scottw-ms7b44  alwayson-offsite-proof
+          /ALWAYSON/artifacts  304.564 KiB
+          /ALWAYSON/config
+1 snapshots
+
+$ RESTIC_REPOSITORY=/home/scottw/pCloudDrive/PCLOUD_STORAGE/ALWAYSON-BACKUPS \
+    restic check --read-data-subset=1/10
+no errors were found
+```
+
+So a copy that has left the host does exist and is restorable from the pCloud mount.
+**Limit stated honestly:** this proves the files are present and readable through
+the pCloud filesystem; it does **not** independently prove the remote account holds
+them, because that would require a pCloud-side status query I did not run. Treat
+"off-site and verifiable from the mount" as proven and "uploaded to the account" as
+supported-but-unconfirmed.
+
+What this does **not** change: it is still one proof snapshot of two directories
+(304 KiB, no `data/`, `logs/` or `backups/`), still unscheduled, and still only
+replicated when the USB disk is attached. It moves OPS-30 from "repository does not
+exist" to "repository exists off-host, replicates, but is not maintained and does
+not yet carry the nightly path set".
 
 **Why this is still Open, and it is not a documentation nit.** The two rows stay
 open, but for a reason the current wording hides: the repository holds **one
@@ -246,26 +311,220 @@ than 24 hours. The §17.1 row proposing "continuous or 15-minute" WAL for critic
 recovery objectives is **aspirational and not implemented**; it is the reason
 every RPO above is 24 h rather than minutes.
 
+**The RPO column is measured; the RTO column is a target, not a measurement.**
+That distinction was previously blurred, so it is now stated:
+
+- Every **RPO = 24 h** follows from two `OnCalendar` values that were read, not
+  estimated:
+
+  ```bash
+  $ systemctl cat ao-restic-backup.timer | grep OnCalendar
+  OnCalendar=*-*-* 03:30:00
+  $ systemctl cat ao-restic-verify.timer  | grep OnCalendar
+  OnCalendar=Sun *-*-* 04:30:00
+  ```
+
+  Both are `Persistent=true`. So the worst case for a run that failed is one
+  full day plus the next scheduled run — **48 h**, not 24 h — and that is the
+  number to plan against.
+- Every **RTO** is an operator-set objective. The only elapsed time actually
+  measured on this host is the **restore** half of one drill against a
+  304 KiB two-path snapshot (§17.4). Nothing here measures a full service
+  recovery — redeploy, credential re-provisioning, application restart, and
+  verification are all untimed. A class with a 1 h RTO and a measured
+  filesystem restore of seconds is *not* thereby proven to recover in 1 h; it
+  is proven to restore its files quickly and to have an unmeasured remainder.
+
+**One further bound the table omits, and it is the largest one.** No restore
+test is scheduled at all:
+
+```bash
+$ systemctl list-timers --all | grep -iE 'restore'
+$ systemctl --user list-timers --all | grep -iE 'restore'
+        (no output — no restore timer exists in either scope)
+```
+
+so the drills that would keep these figures honest are manual (§17.4). Until a
+monthly timer exists, **every RTO in this table is an untested intention**.
+
 ### 17.1.3 Restore ordering
 
 Filesystem and database restores are not independent. `pg_dump` output is
 captured into `backups/postgres/<role>/` and is then itself backed up by restic,
 so a correct restore is:
 
-1. Restore the **repository** to an isolated path. Never over the live tree.
-2. Restore **filesystem paths** (`config`, `artifacts`, `backups/`).
-3. Restore **databases** from the restored `backups/postgres/*.sql.gz`, using
-   `psql`/`pg_restore` against a target cluster.
-4. **Recreate roles before loading**, because `pg_dump --no-owner
-   --no-privileges` (as `backup-host-postgres.sh` uses) emits no `CREATE ROLE`,
-   so the dump assumes the roles already exist.
-5. **Re-provision credentials** from KDE Wallet. A dump restores data, not
-   access, and the wallet is not in any backup (§17.1.2).
-6. **Re-verify hashes** against the live tree and the restored dumps.
+0. **Preflight.** Establish these facts before touching anything, because
+   three of the failure modes below are silent otherwise. `$pw_super` and each
+   `$pw` are read from KDE Wallet via
+   `scripts/ops/wallet-read-secret.py` — never echo them, and never store them:
 
-Step 4 is the one that is easy to miss and is called out because
+   ```bash
+   # (a) the credential resolves — proves the wallet entry exists and decrypts.
+   #     Never echo it; length and exit status only.
+   ./scripts/operations/fetch-restic-env.sh /run/user/$(id -u)/ao-restic.env
+   # -> "OK: wallet-backed restic env materialized"
+
+   # (b) the repository is readable AS THE RESTORING USER. This is the check
+   #     that catches OPS-24's blocker before any restore is attempted.
+   set -a; . /run/user/$(id -u)/ao-restic.env; set +a
+   restic snapshots --tag alwayson >/dev/null && echo "repo readable" \
+     || echo "STOP: repository unreadable — do not continue"
+
+   # (c) enough free space for the restored tree plus the repository's
+   #     restore-size, measured not guessed:
+   restic stats --mode restore-size
+   df -h --output=avail "$(dirname "$scratch_abs")" | tail -1
+
+   # (d) the target cluster is reachable AND you can authenticate as a
+   #     superuser. pg_isready proves liveness only; on this host an unauthenticated
+   #     `psql -U postgres` fails with "fe_sendauth: no password supplied", so
+   #     reachability must not be reported as access:
+   pg_isready -h 127.0.0.1
+   PGPASSWORD="$pw_super" psql -h 127.0.0.1 -U postgres -tAc "select 1"
+   # (e) the five application roles exist, or step 4 cannot load anything:
+   PGPASSWORD="$pw_super" psql -h 127.0.0.1 -U postgres -tAc \
+     "select rolname from pg_roles where rolname in
+       ('metabase_app','grafana_app','sales_migration_role','mastodon','webodm_app')"
+   ```
+
+   (b) and (d) are the two that would otherwise be discovered halfway through a
+   real restore. Measured on this host: (b) fails for the nightly repository,
+   because `/var/backups/alwayson-restic` is `drwx------ root root` (§17.4.1);
+   (d) fails without the superuser password, which lives in the wallet and is
+   not in any backup.
+
+1. **Select the snapshot explicitly; do not let a tool pick it.** Choose by
+   intent and pin the ID:
+
+   ```bash
+   export RESTIC_REPOSITORY=/var/backups/alwayson-restic   # set AFTER sourcing
+                                                          # the env file — the env
+                                                          # file also carries
+                                                          # RESTIC_REPOSITORY and
+                                                          # overrides it otherwise
+   # read the candidates, then pin the one you mean by intent:
+   restic snapshots --tag alwayson
+   SNAP=<short_id>        # a known-good snapshot named in the incident
+   #   SNAP=latest         # newest, for a point-in-time recovery
+   ```
+
+   **The ordering trap, measured.** `fetch-restic-env.sh` writes a file that
+   already sets `RESTIC_REPOSITORY`. Exporting the variable *before* sourcing
+   that file silently loses: restic then reports
+
+   ```
+   Stat(<config/>) failed: stat /var/backups/alwayson-restic/config: permission denied
+   ```
+
+   which reads like a credential or corruption failure and is neither. Set
+   `RESTIC_REPOSITORY` **after** `set -a; . <envfile>`.
+
+   Pinning the ID is the point. `restore-restic-drill.sh` defaults to the newest
+   snapshot when `--snapshot` is omitted (`max(snaps, key=lambda s: s["time"])`),
+   which is correct for a drill and **wrong for a recovery**: after an incident
+   the newest snapshot is the one most likely to contain the fault being
+   recovered from. Pass `--snapshot` explicitly in a real restore.
+
+2. **Restore the repository to an isolated path.** Never over the live tree.
+   `scripts/restore/restore-restic-drill.sh` refuses by construction — it
+   rejects a scratch path inside `/ALWAYSON` after `readlink -m`, so a symlink
+   cannot evade the check, and it refuses a non-empty scratch directory.
+3. **Restore filesystem paths** (`config`, `artifacts`, `backups/`) from the
+   restored snapshot:
+
+   ```bash
+   restic restore "$SNAP" --target "$scratch_abs" \
+       --include /ALWAYSON/config --include /ALWAYSON/artifacts \
+       --include /ALWAYSON/backups/postgres
+   ```
+
+4. **Restore databases** from the restored `backups/postgres/*.sql.gz`, in
+   dependency order — host cluster roles first, then each application database:
+
+   ```bash
+   for f in "$scratch_abs"/ALWAYSON/backups/postgres/*/*.sql.gz; do
+       gzip -t "$f" || { echo "STOP: corrupt dump $f"; break; }   # integrity first
+       # the LAYOUT is authoritative: the dump's parent directory is the role
+       # label, which selects the (database, user) pair. The database name in
+       # the filename is not always the directory name - the sales database is
+       # 'salesdb' under the directory 'sales'.
+       label="$(basename "$(dirname "$f")")"
+       case "$label" in
+         metabase)  db=metabase;  user=metabase_app     ;;
+         grafana)   db=grafana;   user=grafana_app      ;;
+         sales)     db=salesdb;   user=sales_migration_role ;;
+         mastodon)  db=mastodon;  user=mastodon         ;;
+         webodm)    db=webodm;    user=webodm_app       ;;
+         *) echo "STOP: unknown dump label '$label' - do not guess"; break ;;
+       esac
+       gunzip -c "$f" | PGPASSWORD="$pw" psql -h 127.0.0.1 -U "$user" -d "$db"
+   done
+   ```
+
+   That `case` is transcribed from the guard table at the top of
+   `backup-host-postgres.sh`, which is the single source of truth for which
+   (label, database, user) triples exist:
+
+   ```bash
+   $ sed -n '11,17p' scripts/backup/backup-host-postgres.sh
+   metabase:metabase:metabase_app)      folder=ao-admin;    ...
+   grafana:grafana:grafana_app)         folder=ao-admin;    ...
+   sales:salesdb:sales_migration_role)  folder=ao-sales;    ...
+   mastodon:mastodon:mastodon)          folder=ao-mastodon; ...
+   webodm:webodm:webodm_app)            folder=ao-mapping;  ...
+   *) echo "refusing unexpected host PostgreSQL backup target" >&2; exit 2 ;;
+   ```
+
+   **Deriving the database name from the filename is wrong**, and would send
+   `sales` dumps at a database that does not exist. Read the mapping, do not
+   parse the name. The same table shows the `*)` default the backup script
+   uses to refuse unexpected targets; a restore that lacks that guard will
+   happily load into whatever it is pointed at.
+
+   These are plain SQL dumps (`pg_dump` with no `-Fc`), so `psql` reads the
+   stream — `pg_restore` applies only to custom/directory formats. Measured:
+   `scripts/backup/backup-host-postgres.sh:22` passes only `--no-owner
+   --no-privileges`, no `-Fc`, and pipes straight into `gzip -9`. Verify before
+   assuming:
+
+   ```bash
+   $ grep -n 'pg_dump' scripts/backup/backup-host-postgres.sh
+   22:if pg_dump --host=127.0.0.1 ... --no-owner --no-privileges | gzip -9 >"$out.tmp"; then
+   ```
+5. **Recreate roles before loading**, because `pg_dump --no-owner
+   --no-privileges` (as `backup-host-postgres.sh` uses) emits no `CREATE ROLE`,
+   so the dump assumes the roles already exist. Ownership handling is therefore
+   *entirely* on this step. The roles required are the five `user` values from
+   the table above; create any that are missing before step 4, then re-apply
+   the grants the dump omitted:
+
+   ```bash
+   psql -h 127.0.0.1 -U postgres -tAc \
+     "select rolname from pg_roles where rolname in
+       ('metabase_app','grafana_app','sales_migration_role','mastodon','webodm_app')"
+   # any name not returned must be CREATE ROLE'd (with its own password from
+   # the wallet) BEFORE step 4 loads anything
+   psql -h 127.0.0.1 -U postgres -d "$db" -c '\du'   # roles survived the load
+   ```
+
+   **Passwords are not in the backup.** `backup-host-postgres.sh` reads them
+   from KDE Wallet at dump time and stores none, so a restored cluster has
+   roles with no way to authenticate until step 6 re-provisions them. That
+   ordering is not a preference: step 4 cannot connect without step 6.
+6. **Re-provision credentials** from KDE Wallet — the same five
+   `(folder, pass_key)` pairs in the same table — so the restored roles can
+   authenticate. A dump restores data, not access, and the wallet is not in
+   any backup (§17.1.2).
+7. **Re-verify hashes** against the live tree and the restored dumps —
+   `scripts/restore/verify-hashes-and-receipts.sh`, or the drill's own step 4.
+
+Step 5 is the one that is easy to miss, and it is called out because
 `backup-host-postgres.sh` deliberately strips ownership: a restore that skips it
-fails at the first object grant, not at the first table.
+loads data successfully into a database that no application can read, which
+looks like a working restore and a broken application. The measured
+`sed -n '11,17p'` table above is the authority for every (label, database, user)
+triple in this runbook — five labels, and an unexpected one is a **stop**, not a
+default, matching the backup script's own `*)` guard.
 
 #### 17.1.4 The backup journal recorded a stale snapshot ID
 
