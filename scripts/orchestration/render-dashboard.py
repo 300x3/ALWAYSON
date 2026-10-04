@@ -142,48 +142,56 @@ def main():
         % (to, td, to + td, to + td))
 
     # ---- graph ----
-    W, H, PL, PR, PT, PB = 1180, 480, 60, 150, 28, 46
+    # One line per work group, plotting PERCENT COMPLETED. The previous
+    # version drew two lines per group (absolute open + absolute done); the
+    # operator asked for % completed only. Percent also makes groups of very
+    # different sizes directly comparable, which absolute counts were not:
+    # OPS has 38 items and NET has 4, so on a count axis OPS always dominated.
+    W, H, PL, PR, PT, PB = 1180, 480, 60, 110, 28, 46
     iw, ih = W - PL - PR, H - PT - PB
     n = len(recs)
-    maxv = max([max(r["open"].values()) for r in recs] +
-               [max(r["done"].values()) for r in recs] + [1])
-    maxv = max(5, int(maxv * 1.15))
+    maxv = 100
 
     def X(i): return PL + (iw * i / max(1, n - 1)) if n > 1 else PL + iw / 2
     def Y(v): return PT + ih - (ih * v / maxv)
 
+    def pct_series(g):
+        out = []
+        for r in recs:
+            o, d = r["open"][g], r["done"][g]
+            tot = o + d
+            out.append(100.0 * d / tot if tot else 0.0)
+        return out
+
     svg = ['<svg viewBox="0 0 %d %d" class="svg">' % (W, H)]
-    # gridlines + y axis
-    for k in range(0, maxv + 1, max(1, maxv // 5)):
+    # gridlines every 10%, labelled
+    for k in range(0, 101, 10):
         y = Y(k)
         svg.append('<line x1="%d" y1="%.1f" x2="%d" y2="%.1f" class="grid"/>' % (PL, y, PL + iw, y))
-        svg.append('<text x="%d" y="%.1f" class="ax" text-anchor="end">%d</text>' % (PL - 8, y + 4, k))
-    # x labels (first, last, and a few between)
+        svg.append('<text x="%d" y="%.1f" class="ax" text-anchor="end">%d%%</text>' % (PL - 8, y + 4, k))
     idx = sorted(set([0, n - 1] + [round(i * (n - 1) / 4) for i in range(5)])) if n > 1 else [0]
     for i in idx:
         lab = recs[i]["ts"][11:16]
         svg.append('<text x="%.1f" y="%d" class="ax" text-anchor="middle">%s</text>'
                    % (X(i), PT + ih + 20, lab))
-    svg.append('<text x="%d" y="%d" class="axt">items per work group</text>' % (PL, H - 8))
-    svg.append('<text x="%.1f" y="%.1f" class="ttl">outstanding vs completed over time'
-               '</text>' % (PL + iw / 2, 18))
+    svg.append('<text x="%d" y="%d" class="axt">%% completed per work group</text>' % (PL, H - 8))
+    svg.append('<text x="%.1f" y="%.1f" class="ttl">percent completed over time</text>'
+               % (PL + iw / 2, 18))
 
-    for kind, dash, op in (("open", "6 3", 0.95), ("done", "", 1.0)):
-        for g in GROUPS:
-            pts = " ".join("%.1f,%.1f" % (X(i), Y(v)) for i, v in enumerate(series(recs, kind, g)))
-            if n == 1:
-                svg.append('<circle cx="%.1f" cy="%.1f" r="4" fill="%s" opacity="%.2f"/>'
-                           % (X(0), Y(series(recs, kind, g)[0]), COL[g], op))
-            else:
-                svg.append('<polyline points="%s" fill="none" stroke="%s" stroke-width="1.8" '
-                           'opacity="%.2f"%s/>'
-                           % (pts, COL[g], op, ' stroke-dasharray="%s"' % dash if dash else ""))
-                svg.append('<circle cx="%.1f" cy="%.1f" r="3.2" fill="%s"/>'
-                           % (X(n - 1), Y(series(recs, kind, g)[-1]), COL[g]))
+    for g in GROUPS:
+        ser = pct_series(g)
+        pts = " ".join("%.1f,%.1f" % (X(i), Y(v)) for i, v in enumerate(ser))
+        if n == 1:
+            svg.append('<circle cx="%.1f" cy="%.1f" r="4" fill="%s"/>' % (X(0), Y(ser[0]), COL[g]))
+        else:
+            svg.append('<polyline points="%s" fill="none" stroke="%s" stroke-width="2"/>'
+                       % (pts, COL[g]))
+        # label the current value at the right-hand end so the graph is
+        # readable without cross-referencing the table above it
+        svg.append('<circle cx="%.1f" cy="%.1f" r="3.2" fill="%s"/>' % (X(n - 1), Y(ser[-1]), COL[g]))
+        svg.append('<text x="%.1f" y="%.1f" class="ax" text-anchor="end" fill="%s">%.0f%%</text>'
+                   % (X(n - 1) - 6, Y(ser[-1]) - 5, COL[g], ser[-1]))
 
-    # legend - 9 groups then the two line-style keys, spaced so nothing
-    # overlaps: a previous version put the keys at fixed +68/+84 offsets while
-    # the group list ran to +120, so COMM/FIELD printed through them.
     lx = PL + iw + 16
     ly = PT + 6
     PITCH = 14
@@ -191,12 +199,6 @@ def main():
         yy = ly + i * PITCH
         svg.append('<rect x="%d" y="%d" width="11" height="3" fill="%s"/>' % (lx, yy - 4, COL[g]))
         svg.append('<text x="%d" y="%d" class="lg">%s</text>' % (lx + 15, yy, g))
-    ky = ly + len(GROUPS) * PITCH + 10
-    svg.append('<line x1="%d" y1="%d" x2="%d" y2="%d" class="k" stroke-dasharray="6 3"/>'
-               % (lx, ky, lx + 11, ky))
-    svg.append('<text x="%d" y="%d" class="lg">dashed = outstanding</text>' % (lx + 15, ky + 4))
-    svg.append('<line x1="%d" y1="%d" x2="%d" y2="%d" class="k"/>' % (lx, ky + 18, lx + 11, ky + 18))
-    svg.append('<text x="%d" y="%d" class="lg">solid = completed</text>' % (lx + 15, ky + 22))
     svg.append("</svg>")
     graph = "".join(svg)
 
