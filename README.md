@@ -2876,7 +2876,7 @@ rather than environment variables.
 
 KDE Wallet is the operator-side secret and credential store for this host. Section 14.1 is
 the policy; this subsection is the integration. The unattended-delivery deviation is recorded
-in this document.
+in **§14.1.6**, the rotation and recovery procedure in **§14.2**.
 
 **Runtime.** Daemon `kwalletd6` on the `org.kde.kwalletd6` D-Bus name, wallet `kdewallet`,
 auto-unlocked with the operator's Plasma login. `org.kde.kwalletd` and `org.kde.kwalletd5`
@@ -3136,6 +3136,181 @@ File.write('/tmp/bot_token', tok.token)
 Three traps: there is no `accounts.local` column;
 `owner_id` and `resource_owner_id` reference the **`users`** table, not
 `accounts`; and `expires_in: 0` produces an already-expired token.
+### 14.1.6 Recorded deviation — env-file delivery instead of Podman secrets
+
+**Status: recorded, awaiting operator ratification.** This subsection exists because
+§14.1 mandates Podman secrets or systemd credentials while every implemented path is a
+wallet-materialised `0600` env file. The deviation is real, and it is documented here rather
+than silently left in place. **It is not self-approving** — README §4.1 rule 14 reserves the
+decision to the operator.
+
+**Scope of the deviation.** Secret *storage* is the KDE Wallet, encrypted at rest. Secret
+*delivery* to `ao-mastodon-db`, `ao-sales-db`, `ao-webodm-db` and `ao-fabrication-db` is a
+`0600` env file under `%h/.local/share/ao-secrets/`, refreshed at start-up by
+`fetch-kwallet-secret.sh`. Env files are **delivery copies, not stores**: the wallet is the
+only system of record, and every file is rewritten from the wallet on each refresh, so losing
+one costs a re-fetch, not a credential.
+
+**Why the mandated mechanism is not used.** Podman secrets (`podman secret ls` returns an
+empty list; Podman 5.7.0) would have to be populated *from* the wallet by a root or
+podman-owned helper at start-up, which relocates the plaintext to a second long-lived store
+rather than removing it, and `Secret=` cannot be populated from a login-gated wallet at all.
+Systemd `LoadCredential=` is available to the systemd user manager but is not usable by
+Podman-managed containers, which take `EnvironmentFile=`/`Secret=`, not systemd credentials.
+
+**Compensating controls actually in place** (each verified, not asserted):
+
+| Control | Evidence |
+|---|---|
+| Value lives only in the wallet | `fetch_secret` reads via D-Bus `readPassword` and prints nothing; the value is only ever written to the output file |
+| Files are `0600`, created under `umask 077` | `umask 077` at `fetch-kwallet-secret.sh` line 14; `chmod 600 "$OUTPUT_FILE"` at end of script |
+| Write is atomic, so a partial file is never read | `{ … } > "$OUTPUT_FILE.tmp"` then `mv` then `chmod 600`; `trap cleanup_tmp EXIT` removes a stranded `.tmp` |
+| Consumer ACL is narrow, not world-readable | `mastodon.env` ACL is `user:ao-sales:r--`, `group::---`, `other::---`, set by `ao-wallet-bridge.sh` |
+| No plaintext copy in the repository | `.gitignore:1` is `secrets/`; env files live under `%h/.local/share/ao-secrets/`, outside the worktree |
+| Exposure is checked in CI | `check-secrets-exposure.sh` carries the three rule-7 checks described in §14.1.1 |
+
+**Env-file lifetime and shred-on-exit — stated precisely, because §14.1.1 calls a file here a
+plaintext duplicate.** The `0600` env files are **not** shredded on exit; they persist for the
+lifetime of the unit and are overwritten in place at the next start. Only the transient `.tmp`
+is removed, and only with `rm -f`, not `shred`. The scripts that *do* shred are
+`scripts/mastodon/post.sh` (`trap 'shred -u "$ENV"' EXIT`) and `scripts/ledger/sign-manifest.sh`.
+So the accurate statement is: **delivery copies persist on disk at `0600` between start-ups and
+are replaced, not shredded.** This is the accepted residual exposure of the deviation and is
+why the wallet — not these files — is designated the system of record.
+
+**Two stale facts corrected while writing this subsection.**
+
+1. §19 ST-30 records `~/secrets/fabrication-db.env` as a `0600` file. **No such file exists.**
+   `find ~/secrets -name '*fabrication-db*'` returns nothing; the live file is
+   `~/.local/share/ao-secrets/fabrication-db.env` (`-rw-------`, 100 bytes), matching the
+   single-env-root rule in §14.1.2. ST-30's text is stale and should not be read as evidence
+   of a second delivery path. Correction proposed to the §19 compiler; ST-30 is not this
+   session's file to edit.
+2. `~/secrets/mastodon.env` is a **dangling symlink** to
+   `/ALWAYSON/secrets/mastodon/mastodon.env`, which does not exist
+   (`ls: cannot access …: No such file or directory`). It is inert, because
+   `quadlet/sales/ao-sales-db.container` and the Mastodon units read
+   `EnvironmentFile=%h/.local/share/ao-secrets/…`, not `~/secrets/`. Reported, **not removed** —
+   deleting files is outside this session's authority and it may be another session's artifact.
+
+**Migration remains available if the operator prefers it.** The pinned Postgres image
+(`postgres@sha256:d74eeac9a…`) calls `file_env 'POSTGRES_PASSWORD'` at line 235 of
+`/usr/local/bin/docker-entrypoint.sh`, so `POSTGRES_PASSWORD_FILE` **is** honoured; a Podman
+`Secret=` mounted at `/run/secrets/…` plus `Environment=POSTGRES_PASSWORD_FILE=/run/secrets/…`
+would satisfy §14.1 for the database services. It has not been applied: it changes live unit
+definitions and live credential delivery, and therefore stops for operator approval.
+
+## 14.2 Credential rotation, revocation and recovery
+
+This subsection exists because §14.1.1 requires rotation, revocation, expiration and recovery
+to be documented before production use, and none of it was documented in §14, §16 or §17.
+`docs/runbooks/secrets.md` carries a three-line "Rotation" note, but it is stale: it describes
+per-service-account homes (`alwayson-mapping`) and a manual copy-out step, both superseded by
+§13.2 (all services run under the operator's account) and by the wallet-materialised flow.
+**This subsection is the procedure; the runbook's summary is the non-authoritative copy.**
+
+### 14.2.1 Rotation
+
+Rotation is *write the new value to the wallet, then let the fetchers redistribute it*. The
+fetchers run as `ExecStartPre`, so the file is rewritten from the wallet on the next start —
+rotation is completed by restarting the consuming unit, not by copying a file.
+
+| Step | Action | Verify |
+|---|---|---|
+| 1 | Operator writes the new value to the owning `ao-*` folder via `scripts/ops/kwallet-provision.sh put` | `hasEntry` true on `org.kde.kwalletd6` |
+| 2 | For a **database** password, change the role **first**, so the wallet and the live role never disagree: `ALTER ROLE <role> PASSWORD …` | role login succeeds |
+| 3 | Restart the consuming unit; `ExecStartPre` re-fetches and atomically rewrites the `0600` file | `systemctl --user is-active <unit>`; file mtime advanced |
+| 4 | Confirm no other copy exists | `find ~/secrets ~/.local/share/ao-secrets -newer <marker>`; `check-secrets-exposure.sh` |
+
+**Never** rotate by editing an env file directly. The file is overwritten at the next start, so
+an edit is silently reverted and, worse, leaves the wallet and the running service
+disagreeing. **Never** regenerate `mastodon.env` via `genenv` to rotate: it refuses to run when
+the file exists and would otherwise mint new `SECRET_KEY_BASE` / `OTP_SECRET`, invalidate every
+session, and write `LOCAL_DOMAIN=localhost` (§14.1.3).
+
+Database password rotation ordering matters because `pg_hba` trusts `127.0.0.1` for these
+roles: TCP auth can fail while the socket still appears to work. Confirm with a TCP client, not
+a socket, after changing a role password.
+
+### 14.2.2 Revocation
+
+Revocation is credential-specific; there is no single "revoke everything" switch.
+
+- **Wallet entry** — overwrite the entry with a fresh unusable value via
+  `kwallet-provision.sh put`, then restart every unit that reads it. The wallet is the system
+  of record, so this is the revocation.
+- **Mastodon access token** (§14.1.5) — `Doorkeeper::AccessToken.where(application_id: …)
+  .update_all(revoked_at: Time.now.utc)` revokes every prior token for the bridge application.
+  Store any replacement in KDE Wallet, never a file.
+- **Mastodon sessions** — changing `SECRET_KEY_BASE` invalidates every session. Treat it as a
+  deliberate operator action, not routine rotation, and warn before doing it.
+- **Exposed secret** — revocation is incomplete until the old value is also removed from every
+  artefact that ever held it: env files, backups, Git history, logs. Backup snapshots taken
+  while the old value was live still contain it (§14.2.4).
+
+### 14.2.3 Expiration
+
+No credential on this host has an enforced expiry. Passwords persist until rotated by the
+operator. Tokens are the exception and are pinned deliberately: the OpenClaw bridge token is
+created with `expires_in: nil`, because Doorkeeper reads `expires_in: 0` as *already expired*
+(§14.1.4). **A non-expiring token raises the rotation obligation** — it is a standing item on
+the break-glass list in §14.2.5, not a solved one.
+
+### 14.2.4 Wallet backup and restore
+
+**Gap, stated rather than papered over: the wallet is not in the backup set.** The restic
+snapshot in `scripts/backup/restic-run.sh` line 30 covers `$AO_ROOT/config`, `artifacts`,
+`backups/postgres`, and the `data/*` trees. `~/.local/share/kwalletd/` is **not** on that
+list, and it cannot be: a `.kwl` file is encrypted against `kdewallet.salt`, so a snapshot
+without the salt is unrestorable, and restoring a `.kwl` alone would not restore the
+credential *values* the services consume.
+
+Consequently the current recovery posture is: **the wallet is the single point of failure for
+every credential on this host, and it has no automated backup.** Adding one is a backup-data
+change and is flagged for the operator rather than applied.
+
+**Restore procedure, for the operator to run interactively** (wallet must be unlocked; never
+script it, and never let a value transit a shell argument or a log):
+
+1. Restore the host or the user account. If `~/.local/share/kwalletd/kdewallet.kwl` is
+   present and valid, the wallet opens with the Plasma login — verify with `wallets()` returning
+   `as 1 "kdewallet"` and `open()` returning a handle ≥ 0.
+2. If the wallet file is gone or will not open, the credentials must be re-provisioned from
+   their other sources of record, or **rotated**. Rotation is always available and is the
+   correct fallback: a database role password is set by `ALTER ROLE`, a token by re-minting
+   (§14.1.5), an admin password by `kwallet-provision.sh put`. There is no path that recovers
+   an old value, which is a security property, not an outage.
+3. After any re-provisioning, run `check-secrets-exposure.sh` and restart the consumers.
+
+**Procedure that is itself inside the backup set.** A credential-recovery runbook that lives
+only in an unbacked file does not satisfy §14.2. The procedure above is written into
+`agents/COORDINATION/14-secrets-and-service-identity/section.md`, which **is** covered by the
+restic snapshot via `$AO_ROOT/config` and the repository, so the procedure survives a restore
+even though the secrets do not. The deliberate split is: **the procedure is backed up; the
+secrets are rotated, never restored.**
+
+### 14.2.5 Break-glass order for the operator
+
+In order, stopping at the first step that resolves the fault. Steps 1–3 are non-destructive;
+step 4 changes a live credential and is the operator's alone.
+
+1. **Is it the wallet being locked?** Check `isOpen(handle)` — not `busctl --user list |
+   grep kwalletd6`, which returns true the instant kwalletd is D-Bus-activated and therefore
+   never waits. A `0-byte` `.tmp` under `ao-secrets/` is the forensic signature of a locked
+   wallet (§14.1.4). Fix: unlock the wallet from the Plasma session and restart the unit.
+2. **Is the unit simply not started?** These units are `WantedBy=graphical-session.target` and
+   are *expected* to be down before Plasma login. That is the login-gated design, not a fault.
+3. **Is the entry present?** `hasEntry` on the owning folder via `kwallet-provision.sh get` /
+   `fetch_secret`; a missing entry is re-provisioned by the operator with a **new** value.
+4. **Rotate, do not restore.** If a value is suspected exposed, or unrecoverable, write a new
+   value to the owning `ao-*` folder and restart (§14.2.1). This is the only path for a lost
+   wallet, and it does not require the old value.
+
+**Never**, in any break-glass step: print a value to a terminal, log, ticket or chat; restore
+an env file from a backup; copy a value between hosts or folders outside its owning `ao-*`
+domain; or add a compensating `Environment=` line to a unit to work around a missing fetch.
+The last one is the failure mode that turns a five-minute locked wallet into a permanent
+plaintext secret in a tracked file.
 
 # 15. Sales, Mastodon, OpenClaw, and Local AI
 
