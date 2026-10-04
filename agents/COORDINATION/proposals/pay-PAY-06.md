@@ -66,6 +66,45 @@ evidence: |
   # changes: every output carries sale_logged=false, corda_state=NOT_SUBMITTED.
 section: 07-public-storefront-and-payment-policy
 ---
+**INDEPENDENT RE-VERIFICATION 2026-10-04 — item still OPEN on the mail path.**
+
+Both halves re-measured today rather than carried forward:
+
+```text
+# generation half still works, exit 0, all three PDFs at one page
+$ bash scripts/sales/intake-to-pdf.sh /tmp/pay06proof/request.txt /tmp/pay06proof/out2
+OK: /tmp/pay06proof/out2/00-kit-request-intake-record-fillable.pdf
+fields=10 page=792x612pt
+OK: 1 page - /tmp/pay06proof/out2/00-kit-request-intake-record-fillable.pdf
+OK: 1 page - /tmp/pay06proof/out2/00-kit-request-intake-record.pdf
+OK: 1 page - /tmp/pay06proof/out2/01-kit-request-work-order.pdf
+record: /tmp/pay06proof/out2/request-record.json
+exit=0
+
+# delivery half still absent
+$ for b in msmtp sendmail mailx mutt swaks s-nail; do
+      printf '%-8s %s\n' "$b" "$(command -v $b || echo ABSENT)"; done
+msmtp    ABSENT
+sendmail ABSENT
+mailx    ABSENT
+mail     ABSENT
+mutt     ABSENT
+swaks    ABSENT
+s-nail   ABSENT
+```
+
+**PAY-06 stays OPEN.** Generation is proven and reproducible; delivery does not
+exist. No MTA was installed, no SMTP relay configured, no credential created and
+nothing sent. The decision between an SMTP relay, an API mail provider, or manual
+operator delivery remains the operator's — each carries a different §4.1
+exposure, which is why this session does not choose.
+
+The caveat recorded above still applies and still belongs to whoever implements
+delivery: the Public Folder is an initialised git working tree with no commits, so
+a customer-bearing PDF must be generated into a non-committed path and handed to
+the mailer, never into the Public Folder (§4.1 rule 7, §4.2).
+
+---
 **PAY-06 stays OPEN, and it is OPEN on a single missing piece: the mail path.**
 The criterion is "purchase-request confirmation, receipt, and work-order status
 (including expected delivery) each demonstrably sent from `ao-sales` to a
