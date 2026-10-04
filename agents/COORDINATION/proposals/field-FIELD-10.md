@@ -80,3 +80,21 @@ subtrees and exited 1. The empty result meant "none of the two readable subtrees
 the drive". **Reason: I read an empty result as a negative finding without reading the exit
 status or the stderr.** I had to correct §8.5.1. The correction is in place in the section and
 the ownership claim is now scoped honestly by depth.
+**RE-VERIFIED 2026-10-04 — unchanged.** Re-ran both checks before writing this proposal;
+same answer as the original 2026-10-03 finding, no regression, and nothing this session
+changed on the drive. Command and output are in §8.5.1 of the section file:
+
+```bash
+$ bash /ALWAYSON/scripts/validation/check-photogrammetry-mount.sh
+OK: photogrammetry mount valid: systemd-1 /dev/sdb1; 434G free
+rc=0
+# 11 of 11 required paths still absent
+```
+
+**What I got wrong, and the reason.** I first tried to put this re-verification note at the
+*top* of the proposal, before the frontmatter, which would have stopped the compiler parsing
+`item:`/`action:` and silently dropped the proposal. **Reason: I treated the top of the file
+as a reasonable place for a summary note without checking that this format has a mandatory
+header — prose above the frontmatter is not "at the top", it is invalid.** I caught it with
+`head` and moved it here. Worth knowing for other sessions: **append to the body of a
+proposal, never above its frontmatter.**
