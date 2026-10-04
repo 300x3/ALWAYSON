@@ -1,0 +1,124 @@
+digraph alwayson {
+  graph [rankdir=LR, compound=true, newrank=true, concentrate=true, fontname="DejaVu Sans", fontsize=11, bgcolor="#ffffff", nodesep=0.45, ranksep=0.8, splines=spline, pad=0.3, labelloc=t, fontsize=24, label=<<b>ALWAYS ON — WORKLOAD NETWORKS &amp; CONTAINERS</b><br/><font point-size="11">Podman networks · CIDRs · container IPs · published ports · status · generated 2026-10-03T19:52:47Z (live inspection)</font><br/><font point-size="10">17 networks · 22 containers (25 running) · 53 listeners (30 loopback) · 4 drift items — authority: v6 §3.3.1/§5.1/§5.2/§6.A/§20.0</font>>];
+  node [shape=box, style="rounded,filled", fontname="DejaVu Sans", fontsize=10, margin="0.14,0.09", penwidth=1.4];
+  edge [fontname="DejaVu Sans", fontsize=9, color="#607d8b", penwidth=1.1, arrowsize=0.7];
+  n_host [shape=box3d, fillcolor="#e3f2fd", color="#0d47a1", fontsize=12, label=<<b>ALWAYS ON HOST — Kubuntu 26.04 LTS workstation</b><br/>Kubuntu 26.04 LTS (Ubuntu 26.04.1 userland)<br/>kernel 7.0.0-34-generic · AMD CPU<br/>EVGA NVIDIA GTX 1080 (driver 580.178.04, CDI nvidia.com/gpu=0)<br/><i>Podman 5.7.0 — Quadlet only, no Docker daemon</i><br/>eno1: 169.254.248.253/16 10.42.0.1/24<br/>wlp3s0: 192.168.87.135/24 fe80::abd7:e952:c515:db0d/64>];
+
+  subgraph cluster_net_n_ao_admin {
+    label=<<b>ao-admin</b> — 10.89.9.0/24<br/>Internal=true · gw 10.89.9.1 · live<br/>Monitoring, backup, restore validation, administration<br/><font point-size='9' color='#37474f'>ao-grafana · ao-metabase · ao-node-exporter · ao-prometheus</font>>; style="rounded,filled"; fillcolor="#ffffff"; color="#1565c0"; fontsize=12;
+    n_ao_grafana [style="rounded,filled", fillcolor="#e8f5e9", color="#1b5e20", label=<<b>ao-grafana</b><br/>grafana-oss sha256:b739cda4b6<br/><font color='#37474f'>ao-admin · 10.89.9.61</font><br/><font color='#37474f'>ao-reporting-egress · 10.89.10.58</font><br/><font color='#1565c0'>127.0.0.1:3001 -&gt; 3000/tcp</font><br/><i>Up 18 minutes</i><br/><font point-size='8' color='#6a1b9a'>unit active</font>>];
+    n_ao_metabase [style="rounded,filled", fillcolor="#e8f5e9", color="#1b5e20", label=<<b>ao-metabase</b><br/>metabase sha256:fc96bfa830<br/><font color='#37474f'>ao-admin · 10.89.9.4</font><br/><font color='#37474f'>ao-reporting-egress · 10.89.10.2</font><br/><font color='#1565c0'>127.0.0.1:3002 -&gt; 3000/tcp</font><br/><i>Up 46 hours</i><br/><font point-size='8' color='#6a1b9a'>unit active</font>>];
+    n_ao_node_exporter [style="rounded,filled", fillcolor="#e8f5e9", color="#1b5e20", label=<<b>ao-node-exporter</b><br/>node-exporter sha256:863b62ff9f<br/><font color='#37474f'>ao-admin · 10.89.9.10</font><br/><font point-size='9' color='#607d8b'>internal only (no published port)</font><br/><i>Up 4 hours</i><br/><font point-size='8' color='#6a1b9a'>unit active</font>>];
+    n_ao_prometheus [style="rounded,filled", fillcolor="#e8f5e9", color="#1b5e20", label=<<b>ao-prometheus</b><br/>prometheus sha256:d47ad27caa<br/><font color='#37474f'>ao-admin · 10.89.9.3</font><br/><font color='#1565c0'>127.0.0.1:9090 -&gt; 9090/tcp</font><br/><i>Up 46 hours</i><br/><font point-size='8' color='#6a1b9a'>unit active</font>>];
+  }
+
+  subgraph cluster_net_n_ao_data {
+    label=<<b>ao-data</b> — 10.89.8.0/24<br/>Internal=true · gw 10.89.8.1 · live<br/>Narrow controlled data plumbing where unavoidable>; style="rounded,filled"; fillcolor="#ffffff"; color="#1565c0"; fontsize=12;
+    n_ao_data_placeholder [shape=box, style="rounded,dashed", fillcolor="#fafafa", color="#9e9e9e", label="Narrow controlled data plumbing where unavoidable — no runtime yet\n(status: implemented)"];
+  }
+
+  subgraph cluster_net_n_ao_fabrication {
+    label=<<b>ao-fabrication</b> — 10.89.12.0/24<br/>Internal=true · gw 10.89.12.1 · live<br/><font point-size='9' color='#37474f'>ao-fabrication-db</font>>; style="rounded,filled"; fillcolor="#ffffff"; color="#1565c0"; fontsize=12;
+    n_ao_fabrication_db [style="rounded,filled", fillcolor="#e8f5e9", color="#1b5e20", label=<<b>ao-fabrication-db</b><br/>postgres sha256:d74eeac9a6<br/><font color='#37474f'>ao-fabrication · 10.89.12.3</font><br/><font color='#1565c0'>127.0.0.1:15433 -&gt; 5432/tcp</font><br/><i>Up 39 hours (healthy)</i><br/><font point-size='8' color='#6a1b9a'>unit active</font>>];
+  }
+
+  subgraph cluster_net_n_ao_field {
+    label=<<b>ao-field</b> — 10.89.2.0/24<br/>Internal=true · gw 10.89.2.1 · live<br/>Heltec gateway, RNS/MeshChatX, telemetry spool,<br/>mission-release service>; style="rounded,filled"; fillcolor="#ffffff"; color="#1565c0"; fontsize=12;
+    n_ao_field_placeholder [shape=box, style="rounded,dashed", fillcolor="#fafafa", color="#9e9e9e", label="Heltec gateway, RNS/MeshChatX, telemetry spool, mission-release service — no runtime yet\n(status: in_progress)"];
+  }
+
+  subgraph cluster_net_n_ao_html_window {
+    label=<<b>ao-html-window</b> — 10.89.14.0/24<br/>Internal=true · gw 10.89.14.1 · live<br/><font point-size='9' color='#37474f'>ao-sim-fabrication-foxglove</font>>; style="rounded,filled"; fillcolor="#ffffff"; color="#1565c0"; fontsize=12;
+    n_ao_sim_fabrication_foxglove [style="rounded,filled", fillcolor="#e8f5e9", color="#1b5e20", label=<<b>ao-sim-fabrication-foxglove</b><br/>foxglove-bridge sha256:9acc6d4df7<br/><font color='#37474f'>ao-html-window · 10.89.14.60</font><br/><font color='#37474f'>ao-sim-fabrication · 10.89.5.55</font><br/><font color='#1565c0'>127.0.0.1:8081 -&gt; 8081/tcp</font><br/><i>Up 17 hours</i><br/><font point-size='8' color='#6a1b9a'>unit active</font>>];
+  }
+
+  subgraph cluster_net_n_ao_ledger_core {
+    label=<<b>ao-ledger-core</b> — 10.89.7.0/24<br/>Internal=true · gw 10.89.7.1 · live<br/>Corda node, ledger database, certificate/keystore<br/>material>; style="rounded,filled"; fillcolor="#ffffff"; color="#1565c0"; fontsize=12;
+    n_ao_ledger_core_placeholder [shape=box, style="rounded,dashed", fillcolor="#fafafa", color="#9e9e9e", label="Corda node, ledger database, certificate/keystore material — no runtime yet\n(status: blocked)"];
+  }
+
+  subgraph cluster_net_n_ao_ledger_ingest {
+    label=<<b>ao-ledger-ingest</b> — 10.89.6.0/24<br/>Internal=true · gw 10.89.6.1 · live<br/>mTLS validation gateway, authorization, audit,<br/>idempotency>; style="rounded,filled"; fillcolor="#ffffff"; color="#1565c0"; fontsize=12;
+    n_ao_ledger_ingest_placeholder [shape=box, style="rounded,dashed", fillcolor="#fafafa", color="#9e9e9e", label="mTLS validation gateway, authorization, audit, idempotency — no runtime yet\n(status: blocked)"];
+  }
+
+  subgraph cluster_net_n_ao_mapping {
+    label=<<b>ao-mapping</b> — 10.89.3.0/24<br/>Internal=true · gw 10.89.3.1 · live<br/>WebODM, NodeODM, Redis broker, mapping DB, imagery<br/>intake/exporter<br/><font point-size='9' color='#37474f'>ao-nodeodm · ao-webodm-broker · ao-webodm-db · ao-webodm-webapp · ao-webodm-worker</font>>; style="rounded,filled"; fillcolor="#ffffff"; color="#1565c0"; fontsize=12;
+    n_ao_nodeodm [style="rounded,filled", fillcolor="#e8f5e9", color="#1b5e20", label=<<b>ao-nodeodm</b><br/>nodeodm sha256:553fe5cacb<br/><font color='#37474f'>ao-mapping · 10.89.3.3</font><br/><font point-size='9' color='#607d8b'>internal only (no published port)</font><br/><i>Up 46 hours</i><br/><font point-size='8' color='#6a1b9a'>unit active</font>>];
+    n_ao_webodm_broker [style="rounded,filled", fillcolor="#e8f5e9", color="#1b5e20", label=<<b>ao-webodm-broker</b><br/>redis sha256:c6eabf748f<br/><font color='#37474f'>ao-mapping · 10.89.3.7</font><br/><font point-size='9' color='#607d8b'>internal only (no published port)</font><br/><i>Up 39 hours (healthy)</i><br/><font point-size='8' color='#6a1b9a'>unit active</font>>];
+    n_ao_webodm_db [style="rounded,filled", fillcolor="#e8f5e9", color="#1b5e20", label=<<b>ao-webodm-db</b><br/>webodm_db sha256:03f18ec008<br/><font color='#37474f'>ao-mapping · 10.89.3.6</font><br/><font point-size='9' color='#607d8b'>internal only (no published port)</font><br/><i>Up 46 hours (healthy)</i><br/><font point-size='8' color='#6a1b9a'>unit active</font>>];
+    n_ao_webodm_webapp [style="rounded,filled", fillcolor="#e8f5e9", color="#1b5e20", label=<<b>ao-webodm-webapp</b><br/>webodm_webapp sha256:188267c654<br/><font color='#37474f'>ao-mapping · 10.89.3.4</font><br/><font color='#1565c0'>127.0.0.1:8000 -&gt; 8000/tcp</font><br/><i>Up 46 hours</i><br/><font point-size='8' color='#6a1b9a'>unit active</font>>];
+    n_ao_webodm_worker [style="rounded,filled", fillcolor="#e8f5e9", color="#1b5e20", label=<<b>ao-webodm-worker</b><br/>webodm_webapp sha256:188267c654<br/><font color='#37474f'>ao-mapping · 10.89.3.5</font><br/><font point-size='9' color='#607d8b'>internal only (no published port)</font><br/><i>Up 46 hours</i><br/><font point-size='8' color='#6a1b9a'>unit active</font>>];
+  }
+
+  subgraph cluster_net_n_ao_payment {
+    label=<<b>ao-payment</b> — 10.89.1.0/24<br/>Internal=true · gw 10.89.1.1 · live<br/>Provider webhook verifier and payment adapter<br/><font point-size='9' color='#37474f'>ao-ingress-payment</font>>; style="rounded,filled"; fillcolor="#ffffff"; color="#1565c0"; fontsize=12;
+    n_ao_ingress_payment [style="rounded,filled", fillcolor="#e8f5e9", color="#1b5e20", label=<<b>ao-ingress-payment</b><br/>python sha256:79e7a9b9ff<br/><font color='#37474f'>ao-payment · 10.89.1.2</font><br/><font color='#1565c0'>127.0.0.1:8899 -&gt; 8899/tcp</font><br/><i>Up 46 hours (healthy)</i><br/><font point-size='8' color='#6a1b9a'>unit active</font>>];
+  }
+
+  subgraph cluster_net_n_ao_sales {
+    label=<<b>ao-sales</b> — 10.89.0.0/24<br/>Internal=false · gw 10.89.0.1 · live<br/>Sales API, sales PostgreSQL, Mastodon stack, OpenClaw,<br/>LM Studio<br/><font point-size='9' color='#37474f'>mastodon-db · mastodon-redis · mastodon-sidekiq · mastodon-streaming · mastodon-web · ao-sales-db</font>>; style="rounded,filled"; fillcolor="#ffffff"; color="#1565c0"; fontsize=12;
+    n_ao_sales_db [style="rounded,filled", fillcolor="#e8f5e9", color="#1b5e20", label=<<b>ao-sales-db</b><br/>postgres sha256:d74eeac9a6<br/><font color='#37474f'>ao-sales · 10.89.0.13</font><br/><font color='#1565c0'>127.0.0.1:15432 -&gt; 5432/tcp</font><br/><i>Up 39 hours (healthy)</i><br/><font point-size='8' color='#6a1b9a'>unit active</font>>];
+    n_mastodon_db [style="rounded,filled", fillcolor="#e8f5e9", color="#1b5e20", label=<<b>mastodon-db</b><br/>postgres sha256:d74eeac9a6<br/><font color='#37474f'>ao-sales · 10.89.0.14</font><br/><font point-size='9' color='#607d8b'>internal only (no published port)</font><br/><i>Up 39 hours (healthy)</i><br/><font point-size='8' color='#6a1b9a'>unit active</font>>];
+    n_mastodon_redis [style="rounded,filled", fillcolor="#e8f5e9", color="#1b5e20", label=<<b>mastodon-redis</b><br/>redis sha256:c6eabf748f<br/><font color='#37474f'>ao-sales · 10.89.0.15</font><br/><font point-size='9' color='#607d8b'>internal only (no published port)</font><br/><i>Up 39 hours (healthy)</i><br/><font point-size='8' color='#6a1b9a'>unit active</font>>];
+    n_mastodon_sidekiq [style="rounded,filled", fillcolor="#e8f5e9", color="#1b5e20", label=<<b>mastodon-sidekiq</b><br/>mastodon sha256:76436bccad<br/><font color='#37474f'>ao-sales · 10.89.0.9</font><br/><font point-size='9' color='#607d8b'>internal only (no published port)</font><br/><i>Up 46 hours</i><br/><font point-size='8' color='#6a1b9a'>unit active</font>>];
+    n_mastodon_streaming [style="rounded,filled", fillcolor="#e8f5e9", color="#1b5e20", label=<<b>mastodon-streaming</b><br/>mastodon-streaming sha256:24834e873c<br/><font color='#37474f'>ao-sales · 10.89.0.5</font><br/><font color='#1565c0'>127.0.0.1:4000 -&gt; 4000/tcp</font><br/><i>Up 46 hours</i><br/><font point-size='8' color='#6a1b9a'>unit active</font>>];
+    n_mastodon_web [style="rounded,filled", fillcolor="#e8f5e9", color="#1b5e20", label=<<b>mastodon-web</b><br/>mastodon sha256:76436bccad<br/><font color='#37474f'>ao-sales · 10.89.0.8</font><br/><font color='#1565c0'>127.0.0.1:3000 -&gt; 3000/tcp</font><br/><i>Up 46 hours</i><br/><font point-size='8' color='#6a1b9a'>unit active</font>>];
+  }
+
+  subgraph cluster_net_n_ao_sim_fabrication {
+    label=<<b>ao-sim-fabrication</b> — 10.89.5.0/24<br/>Internal=true · gw 10.89.5.1 · live<br/>ROS 2, Gazebo facility/robot cells, additive<br/>manufacturing, kitchen, logistics<br/><font point-size='9' color='#37474f'>ao-sim-fabrication-foxglove · ao-sim-fabrication-gz</font>>; style="rounded,filled"; fillcolor="#ffffff"; color="#1565c0"; fontsize=12;
+    n_ao_sim_fabrication_gz [style="rounded,filled", fillcolor="#e8f5e9", color="#1b5e20", label=<<b>ao-sim-fabrication-gz</b><br/>gz-sim10-server sha256:55f8dbcf8d<br/><font color='#37474f'>ao-sim-fabrication · 10.89.5.10</font><br/><font point-size='9' color='#607d8b'>internal only (no published port)</font><br/><i>Up 57 minutes</i><br/><font point-size='8' color='#6a1b9a'>unit active</font>>];
+  }
+
+  subgraph cluster_net_n_ao_sim_vehicle {
+    label=<<b>ao-sim-vehicle</b> — 10.89.4.0/24<br/>Internal=true · gw 10.89.4.1 · live<br/>ROS 2 Lyrical, Gazebo Sim 10.5.0, ArduPilot SITL,<br/>MAVLink, QGroundControl<br/><font point-size='9' color='#37474f'>ardupilot-sitl</font>>; style="rounded,filled"; fillcolor="#ffffff"; color="#1565c0"; fontsize=12;
+    n_ardupilot_sitl [style="rounded,filled,dashed", fillcolor="#eceff1", color="#37474f", label=<<b>ardupilot-sitl</b><br/>ardupilot-sitl latest<br/><font color='#37474f'>ao-sim-vehicle · not attached</font><br/><font point-size='9' color='#607d8b'>internal only (no published port)</font><br/><i>declared — not running</i>>];
+  }
+
+  subgraph cluster_net_n_ao_build_update {
+    label=<<b>ao-build-update</b> — 10.89.13.0/24<br/>Internal=false · gw 10.89.13.1 · live<br/>Image and package acquisition before controlled<br/>promotion (outbound adapter)<br/><font point-size='9' color='#37474f'>ao-build-update</font>>; style="rounded,filled"; fillcolor="#f9fbe7"; color="#00695c"; fontsize=12;
+    n_ao_build_update [style="rounded,filled,dashed", fillcolor="#eceff1", color="#37474f", label=<<b>ao-build-update</b><br/>python sha256:79e7a9b9ff<br/><font color='#37474f'>ao-build-update · not attached</font><br/><font point-size='9' color='#607d8b'>internal only (no published port)</font><br/><i>declared — not running</i>>];
+  }
+
+  subgraph cluster_net_n_ao_egress_archive {
+    label=<<b>ao-egress-archive</b> — CIDR not registered<br/>Internal=? · gw ? · not created<br/>Encrypted pCloud replication and approved IPFS<br/>operations (outbound adapter)>; style="rounded,filled"; fillcolor="#f9fbe7"; color="#00695c"; fontsize=12;
+    n_ao_egress_archive_placeholder [shape=box, style="rounded,dashed", fillcolor="#fafafa", color="#9e9e9e", label="Encrypted pCloud replication and approved IPFS operations (outbound adapter) — no runtime yet\n(status: planned)"];
+  }
+
+  subgraph cluster_net_n_ao_egress_community {
+    label=<<b>ao-egress-community</b> — CIDR not registered<br/>Internal=? · gw ? · not created<br/>Approved Mastodon/community federation egress adapter>; style="rounded,filled"; fillcolor="#f9fbe7"; color="#00695c"; fontsize=12;
+    n_ao_egress_community_placeholder [shape=box, style="rounded,dashed", fillcolor="#fafafa", color="#9e9e9e", label="Approved Mastodon/community federation egress adapter — no runtime yet\n(status: implemented)"];
+  }
+
+  subgraph cluster_net_n_ao_ingress_payment {
+    label=<<b>ao-ingress-payment</b> — CIDR not registered<br/>Internal=? · gw ? · not created<br/>Payment-provider webhook receiver (inbound adapter)>; style="rounded,filled"; fillcolor="#f9fbe7"; color="#00695c"; fontsize=12;
+    n_ao_ingress_payment_placeholder [shape=box, style="rounded,dashed", fillcolor="#fafafa", color="#9e9e9e", label="Payment-provider webhook receiver (inbound adapter) — no runtime yet\n(status: planned)"];
+  }
+
+  subgraph cluster_net_n_ao_reporting_egress {
+    label=<<b>ao-reporting-egress</b> — 10.89.10.0/24<br/>Internal=false · gw 10.89.10.1 · live<br/>Reporting-tool egress to the host PostgreSQL bridge<br/>(10.42.0.1:5432)<br/><font point-size='9' color='#37474f'>ao-grafana · ao-metabase</font>>; style="rounded,filled"; fillcolor="#f9fbe7"; color="#00695c"; fontsize=12;
+  }
+
+  subgraph cluster_orphan {
+    label=< <b>CONTAINERS WITHOUT A DECLARED NETWORK</b> >; style="rounded,filled"; fillcolor="#efebe9"; color="#4e342e"; fontsize=12;
+    n_ao_sim_fabrication_gui_gz [style="rounded,filled,dashed", fillcolor="#eceff1", color="#37474f", label=<<b>ao-sim-fabrication-gui-gz</b><br/>gz-sim10-resolute gui-svgfix<br/><font point-size='9' color='#607d8b'>internal only (no published port)</font><br/><i>declared — not running</i>>];
+    n_ao_sqli3 [style="rounded,filled,bold", fillcolor="#e8f5e9", color="#00695c", label=<<b>ao-sqli3</b><br/>grafana-oss 11.6.0<br/><font point-size='9' color='#004d40'>no Quadlet definition</font><br/><font point-size='9' color='#607d8b'>internal only (no published port)</font><br/><i>Up About an hour</i>>];
+    n_confident_khayyam [style="rounded,filled,bold", fillcolor="#e8f5e9", color="#00695c", label=<<b>confident_khayyam</b><br/>grafana 11.6.0<br/><font point-size='9' color='#004d40'>no Quadlet definition</font><br/><font point-size='9' color='#607d8b'>internal only (no published port)</font><br/><i>Up 4 hours</i>>];
+    n_dreamy_rosalind [style="rounded,filled,bold", fillcolor="#e8f5e9", color="#00695c", label=<<b>dreamy_rosalind</b><br/>foxglove-bridge latest<br/><font point-size='9' color='#004d40'>no Quadlet definition</font><br/><font point-size='9' color='#607d8b'>internal only (no published port)</font><br/><i>Up 41 hours</i>>];
+    n_keen_bhabha [style="rounded,filled,bold", fillcolor="#e8f5e9", color="#00695c", label=<<b>keen_bhabha</b><br/>grafana-oss 11.6.0<br/><font point-size='9' color='#004d40'>no Quadlet definition</font><br/><font point-size='9' color='#607d8b'>internal only (no published port)</font><br/><i>Up About an hour</i>>];
+    n_relaxed_tharp [style="rounded,filled,bold", fillcolor="#e8f5e9", color="#00695c", label=<<b>relaxed_tharp</b><br/>grafana 11.6.0<br/><font point-size='9' color='#004d40'>no Quadlet definition</font><br/><font point-size='9' color='#607d8b'>internal only (no published port)</font><br/><i>Up 4 hours</i>>];
+    n_vigorous_shannon [style="rounded,filled,bold", fillcolor="#e8f5e9", color="#00695c", label=<<b>vigorous_shannon</b><br/>foxglove-bridge latest<br/><font point-size='9' color='#004d40'>no Quadlet definition</font><br/><font point-size='9' color='#607d8b'>internal only (no published port)</font><br/><i>Up 41 hours</i>>];
+  }
+
+  subgraph cluster_planned {
+    label=< <b>PLANNED &amp; BLOCKED DOMAINS</b> <font point-size='9'>(README §4.4, §11, §18)</font> >; style="rounded,filled"; fillcolor="#fafafa"; color="#616161"; fontsize=12;
+    n_corda_core [style="rounded,filled", fillcolor="#ffebee", color="#b71c1c", label=<<b>Corda 5.2.2 DLT core (ao-ledger-core)</b><br/>Corda 5.2.2 node + cordadb (PostgreSQL 18) persistence<br/>Blocked on operator key/certificate ceremony (README 3.2, 18.3)>];
+    n_corda_ingest [style="rounded,filled", fillcolor="#ffebee", color="#b71c1c", label=<<b>Ledger-ingestion gateway (ao-ledger-ingest)</b><br/>mTLS validation, authorization, idempotency, audit<br/>Manifest + correlation + signature requirements pending (README 4.4, 11.2)>];
+    n_sales_api [style="rounded,filled", fillcolor="#eceff1", color="#455a64", label=<<b>Sales API + payment adapter (ao-payment)</b><br/>sales API, provider webhook verifier<br/>Blocked on payment provider selection (README 18.4)>];
+    n_sim_fabrication [style="rounded,filled", fillcolor="#e8f5e9", color="#1b5e20", label=<<b>Fabrication / facility simulation (ao-sim-fabrication)</b><br/>ROS 2 Lyrical + Gazebo Sim 10.5.0 robot cells, AM, kitchen, logistics<br/>Headless smoke test passed; GUI workflow pending (README 3.2, 6.A.1)>];
+  }
+
+  n_legend [shape=box, fillcolor="#ffffff", color="#424242", fontsize=10, label=<<b>STATUS LEGEND</b><br/><font color='#1b5e20'>■</font> implemented<br/><font color='#f9a825'>■</font> partial<br/><font color='#ef6c00'>■</font> in_progress<br/><font color='#455a64'>■</font> planned<br/><font color='#b71c1c'>■</font> blocked<br/><font color='#37474f'>■</font> declared<br/><i>dashed border</i> = declared but not running / not created<br/><b>bold teal border</b> = running without a Quadlet definition<br/><i>blue text</i> = listener or relay endpoint (host:port)>];
+
+}

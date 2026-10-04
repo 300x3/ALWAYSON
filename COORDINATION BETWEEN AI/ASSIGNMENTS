@@ -1,0 +1,78 @@
+ES 	Executive Summary
+
+
+ES.1 	Current Architecture Corrections 	3
+
+
+ES.2 	Master Topology 	4
+
+
+ES.3 	Detailed System Record 	12
+
+
+1 	System Purpose 	13
+
+
+2 	Platform Baseline 	14
+
+
+3 	High-Level Architecture 	16
+
+
+4 	Security, Isolation, and Data Policy 	21
+C.BOT - PROMETHEUS SETUP
+
+5 	Network Domains and Controlled External Access 	24
+C.BOT - PROMETHEUS SETUP (DOUBLE CHECK AND MONITOR)
+
+6 	Component Boundaries, GUI Reporting Tools, and Operator Access 	29
+C.BOT - GRAFANA DASHBOARD SETUP
+
+7 	Public Storefront and Payment Policy 	31
+C.BOT - PDF HANDOFFS (INCOMING AND OUTGOING)
+
+8 	Mapping and Photogrammetry 	36
+C.BOT - IMAGE PROCESSING TEST, AUTO UPLOAD OF IMAGES FROM RPI5 WHEN ON WIFI
+
+9 	Field and LoRa Architecture 	41
+C.BOT - QGROUNDCONTROL, LORA MESSAGES TO RPI5
+
+10 	Simulation Architecture 	43
+C.BOT - SIM SETUP AND WORKING THROUGH OUTSTANDING ISSUES
+
+10.3 	Real Fabrication — ao-fabrication (not simulated) 	47
+C.BOT - ROBOT ARM AND CAROUSEL BONING AND PREPARATION FOR TRAINING
+
+11 	Ledger, Provenance, Archive, and IPFS 	48
+C.BOT - MOCKUP OF IPFS TIED TO AN IMAGE FOR SALE (ANY .TIFF IMAGE HOSTED ON PCLOUD IN THE RELAVENT WEBODM COMPLETED PROJECT FOLDER)
+
+12 	Host Installation and Configuration 	54
+C.BOT - UPDATE/INSTALL, AUTOMATION AND ALIGNMENT WITH SYNAPTIC
+
+13 	Podman Runtime and Quadlet Policy 	57
+C.BOT - PROMETHEUS SETUP
+
+14 	Secrets and Service Identity 	60
+C.BOT - PROMETHEUS SETUP
+
+15 	Sales, Mastodon, OpenClaw, and Local AI 	63
+X
+
+16 	Scripts, Operational Standards, and Logs-Journals 	68
+C.BOT - IMPLEMENTATION OF LOGS-JOURNALS
+C.BOT - PROMETHEUS (LOG CHECKING)
+
+17 	Backup, Restore, Monitoring, and Completion Criteria 	70
+C.BOT - BACKUP SETUP
+
+18 	Approved Deviations and Open Decisions 	72
+
+
+19 	Current Status and Outstanding Work 	74
+C.BOT - REVIEW OTHER AI SESSIONS, PLACE EXISTING ITEMS FROM SECTION 19 INTO THE APPLICABLE SESSION.
+
+20 	Current Verification Evidence 	77
+C.BOT - CHECK PROGRESS, REVIEW CURRENT SYSTEM
+
+
+21 	Status References 	80

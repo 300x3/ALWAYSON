@@ -1,0 +1,27 @@
+digraph alwayson {
+  graph [rankdir=LR, compound=true, newrank=true, concentrate=true, fontname="DejaVu Sans", fontsize=11, bgcolor="#ffffff", nodesep=0.45, ranksep=0.8, splines=spline, pad=0.3, labelloc=t, fontsize=24, label=<<b>ALWAYS ON — FIELD, RADIO &amp; CONTROLLED EXTERNAL PATHS</b><br/><font point-size="11">drone link · radios · controlled ingress/egress · external services · generated 2026-10-03T19:52:47Z (live inspection)</font><br/><font point-size="10">17 networks · 22 containers (25 running) · 53 listeners (30 loopback) · 4 drift items — authority: v6 §3.3.1/§5.1/§5.2/§6.A/§20.0</font>>];
+  node [shape=box, style="rounded,filled", fontname="DejaVu Sans", fontsize=10, margin="0.14,0.09", penwidth=1.4];
+  edge [fontname="DejaVu Sans", fontsize=9, color="#607d8b", penwidth=1.1, arrowsize=0.7];
+  n_host [shape=box3d, fillcolor="#e3f2fd", color="#0d47a1", fontsize=12, label=<<b>ALWAYS ON HOST — Kubuntu 26.04 LTS workstation</b><br/>Kubuntu 26.04 LTS (Ubuntu 26.04.1 userland)<br/>kernel 7.0.0-34-generic · AMD CPU<br/>EVGA NVIDIA GTX 1080 (driver 580.178.04, CDI nvidia.com/gpu=0)<br/><i>Podman 5.7.0 — Quadlet only, no Docker daemon</i><br/>eno1: 169.254.248.253/16 10.42.0.1/24<br/>wlp3s0: 192.168.87.135/24 fe80::abd7:e952:c515:db0d/64>];
+
+  subgraph cluster_edge {
+    label=<<b>CONTROLLED EXTERNAL PATHS</b> <font point-size="9">(README §5.2)</font>>; style="rounded,filled"; fillcolor="#f3f7fb"; color="#1565c0"; fontsize=12;
+    n_internet [shape=ellipse, fillcolor="#cfd8dc", color="#37474f", fontsize=12, label="PUBLIC INTERNET"];
+    n_edge_cloudflare_tunnel [style="rounded,filled", fillcolor="#e8f5e9", color="#1b5e20", label=<<b>Cloudflare Tunnel (cloudflared-alwayson.service)</b><br/>cloudflared<br/>listen 127.0.0.1:20241 (metrics)<br/>mastodon.300x3.com -&gt; 127.0.0.1:3000<br/>chat.300x3.com -&gt; 127.0.0.1:18790 (OpenClaw relay / sitebot)<br/>www.300x3.com -&gt; 127.0.0.1:3300 (300X3 storefront proxy)>];
+    n_edge_pcloud_storefront [style="rounded,filled", fillcolor="#e8f5e9", color="#1b5e20", label=<<b>pCloud Public Folder (static HTML storefront)</b><br/>pCloud Drive / public folder<br/><i>direction: outbound</i>>];
+    n_edge_ao_egress_archive [style="rounded,filled", fillcolor="#eceff1", color="#455a64", label=<<b>ao-egress-archive (adapter, not yet deployed)</b><br/>encrypted archive replication / IPFS operations<br/><i>direction: outbound</i><br/>status: planned>];
+    n_edge_ao_ingress_payment [style="rounded,filled", fillcolor="#eceff1", color="#455a64", label=<<b>ao-ingress-payment (adapter, not yet deployed)</b><br/>payment-provider webhook verifier<br/><i>direction: inbound</i><br/>status: planned>];
+    n_edge_ao_build_update [style="rounded,filled", fillcolor="#f5f5f5", color="#616161", label=<<b>ao-build-update (adapter, deployed, not enabled)</b><br/>image / package acquisition before controlled promotion<br/><i>direction: outbound</i><br/>status: scaffolded>];
+    n_edge_reticulum_tcp [style="rounded,filled", fillcolor="#fff3e0", color="#ef6c00", label=<<b>Reticulum public TCP peers / backbone</b><br/>29 TCPClientInterface peers (public gateway 0.0.0.0:4242)<br/><i>direction: bidirectional</i><br/>status: in_progress>];
+    n_adapter_placeholders [shape=box, style="rounded,dashed", fillcolor="#eceff1", color="#455a64", label="ao-ingress-payment\nao-egress-archive\nao-build-update\n(adapters, not deployed)"];
+  }
+
+  subgraph cluster_field {
+    label=<<b>FIELD, RADIO &amp; DRONE LINK</b> <font point-size="9">(README §9)</font>>; style="rounded,filled"; fillcolor="#fffde7"; color="#f9a825"; fontsize=12;
+    n_field_drone_pi5 [style="rounded,filled", fillcolor="#eceff1", color="#455a64", label=<<b>Raspberry Pi 5 flight companion</b><br/>MAVLink collector, telemetry spool, RNS/Reticulum, MeshChatX, packet signing<br/>Waveshare SX1262-class LoRa HAT>];
+    n_field_drone_fc [style="rounded,filled", fillcolor="#eceff1", color="#455a64", label=<<b>ArduPilot flight controller</b><br/>3DR N1 autopilot, MAVLink over UART/USB>];
+    n_radio_people [style="rounded,filled", fillcolor="#e8f5e9", color="#1b5e20", label=<<b>PEOPLE-RADIO (Heltec WiFi LoRa 32 V3)</b><br/>RNodeInterface (RNode firmware 1.85, SX1262)<br/><font color='#6d4c41'>915 MHz / BW 125 kHz / SF7 / CR5 / 17 dBm</font><br/>/dev/serial/by-id/usb-Silicon_Labs_CP2102_USB_to_UART_Bridge_Controller_0001-if00-port0>];
+    n_radio_drone [style="rounded,filled", fillcolor="#e8f5e9", color="#1b5e20", label=<<b>DRONE-RADIO (Heltec WiFi LoRa 32 V3)</b><br/>RNodeInterface (RNode firmware 1.85, SX1262, internal)<br/><font color='#6d4c41'>917 MHz / BW 250 kHz / SF7 / CR5 / 17 dBm</font><br/>second CP2102-class serial device>];
+  }
+
+}
