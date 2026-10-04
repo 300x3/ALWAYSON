@@ -266,6 +266,48 @@ suite covers the desktop and portable hardware this system is built for.
 through systemd Quadlet definitions — never Kubernetes, Docker Compose, a Docker daemon, or
 shell-wrapper orchestration (§13).
 
+**Correction 2026-10-04 — what "Kubuntu" is worth, measured.** The Kubuntu rationale above is
+the *selection* rationale and stands. But the running host does not identify itself as Kubuntu,
+and a reader checking `lsb_release` will get a different answer than this paragraph gives. It
+is KDE Plasma on Ubuntu 26.04.1, not a Kubuntu-flavoured install:
+
+```
+$ lsb_release -a
+Distributor ID:	Ubuntu
+Description:	Ubuntu 26.04.1 LTS
+Release:	26.04
+Codename:	resolute
+$ cat /etc/kubuntu-release
+cat: /etc/kubuntu-release: No such file or directory
+$ apt-cache policy kubuntu-desktop
+kubuntu-desktop:
+  Installed: (none)
+$ plasmashell --version
+plasmashell 6.6.6
+$ systemctl is-enabled sddm
+enabled
+```
+
+Three `kubuntu-*` packages are installed (`kubuntu-settings-desktop`, `kubuntu-wallpapers`,
+`kubuntu-notification-helper`) but the `kubuntu-desktop` metapackage is not, and
+`kubuntu-desktop` is in `universe`, not `main`. So: Ubuntu LTS base, KDE Plasma 6.6.6 on SDDM,
+Kubuntu-flavoured settings only. Every functional claim this section rests on is independently
+true — Plasma 6.6.6 is present, `konqueror`, `kwalletmanager5` and `kwallet-query` are
+installed (§14.1), ROS 2 Lyrical is at `/opt/ros/lyrical` (§2.2), and the machine is an
+i7-8700K with a GeForce GTX 1080. Only the distribution label was loose.
+
+**Toolchain correction, same date.** §1 says the desktop "carries the ROS 2 and Gazebo toolchain
+plus QGroundControl". ROS 2 and Gazebo are real: `ros2` resolves to `/opt/ros/lyrical/bin/ros2`
+and `gzserver` is not on the host PATH because Gazebo runs containerised
+(`ao-sim-fabrication-gz`, carrying `gz` and `gz-msgs_*`; the host keeps a wrapper at
+`~/bin/gazebo`). **QGroundControl is an AppImage, not an installed package** — there is no
+`qgroundcontrol` binary on the PATH and no `.desktop` entry in `/usr/share/applications`; the
+operator runs `~/Documents/APP IMAGES/QGroundControl-x86_64.AppImage`, which has left state in
+`~/.config/QGroundControl` and `~/.cache/QGroundControl`. Same for the Foxglove bridge, which is
+a locally built image (`localhost/foxglove-bridge`) rather than a pinned upstream digest. Those
+two are simulation-toolchain facts and belong to the SIM group's inventory; they are noted here
+only so §1 does not read as a package manifest.
+
 # 2. Platform Baseline
 
 ## 2.1 Intended Platform Standard
@@ -498,6 +540,31 @@ the simulation domain does.
 `/ALWAYSON/quadlet/networks/ao-fabrication.network` because every other network there lets
 Podman auto-assign. See §2.2 for the reconciliation of the adjacent
 unregistered `10.89.10.0/24` and `10.89.11.0/24`.
+**Correction 2026-10-04 — the adjacent-subnet pointer in this subsection was stale.** The
+sentence above ends by pointing at §2.2 for "the reconciliation of the adjacent unregistered
+`10.89.10.0/24` and `10.89.11.0/24`". Both halves of that were already wrong, and a later
+revision corrected neither. Measured:
+
+```
+$ grep -nE 'ao-reporting-egress|ao-sales' /ALWAYSON/config/platform/network-cidrs.yaml
+14:ao-reporting-egress internal=false subnets=10.89.10.0/24
+15:ao-sales internal=false subnets=10.89.0.0/24
+$ grep -c '10.89.11' /ALWAYSON/config/platform/network-cidrs.yaml
+0
+```
+
+- **`10.89.10.0/24` is registered**, as `ao-reporting-egress` (`Internal=false`, deliberately —
+  it is the reporting egress path for `ao-grafana` and `ao-metabase`, §6.A.2). It is not
+  "adjacent" and not unregistered, and §2.2 lists it among the three deliberately
+  `Internal=false` networks.
+- **`10.89.11.0/24` is genuinely unallocated** — no match in the registry that §2.2 makes the
+  only authority. It is folded into `ao-sales` and is recorded as such in §5, which is where
+  the `ao-egress-community` name question now lives. §2.2 contains no reconciliation text at
+  all, so pointing there was never useful.
+
+The one surviving open item is the `ao-egress-community` / `10.89.11.0/24` name-versus-CIDR
+reconciliation. That is a rename decision belonging to another group, tracked in §19.1; it is
+deliberately left alone here.
 
 ### 3.3.1 Program-to-Database Map (single consolidated table)
 
@@ -1079,11 +1146,97 @@ it needs host PostgreSQL access (`sudo -u postgres psql ... grafana`), which did
 non-interactively during this review, so the live DB contents are unconfirmed and the file
 alone is not proof of what Grafana has actually loaded.
 
+**The blocker above is still a blocker — re-attempted 2026-10-04, same result.** A second
+review tried a different route and also failed:
+
+```
+$ sudo -n -u postgres psql -tAc "select datname from pg_database order by 1;"
+sudo: interactive authentication is required
+$ podman exec ao-grafana sh -c 'psql -h /var/run/postgresql -U "$GF_DATABASE_USER" -d postgres -tAc "..."'
+sh: psql: not found
+```
+
+The socket is correctly mounted read-only into the container
+(`Volume=/var/run/postgresql:/var/run/postgresql:ro`) and `GF_DATABASE_HOST=/var/run/postgresql`,
+so the *path* is proven — but the Grafana image ships no `psql` client, and `sudo -n` cannot
+authenticate non-interactively. What **is** now proven, from Grafana's own startup log, is that
+the application database on the host cluster is real and PostgreSQL, and that Grafana connected to
+it:
+
+```
+$ podman logs ao-grafana | grep -E 'Connecting to DB|migrator'
+logger=sqlstore t=2026-10-03T19:34:26.480251744Z level=info msg="Connecting to DB" dbtype=postgres
+logger=migrator t=2026-10-03T19:34:26.486028158Z level=info msg="Locking database"
+logger=migrator t=2026-10-03T19:34:26.507162277Z level=info msg="Unlocking database"
+```
+
+and Metabase independently reports the host cluster version, corroborating the "host PostgreSQL
+18" row in §3.3.1:
+
+```
+$ podman logs ao-metabase | grep -i 'verified postgres'
+2026-10-01 22:22:54,982 INFO db.setup :: Successfully verified PostgreSQL 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1) application database connection. ✅
+```
+
+So the **host PostgreSQL 18** claim in §3.3.1 and §6.A.2 is now measured from two independent
+sources rather than inferred from `/etc/postgresql/`. What remains unconfirmed is narrower and is
+the OPS group's to answer: *which datasources Grafana actually has loaded*, as distinct from
+which files are provisioned. Reading the `grafana` database's `datasource` table needs a
+`postgres` superuser role on the host cluster, which no non-interactive route currently reaches.
+
 So §5.1 group D (18 rows, counted) is the current statement, and the YAML is a lagging subset
 of it. Reconciling the YAML is **not** mine to do — it is a config file outside the three
 section files I own, and the `ao-egress-community` name/CIDR question is an existing §19.1
 item belonging to another group. This subsection records the gap so the next reader is not
 misled.
+
+#### 6.A.3.2 Four unmanaged Grafana containers are running (measured 2026-10-04)
+
+Beyond the YAML's staleness, `podman ps` shows **four Grafana containers that no Quadlet
+unit owns**, alongside the one sanctioned `ao-grafana`. All four are leftovers from
+2026-10-03 datasource/plugin investigation, two of them from an unnamed probe:
+
+```
+$ for c in relaxed_tharp confident_khayyam keen_bhabha ao-sqli3 ao-grafana; do
+    podman inspect $c --format '{{.Name}} created={{.Created}} nets={{range $k,$v := .NetworkSettings.Networks}}{{$k}} {{end}} netmode={{.HostConfig.NetworkMode}} priv={{.HostConfig.Privileged}} unit={{index .Config.Labels "io.podman.annotations.quadlet"}}'; done
+relaxed_tharp     created=2026-10-03 08:54:41 nets= netmode=pasta priv=false unit=
+confident_khayyam created=2026-10-03 09:00:35 nets= netmode=pasta priv=false unit=
+keen_bhabha       created=2026-10-03 11:50:02 nets= netmode=pasta priv=false unit=
+ao-sqli3          created=2026-10-03 11:50:58 nets= netmode=pasta priv=false unit=
+ao-grafana        created=(managed)   nets=ao-admin ao-reporting-egress netmode=bridge priv=false unit=ao-grafana.service
+```
+
+Why this belongs in §6 rather than §19 only: §6.A.3 requires every containerized GUI to have a
+**documented Podman-network membership, listener policy, service owner and least-privilege
+identity**. These four have no service owner (no Quadlet label), no declared network
+(`pasta` rootless-NAT, per-process — not any of the fourteen registered `ao-*` networks), and
+they are **absent from §5.1 group D**, which claims to enumerate all eighteen GUI and workflow
+rows. Two of them also mount host paths that are *not* the sanctioned read-only snapshot
+copies: `confident_khayyam` mounts `/tmp/tmp.2HBNsh7zgo:/probe` and `ao-sqli3` mounts
+`/tmp/sqli-plugins2:/var/lib/grafana/plugins`, both **writable, both from `/tmp`**, one of them
+supplying the unsigned `frser-sqlite-datasource` plugin to a Grafana instance that is not the
+one with the allow-list policy.
+
+Mitigating, measured, and worth stating so this is not over-read:
+
+- **No listener is exposed.** `podman port` reports nothing for all four (`map[]`, pasta
+  mode), and `ss -ltn` shows no new Grafana port. The only `3000/3001/3002` listeners belong to
+  `mastodon-web` (3000), `ao-grafana` (3001) and `ao-metabase` (3002), all loopback-bound.
+- **None is privileged**, none is on an `ao-*` network, and none is quadlet-started.
+
+So this is a **conformance and hygiene defect, not an exposure**: unmanaged duplicate GUIs
+outside the inventory, two of them writable-mount-bearing. **Not mine to remediate.** Stopping
+containers is destructive, touches another group's running work, and the `/tmp` plugin mounts
+are the subject of the unsigned-plugin question that §6.A.3 and the OPS group already track.
+Recorded here and reported to the operator; no action taken.
+
+**Trap for the next session.** `podman ps` is sorted by name, so a `grep grafana` against the
+**image** column finds these while a search for `ao-grafana` does not. The Foxglove containers
+are the same class of leftover: of three `localhost/foxglove-bridge` containers,
+`ao-sim-fabrication-foxglove` is the sanctioned, **digest-pinned** one, while `vigorous_shannon`
+and `dreamy_rosalind` are unnamed duplicates on the mutable `:latest` tag with no Quadlet label
+— the same §4.1 rule 9 pinning concern, already measured above. Enumerate by *label presence*,
+not by image string.
 
 ---
 

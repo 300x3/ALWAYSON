@@ -186,6 +186,31 @@ the simulation domain does.
 `/ALWAYSON/quadlet/networks/ao-fabrication.network` because every other network there lets
 Podman auto-assign. See §2.2 for the reconciliation of the adjacent
 unregistered `10.89.10.0/24` and `10.89.11.0/24`.
+**Correction 2026-10-04 — the adjacent-subnet pointer in this subsection was stale.** The
+sentence above ends by pointing at §2.2 for "the reconciliation of the adjacent unregistered
+`10.89.10.0/24` and `10.89.11.0/24`". Both halves of that were already wrong, and a later
+revision corrected neither. Measured:
+
+```
+$ grep -nE 'ao-reporting-egress|ao-sales' /ALWAYSON/config/platform/network-cidrs.yaml
+14:ao-reporting-egress internal=false subnets=10.89.10.0/24
+15:ao-sales internal=false subnets=10.89.0.0/24
+$ grep -c '10.89.11' /ALWAYSON/config/platform/network-cidrs.yaml
+0
+```
+
+- **`10.89.10.0/24` is registered**, as `ao-reporting-egress` (`Internal=false`, deliberately —
+  it is the reporting egress path for `ao-grafana` and `ao-metabase`, §6.A.2). It is not
+  "adjacent" and not unregistered, and §2.2 lists it among the three deliberately
+  `Internal=false` networks.
+- **`10.89.11.0/24` is genuinely unallocated** — no match in the registry that §2.2 makes the
+  only authority. It is folded into `ao-sales` and is recorded as such in §5, which is where
+  the `ao-egress-community` name question now lives. §2.2 contains no reconciliation text at
+  all, so pointing there was never useful.
+
+The one surviving open item is the `ao-egress-community` / `10.89.11.0/24` name-versus-CIDR
+reconciliation. That is a rename decision belonging to another group, tracked in §19.1; it is
+deliberately left alone here.
 
 ### 3.3.1 Program-to-Database Map (single consolidated table)
 
