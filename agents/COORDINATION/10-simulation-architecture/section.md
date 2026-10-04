@@ -366,5 +366,77 @@ file, the portal and the Quadlet units agrees on `/ALWAYSON/GAZEBO`. The impleme
 therefore self-consistent, but §10.2 still says "verify its exact location with the operator",
 and this session cannot substitute for that confirmation.
 
+### 10.4 Verified state, 2026-10-04 (SIM session)
+
+Measured on this host on 2026-10-04. One item is closed with commands and output, one defect is
+fixed, one false claim is corrected, and one item is prepared and stopped at a stop condition.
+
+**SIM-06 is now established, not inferred.** §10.3 recorded the GUI as untested, with the
+correct warning that `NRestarts=0` on a unit that never ran proves nothing. The GUI has now
+actually been started and watched:
+
+- `systemctl --user start ao-sim-fabrication-gui-gz.service` → `ActiveState=active`,
+  `SubState=running`, `NRestarts=0`, `ExecMainStatus=0`.
+- 18 plugins load, including `EntityTree` (the SVG-icon-dependent one) and
+  `gz-rendering-ogre2`. A case-insensitive journal grep for `OGRE EXCEPTION`,
+  `construction from null`, `Segmentation`, `Failed to load` and `cannot open` returns **0**.
+- The window exists and is placed by the KWin script: `xwininfo -root -children` shows
+  `"Gazebo Sim": ("gz-sim-gui" "Gazebo GUI") 480x292+24+1502` — bottom-left of DP-3, per
+  `~/.local/share/kwin/scripts/ao-gazebo-monitor/`.
+- **Positive proof of geometry, not just a live process.** A window capture
+  (`import -window 0x120001a`) shows rendered factory geometry on the ground plane, the
+  left-hand toolbar icons decoded (so the SVG plugin works, not merely installs), and the sim
+  clock advancing at `20.00%`. A second capture 5 s later differs in **294 of 140160** pixels,
+  so the view is live rather than a frozen first frame.
+- The unit was **re-masked afterwards**, as §19 requires, so it cannot seize keyboard and
+  pointer focus: `is-enabled` = `masked`, and `start` then fails with `Unit ... is masked.`
+
+**Fixed: the reproducibility guard that was disarmed.** §10.3 defect 1 found
+`build-rl-objects.py --check` exiting 1 against the committed world, so the one check whose
+entire purpose is catching divergence could not distinguish real drift from a cosmetic hand
+edit. The cause was that `<specular>`/`<shininess>` had been added to `factory.world` *inside
+the generated block* and never taught to the generator. The generator now declares
+`SPECULAR = (0.30, 0.30, 0.30, 1.0)` and `SHININESS = 24`, so:
+
+- `--check` → `OK: rl_objects block matches objects.yaml`, exit 0;
+- `--write` → `rl_objects block already current; nothing written`, with the world sha256
+  unchanged either side (`bce32f2a…`), so the world was **not** rewritten;
+- the guard is not merely green: a real catalogue drift (moving `part-a1`'s home pose) makes
+  `--check` exit 1 with `STALE`, and restoring the file returns it to 0. `objects.yaml`
+  sha256 confirmed unchanged afterwards.
+
+**Corrected a false capability claim in the portal.** `/api/objects` served
+`"resettable": true` copied verbatim from `objects.yaml`, indistinguishable from a verified
+capability, while the portal exposes no reset endpoint and performs no reset — `/api/reset`
+returns 404. A consumer could reasonably have read that as "I can reset these objects". The
+field is now `resettable_claimed` beside an explicit `reset_available: false` and a
+`reset_note` naming the discrepancy, and the HTML portal (its only consumer) was updated to
+match so it does not render `undefined`. Verified live on the restarted portal, and
+`node --check` on the extracted script reports `PORTAL JS SYNTAX OK`. This corrects a claim;
+it does **not** deliver reset, so SIM-14 stays open on that limb.
+
+**SIM-11 is prepared and deliberately NOT executed.** Measured: the manifest records
+`content_size_bytes` 5371 and `content_hash_sha256` `64eacbbf…`, while `factory.world` is
+**63205 bytes** with sha256 `bce32f2a…`. Size *and* hash disagree, so the manifest cannot be
+repaired by editing a number. Repair requires re-export and re-signing with the
+`ao-sim-fabrication` producer key (present at `secrets/sim-fabrication/producer.pem`, 119 bytes,
+value not printed) via `scripts/ledger/build-manifest.sh`. Re-signing a provenance record with a
+ledger key is a stop condition for this session, so the change is prepared and left for the
+operator. Cosmetic with respect to the running world, which is valid and serving.
+
+**Unchanged from §10.3.** SIM-07 reproduces exactly: `packages.ros.org` presents
+`subject=… CN=*.osuosl.org` and `curl` returns HTTP `000`. Certificate verification must not be
+disabled to work around it. SIM-12 (facility scheduler) remains absent. SIM-02 remains an
+operator decision. SIM-08 is a publishing decision and was not touched — no public port, route
+or Cloudflare config was modified. SIM-03 (QGroundControl) is not installed on this host and
+no install was attempted.
+
+**What I got wrong this session.** I first reported the GUI as verified on the strength of
+`ActiveState=active` plus a clean error grep. That is the exact mistake §10.3 warned about: a
+live process and an absence of errors is not proof that geometry renders. I only reached a real
+answer by capturing the window and diffing two captures. Smaller error: I ran `gz topic` inside
+the GUI container before checking `GZ_CONFIG_PATH`, and briefly read "cannot find any available
+'gz' command" as a missing toolchain when it was only an unset variable.
+
 
 ---
