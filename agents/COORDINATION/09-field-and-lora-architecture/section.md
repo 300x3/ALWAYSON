@@ -494,10 +494,13 @@ $ grep -h 'is configured and powered up' ~/.reticulum-meshchatx/logs/meshchatx.l
 [2026-09-25 16:27:11] RNodeInterface[DRONE-RADIO] is configured and powered up
 
 $ grep -ch 'unrecoverable error' ~/.reticulum-meshchatx/logs/meshchatx.log{,.1,.2,.3}
-891
+994
 7800
 2389
 29
+                                                        # 11,212 total.
+                                                        # The current log grows live at ~7s per cycle,
+                                                        # so this count rises continuously.
 ```
 
 Every failure has the same three-line signature, repeating about every 7 seconds:

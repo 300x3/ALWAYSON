@@ -4,7 +4,7 @@ action: blocked
 evidence: |
   # BLOCKER 1: the DRONE-RADIO link this item is about has been down since 2026-09-25
   $ grep -ch 'unrecoverable error' ~/.reticulum-meshchatx/logs/meshchatx.log{,.1,.2,.3}
-  891 / 7800 / 2389 / 29
+  994 / 7800 / 2389 / 29
   $ grep -h 'is configured and powered up' ~/.reticulum-meshchatx/logs/meshchatx.log* | tail -1
   [2026-09-25 16:27:11] RNodeInterface[DRONE-RADIO] is configured and powered up
 
@@ -30,7 +30,7 @@ Three blockers, and the third alone would be sufficient. They are listed in orde
 much they can be cleared without the operator:
 
 1. **The link is down.** `DRONE-RADIO` (917 MHz) has not come up since 2026-09-25 16:27 —
-   11,109 logged offline events. A mission cannot reach a QGC session over a radio that is
+   11,212 logged offline events. A mission cannot reach a QGC session over a radio that is
    not transmitting.
 2. **The Pi5 drone is absent.** No DNS entry, no SSH config, not in the ARP cache, and the
    dnsmasq lease file is empty. There is no QGC session on the far end to address.

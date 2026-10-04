@@ -22,7 +22,7 @@ evidence: |
 
   # NEW, and worse than the 2026-09-30 note recorded: that radio is DOWN.
   $ grep -ch 'unrecoverable error' ~/.reticulum-meshchatx/logs/meshchatx.log{,.1,.2,.3}
-  891 / 7800 / 2389 / 29
+  994 / 7800 / 2389 / 29
   $ grep -h 'is configured and powered up' ~/.reticulum-meshchatx/logs/meshchatx.log* | tail -1
   [2026-09-25 16:27:11] RNodeInterface[DRONE-RADIO] is configured and powered up
 section: 09-field-and-lora-architecture
@@ -40,7 +40,7 @@ configuration. **The original blocker — RPi5 address and SSH access — is unc
 **One material new fact the 2026-09-30 note could not know, and the compiler should fold in.**
 That note says the air link "needs no further radio work" because the desktop side is
 configured. As of today that is no longer true in practice: `DRONE-RADIO` has failed to come
-up since 2026-09-25 16:27 and has logged 11,109 offline events across four rotated logs
+up since 2026-09-25 16:27 and has logged 11,212 offline events across four rotated logs
 (§9.5.1). **So FIELD-09 now has two independent blockers, not one** — the missing Pi5 *and* a
 dead desktop radio. Even with the Pi5 powered, connected and given an SSH entry, the
 `DRONE-RADIO → RPi5` link could not carry a MAVLink handoff today. This does not change the

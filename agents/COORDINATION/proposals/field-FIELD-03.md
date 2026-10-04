@@ -9,7 +9,7 @@ evidence: |
 
   # 917 MHz transmitter: dead. Last successful detection 2026-09-25 16:27.
   $ grep -ch 'unrecoverable error' ~/.reticulum-meshchatx/logs/meshchatx.log{,.1,.2,.3}
-  891 / 7800 / 2389 / 29
+  994 / 7800 / 2389 / 29
 
   # so the 915 MHz receiver has nothing to isolate against — only ambient noise.
   # no interference events were ever logged on the band that IS up:

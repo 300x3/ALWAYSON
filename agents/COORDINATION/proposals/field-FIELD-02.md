@@ -4,7 +4,7 @@ action: blocked
 evidence: |
   # same root blocker as FIELD-01 — DRONE-RADIO offline since 2026-09-25 16:27
   $ grep -ch 'unrecoverable error' ~/.reticulum-meshchatx/logs/meshchatx.log{,.1,.2,.3}
-  891 / 7800 / 2389 / 29      # 11109 total offline events
+  994 / 7800 / 2389 / 29    # 11,212 total offline events
   $ grep -h 'is configured and powered up' ~/.reticulum-meshchatx/logs/meshchatx.log* | tail -1
   [2026-09-25 16:27:11] RNodeInterface[DRONE-RADIO] is configured and powered up
 
@@ -29,7 +29,7 @@ This item has **two** independent blockers, and both must clear before an end-to
 possible:
 
 1. **No drone-side RF path.** `DRONE-RADIO` (917 MHz) has failed to come up since
-   2026-09-25 16:27, 11,109 logged offline events across four rotated logs. One of the two
+   2026-09-25 16:27, 11,212 logged offline events across four rotated logs. One of the two
    paths the item wants tested does not exist on air.
 2. **No peer at the far end.** Unicast and broadcast need two ends. The Pi5 drone is not
    connected: no DNS entry, no SSH config, absent from the ARP cache, and the dnsmasq lease

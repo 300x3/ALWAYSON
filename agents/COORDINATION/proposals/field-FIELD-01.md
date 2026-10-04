@@ -8,7 +8,7 @@ evidence: |
   [2026-09-25 16:27:08] RNodeInterface[PEOPLE-RADIO] is configured and powered up
   [2026-09-25 16:27:11] RNodeInterface[DRONE-RADIO] is configured and powered up
   $ grep -ch 'unrecoverable error' ~/.reticulum-meshchatx/logs/meshchatx.log{,.1,.2,.3}
-  891
+  994
   7800
   2389
   29
