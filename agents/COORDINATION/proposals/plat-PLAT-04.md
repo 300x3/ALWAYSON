@@ -65,6 +65,27 @@ merges. A correct patch sitting in a proposal would not change the document anyo
 would have looked like a fix while changing nothing. Unblocking OPS-B with a diagnosis was
 worth more than a patch to the wrong file.
 
+## Fourth error, found 2026-10-04 on resume: I committed a section edit without recompiling
+
+The commit that added the third defect (`63b0129`) edited
+`agents/COORDINATION/02-platform-baseline/section.md` but did **not** recompile, so
+`README.md` — the document operators actually read — did not contain the correction.
+`compile.py --check` returned **`DIFFERS`** (rc=1), and the COORDINATION README says a
+`DIFFERS` means *"someone edited README.md directly — find them and stop rather than
+overwriting their change."* I was that someone, indirectly.
+
+This matters for this item specifically. PLAT-04's whole subject is **the gap between what
+a document asserts and what can be re-verified**, and I reproduced that exact gap between
+my own section file and the README compiled from it. A fix recorded only in the section file
+is not a fix until it is compiled.
+
+Fixed in `d04e594`; `compile.py --check` now returns `identical` (rc=0). The cause was
+that I treated the commit as the last step instead of recompile-then-check-then-commit.
+Any session owning a section file should run `python3 agents/COORDINATION/tools/compile.py`
+before committing, every time.
+
+## Third error, smaller: I quoted `apt-cache policy` for installed state
+
 Second error, and this one was a **false claim I had already committed**: on 2026-10-03 I
 asserted that `aa-status` run without privilege "still exits 0". It exits **4**. I wrote that
 into §2.3 as a trap for the next session, which made the trap point the wrong way — it said the
