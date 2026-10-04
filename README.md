@@ -3992,6 +3992,107 @@ decisions. Nothing is executed by the tooling; applying anything is an operator
 decision. Ubuntu archive security updates are already handled automatically by
 `unattended-upgrades` and need no action here.
 
+### 12.5.1 The Installed column is ground truth from apt history
+
+The `Installed` column of `docs/software-status.md` is produced by
+`apt_date()` in `scripts/build-update/provenance-log.py`, which reads
+`/var/log/apt/history.log` and its rotated siblings via
+`scripts/build-update/apt_history.py`.
+
+**It used to be wrong, and wrong in a way that mattered.** dpkg keeps no install
+timestamp, so the date was inferred from the mtime of
+`/var/lib/dpkg/info/<pkg>.list` — a file dpkg rewrites on *every* unpack. The
+column therefore displayed the last **upgrade** date under an install heading. An
+operator auditing a deployment would read "installed 2026-10-01" for a package
+that had in fact been installed in April and merely upgraded that day.
+
+apt's history log does hold the truth, and it separates the two cases: every
+transaction records `Start-Date`, the exact `Commandline`, and distinct
+`Install:` / `Upgrade:` / `Remove:` / `Purge:` lines. Four facts now reach the
+document that did not before:
+
+| Fact | How it is derived |
+|---|---|
+| install vs upgrade | the item-line keyword, not a file mtime |
+| unattended vs operator-initiated | `Commandline` contains `unattended-upgrade` or a packagekit upgrade role |
+| removed / purged | a later `Remove:`/`Purge:` wins over the earlier `Install:`; the cell reads `not installed (removed/purged <date>)` |
+| who asked | the `Requested-By:` user, where apt recorded one |
+
+Measured against the real log (2026-10-04):
+
+```
+$ python3 scripts/build-update/apt_history.py
+packages indexed      : 4445
+  installed           : 4281
+  upgrade-only (pre-window): 86
+  installed unattended: 2098
+log files read        : ['history.log.1.gz', 'history.log.2.gz', 'history.log']
+
+$ python3 -c "...install_date('dbeaver-ce')..."
+dbeaver-ce   None  Purge   unattended=False  removed=True
+nginx        None  Purge   unattended=False  upgraded=2026-08-22  removed=True
+rclone       2026-10-03  Install  unattended=False
+```
+
+Two honest limits, stated rather than papered over:
+
+* **Coverage is bounded by apt's own log retention.** A package installed before
+  the oldest surviving stanza is simply absent from the index. Absent means
+  *unknown*, never *not installed* — the 86 upgrade-only records above are
+  packages whose install predates the retained window.
+* **A removal is not an install date.** For a purged package the function
+  returns `(None, record)` so the caller can say *why* the cell is empty rather
+  than printing a date for software `dpkg -l` no longer lists.
+
+The dpkg-mtime path remains as a fallback and is labelled as such in the cell
+(`(dpkg manifest mtime)`) so the two sources are never confused. A genuine
+failure to load `apt_history.py` degrades to that fallback and is remembered so
+the cost is paid once.
+
+### 12.5.2 Regression tests for the generators
+
+`scripts/build-update/test_generators.py` — run it with
+`python3 scripts/build-update/test_generators.py`; no framework is required.
+**29 tests, all passing**, in about 0.3 s:
+
+```
+$ python3 scripts/build-update/test_generators.py
+...
+Ran 29 tests in 0.266s
+
+OK
+```
+
+Three defects had shipped because nothing asserted them, and each now has a
+test:
+
+1. **Truncated digests became pull commands.** `update_steps()` checked only the
+   `sha256:` prefix, so `sha256:` plus 12 hex characters produced
+   `podman pull repo@sha256:<12>`, which a registry rejects with HTTP 400 — a
+   command that looked correct and could never work. `is_complete_digest()` now
+   checks the algorithm *and* the full body length, and suppresses command
+   generation entirely.
+2. **Steps built from a display name.** A row for the application "Account
+   Wizard" produced `apt install --only-upgrade Account`, which does not exist.
+   Steps now use the owning package name.
+3. **A prose error string used as a digest.** `"upstream digest unreachable
+   (registry refused)"` reached the command generator. Any value that is not a
+   complete digest now yields no command.
+
+A fourth defect was found and fixed *by* this suite: `update_steps()` accepted a
+12-character digest while a nearby assertion already expected it to be rejected.
+
+Two further tests exist specifically because the fixes were silent when
+reverted. `test_apt_history_loads_regardless_of_working_directory` runs the
+generator as a subprocess with `cwd=/tmp`: the original `import apt_history`
+resolved against `sys.path`, which holds the **current working directory**, not
+the script's own directory — and `refresh-install-log.sh` does `cd "$AO_ROOT"`
+first. The import therefore raised `ImportError` on every production run and
+silently fell back to the dpkg mtime, producing a document that looked normal
+and carried the older, less accurate dates. The module is now loaded by
+`__file__`. Without the test this regression is invisible: the failure mode is
+a plausible-looking document, not an error.
+
 ---
 
 # 13. Podman Runtime and Quadlet Policy
@@ -5218,12 +5319,16 @@ is written down so a future session does not "fix" it by adding follows.
 │   ├── 01-verify-photogrammetry-mount.sh
 │   ├── 02-install-host-dependencies.sh
 │   ├── 03-create-operational-layout.sh
-│   └── 04-create-podman-networks.sh
+│   ├── 04-create-podman-networks.sh
+│   ├── ao-bootstrap-privileged.sh
+│   └── install-heltec-udev.sh
 ├── deploy/
 │   ├── deploy-quadlet-domain.sh
 │   ├── validate-quadlet-domain.sh
 │   ├── enable-domain-services.sh
-│   └── rollback-domain.sh
+│   ├── rollback-domain.sh
+│   ├── ao-podman-bridge.sh
+│   └── bootstrap-sales-db.sh
 ├── validation/
 │   ├── check-photogrammetry-mount.sh
 │   ├── check-open-ports.sh
@@ -5232,14 +5337,17 @@ is written down so a future session does not "fix" it by adding follows.
 │   ├── check-gpu-runtime.sh
 │   ├── check-ledger-ingest.sh
 │   ├── check-deployment-conformance.sh
+│   ├── check-local-services.js
+│   ├── check-logs-journals.sh
+│   ├── validate-sale-receipt.sh
 │   └── capture-version-matrix.sh
-├── mapping/
-├── radio/
+├── mapping/         # imagery intake, deliverable archive, manifest export
+├── radio/           # heltec detect, radio-profile validate, LoRa link test
 ├── simulation/
 ├── storefront/
 ├── ledger/
-├── backup/
-├── restore/
+├── backup/          # restic backup + verify; executors named in 16.1.2
+├── restore/         # restore tests; executors named in 16.1.2
 ├── maintenance/
 ├── mastodon/        # deploy, federation runnerbook helpers, instance actor repair
 ├── operations/      # wallet bridge, service start helpers, local proxy, collectors
@@ -5258,6 +5366,84 @@ KWallet bridge and `start-sales-stack.sh`, `ops/` holds `wallet-read-secret.py` 
 
 `ops/` and `operations/` are distinct and both current: `ops/` is Python
 D-Bus wallet tooling, `operations/` is the bash service layer.
+
+The tree above was a **partial** listing and understated three directories.
+Measured with `ls -1` on 2026-10-04, the entry counts are: `bootstrap` 7,
+`deploy` 6, `validation` 11, `backup` 9, `restore` 5, `operations` 21,
+`simulation` 15, `ops` 8, `mastodon` 10. `bootstrap` and `deploy` are now
+listed in full above; `validation` was already complete. `backup/` and
+`restore/` are named in §16.1.2 rather than expanded here, because that is
+where the mapping to their systemd units matters. The remaining
+count-bearing directories are intentionally summarised as one line each —
+they are not part of any acceptance criterion and expanding them would make
+this tree go stale on every new script.
+
+`scripts/build-update/` is a further directory holding the software-status
+generators (`provenance-log.py`, `inventory-full.py`, `refresh-install-log.sh`,
+`apt_history.py`, `test_generators.py`); it predates this section and is
+described in §12.5.
+### 16.1.2 Backup, restore and receipt executors (measured 2026-10-04)
+
+Measured with `ls -1` against the tree, not read off this document. This mapping
+was missing: §16.1 named `backup/` and `restore/` as bare directories while §17.1
+claimed active timers, so no reader could tell which file a timer actually ran.
+
+`scripts/backup/` holds nine scripts. Which unit runs each:
+
+| Script | Invoked by |
+|---|---|
+| `restic-run.sh` | `ao-restic-backup.service` — `ExecStart=/ALWAYSON/scripts/backup/restic-run.sh` |
+| `verify-backup.sh` | `ao-restic-verify.service` — `ExecStart=/ALWAYSON/scripts/backup/verify-backup.sh` |
+| `fetch-restic-env.sh` (in `operations/`, not `backup/`) | `ao-restic-prefetch.service` — `ExecStart=/ALWAYSON/scripts/operations/fetch-restic-env.sh /run/user/1000/ao-restic.env`. It resolves the wallet-backed restic credentials before the other two run; note it lives outside `backup/`, so `ls scripts/backup/` alone does not reveal that the backup path depends on it. |
+| `dump-all-postgres.sh` | operator-invoked; dumps every PostgreSQL database in one pass |
+| `backup-postgres.sh`, `backup-host-postgres.sh`, `backup-container-postgres.sh` | per-source PostgreSQL dump helpers |
+| `backup-corda.sh`, `backup-photogrammetry.sh` | domain backups |
+| `pcloud-restic-setup.sh` | one-time pCloud restic repository setup |
+
+`systemd/backup/` is the only systemd tree in the repository and holds exactly six
+unit files — `ao-restic-backup`, `ao-restic-verify` and `ao-restic-prefetch`, each
+as a `.service` + `.timer` pair. Backup and restore are also the only subsystem
+still using plain units rather than Quadlet.
+
+```
+$ find systemd -type f | sort
+systemd/backup/ao-restic-backup.service
+systemd/backup/ao-restic-backup.timer
+systemd/backup/ao-restic-prefetch.service
+systemd/backup/ao-restic-prefetch.timer
+systemd/backup/ao-restic-verify.service
+systemd/backup/ao-restic-verify.timer
+```
+
+`scripts/restore/` holds five scripts, and this is the honest state of the
+seven-step restore test of §17.1:
+
+| Script | §17.1 steps | State |
+|---|---|---|
+| `verify-hashes-and-receipts.sh` | 3–5 | **Implemented.** Recomputes `sha256sum` over each manifest's `local_storage_reference`, compares against `content_hash_sha256`, then checks receipt linkage. Exits 51 on mismatch, 2 on bad usage. |
+| `restore-sales-db-test.sh` | sales DB | PENDING — `exit 3` |
+| `restore-corda-test.sh` | Corda | PENDING — `exit 3` |
+| `restore-mapping-artifact-test.sh` | mapping | PENDING — `exit 3` |
+| `restore-simulation-artifact-test.sh` | simulation | PENDING — `exit 3` |
+
+The seven-step test therefore has a named executor and **one real implementation,
+not five**. The four PENDING scripts exit immediately with
+`PENDING: <path> requires completed backups plus isolated test-path approval`; they
+are honest stubs rather than broken scripts, and `bash -n` passes on all five.
+Closing them needs operator approval of an isolated test path and a completed
+backup, so they remain stubs until that approval exists.
+
+There is **no restore timer**. `scripts/validation/check-logs-journals.sh` asserts
+freshness of `restore-test.log` at 3650 days — a placeholder that can never fail,
+not a cadence. The restore test is manual until a timer and interval are approved.
+
+`sales/` and `validate-sale-receipt.sh` both exist. `sales/` holds seven scripts
+(`add-pdf-form-fields.py`, `autofill-handoff-form.py`, `intake-kit-request-pdf.sh`,
+`intake-request-record.py`, `intake-to-pdf.sh`, `issue-transaction-bundle.sh`,
+`validate-transaction-bundle.sh`) and `validate-sale-receipt.sh` lives in
+`validation/`. Both were previously reported missing against an earlier snapshot
+of this section; that report is stale and is retracted here.
+
 
 ### 16.1.1 Quadlet deploy path
 
@@ -5336,7 +5522,7 @@ and is within its staleness budget: exit 0 pass, 1 missing, 2 stale.
 | `operations-journal.log` | Appended on every operational change | Deploys, enable/disable, restarts, and validation-script outcomes. Writer: `ao_operation`. |
 | `audit.log` | Appended on every audited operation | Immutable audit trail of operational changes and authorization decisions. Writer: `ao_audit`; `ao_audit_secret` redacts credentials. |
 | `backup.log` | After every backup run | Repository, snapshot ID, and success/failure. Writer: `ao_backup_run`, called by `scripts/backup/restic-run.sh`. Dry runs are recorded as `DRY-RUN` and are not counted as backup runs. |
-| `restore-test.log` | After every restore test | Source backup ID, operator, result, exceptions. Writer: `ao_restore_test`. No entries yet — every script under `scripts/restore/` exits 3 as PENDING. |
+| `restore-test.log` | After every restore test | Source backup ID, operator, result, exceptions. Writer: `ao_restore_test`. No entries yet, and none can exist yet: four of the five scripts under `scripts/restore/` exit 3 as PENDING and `verify-hashes-and-receipts.sh` is a manual command that does not write the journal (see §16.1.2). The freshness threshold of 3650 days is a placeholder, not a cadence. |
 | `gpu-runtime-check.log` | On each GPU runtime validation | Driver/CDI state and whether GPU access was granted to the workload. Writer: `scripts/validation/check-gpu-runtime.sh`. |
 | `script-runs.log` | On every script invocation | Which script ran, its arguments, exit code, and dry-run status. Writer: `ao_log`. |
 | `mastodon-local-proxy.log` | While the local proxy runs | Local Mastodon proxy activity and errors. |
