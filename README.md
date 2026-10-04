@@ -2992,10 +2992,32 @@ A role and the application that connects to it must use the same password, so a 
 `mastodon-dbdata` cannot be created with a different password than the application connects
 with.
 
-**One env root.** Every unit that consumes an env file reads
+**One env root.** Every unit that consumes a secret-bearing env file reads
 `%h/.local/share/ao-secrets/`: `ao-mastodon-db`, `ao-sales-db`, `ao-webodm-db`,
-`ao-webodm-web`, `ao-webodm-worker`, `ao-fabrication-db`, and the collector service. No
-env file is written to `%h/secrets/`.
+`ao-webodm-web`, `ao-webodm-worker`, `ao-fabrication-db`, the `ao-mastodon-web` /
+`ao-mastodon-streaming` / `ao-mastodon-sidekiq` set, `ao-mastodon-web`'s repair `ExecStartPost`,
+`ao-grafana`, `ao-metabase`, `ao-ingress-payment`, `ao-status-collect`,
+`ao-db-security-collect` and `ao-fabrication-collect`. No secret-bearing env file is written to
+`%h/secrets/`.
+
+The one deliberate exception is `ao-grafana`'s
+`EnvironmentFile=/ALWAYSON/config/platform/monitoring/grafana-admin.env`. It sits in the tracked
+`config/` tree and is readable by other users (`0644`), which is safe only because it is
+non-secret by construction: `GF_SECURITY_ADMIN_USER`, `GF_USERS_ALLOW_SIGN_UP`,
+`GF_AUTH_ANONYMOUS_ENABLED` and `GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS` and nothing else. The
+admin password is read separately from the `0600` wallet-materialised file. Verify the
+non-secreteness by key name, not by assuming it:
+
+    $ sed 's/=.*/=/' config/platform/monitoring/grafana-admin.env | grep -v '^#' | grep -v '^$'
+    GF_SECURITY_ADMIN_USER=
+    GF_USERS_ALLOW_SIGN_UP=
+    GF_AUTH_ANONYMOUS_ENABLED=
+    GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS=
+    → exactly four keys, no password, token or key name present.
+
+Two stray files under `ao-secrets/` are documented elsewhere: the orphaned
+`legacy-alwayson-folder.env` (**§14.1.6**) and the dangling `~/secrets/mastodon.env` symlink,
+which is outside this root and inert.
 
 ### 14.1.3 One env file, one wallet entry
 
@@ -3137,6 +3159,35 @@ Three traps: there is no `accounts.local` column;
 `owner_id` and `resource_owner_id` reference the **`users`** table, not
 `accounts`; and `expires_in: 0` produces an already-expired token.
 ### 14.1.6 Recorded deviation — env-file delivery instead of Podman secrets
+
+**Orphaned plaintext copy: `%h/.local/share/ao-secrets/legacy-alwayson-folder.env`.** Found
+2026-10-04, mode `0600`, holding four credential values by key name —
+`mastodon-db-password`, `sales-db-password`, `webodm-postgres-password`,
+`fabrication-db-password` — and referenced by **no** quadlet unit, script or section file. It is
+a plaintext duplicate of wallet-held credentials, which §14.1.1's rules forbid outright.
+
+Two measured facts, by sha256 prefix and no values printed: its `sales-db-password` matches the
+live `sales-db.env`, so it holds a **currently valid** password; its `mastodon-db-password` does
+**not** match the live `mastodon-db.env`, so that one is stale. It is therefore neither wholly
+useless nor wholly current.
+
+`check-secrets-exposure.sh` does **not** catch it — that
+script checks *tracked* files and file modes, and this file is untracked and correctly `0600`.
+It was found by enumerating `ao-secrets/` and comparing against the units that read it, not by
+running the guard. The guard's blind spot is itself the finding: **rule 7 compliance is only as
+good as the tracked-file assumption**, and a stale `0600` copy of four live database passwords
+sits outside both Git and the units.
+
+Its origin is not recorded anywhere in the repository — no quadlet unit, script or section file
+references `legacy-alwayson-folder`. Given the name and the fact that it holds exactly one
+password for each of the four DB domains, it appears to be a pre-wallet-folder consolidation
+artefact: a moment when the credential layout was one file instead of one folder per domain.
+
+**Not deleted by this session.** Removing it is a deletion of secret-classified material, which
+is outside this session's authority (brief stop conditions). **Operator decision requested** —
+recommend deletion, since rotation/reprovisioning supersedes it and its
+`mastodon-db-password` no longer matches the live one, so it has no recovery value. §14.2.5
+covers the rotation path if any value in it is ever needed.
 
 **Status: recorded, awaiting operator ratification.** This subsection exists because
 §14.1 mandates Podman secrets or systemd credentials while every implemented path is a

@@ -8,9 +8,15 @@ evidence: |
   ID          NAME        DRIVER      CREATED     UPDATED
   → zero Podman secrets exist on this host.
 
-  $ grep -rn 'EnvironmentFile\|--env-file\|Secret=' quadlet/ | wc -l
-  18 references, ALL EnvironmentFile=/--env-file=. Zero Secret=.
-  Confirms the item's premise: no service uses Podman secrets.
+  $ grep -rn 'EnvironmentFile\|--env-file' quadlet/ | wc -l
+  19 matching lines — of which 17 are real `EnvironmentFile=` directives, one
+  is a podman `--env-file` on the Mastodon repair ExecStartPost, and one is a
+  COMMENT in ao-fabrication-collect.service line 17 that merely names the
+  directive. Zero `Secret=`. (Counted in git HEAD, not just the worktree.)
+
+  Re-measured 2026-10-04 after the grafana work landed; the earlier count of
+  18 was taken before commit 0cc4aa7 and was stale. Confirms the item's
+  premise: no service uses Podman secrets.
 
   $ podman run --rm --entrypoint /bin/sh docker.io/library/postgres@sha256:d74eeac9a... -c \
       'grep -n "POSTGRES_PASSWORD\|file_env" /usr/local/bin/docker-entrypoint.sh | head'

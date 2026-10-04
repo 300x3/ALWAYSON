@@ -47,6 +47,33 @@ adverse-to-ST-30 rather than adverse-to-me, so I want it explicit: the honest
 reading is that §14.1.2 was right and ST-30's note drifted, not that a secret is
 sitting in a second location.
 
+**Also found 2026-10-04, new: `~/.local/share/ao-secrets/legacy-alwayson-folder.env`** —
+mode `0600`, untracked, referenced by no unit or script, and holding four
+credential values by key name (`mastodon-db-password`, `sales-db-password`,
+`webodm-postgres-password`, `fabrication-db-password`). This is precisely the
+duplication SEC-02 exists to reconcile, and §14.1.1's own rules already forbid
+it. By sha256 prefix, no values printed:
+
+    legacy sales-db-password      = c0fa51768a38
+    sales-db.env/POSTGRES_PASSWORD = c0fa51768a38  → SAME (live-valid)
+    legacy mastodon-db-password    = cbd78a234974
+    mastodon-db.env/POSTGRES_PASSWORD = 4cb870628b50 → DIFFERENT (stale)
+
+`scripts/validation/check-secrets-exposure.sh` returns `OK` and does **not**
+catch it — it checks tracked files and modes, and this file is neither. Recorded
+in **§14.1.6**. **Not deleted**: deleting secret-classified material is outside
+this session's authority. Recommend the operator delete it; the
+`mastodon-db-password` it holds is already superseded, so nothing recoverable is
+lost. Note the guard's blind spot — rule 7 checking that only inspects Git will
+not see untracked `0600` files, and this is the first instance of that.
+
+What I got wrong: my first `check-secrets-exposure.sh` invocation used a path
+that does not exist (`scripts/operations/…`); the real path is
+`scripts/validation/…`. The shell reported the error and **still exited 0**,
+because the `EXIT=$?` I appended captured the exit of `tail`, not the script.
+A missing file would have been recorded as a passing check. Same trap as the
+`find -maxdepth 3` error already in this proposal: verify the command ran.
+
 **Also found, not fixed: `~/secrets/mastodon.env` is a dangling symlink** to
 `/ALWAYSON/secrets/mastodon/mastodon.env`, which does not exist. It is inert —
 `quadlet/sales/ao-sales-db.container` and the Mastodon units all read
