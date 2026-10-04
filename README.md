@@ -6495,6 +6495,73 @@ Cross-group: the *credential content* of this is PAY territory and the ST-12 row
 compiler's. The *delivery-mechanism* fault — silent fetch failure on a `0600` stale copy — is
 SEC's and is what §14.1.7 records.
 
+#### 14.1.7.1 Re-verification, 2026-10-04 (fourth pass)
+
+Every claim in this subsection was re-measured from scratch this pass rather than inherited.
+All of it still holds, which is worth recording because the numbers in §14.1.4, §14.1.6 and
+§14.1.7 were written by earlier passes and are the kind of figure that goes stale.
+
+    $ systemctl --user show ao-ingress-payment.service -p ActiveEnterTimestamp -p ExecStartPre
+    ActiveEnterTimestamp=Thu 2026-10-01 15:08:41 PDT 2026
+    ExecStartPre={ path=/ALWAYSON/scripts/operations/fetch-kwallet-secret.sh ;
+                   argv[]=… %h/.local/share/ao-secrets/payment.env payment-credentials ;
+                   ignore_errors=yes ; … }
+    $ stat -c '%n %y' ~/.local/share/ao-secrets/payment.env
+    payment.env 2026-09-30 23:18:29.786526608 -0700
+
+`ignore_errors=yes` is systemd's own rendering of the `-` prefix, so the silencing is confirmed
+from the unit's runtime state and not only from the quadlet source. The file is still ~16h older
+than the process reading it, and the unit is still `active`.
+
+    $ python3 … hasFolder(h,'sec-verify') for each ao-* folder
+    ao-payment False   ao-archive False
+    ao-sales True  ao-admin True  ao-mastodon True  ao-mapping True
+    ao-fabrication True  ao-sim-vehicle True  ao-sim-fabrication True
+
+Seven `ao-*` folders, `ao-payment` and `ao-archive` absent — unchanged. §14.1.4's count also
+re-verified: `folderList` returned **14274 raw rows / 18 unique folders** (7 are `ao-*`), and
+`ao-*` entries total **37**; with `Passwords` (2) that is the **39** §14.1.4 states.
+
+The `payment.env` DSN re-measured to the same conclusion, without printing the value:
+
+    $ sed -n 's|^PAYMENT_DSN=postgresql://[^:]*:\([^@]*\)@.*|\1|p' payment.env | wc -c
+    49
+    $ … | tr -d '\n' | sha256sum | cut -c1-12
+    03521083973b
+    $ cut -d= -f1 ~/.local/share/ao-secrets/payment.env
+    PAYMENT_DSN
+
+`PAYMENT_DSN` is the file's **only** key — the three webhook secrets are genuinely absent, so
+§14.1.7 step 4's narrower statement still holds. The role is `sales_migration_role`, a
+non-secret field. §14.1.6's legacy-file table also reproduced exactly, `03521083973b` /
+`6d174927d250` / `f0d6bb4481fd` SAME and `8c3319896c87` vs `4f090748460c` DIFFERENT.
+
+**What I got wrong this pass.** I wrote a regex `^([A-Za-z0-9_]+)=` to enumerate the legacy
+file's keys and it returned **zero pairs** — because three of the four key names contain hyphens
+(`mastodon-db-password`), and I had left the hyphen out of the character class. Taken at face
+value that reads as "the file is now empty", which would have been a false and alarming claim
+about a file holding live credentials. The correction is `^([A-Za-z0-9_-]+)=`. The lesson is
+narrower than "be careful with regexes": **a count of zero from a parser must be checked against
+an independent count before it is written down.** `wc -l` on the same file said 4 lines
+immediately. Had I asserted the zero, the next session would have recorded a security
+improvement that never happened.
+
+**Two further traps, both mine to record.**
+
+1. **`folderList` is unusable as a count.** It returned 14022 rows on one call and 14274 on the
+   next, minutes apart, on an unchanged wallet. §14.1.4 already says to de-duplicate; the
+   stronger statement is that the row count is not even stable, so only the de-duplicated set is
+   meaningful. Use `hasFolder` for existence questions — it is a direct boolean and is what
+   `kwallet-provision.sh:42` itself uses.
+2. **`entryList` returns `as`, `entriesList` returns `a{sv}`** — two different methods with
+   near-identical names. Calling `int()` on the first raises `TypeError`, because it is a list,
+   not a number. §14.1.4's signature table documents both correctly; this is a note that the
+   names are easy to confuse when scripting an audit.
+
+Nothing in this pass changed any credential, file mode, unit or wallet entry. The fault in
+§14.1.7 is **still live and still unreported by any service**, and the operator decisions in
+this subsection are still outstanding.
+
 ## 14.2 Credential rotation, revocation and recovery
 
 This subsection exists because §14.1.1 requires rotation, revocation, expiration and recovery
