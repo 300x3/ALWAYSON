@@ -23,6 +23,7 @@ Exit: 0 all pass, 1 any failure. Read-only: no network, no writes.
 from __future__ import annotations
 
 import importlib.util
+import os
 import shutil
 import sys
 import tempfile
@@ -183,6 +184,25 @@ class TestAptHistoryParsing(unittest.TestCase):
         "Commandline: apt-get install -y rclone\n"
         "Install: rclone:amd64 (1.60.1+dfsg-4ubuntu3.2)\n"
         "End-Date: 2026-10-03  10:00:05\n"
+        "\n"
+        # Installed, then purged. dbeaver-ce is the real case on this host:
+        # installed 2026-08-29, purged 2026-10-01, no longer in dpkg's database.
+        "Start-Date: 2026-08-29  09:12:00\n"
+        "Commandline: apt install -y /tmp/dbeaver-ce.deb\n"
+        "Install: dbeaver-ce:amd64 (26.1.5)\n"
+        "End-Date: 2026-08-29  09:12:30\n"
+        "\n"
+        "Start-Date: 2026-10-01  09:00:00\n"
+        "Commandline: /usr/bin/apt-get purge -y --no-install-recommends dbeaver-ce\n"
+        "Purge: dbeaver-ce:amd64 (26.1.5)\n"
+        "End-Date: 2026-10-01  09:00:10\n"
+        "\n"
+        # Two packages on one Upgrade line, each with a two-version list. A
+        # naive comma split cuts inside the parentheses and loses both names.
+        "Start-Date: 2026-10-02  06:00:00\n"
+        "Commandline: /usr/bin/unattended-upgrade\n"
+        "Upgrade: libfoo:amd64 (1.0-1, 1.0-2), libbar:amd64 (2.0-1, 2.0-2)\n"
+        "End-Date: 2026-10-02  06:00:05\n"
     )
 
     def _index(self):
@@ -221,6 +241,34 @@ class TestAptHistoryParsing(unittest.TestCase):
         mod = ah
         date, rec = mod.install_date("rclone", self._index())
         self.assertEqual(date, "2026-10-03")
+    def test_apt_history_loads_regardless_of_working_directory(self):
+        """The production invocation cd's to AO_ROOT before running.
+
+        A bare `import apt_history` resolves against sys.path, which holds the
+        CWD, not the script's own directory -- so it raised ImportError on
+        every real run and silently reverted to the dpkg mtime this module
+        exists to replace. Loading by __file__ is what fixes it, and this
+        asserts the fix holds from a directory that does not contain the
+        module.
+        """
+        import subprocess
+        # provenance-log.py is the SIBLING of this test file, not this file.
+        prov = Path(__file__).resolve().parent / "provenance-log.py"
+        self.assertTrue(prov.is_file(), f"missing generator: {prov}")
+        code = (
+            "import importlib.util,sys;"
+            f"spec=importlib.util.spec_from_file_location('pl',{str(prov)!r});"
+            "pl=importlib.util.module_from_spec(spec);spec.loader.exec_module(pl);"
+            "m=pl._load_apt_history();"
+            "print('LOADED' if m is not None else 'MISSING')"
+        )
+        # /tmp contains no apt_history.py, so a passing run proves the load is
+        # path-relative rather than CWD-relative.
+        out = subprocess.run([sys.executable, "-c", code], cwd="/tmp",
+                             capture_output=True, text=True, timeout=60)
+        self.assertEqual(out.stdout.strip(), "LOADED",
+                         f"apt_history did not load from a foreign CWD "
+                         f"(rc={out.returncode}): {out.stderr[-400:]}")
 
     def test_unknown_package_yields_no_date_rather_than_a_guess(self):
         date, rec = ah.install_date("definitely-not-installed-xyzzy",
@@ -243,6 +291,100 @@ class TestAptHistoryParsing(unittest.TestCase):
             self.assertTrue(val == "-" or "(" in val,
                             f"date for {pkg} carries no source label: {val!r}")
 
+    def test_purged_package_reports_no_install_date(self):
+        """A removed package must not be given an install date.
+
+        Regression: the record kept the original Install date after a later
+        Purge overwrote only some fields, so the report showed a 2026-08-29
+        install for dbeaver-ce -- a package `dpkg -l` no longer lists at all.
+        """
+        date, rec = ah.install_date("dbeaver-ce", self._index())
+        self.assertIsNone(date, "a purged package must not report an install date")
+        self.assertTrue(rec["removed"])
+        self.assertEqual(rec["action"], "Purge")
+
+    def test_purge_wins_over_the_earlier_install(self):
+        rec = self._index()["dbeaver-ce:amd64"]
+        self.assertEqual(rec["date"], "2026-10-01", "the removal is the latest truth")
+
+    def test_multi_package_line_yields_every_package(self):
+        """A comma inside the version list must not hide the real packages.
+
+        `Upgrade: libfoo:amd64 (1.0-1, 1.0-2), libbar:amd64 (...)` splits on
+        the naive comma into fragments like " 1.0-2)" that match no package,
+        silently dropping both names from the index.
+        """
+        idx = self._index()
+        for name in ("libfoo:amd64", "libbar:amd64"):
+            self.assertIn(name, idx, f"{name} lost to naive comma splitting")
+        self.assertEqual(idx["libfoo:amd64"]["versions"], ["1.0-1", "1.0-2"])
+        self.assertEqual(idx["libbar:amd64"]["versions"], ["2.0-1", "2.0-2"])
+
+
+class TestAptHistoryIsActuallyUsed(unittest.TestCase):
+    """Regression tests for two defects that both made the report lie quietly.
+
+    Neither raised an error. Both produced a document that looked correct and
+    carried the wrong dates, which is the failure mode this file exists to
+    catch -- so they are pinned here.
+    """
+
+    def test_apt_history_module_loads_from_a_foreign_cwd(self):
+        """The import must not depend on CWD.
+
+        refresh-install-log.sh does `cd "$AO_ROOT"` before invoking
+        provenance-log.py, so a bare `import apt_history` found nothing on
+        sys.path, the ImportError was swallowed, and every date silently fell
+        back to the dpkg mtime. Reproduced before the fix by loading the module
+        by path from /tmp: apt_date('rclone') returned '(dpkg mtime)'.
+        """
+        here = Path(__file__).resolve().parent
+        with tempfile.TemporaryDirectory() as td:
+            old = os.getcwd()
+            os.chdir(td)          # a directory with no provenance-log siblings
+            try:
+                mod = load_module("pl_cwd_probe", here / "provenance-log.py")
+                self.assertIsNotNone(mod._load_apt_history(),
+                                     "apt_history must load regardless of CWD")
+            finally:
+                os.chdir(old)
+
+    def test_a_purged_package_never_shows_an_install_date(self):
+        """dpkg no longer lists it, so the Installed cell must not claim a date."""
+        mod = load_module("pl_purged", Path(__file__).resolve().parent
+                          / "provenance-log.py")
+        self.assertNotRegex(mod.apt_date("nginx"), r"^\d{4}-\d{2}-\d{2} ")
+
+    def test_every_returned_date_carries_its_provenance_label(self):
+        """A bare date is the ambiguity OPS-21 existed to remove."""
+        mod = load_module("pl_labels", Path(__file__).resolve().parent
+                          / "provenance-log.py")
+        for pkg in ("rclone", "bash", "gstreamer1.0-plugins-bad",
+                    "accountsservice", "nonexistent-xyzzy"):
+            val = mod.apt_date(pkg)
+            self.assertTrue(val == "-" or "(" in val,
+                            f"date for {pkg} carries no source label: {val!r}")
+
+    def test_automatic_flag_is_not_reported_as_a_version(self):
+        """dpkg writes "1.2.3, automatic"; 'automatic' is a flag, not a version."""
+        tmp = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, tmp, True)
+        (tmp / "history.log").write_text(
+            "Start-Date: 2026-08-04  10:00:00\n"
+            "Commandline: apt-get install -y thing\n"
+            "Install: thing:amd64 (1.2.3-1, automatic)\n"
+            "End-Date: 2026-08-04  10:00:05\n\n")
+        rec = ah.parse_history(log_dir=tmp)["thing:amd64"]
+        self.assertEqual(rec["versions"], ["1.2.3-1"])
+        self.assertNotIn("automatic", rec["versions"])
+
+
+def load_module(name, path):
+    """Import a module from an explicit path, independent of sys.path/CWD."""
+    spec = importlib.util.spec_from_file_location(name, path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

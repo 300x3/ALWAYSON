@@ -82,8 +82,14 @@ def _read(path):
 
 
 def _parse_versions(spec):
-    """Versions named on one item line: "1.0, 1.1" -> ["1.0", "1.1"]."""
-    return [v.strip() for v in spec.split(",") if v.strip()]
+    """Versions named on one item line: "1.0, 1.1" -> ["1.0", "1.1"].
+
+    dpkg also uses the comma slot for the "automatic" flag ("4.25.12.3, automatic"),
+    which is not a version. Keeping it would put a non-version into a list
+    documented as versions, and any caller rendering them would print it as one.
+    """
+    return [v.strip() for v in spec.split(",")
+            if v.strip() and v.strip() != "automatic"]
 
 
 def _split_items(spec):
@@ -169,7 +175,8 @@ def parse_history(log_dir=None):
                         "date": date, "action": action, "versions": versions,
                         "commandline": cmdline, "unattended": bool(
                             cmdline and any(u in cmdline for u in _UNATTENDED)),
-                        "requested_by": requested_by, "upgraded": None})
+                        "requested_by": requested_by, "upgraded": None,
+                        "removed": False})
                     # Keep the earliest install; a later transaction is an
                     # upgrade of something installed outside this window.
                     if action in ("Install", "Reinstall"):
@@ -182,6 +189,24 @@ def parse_history(log_dir=None):
                                        requested_by=requested_by)
                     elif action == "Upgrade" and rec["upgraded"] is None:
                         rec["upgraded"] = date
+                    elif action in ("Remove", "Purge"):
+                        # A package that was installed and later removed is NOT
+                        # currently installed, and the removal is the most recent
+                        # truth about it. dbeaver-ce was installed 2026-08-29 and
+                        # purged 2026-10-01; reporting the install date for a
+                        # package `dpkg -l` no longer lists would be a lie told
+                        # in the "Installed" column. Files are read oldest-first
+                        # (rotated logs then the live one), so a later removal
+                        # overwrites the earlier install -- which is the correct
+                        # final state. An install AFTER a removal starts a fresh
+                        # record, handled by the Install branch above.
+                        rec.update(date=date, action=action, versions=versions,
+                                   commandline=cmdline,
+                                   unattended=bool(
+                                       cmdline and any(u in cmdline
+                                                       for u in _UNATTENDED)),
+                                   requested_by=requested_by,
+                                   removed=True)
     return index
 
 
@@ -199,6 +224,11 @@ def _alias_candidates(pkg):
 def install_date(pkg, index=None):
     """(date, record) for a package, or (None, None) if history has no say.
 
+    A package whose most recent transaction was a Remove or Purge returns
+    (None, record): the record is still returned so the caller can SAY the
+    package was removed on that date, but no date is offered as an install
+    date for something that is not installed.
+
     The caller decides how to render a missing date; this function never
     invents one.
     """
@@ -208,6 +238,8 @@ def install_date(pkg, index=None):
     for name in _alias_candidates(pkg):
         if name in idx:
             rec = idx[name]
+            if rec.get("removed"):
+                return None, rec
             return rec["date"], rec
     return None, None
 
