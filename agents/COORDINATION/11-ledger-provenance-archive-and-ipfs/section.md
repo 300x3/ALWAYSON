@@ -855,3 +855,98 @@ sudo -u postgres psql -tAc "SELECT rolname, rolcanlogin FROM pg_roles WHERE roln
 ```
 
 The second command deliberately selects no password column.
+---
+
+## 11.9 Producer-Key Coverage Gap in the Ingest Path (2026-10-04)
+
+This section records a defect **not** previously documented, found by running the
+ingest scripts rather than reading them. It concerns LEDGER-03
+("ingest accepts only approved signed data") and is a prerequisite for the
+gateway build. `scripts/` is not my file, so this is a **report, not a fix**.
+
+### Finding 1 — only 2 of the 6 authoritative domains can sign
+
+§11.1 makes six domains authoritative operational data that feeds the ledger:
+Sales, Payment, Field, Mapping, Vehicle simulation, Fabrication simulation.
+`sign-manifest.sh` can obtain a key from KDE Wallet for exactly **two** of them:
+
+```text
+$ grep -oP 'wallet:ao-[a-z-]+' /ALWAYSON/scripts/ledger/sign-manifest.sh | sort -u
+wallet:ao-sim-fabrication
+wallet:ao-sim-vehicle
+```
+
+The mapping is a literal `case` with two arms. **Sales, Payment, Field and
+Mapping have no wallet-backed signing path at all.** A manifest from those domains
+can only be signed with a private-key *file path*, which is exactly the path the
+script labels "for migration/testing". Since Sales is the domain that actually
+produces the `sales_receipt` object type, the strongest provenance guarantee in
+§11.2.2 is currently unavailable for the record type that matters most.
+
+### Finding 2 — an unsupported wallet key fails with a misleading error
+
+```text
+$ bash /ALWAYSON/scripts/ledger/sign-manifest.sh manifest.json wallet:ao-sales
+ERROR: manifest or key missing (keys live in KDE Wallet ao-sim-*; file path accepted for migration/testing)
+EXIT=10
+```
+
+The `case` falls through, `wallet_key` stays empty, and the literal string
+`wallet:ao-sales` is then tested as a **file path**. The operator is told a file is
+missing when the real problem is that this wallet key is unimplemented. Exit `10`
+is indistinguishable between the two causes.
+
+### Finding 3 — `origin_domain` is never validated
+
+`build-manifest.sh` validates `object_type` against a closed `case` list but
+passes `origin_domain` straight through to `jq`:
+
+```text
+$ bash /ALWAYSON/scripts/ledger/build-manifest.sh map_product TOTALLY_MADE_UP_DOMAIN p.txt ref://x | jq -r .origin_domain
+"TOTALLY_MADE_UP_DOMAIN"
+EXIT=0
+```
+
+An invented domain is accepted and stamped into the manifest. Since
+`origin_domain` drives the §11.1 authority decision, an unvalidated value means a
+manifest can claim authority it does not have. It must be validated against the
+closed §11.1 set at build time **and** re-derived from the authenticated mTLS
+identity at the gateway, never trusted from the body.
+
+### Finding 4 — the staged queue already contains unverified-key material
+
+One manifest is staged from 2026-08-24:
+
+```text
+$ jq -r '{producer_key_id, authorization_policy_id, sig_len:(.signature|length)}' \
+    /ALWAYSON/artifacts/pending-ledger-submissions/20260824/manifest.json
+{ "producer_key_id": "test", "authorization_policy_id": "", "sig_len": 96 }
+```
+
+`producer_key_id` is `"test"` and `authorization_policy_id` is empty — neither
+identifies a registered producer. Confirmed again this session that staging
+performs **no** cryptographic check: a manifest with a fabricated signature and an
+invented `producer_key_id` was accepted and staged, exit `3`.
+
+**I created that test manifest and have removed it.** The 20260824 manifest is
+pre-existing project data and was left untouched. Nothing was signed, transmitted,
+deleted from the project, or written to any external system.
+
+### What this means for LEDGER-03
+
+§11.2 requires signature verification against the exporter's **registered** key. As
+written, the producer-key model cannot satisfy that for four of six domains, and
+`producer_key_id` is self-asserted rather than registered. The gateway must not be
+built on the assumption that a non-empty `signature` implies an authorised
+producer. Recommended, for the operator — each needs approval since keys and
+credentials are a stop condition:
+
+1. Provision wallet entries for `ao-sales`, `ao-field`, `ao-mapping` (and
+   `ao-payment` if it submits directly) and extend the `case` in
+   `sign-manifest.sh`. **Credential work — operator only.**
+2. Make an unrecognised `wallet:` argument fail with its own distinct exit code,
+   not by masquerading as a missing file.
+3. Validate `origin_domain` against the §11.1 closed set in `build-manifest.sh`.
+4. Treat everything in `pending-ledger-submissions/` as **untrusted replay input**;
+   the 20260824 entry with `producer_key_id: "test"` must not be auto-submitted
+   when the gateway comes up.

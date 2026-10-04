@@ -54,3 +54,85 @@ input.
 Only the client half (build → sign → stage) is demonstrable. Acceptance,
 authorization, idempotency and replay defence are **unproven** because there is
 no acceptor to test them against.
+---
+
+## Third pass, 2026-10-04 — producer-key coverage gap
+
+**Stays open**, and is now blocked for a reason §19 does not record. The findings
+above still hold, but running the scripts surfaced a **producer-key model defect**
+that makes the §11.2 acceptance criteria unachievable as written, independent of
+the missing gateway.
+
+Added **§11.9 "Producer-Key Coverage Gap in the Ingest Path"** recording four
+findings:
+
+1. `sign-manifest.sh` supports wallet keys for only `ao-sim-vehicle` and
+   `ao-sim-fabrication`. **Sales, Payment, Field and Mapping have no wallet-backed
+   signing path** — yet Sales produces the `sales_receipt` type that §11.2.2's
+   three evidence gates exist to protect.
+2. An unsupported `wallet:` argument falls through to a file-path test and reports
+   "manifest or key missing" (exit `10`), which is misleading and
+   indistinguishable from a genuinely absent file.
+3. `origin_domain` is passed straight into `jq` with no validation, unlike
+   `object_type`. An invented domain is accepted and stamped into the manifest,
+   and that field drives the §11.1 authority decision.
+4. The pre-existing 20260824 staged manifest carries `producer_key_id: "test"`
+   and an empty `authorization_policy_id` — neither identifies a registered
+   producer. Confirmed again that staging performs no cryptographic check.
+
+So the §11.2 requirement to verify against the exporter's **registered** key cannot
+be met while `producer_key_id` is self-asserted and four domains have no
+registered key at all. This is a **credential task — operator only.**
+
+```text
+  $ grep -oP 'wallet:ao-[a-z-]+' /ALWAYSON/scripts/ledger/sign-manifest.sh | sort -u
+  wallet:ao-sim-fabrication
+  wallet:ao-sim-vehicle
+
+  $ bash /ALWAYSON/scripts/ledger/sign-manifest.sh manifest.json wallet:ao-sales
+  ERROR: manifest or key missing (keys live in KDE Wallet ao-sim-*; ...)
+  EXIT=10
+
+  $ bash /ALWAYSON/scripts/ledger/build-manifest.sh map_product TOTALLY_MADE_UP_DOMAIN p.txt ref://x | jq -r .origin_domain
+  "TOTALLY_MADE_UP_DOMAIN"
+  EXIT=0
+
+  $ jq -r '{producer_key_id, authorization_policy_id, sig_len:(.signature|length)}' \
+      /ALWAYSON/artifacts/pending-ledger-submissions/20260824/manifest.json
+  { "producer_key_id": "test", "authorization_policy_id": "", "sig_len": 96 }
+```
+
+## What I got wrong (third pass)
+
+Three mistakes, all from trusting shape instead of behaviour:
+
+1. **I concluded `manifest.json` did not exist because `build-manifest.sh`
+   "failed".** It had not failed — it writes JSON to **stdout**, and I had never
+   redirected it. My first three test runs were invalid and I nearly recorded a
+   "defect" that was my own broken harness. Re-running with `> manifest.json`
+   gave clean results.
+2. **I ran two dependent commands in parallel.** The `jq` in the second command
+   raced ahead of the `build-manifest.sh` in the first, so the file was not there
+   yet and I again saw a phantom "missing file". Sequential execution was the fix.
+3. **I read `submit-ledger-event.sh`'s exit `2` as "unsigned rejected".** Exit `2`
+   was the usage error for a missing file. The real unsigned exit is `20`. Reading
+   the script was not enough to get the codes right — only executing it was.
+
+**Trap for the next session:** `data/corda-install/` **does not exist in the
+worktree** — `.gitignore:2` ignores `data/`. Any checksum claim must be run
+against `/ALWAYSON/data/corda-install/`. All three Corda 5.2.2 artifacts verify
+`OK` there. Running the checksum in the worktree returns "No such file or
+directory", which reads like a missing artifact but is not.
+
+## Housekeeping
+
+I created one test manifest to prove finding 4 and **removed it**. The 20260824
+manifest is pre-existing project data and was not touched. No key was generated,
+no signature was produced by a real key, nothing was transmitted, and no external
+system was modified.
+
+## Note for the compiler
+
+No status change. Recommend §19's LEDGER-03 criteria note the producer-key gap,
+since "authorization, idempotency, replay defence, and audit" is currently
+unreachable for four of the six authoritative domains.
