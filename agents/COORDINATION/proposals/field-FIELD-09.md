@@ -64,3 +64,7 @@ half of the premise had quietly stopped being true. Re-verification means checki
 load-bearing claim in the prior finding, not just the one the finding is filed under — a
 note's blocker is the part already known, and the part most likely to be re-quoted
 unchanged, so it deserves the least attention.
+
+---
+
+**RE-VERIFIED 2026-10-04 15:09 — still blocked, nothing recovered.** All prerequisites re-measured before relying on the original finding (full output in §9.5.7). `DRONE-RADIO` has still not come up since 2026-09-25 16:27; the offline-retry total is now **13,885** (was 11,212 at 09:18) and the failure signature is still live at the final log line. The Pi5 drone is still absent from DNS, SSH config and the ARP cache, so there is no peer at the far end of any link. **No new evidence was found and no claim in this proposal has been weakened.** This item cannot be closed or narrowed from the desktop host; it needs the radio board repaired and/or the drone powered and connected.

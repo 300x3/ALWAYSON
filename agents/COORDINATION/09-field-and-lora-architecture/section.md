@@ -291,6 +291,32 @@ grep: /etc/ufw/user.rules: Permission denied
 Reachability is proven by the successful TCP connects above; the *mechanism* (that UFW permits
 it rather than merely not being loaded) remains unverified from an unprivileged session.
 
+**Re-verified 2026-10-04 15:09 — the decision stands, the caveat is now better characterised.**
+Both connects still succeed and the listener is unchanged. I also confirmed the blocker is a
+**privilege wall and not a missing file**, which sharpens what is left to check:
+
+```bash
+$ ufw status
+ERROR: You need to be root to run this script
+$ sudo -n true
+sudo: interactive authentication is required
+$ find <repo>/config -iname '*firewall*' -o -iname '*ufw*'
+(no output)
+```
+
+So there are **two** distinct things a privileged reviewer must supply, not one:
+
+1. **The mechanism** — whether UFW is loaded and whether `4242/tcp` is an explicit `ALLOW`
+   (the §9.3 table asserts this; it remains an assertion). Requires `sudo ufw status` or read
+   access to `/etc/ufw/user.rules`.
+2. **The policy to review against** — FIELD-04 asks for a review against "field-domain firewall
+   policy", and **no such policy document exists in the repository.** `config/field/` contains
+   only `heltec-v3`. There is nothing written down for the 4242 exposure to be judged against.
+
+Point 2 is the more useful finding. Even with full root, "reviewed against field-domain firewall
+policy" could not be completed as written, because the policy is unwritten. Closing that gap is
+a documentation task in a section this session does not own; it is reported rather than edited.
+
 ## 9.4 Radio Profile Requirements
 
 Each radio is defined by exactly one version-controlled profile. **The profile is the
@@ -601,3 +627,92 @@ QGC session exists to send a mission to, in flight or otherwise.
 
 **Operator input needed for FIELD-06 and FIELD-09:** power and connect the Pi5 drone, and
 supply its address or an SSH entry. Until then there is nothing to test against.
+
+### 9.5.7 Re-verification 2026-10-04 15:09 — every blocker above is still live
+
+§9.5.1–§9.5.6 are dated 2026-10-03/04 and their numbers were taken earlier in the day. Before
+relying on any of them, all six were re-measured. **Nothing has recovered.** The counts that
+move are the offline-retry totals, which grow continuously at roughly one event per 7 seconds:
+
+```bash
+$ date -Is
+2026-10-04T15:09:41-07:00
+
+$ grep -h 'is configured and powered up' ~/.reticulum-meshchatx/logs/meshchatx.log* | tail -2
+[2026-09-25 16:27:08] [Notice]   RNodeInterface[PEOPLE-RADIO] is configured and powered up
+[2026-09-25 16:27:11] [Notice]   RNodeInterface[DRONE-RADIO] is configured and powered up
+                                 # <- unchanged: still 2026-09-25, still no success since
+
+$ grep -ch 'unrecoverable error' ~/.reticulum-meshchatx/logs/meshchatx.log{,.1,.2,.3}
+3667   7800   2389   29          # 13,885 total; was 11,212 at 09:18, 994 in the first pass
+
+$ tail -3 ~/.reticulum-meshchatx/logs/meshchatx.log
+[2026-10-04 15:09:36] [Error]    A serial port error occurred, ... [Errno 9] Bad file descriptor
+[2026-10-04 15:09:36] [Error]    The interface RNodeInterface[DRONE-RADIO] experienced an unrecoverable error and is now offline.
+[2026-10-04 15:09:36] [Notice]   Reticulum will attempt to reconnect the interface periodically.
+```
+
+**Drone still absent** (§9.5.6 unchanged, and the neighbour table has since lost an entry —
+`10.42.0.5` has appeared as `FAILED` and `10.42.0.96` `printer-01` remains down):
+
+```bash
+$ getent hosts raspberrypi raspbianpios alwayondrone rpi5
+(no output)
+$ ls ~/.ssh/config
+ls: cannot access '/home/scottw/.ssh/config': No such file or directory
+$ ip neigh
+169.254.207.81 dev eno1 lladdr 30:05:5c:ee:a2:9b STALE
+10.42.0.96   dev eno1 FAILED
+10.42.0.5    dev eno1 FAILED
+192.168.87.1  dev wlp3s0 lladdr 16:22:3b:67:bd:98 REACHABLE
+```
+
+**The `:4242` decision still holds** (§9.3.1, FIELD-04) — both connects succeed, listener
+unchanged:
+
+```bash
+$ ss -ltnp | grep -E '18000|4242'
+LISTEN 0 128  127.0.0.1:18000  0.0.0.0:*  users:(("ReticulumMeshCh",pid=840861,fd=17))
+LISTEN 0 1    0.0.0.0:4242     0.0.0.0:*  users:(("ReticulumMeshCh",pid=840861,fd=46))
+$ timeout 5 bash -c 'exec 3<>/dev/tcp/192.168.87.135/4242' && echo lan-OK
+lan-OK
+```
+
+**The firewall mechanism is still unverifiable from here**, and I confirmed this is a privilege
+wall rather than a missing file — there is no field-domain firewall policy to review at all:
+
+```bash
+$ ufw status
+ERROR: You need to be root to run this script
+$ sudo -n true
+sudo: interactive authentication is required
+$ ls /tmp/ao-sessions/wt-field/config/field/
+heltec-v3                       # no firewall/ufw file anywhere under config/
+$ find /tmp/ao-sessions/wt-field/config -iname '*firewall*' -o -iname '*ufw*'
+(no output)
+```
+
+**One measurement note, and a correction to my own first claim about it.** `grep` reports
+`meshchatx.log.2` as a **binary file**, which I initially took to mean a bare `grep -c` would
+silently under-count it and that quoted totals would disagree between sessions. **That is
+wrong, and I checked it before leaving it in the record:**
+
+```bash
+$ for f in ~/.reticulum-meshchatx/logs/meshchatx.log{,.1,.2,.3}; do
+    printf '%-16s a=%-6s plain=%s\n' "$(basename $f)" \
+      "$(grep -ac 'unrecoverable error' $f)" "$(grep -c 'unrecoverable error' $f)"; done
+meshchatx.log    a=3713   plain=3713
+meshchatx.log.1  a=7800   plain=7800
+meshchatx.log.2  a=2389   plain=2389
+meshchatx.log.3  a=29     plain=29
+```
+
+The counts are **identical**. `grep -c` reports a count even when it also prints the
+`binary file matches` notice; the notice concerns pattern *output*, not `-c`. So the only real
+source of disagreement between sessions is the genuine one: **the current log grows ~1 event
+per 7 seconds**, so any total is stale within minutes. Quote a total with its timestamp or
+quote none.
+
+Reason I got it wrong: I inferred a counting error from an unrelated warning line instead of
+running the comparison. The `-a` flag was already the right instinct for *reading* the file, but
+I projected it onto `-c` where it makes no difference.
