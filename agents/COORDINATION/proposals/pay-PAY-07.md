@@ -40,18 +40,44 @@ Two things I got wrong:
    cross-reference and went looking for a section 18.** There is no section 18.
    `MANIFEST.md` has no `18-*` entry and `git log --diff-filter=D` finds no deleted
    18 directory, so this was never a renumbering casualty — it is a dangling
+   reference to a section that does not exist in the compiled document. I
+   repointed it at §7.2, which is where the Zelle/Coinbase content actually lives.
+
 2. **I nearly accepted ST-12's wording that the adapter "runs with no DSN" because
    §19 said so, and only checked because the Quadlet's own comment predicted the
    opposite.** The container env disagreed with §19 immediately. A row in §19
    describing live runtime state is a hypothesis; the running container is the
    measurement. I should have run `podman inspect` before reading anything else.
-   reference to a section that does not exist in the compiled document. I
-   repointed it at §7.2, which is where the Zelle/Coinbase content actually lives.
-   **This is a repo-wide problem, not mine**: 70 dangling `Section 18.x`
-   references across 21 files, including `scripts/payment/ao-payment-adapter.py`,
-   `quadlet/networks/*.network`, `config/platform/topology-model.yaml`,
-   `config/platform/version-matrix.yaml`, the Grafana dashboard JSON,
-   `docs/compliance/*.md` and `docs/runbooks/mastodon*.md`. I fixed only the one in
-   my file. **Recommend the compiler or OPS own a sweep**, because the adapter's
-   501 handler text quotes "Section 18.4" to a client and to the operator, and the
-   network unit files cite a section that is not there.
+
+3. **My first pass at this finding reported "70 dangling `Section 18.x` references
+   across 21 files" and named `quadlet/networks/*.network`,
+   `config/platform/topology-model.yaml`, `config/platform/version-matrix.yaml`,
+   the Grafana dashboard JSON and `docs/compliance/*.md`. That was wrong — I
+   estimated the sweep from memory instead of running the count, then listed
+   plausible-sounding paths I had never grepped.** Re-measured on 2026-10-03:
+
+       $ grep -rn 'Section 18' . --exclude-dir=.git \
+             --exclude-dir='README - ARCHIVE' --exclude-dir=proposals
+       ./scripts/payment/ao-payment-adapter.py:11:Controls enforced here (Section 18.4):
+       ./scripts/payment/ao-payment-adapter.py:42:# deliberately absent: Section 18.4 forbids automated Zelle verification.
+       ./scripts/payment/ao-payment-adapter.py:215:            # Refuse to treat any inbound POST as Zelle evidence. Section 18.4:
+       ./scripts/payment/ao-payment-adapter.py:217:            self._reply(501, {"error": "Zelle is manual-reconciliation only (Section 18.4)"})
+       ./quadlet/payment/ao-ingress-payment.container:15:# Written but NEVER enabled ... Section 18.4
+       ./docs/runbooks/mastodon.md:115:  the loopback-only `RAILS_FORCE_SSL=false` exception is retired (Section 18.5).
+       ./docs/runbooks/mastodon-validation.md:73:   loopback SSL deviation is now retired (Section 18.5) — use the
+       ./config/sales/migrate/02-payment-reconciliation.sql:11:-- no other table changes. Section 18.4 requires Zelle reconciliation to be
+
+   The true figure is **9 occurrences across 5 live files** (31 across 10 files if
+   the `README - ARCHIVE` tree is counted). No network unit file, topology model,
+   version matrix, Grafana dashboard or compliance doc contains one — that detail
+   was fabricated on my part and I withdraw it.
+
+   The live finding stands, and it is the part worth acting on:
+   `ao-payment-adapter.py` quotes "Section 18.4" **to a client in an HTTP 501
+   body** (line 217), so a real caller is directed to a section that does not
+   exist, and line 11 presents a non-existent section as the authority for the
+   controls in force. **Recommend OPS or the compiler own the sweep**, repointing
+   the payment references at §7.2, where that content now lives. I fixed only the
+   reference in my own file: the adapter's string is emitted in operator-facing
+   output, so repointing it is a live-behaviour edit rather than a documentation
+   edit, and it is not mine to make unilaterally.
