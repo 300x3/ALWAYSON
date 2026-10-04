@@ -30,7 +30,8 @@
 │   ├── check-local-services.js
 │   ├── check-logs-journals.sh
 │   ├── validate-sale-receipt.sh
-│   └── capture-version-matrix.sh
+│   ├── capture-version-matrix.sh
+│   └── check-user-linger.sh
 ├── mapping/         # imagery intake, deliverable archive, manifest export
 ├── radio/           # heltec detect, radio-profile validate, LoRa link test
 ├── simulation/
@@ -44,6 +45,7 @@
 ├── ops/             # wallet read/write helpers, kwallet provisioning
 ├── openclaw/        # chat relay for the ao-sales chat path
 ├── payment/         # ao-ingress-payment adapter, host relay, reconciliation CLI
+├── provision/      # provision.sh, install-vendor-binaries.sh
 ├── sales/           # sales-domain helpers
 ├── lib/             # shared shell library (common.sh)
 └── sync-lmstudio-readme-preset.sh
@@ -133,6 +135,76 @@ not a cadence. The restore test is manual until a timer and interval are approve
 `validate-transaction-bundle.sh`) and `validate-sale-receipt.sh` lives in
 `validation/`. Both were previously reported missing against an earlier snapshot
 of this section; that report is stale and is retracted here.
+
+### 16.1.3 Store status has four states, not two (OPS-33)
+
+`scripts/operations/collect-system-health.py` classifies every declared SQLite
+store into `ao_status.sqlite_store.status`, and the column is
+`CHECK (status IN ('absent','error','excluded','ok'))`. The four states are
+deliberate and the distinction between the middle two is the whole point of the
+item:
+
+| status | meaning | a human is required |
+|---|---|---|
+| `absent` | declared, but not installed on this host | no — a `?` in software-status.md |
+| `ok` | present and read | no |
+| `excluded` | present, but deliberately not snapshotted | no — a decision already taken |
+| `error` | present and **unreadable** | **yes** |
+
+`absent` and `error` are the pair that was previously collapsed. OPS-33 asks
+that a store declared in the manifest but missing here render as an *error*
+rather than silently reading as `absent`; the schema now carries the distinction,
+the view exposes `sqlite_stores_absent`, `sqlite_stores_error` and
+`sqlite_stores_excluded` as separate counters, and the collector sets `error` for
+anything it could not open, stat or parse.
+
+**The classification is keyword-based over `read_error` free text**, which is a
+known fragility and is recorded here so the next reader does not trust it
+blindly. `sqlite3` reports corruption as `DatabaseError('file is not a
+database')` or `'database disk image is malformed'` — sentences containing none
+of the usual "…failed" markers.
+
+**What I got wrong.** Because the fault list only matched `failed` /
+`not a sqlite file` / `header read failed` / `open failed` / `read failed` /
+`snapshot failed` / `integrity`, a **corrupt database was classified `excluded`**
+— that is, an unreadable store was recorded as a *deliberate operator
+decision*. Measured before the fix:
+
+```console
+$ classify_store({'present': True, 'read_error': 'database disk image is malformed'})
+-> 'excluded'      # want 'error'
+$ classify_store({'present': True, 'read_error': 'file is not a database'})
+-> 'excluded'      # want 'error'
+```
+
+That is the more dangerous direction of the two: a fault was reported as intent,
+so nobody would ever be paged for it. The same gap existed independently in the
+SQL backfill in `config/platform/postgresql/ao-status.sql`, which is the thing
+that would have poisoned rows already written to a live database. Both lists now
+carry the corruption markers, and the SQL is written to mirror the Python
+(`_STORE_ERRORS` + `_STORE_CORRUPT`) so the two cannot silently disagree.
+
+Verified against a throwaway PostgreSQL 18.6 rather than the live Grafana
+database. Seeded six rows with `status` dropped and re-ran the migration:
+
+```console
+$ psql -v ON_ERROR_STOP=1 -f config/platform/postgresql/ao-status.sql   # rc=0
+$ SELECT id, status FROM ao_status.sqlite_store ORDER BY id;
+     id      |  status
+-------------+----------
+ s-absent    | absent
+ s-badheader | error      <- not a SQLite file (bad header)
+ s-corrupt   | error      <- database disk image is malformed
+ s-excluded  | excluded   <- excluded from snapshot by operator decision
+ s-notadb    | error      <- file is not a database
+ s-ok        | ok
+(6 rows)
+```
+
+Idempotency and the constraint were both checked: a second run leaves the six
+statuses unchanged, and `INSERT … VALUES ('bad', true, 'banana')` is rejected by
+`sqlite_store_status_check`. The classifier agrees row-for-row with the SQL
+across all 16 cases exercised in Python.
 
 
 ### 16.1.1 Quadlet deploy path

@@ -627,6 +627,72 @@ def collect_declared_stores():
 # --------------------------------------------------------------------------
 
 
+# --------------------------------------------------------------------------
+# OPS-33: absent is not an error.
+#
+# `read_error` is free text and every non-ok row put a sentence in it, so a
+# store that is simply NOT INSTALLED on this host and a store that is present
+# but CORRUPT both rendered as "a row with an error in it". The dashboard and
+# any alert built on that column could not tell an expected, healthy absence
+# from a fault that needs a human.
+#
+# These are different facts with different owners: absence is answered by
+# "is this software installed", corruption is answered by "restore this file".
+# So the state is now an explicit enum, derived in ONE place from the facts the
+# row already carries, rather than set at each return path -- a new return path
+# cannot forget to set it, which is exactly how the two cases got conflated.
+# --------------------------------------------------------------------------
+
+# Failure texts that mean the file is there and could not be used. Anything
+# else that lands in read_error is an operator directive, which is a decision
+# and not a fault.
+_STORE_ERRORS = (
+    "stat failed", "not a sqlite file", "header read failed",
+    "open failed", "read failed", "snapshot failed", "integrity",
+)
+
+# Strings that are a fault even though they contain no word like "failed".
+# sqlite3 raises DatabaseError("file is not a database") /
+# "database disk image is malformed" for a corrupt file, and those sentences
+# match none of the markers above - so a CORRUPT store was classified
+# 'excluded', i.e. reported as a deliberate operator decision.
+#
+# That is the exact confusion OPS-33 exists to remove, and it was the more
+# dangerous direction: an unreadable database silently counted as "on purpose".
+# Measured 2026-10-04 with classify_store({'present': True,
+# 'read_error': 'database disk image is malformed'}) -> 'excluded'.
+_STORE_CORRUPT = (
+    "malformed", "not a database", "corrupt", "encrypted",
+    "unable to open database",
+)
+
+
+def classify_store(row):
+    """Set row['status'] to absent | error | excluded | ok. Mutates and returns.
+
+    Order matters and is not interchangeable:
+      1. not present at all -> absent. This wins over any read_error, because a
+         store that is simply not installed has no error to report, whatever
+         text the inspecting path left behind.
+      2. present and the failure text matches a known fault -> error.
+      3. present with some other text -> excluded (an operator directive).
+      4. present, no text at all -> ok.
+    """
+    err = (row.get("read_error") or "").strip()
+    low = err.lower()
+    if not row.get("present"):
+        row["status"] = "absent"
+    elif any(marker in low for marker in _STORE_ERRORS) \
+            or any(marker in low for marker in _STORE_CORRUPT):
+        row["status"] = "error"
+    elif err:
+        # Present, readable metadata, but an operator directive applies.
+        row["status"] = "excluded"
+    else:
+        row["status"] = "ok"
+    return row
+
+
 def collect_sqlite():
     """Read every declared store in place and return (rows, metrics).
 
@@ -639,7 +705,7 @@ def collect_sqlite():
     rows, metrics = [], []
     for spec in SQLITE_STORES:
         row, store_metrics = inspect_sqlite_store(spec)
-        rows.append(row)
+        rows.append(classify_store(row))
         metrics.extend(store_metrics)
     return rows, metrics
 
@@ -689,6 +755,9 @@ def inspect_sqlite_store(spec):
         "table_count": None,
         "journal_mode": None,
         "read_error": None,
+        # Set by classify_store() on the way out; declared here so the key is
+        # always present even if a new return path forgets to classify.
+        "status": "ok",
     }
     metrics = []
 
@@ -860,10 +929,10 @@ def snapshot_all_sqlite(out_dir):
             # Declared store that exists but is deliberately not snapshotted.
             row, _ = inspect_sqlite_store(spec)
             row["read_error"] = row["read_error"] or "excluded from snapshot by operator decision"
-            rows.append(row)
+            rows.append(classify_store(row))
             continue
         row, ok = snapshot_sqlite(spec, out_dir)
-        rows.append(row)
+        rows.append(classify_store(row))
         if ok:
             paths.append(row["snapshot_path"])
     return rows, paths
@@ -886,7 +955,7 @@ _TABLES = (
              "memory_used_mib", "memory_total_mib")),
     ("sqlite_store", ("id", "label", "path", "authority", "present", "integrated",
                       "size_bytes", "modified_utc", "table_count", "journal_mode",
-                      "read_error")),
+                      "read_error", "status")),
     ("sqlite_metric", ("store_id", "metric", "value")),
     ("declared_store", ("id", "label", "kind", "software", "placement",
                         "authority", "status")),

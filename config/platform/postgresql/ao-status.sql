@@ -125,14 +125,72 @@ CREATE TABLE IF NOT EXISTS ao_status.sqlite_store (
     table_count    int,
     journal_mode   text,
     read_error     text,
+    -- OPS-33. The explicit state of the store, so an expected absence is never
+    -- read as a fault. read_error alone cannot carry this: both a store that
+    -- is not installed and a store whose file is corrupt put a sentence in it.
+    --   ok       - present and read cleanly
+    --   absent   - declared, and genuinely not installed on this host. Expected.
+    --   excluded - present, metadata recorded, content deliberately not read
+    --              (operator directive)
+    --   error    - present and UNUSABLE: stat/open/header/integrity failure.
+    --              This is the only state that needs a human.
+    -- A null/absent status on a row written before this column existed is
+    -- backfilled from present + read_error by the UPDATE below.
+    status         text,
     collected_utc  timestamptz NOT NULL DEFAULT now()
 );
+
 
 -- Migration for databases created before `integrated` existed. CREATE TABLE IF
 -- NOT EXISTS is a no-op on an existing table, so the column has to be added
 -- separately. Idempotent.
 ALTER TABLE ao_status.sqlite_store
     ADD COLUMN IF NOT EXISTS integrated boolean NOT NULL DEFAULT false;
+
+-- Migration for databases created before `status` existed. Idempotent.
+ALTER TABLE ao_status.sqlite_store
+    ADD COLUMN IF NOT EXISTS status text;
+
+-- CHECK so the enum cannot drift; a typo becomes an insert failure rather than
+-- a silently unknown state that every reader has to guess about.
+--
+-- ORDER MATTERS and the first revision got it wrong: this constraint was added
+-- before the ADD COLUMN below, so psql failed with
+--   ERROR:  column "status" does not exist
+-- and the migration stopped there. Add the column first, constrain second.
+ALTER TABLE ao_status.sqlite_store
+    DROP CONSTRAINT IF EXISTS sqlite_store_status_check;
+ALTER TABLE ao_status.sqlite_store
+    ADD CONSTRAINT sqlite_store_status_check
+    CHECK (status IS NULL OR status IN ('ok', 'absent', 'excluded', 'error'));
+
+-- Backfill. `error` is matched FIRST because a corrupt file can be present,
+-- and any read_error that is not a known fault keyword is an operator
+-- directive rather than a failure.
+--
+-- The keyword list mirrors the collector (collect-system-health.py:
+-- _STORE_ERRORS and _STORE_CORRUPT). The corruption words are the ones the
+-- first version of this list was missing, and the omission was not
+-- cosmetic: a store whose text was "database disk image is malformed"
+-- backfilled to 'excluded' - i.e. a corrupt database recorded as a
+-- deliberate operator decision, which is precisely the confusion OPS-33
+-- removes. If the two lists drift, the collector overwrites the value on its
+-- next cycle, so this is a best-effort for rows that already exist.
+UPDATE ao_status.sqlite_store SET status = CASE
+    WHEN NOT present                                    THEN 'absent'
+    WHEN read_error IS NULL OR read_error = ''          THEN 'ok'
+    WHEN lower(read_error) LIKE '%failed%'
+      OR lower(read_error) LIKE '%not a sqlite file%'
+      OR lower(read_error) LIKE '%integrity%'
+      OR lower(read_error) LIKE '%malformed%'
+      OR lower(read_error) LIKE '%not a database%'
+      OR lower(read_error) LIKE '%corrupt%'
+      OR lower(read_error) LIKE '%encrypted%'
+      OR lower(read_error) LIKE '%unable to open database%'
+                                                        THEN 'error'
+    ELSE 'excluded'
+END
+WHERE status IS NULL;
 
 -- Counts only. Never message bodies, mail, browsing history or credentials.
 CREATE TABLE IF NOT EXISTS ao_status.sqlite_metric (
@@ -157,7 +215,21 @@ CREATE TABLE IF NOT EXISTS ao_status.declared_store (
 );
 
 -- Grafana reads every panel from this view.
-CREATE OR REPLACE VIEW ao_status.v_system_health AS
+--
+-- DROP then CREATE, not CREATE OR REPLACE. OR REPLACE cannot change the NAME
+-- or POSITION of an existing column, so inserting the three new sqlite counts
+-- in the middle failed with
+--   ERROR: cannot change name of view column "gpus" to "sqlite_stores_not_installed"
+-- and the whole migration aborted. Dropping first is safe because the view
+-- holds no state - it is a query - and it was verified to have no dependent
+-- views before being changed.
+--
+-- Grafana panels select columns BY NAME, so appending columns is
+-- backward-compatible for them. Reordering would not be, which is why the new
+-- counts are grouped with the other sqlite counts and the view is dropped
+-- rather than replaced.
+DROP VIEW IF EXISTS ao_status.v_system_health;
+CREATE VIEW ao_status.v_system_health AS
 SELECT
     (SELECT count(*) FROM ao_status.container)                          AS containers_observed,
     (SELECT count(*) FROM ao_status.container WHERE state = 'running')  AS containers_running,
@@ -175,6 +247,9 @@ SELECT
     (SELECT count(*) FROM ao_status.sqlite_store)                      AS sqlite_stores_declared,
     (SELECT count(*) FROM ao_status.sqlite_store WHERE present)        AS sqlite_stores_present,
     (SELECT count(*) FROM ao_status.sqlite_store WHERE NOT present)    AS sqlite_stores_absent,
+    (SELECT count(*) FROM ao_status.sqlite_store WHERE status = 'absent')  AS sqlite_stores_not_installed,
+    (SELECT count(*) FROM ao_status.sqlite_store WHERE status = 'excluded') AS sqlite_stores_excluded,
+    (SELECT count(*) FROM ao_status.sqlite_store WHERE status = 'error')   AS sqlite_stores_error,
     (SELECT count(*) FROM ao_status.gpu)                               AS gpus,
     (SELECT max(temperature_c) FROM ao_status.gpu)                     AS gpu_max_temperature_c,
     f.generated_utc                                                    AS fact_generated_utc,

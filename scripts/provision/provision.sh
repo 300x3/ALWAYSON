@@ -77,6 +77,26 @@ stage_deps() {
   run 20 "bash $AO_ROOT/scripts/bootstrap/03-create-operational-layout.sh"
   run 20 "bash $AO_ROOT/scripts/bootstrap/04-create-podman-networks.sh"
   run 20 "bash $AO_ROOT/scripts/bootstrap/00-inventory.sh"
+
+  # ---- linger (OPS-13) --------------------------------------------------
+  # Must happen BEFORE the Quadlet units in stage 50 are started. Rootless user
+  # units are driven by systemd --user, which only exists for the operator
+  # account while a session is open; without linger the whole rebuild comes
+  # back dead after the next logout or reboot.
+  #
+  # It is NOT enabled here. `loginctl enable-linger` needs root and writes
+  # /var/lib/systemd/linger/, a host-level change - README 4.1 rules 1 and 3
+  # put that with the operator. What this stage does is report the current
+  # state and, if linger is off, print the exact command to fix it.
+  say "--- stage 20: user linger (required by every rootless Quadlet unit)"
+  linger="$(loginctl show-user "${SUDO_USER:-$USER}" -p Linger --value 2>/dev/null || echo unknown)"
+  if [ "$linger" = "yes" ]; then
+    say "  linger: enabled for ${SUDO_USER:-$USER}"
+  else
+    say "  linger: $linger  <-- rootless containers will NOT survive a reboot"
+    say "  Fix (needs root): sudo loginctl enable-linger ${SUDO_USER:-$USER}"
+  fi
+  run 20 "bash $AO_ROOT/scripts/validation/check-user-linger.sh"
 }
 
 # ---- 30: snaps and flatpak ----------------------------------------------
@@ -105,10 +125,31 @@ for e in reg.get("executables", []):
     pkg = e.get("apt_package")
     if pkg:
         print(f"  apt: {pkg} ({e.get('publisher','?')})")
-for a in reg.get("appimages", []):
-    print(f"  appimage: {a.get('name')} - vendor site, MANUAL fetch required")
 PY
-  say "  AppImages and vendor tarballs are MANUAL: they have no package source."
+  # AppImages and vendor blobs are NOT printed as "manual, go away" any more.
+  # They have their own manifest and their own installer (OPS-17). Delegating
+  # is the point: this stage used to be the place where the rebuild quietly
+  # stopped being able to restore the host.
+  say "  vendor blobs (AppImages, vendor executables):"
+  # ASSUME_YES is always set (0 or 1), so ${ASSUME_YES:+...} would expand even
+  # when it is 0 and hand --yes to the installer during a dry run. Test it.
+  #
+  # The rc is captured and NOT allowed to abort the rebuild. The installer exits
+  # 2 on a REFUSED/DRIFT entry, but that is exactly the case README 4.1 rules
+  # 2/3 forbid this script from resolving automatically: the file on disk is
+  # not what the manifest says, and overwriting it is a destructive change.
+  # Aborting here would mean a single drifted AppImage leaves the host with no
+  # Quadlet units at all - the installer deliberately refuses to overwrite, so
+  # the correct outcome is "carry on, tell the operator", not "stop the world".
+  if [ "$ASSUME_YES" -eq 1 ]; then
+    run 40 "bash $AO_ROOT/scripts/provision/install-vendor-binaries.sh --yes" || true
+  else
+    run 40 "bash $AO_ROOT/scripts/provision/install-vendor-binaries.sh" || true
+  fi
+  say "  MANUAL = no url or no vendor digest; the file cannot be fetched"
+  say "  unattended. REFUSED/DRIFT = something is on disk that the manifest"
+  say "  does not agree with, and NOTHING was overwritten. Both need a human."
+  say "  Neither aborts the rest of the rebuild."
 }
 
 # ---- 50: podman networks and Quadlet ------------------------------------

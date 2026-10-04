@@ -5490,6 +5490,78 @@ It asserts the **value** of `Linger` rather than the presence of the key, and
 reports `aa-enforce` as a WARN with the reason, instead of passing on
 `aa-status` — which ships in the base `apparmor` package and succeeds even
 though no profile can actually be enforced on this host (see §2.3).
+### 12.3.1 Linger is a precondition, not a nicety (OPS-13)
+
+**Overlap with the baseline verifier above, stated so the next reader does not
+double-count it.** `verify-host-baseline.sh` already asserts `Linger == yes` as
+one of its five checks, and that is the check to trust for the yes/no question.
+`check-user-linger.sh` is **not** a second opinion on that question - it is a
+*diagnostic* for it, reporting the linger state alongside the user-manager
+runtime, the deployed unit count and the running `ao-*` service count, so that
+when the baseline check fails you can see why. Both agree on the value.
+
+It earns a separate existence because the baseline check is a single boolean over
+one account, and this is the one that exits **2** for an account that does not
+exist - the failure mode a `[ "$linger" = "yes" ]` test handles worst. See the
+bug below.
+
+The `loginctl show-user -p Linger` line that section 12.3 used to carry was
+read-only and silent on failure, and linger is a real precondition rather than a
+nicety: every workload here is a *rootless user* Quadlet unit under
+`~/.config/containers/systemd/`, driven by `systemd --user`, and that instance
+only exists for the operator account while a session is open. Log out of KDE and
+every container, timer and Quadlet-generated unit for this account stops, and none
+of them come back on their own after a reboot. `ao-lmstudio.service` already
+depends on this - its own header says "Starts at boot via user lingering".
+
+So the rebuild must **report** linger before it starts any unit, and the
+provisioner now does, at stage 20, before stage 50:
+
+```bash
+./scripts/validation/check-user-linger.sh          # report
+./scripts/validation/check-user-linger.sh --check  # gate: 0 ok, 1 fault, 2 no such account
+```
+
+Measured on this host 2026-10-04:
+
+```console
+$ bash scripts/validation/check-user-linger.sh
+user            : scottw
+Linger          : yes
+State           : active
+OK:   linger enabled
+marker file     : present (/var/lib/systemd/linger/scottw)
+OK:   user manager runtime /run/user/1000 present
+      running user services: 90
+deployed units  : 21 .container files in /home/scottw/.config/containers/systemd
+generated ao-*  : 48 service units under systemd --user
+running ao-*    : 26
+```
+
+**The provisioner deliberately does not enable linger.** `loginctl enable-linger`
+needs root and writes `/var/lib/systemd/linger/` — a host-level change, which
+README §4.1 rules 1 and 3 place with the operator. The stage reports the state
+and prints the exact command; it does not run it.
+
+**What I got wrong.** The checker's first revision reported
+`FAIL: linger is not enabled` — and exited 1 — for an account that **does not
+exist at all**. Measured: `loginctl show-user alwayson-ledger -p Linger` returns
+`Failed to look up user ... No such process`, but with `--value` it returns the
+literal string `unknown`, which the script compared against `yes`. And
+`/var/lib/systemd/linger/` is not proof of existence: `alwayson-ledger`,
+`alwayson-mapping` and `alwayson-sales` all have marker files on this host while
+`getent passwd` finds none of them, so a leftover marker is misleading. A false
+FAIL on a checker is the worst kind of defect, because it teaches the operator to
+ignore it — which would hide a genuine `Linger=no`. The check now tests
+`getent passwd` first and exits **2** for "no such account", distinct from **1**
+for a real fault.
+
+Two earlier counting bugs in the same script are also fixed and worth naming,
+because both produced confident, wrong output: it grepped unit files for
+`\.container`, a name systemd never creates (Quadlet *generates*
+`ao-<name>.service`), so it claimed "21 deployed but none enabled" on a host with
+26 containers running; and it called `id -u` with no argument, so checking any
+account other than the caller reported `/run/user/-1`.
 
 ## 12.4 Rebuilding This Host From Nothing
 
@@ -5506,19 +5578,101 @@ describes, in stages. It is **dry-run by default**; pass `--yes` to apply.
 | Stage | Restores | Notes |
 |---|---|---|
 | 10 | 7 third-party apt repositories | ROS 2 is registered but **unreachable** (TLS); not worked around |
-| 20 | Host dependencies, layout, podman networks, inventory | **Delegates to `scripts/bootstrap/00`, `02`, `03`, `04`** rather than repeating them |
+| 20 | Host dependencies, layout, podman networks, inventory | **Delegates to `scripts/bootstrap/00`, `02`, `03`, `04`** rather than repeating them. Also **reports linger** before any unit starts (§12.3.1) |
 | 30 | 16 snaps, 1 flatpak | Enumerated from the installed set |
-| 40 | Host applications | Read from `unmanaged-software.yaml`, not hardcoded |
+| 40 | Host applications | Read from `unmanaged-software.yaml`, not hardcoded. Vendor blobs delegated to `install-vendor-binaries.sh` (§12.4.1) |
 | 50 | 9 Quadlet domains, 22 units | **Quadlet deploys flat** — `~/.config/containers/systemd/` holds copies, so the deploy script is mandatory, not optional |
 | 60 | Secret presence check | Derived from the units' own `EnvironmentFile=` lines |
 | 70 | Data check only | **Never restores.** Restoration is a human decision (rule 2/3) |
 | 90 | Verification | Regenerates the inventory for diffing against `docs/software-status.md` |
 
-Three things a rebuild cannot restore from the repository, and must come from
+Two things a rebuild cannot restore from the repository, and must come from
 backup: the **10 secret files** in `~/.local/share/ao-secrets/` (outside git by
-design), the **persistent data** in `data/` (ardupilot 2.1G, corda-install
-282M), and the **AppImages and vendor tarballs**, which have no package source
-and must be fetched by hand.
+design) and the **persistent data** in `data/` (ardupilot 2.1G, corda-install
+282M). The **AppImages and vendor binaries** were long described here as a third
+category "that must be fetched by hand"; §12.4.1 replaces that with a manifest
+and an installer that verifies what is already on disk.
+
+### 12.4.1 Vendor blobs are declared, pinned and verified (OPS-17)
+
+`config/build-update/vendor-binaries.yaml` is the manifest; each entry carries an
+`id`, `version`, `install` kind, target `path`, a download `sha256`, an optional
+`sha256_published_by_vendor`, and — for archives — the `member` to extract and a
+separate `installed_sha256` for the extracted binary.
+
+**Two digests, deliberately not conflated.** `sha256` is what the *download*
+must hash to. `installed_sha256` is what the *installed file* must hash to. For
+an AppImage these are the same value (the file *is* the download); for an
+archive they are not, because the download is a `.tar.gz`/`.zip` and the
+installed file is the binary inside it. The first revision used one field for
+both and reported a false DRIFT for every archive on a host where the binary was
+perfectly correct.
+
+```bash
+./scripts/provision/install-vendor-binaries.sh          # dry run (default)
+./scripts/provision/install-vendor-binaries.sh --yes    # fetch and install
+```
+
+Exit codes: **0** clean, **1** a download or install failed, **2** at least one
+entry was refused (DRIFT or an unpinned download). `manual` is deliberately *not*
+a failure — it means no vendor publishes an artifact, which is an operator phase,
+and counting it would make every run red.
+
+Measured on this host 2026-10-04, dry run against the real manifest:
+
+```console
+$ AO_ROOT=/tmp/ao-sessions/wt-ops-b bash scripts/provision/install-vendor-binaries.sh
+vendor binaries declared: 8
+OK      qgroundcontrol v5.1.0 - present, digest matches
+OK      reticulum-meshchatx v4.9.1 - present, digest matches
+OK      lm-studio v0.4.20-1 - present, digest matches (no url: not auto-installable)
+OK      pcloud v- - present, digest matches (no url: not auto-installable)
+OK      nperf v- - present, digest matches (no url: not auto-installable)
+OK      gh v2.97.0 - present, digest matches
+OK      bun v1.4.2 - present, digest matches
+OK      cline v3.0.60 - present, no installed digest recorded to check against
+  path: /home/scottw/.local/bin/cline
+
+installed=0  already-present=8  manual=0  refused=0  failed=0
+```
+
+**All eight are present on this host and verified.** Five have no vendor URL and
+so cannot be fetched unattended even in principle — a property of the vendors,
+not a gap in the provisioner, and the honest residue of OPS-17. Three (gh, bun,
+cline) are installable; the first two verify against a recorded `installed_sha256`.
+
+**What I got wrong.** The first revision tested "does this entry have a url?"
+**before** "is the file already installed?", and `continue`d out of the loop. The
+consequence, measured: `lm-studio`, `pcloud` and `nperf` were all reported
+`MANUAL ... a human must place this file` while **all three exist on disk and all
+three hash to the manifest's own recorded `sha256`**. The report told the operator
+to go fetch files that were already installed and verified — "cannot be fetched
+automatically" and "is not installed" are different facts, and only the second is
+a problem. Presence is now checked first; an entry with no url but a present,
+matching file reports OK with the caveat in parentheses.
+
+Two further defects, both found by testing rather than reading:
+
+- **An all-numeric digest was silently erased.** YAML coerces unquoted
+  `0000…0` to the integer `0`, and the `or ""` fallbacks then rendered that as
+  the empty string, so the entry degraded to "no installed digest recorded" and
+  reported **OK** — the one outcome a digest check must never produce. Every
+  scalar is now `str()`-ed, so the entry reports DRIFT instead. Real digests in
+  the manifest are quoted and contain `a`–`f`, so they round-trip exactly.
+- **Every failure exited 0.** A DRIFT and a failed download were both reported
+  as text and then succeeded, which is a provisioner whose failure signal is a
+  line nobody is reading. Because `provision.sh` calls this through its `run`
+  helper, which propagates the return code unguarded, that would have aborted
+  stage 40 of the whole rebuild — so the `run` call is now `|| true` as well. A
+  drifted AppImage must not leave the host without its Quadlet units; the
+  installer refuses to overwrite (README §4.1 rules 2/3), so "carry on and tell
+  the operator" is the correct outcome, not "stop the world".
+
+The OK, DRIFT, MANUAL and dry-run paths were each exercised against a throwaway
+fixture manifest rather than asserted. The fixture was first written with `kind:`
+before the schema key `install:` was checked, which is why its first run reported
+two entries as "no installed digest" — the fixture was wrong, not the script, and
+re-running with the correct key produced the DRIFT it was built to provoke.
 
 ## 12.5 Inventory and Update Management
 
@@ -7786,7 +7940,8 @@ the finding, and running it well needs a deliberate observation window.
 │   ├── check-local-services.js
 │   ├── check-logs-journals.sh
 │   ├── validate-sale-receipt.sh
-│   └── capture-version-matrix.sh
+│   ├── capture-version-matrix.sh
+│   └── check-user-linger.sh
 ├── mapping/         # imagery intake, deliverable archive, manifest export
 ├── radio/           # heltec detect, radio-profile validate, LoRa link test
 ├── simulation/
@@ -7800,6 +7955,7 @@ the finding, and running it well needs a deliberate observation window.
 ├── ops/             # wallet read/write helpers, kwallet provisioning
 ├── openclaw/        # chat relay for the ao-sales chat path
 ├── payment/         # ao-ingress-payment adapter, host relay, reconciliation CLI
+├── provision/      # provision.sh, install-vendor-binaries.sh
 ├── sales/           # sales-domain helpers
 ├── lib/             # shared shell library (common.sh)
 └── sync-lmstudio-readme-preset.sh
@@ -7889,6 +8045,76 @@ not a cadence. The restore test is manual until a timer and interval are approve
 `validate-transaction-bundle.sh`) and `validate-sale-receipt.sh` lives in
 `validation/`. Both were previously reported missing against an earlier snapshot
 of this section; that report is stale and is retracted here.
+
+### 16.1.3 Store status has four states, not two (OPS-33)
+
+`scripts/operations/collect-system-health.py` classifies every declared SQLite
+store into `ao_status.sqlite_store.status`, and the column is
+`CHECK (status IN ('absent','error','excluded','ok'))`. The four states are
+deliberate and the distinction between the middle two is the whole point of the
+item:
+
+| status | meaning | a human is required |
+|---|---|---|
+| `absent` | declared, but not installed on this host | no — a `?` in software-status.md |
+| `ok` | present and read | no |
+| `excluded` | present, but deliberately not snapshotted | no — a decision already taken |
+| `error` | present and **unreadable** | **yes** |
+
+`absent` and `error` are the pair that was previously collapsed. OPS-33 asks
+that a store declared in the manifest but missing here render as an *error*
+rather than silently reading as `absent`; the schema now carries the distinction,
+the view exposes `sqlite_stores_absent`, `sqlite_stores_error` and
+`sqlite_stores_excluded` as separate counters, and the collector sets `error` for
+anything it could not open, stat or parse.
+
+**The classification is keyword-based over `read_error` free text**, which is a
+known fragility and is recorded here so the next reader does not trust it
+blindly. `sqlite3` reports corruption as `DatabaseError('file is not a
+database')` or `'database disk image is malformed'` — sentences containing none
+of the usual "…failed" markers.
+
+**What I got wrong.** Because the fault list only matched `failed` /
+`not a sqlite file` / `header read failed` / `open failed` / `read failed` /
+`snapshot failed` / `integrity`, a **corrupt database was classified `excluded`**
+— that is, an unreadable store was recorded as a *deliberate operator
+decision*. Measured before the fix:
+
+```console
+$ classify_store({'present': True, 'read_error': 'database disk image is malformed'})
+-> 'excluded'      # want 'error'
+$ classify_store({'present': True, 'read_error': 'file is not a database'})
+-> 'excluded'      # want 'error'
+```
+
+That is the more dangerous direction of the two: a fault was reported as intent,
+so nobody would ever be paged for it. The same gap existed independently in the
+SQL backfill in `config/platform/postgresql/ao-status.sql`, which is the thing
+that would have poisoned rows already written to a live database. Both lists now
+carry the corruption markers, and the SQL is written to mirror the Python
+(`_STORE_ERRORS` + `_STORE_CORRUPT`) so the two cannot silently disagree.
+
+Verified against a throwaway PostgreSQL 18.6 rather than the live Grafana
+database. Seeded six rows with `status` dropped and re-ran the migration:
+
+```console
+$ psql -v ON_ERROR_STOP=1 -f config/platform/postgresql/ao-status.sql   # rc=0
+$ SELECT id, status FROM ao_status.sqlite_store ORDER BY id;
+     id      |  status
+-------------+----------
+ s-absent    | absent
+ s-badheader | error      <- not a SQLite file (bad header)
+ s-corrupt   | error      <- database disk image is malformed
+ s-excluded  | excluded   <- excluded from snapshot by operator decision
+ s-notadb    | error      <- file is not a database
+ s-ok        | ok
+(6 rows)
+```
+
+Idempotency and the constraint were both checked: a second run leaves the six
+statuses unchanged, and `INSERT … VALUES ('bad', true, 'banana')` is rejected by
+`sqlite_store_status_check`. The classifier agrees row-for-row with the SQL
+across all 16 cases exercised in Python.
 
 
 ### 16.1.1 Quadlet deploy path
