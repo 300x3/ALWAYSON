@@ -130,6 +130,25 @@ def get_json(url):
     return val
 
 
+def is_complete_digest(s):
+    """True only for a full-length OCI content digest.
+
+    Length matters as much as the algorithm prefix. A registry reference is
+    `repo@sha256:<64 hex>`; a shorter hex run is not a shortened display form,
+    it is an invalid reference that the registry rejects. Truncation happens in
+    practice because some tooling and some report columns abbreviate digests,
+    and the abbreviation then reads as if it were the real value.
+    """
+    if not isinstance(s, str):
+        return False
+    for algo, n in (("sha256", 64), ("sha512", 128)):
+        pfx = f"{algo}:"
+        if s.startswith(pfx):
+            body = s[len(pfx):]
+            return len(body) == n and all(c in "0123456789abcdef" for c in body)
+    return False
+
+
 def norm(v):
     if not v:
         return ""
@@ -516,22 +535,33 @@ def desktop_apps(inv):
     return rows
 
 
+def _span_dates(pkgs):
+    """Real oldest..newest install date for a roll-up of packages.
+
+    The values are the labelled strings apt_date() returns ("2026-10-01 (apt
+    history)"), so the label must be stripped before sorting or "-
+    (pre-window upgrade ...)" sorts to the front and is reported as the
+    oldest. Only entries beginning with a real YYYY-MM-DD count.
+    """
+    ds = sorted(d for d in (apt_date(x) for x in pkgs)
+                if re.match(r"^\d{4}-\d{2}-\d{2}", d))
+    return f"{ds[0]} .. {ds[-1]}" if ds else "no install dates on record"
+
+
 def ubuntu_date_range(ubuntu):
-    """Oldest and newest dpkg manifest mtime across the archive packages.
+    """Oldest and newest install date across the archive packages.
 
     A roll-up of 3,863 packages has no single install date, so the honest value
-    is the real span rather than a blank cell.
+    is the real span rather than a blank cell. "ubuntu_date_range" predates
+    the apt-history work, when the span was dpkg manifest mtimes; the name is
+    kept so the call site is unchanged.
     """
-    ds = sorted(d for d in (apt_date(t["package"]) for t in ubuntu) if d != "-")
-    if not ds:
-        return "no manifest dates"
-    return f"{ds[0]} .. {ds[-1]}"
+    return _span_dates([t["package"] for t in ubuntu])
 
 
 def _date_span(pkgs):
-    """Real oldest..newest dpkg manifest span for a roll-up of packages."""
-    ds = sorted(d for d in (apt_date(x) for x in pkgs) if d != "-")
-    return f"{ds[0]} .. {ds[-1]}" if ds else "no manifest dates"
+    """Real oldest..newest install span for a roll-up of packages."""
+    return _span_dates(pkgs)
 
 
 def ros_date_range(ros):
@@ -1311,16 +1341,55 @@ def unindexed_debs(inv):
     return rows
 
 
-def apt_date(pkg):
-    """Install date for a Debian package.
+_APT_HISTORY_INDEX = None
 
-    dpkg records no install timestamp in its database, so the only local
-    evidence is the mtime of the package's .list file, written when dpkg last
-    unpacked it. That is the install OR last upgrade date - there is no way to
-    tell which, so the column is labelled honestly rather than pretending.
+
+def apt_date(pkg):
+    """Install date for a Debian package, from apt's own history log.
+
+    dpkg records no install timestamp in its database. The previous source was
+    the mtime of `/var/lib/dpkg/info/<pkg>.list`, which dpkg rewrites on every
+    unpack -- so the column silently reported the LAST UPGRADE date under the
+    heading "Installed". apt's history log does record the install, and it
+    separates install from upgrade, so it is preferred.
+
+    Three sources, in order of how well they actually answer the question:
+
+      1. apt history  -- a real `Install:` stanza. This is the true install
+         date. If a later `Upgrade:` also touched the package it is reported
+         alongside, because "installed X, upgraded Y" is the honest answer.
+      2. dpkg manifest mtime -- used ONLY when history has no stanza, e.g. a
+         package installed before log retention reached back. This is install
+         OR last upgrade and is labelled as such rather than as an install.
+      3. "-" -- no evidence at all. Never guessed.
+
+    Note the cost of source 2: for ~3,800 Ubuntu archive packages installed by
+    the distribution image there is no history stanza at all, so they keep the
+    mtime. That is honest (the mtime is when dpkg last unpacked) but it is not
+    an install date, and the column header says so.
     """
+    global _APT_HISTORY_INDEX
     if not pkg:
         return "-"
+    try:
+        import apt_history as _ah
+    except ImportError:
+        _ah = None
+    if _ah is not None:
+        if _APT_HISTORY_INDEX is None:
+            try:
+                _APT_HISTORY_INDEX = _ah.parse_history()
+            except (OSError, ValueError):
+                _APT_HISTORY_INDEX = {}
+        date, rec = _ah.install_date(pkg, _APT_HISTORY_INDEX)
+        if date and rec and rec["action"] in ("Install", "Reinstall"):
+            return f"{date} (apt history)"
+        if date and rec and rec["action"] == "Upgrade":
+            # Installed before the retained log window. The dpkg manifest mtime
+            # would be the same upgrade date wearing no label, so the date is
+            # shown with the distinction made explicit instead of being passed
+            # off as an install.
+            return f"{date} (earliest evidence: upgrade; install predates log window)"
     # dpkg names a multi-arch package's manifest "pkg:amd64.list", so a bare
     # name misses it. Try the declared name first, then the host architecture.
     names = [pkg] if ":" in pkg else [pkg, f"{pkg}:{dpkg_arch()}"]
@@ -1328,8 +1397,8 @@ def apt_date(pkg):
         p = Path("/var/lib/dpkg/info") / f"{n}.list"
         try:
             if p.exists():
-                return time.strftime("%Y-%m-%d",
-                                     time.gmtime(p.stat().st_mtime))
+                return (time.strftime("%Y-%m-%d", time.gmtime(p.stat().st_mtime))
+                        + " (dpkg mtime)")
         except OSError:
             return "-"
     return "-"
@@ -1492,6 +1561,26 @@ NEEDS_APPROVAL = {
 }
 
 
+def is_complete_digest(tgt):
+    """True only for a full-length registry digest reference.
+
+    A digest reference is `sha256:`/`sha512:` followed by the WHOLE hash.
+    Validating only the algorithm prefix is what let a 12-character truncation
+    through into a generated `podman pull` command. Registry pulls reject a
+    short hash outright, so the command was guaranteed to fail while looking
+    correct. Anything else -- a prose error string, a short hash, an empty
+    value -- returns False and suppresses command generation.
+    """
+    if not tgt or not isinstance(tgt, str):
+        return False
+    for algo, length in (("sha256:", 64), ("sha512:", 128)):
+        if tgt.startswith(algo):
+            body = tgt[len(algo):]
+            return (len(body) == length
+                    and all(c in "0123456789abcdef" for c in body))
+    return False
+
+
 def update_steps(r, unit_path=None):
     """Exact ordered steps to apply this update, or [] when it must not be run.
 
@@ -1504,10 +1593,18 @@ def update_steps(r, unit_path=None):
     item = str(r.get("item", ""))
     tgt = str(r.get("rel_digest") or r.get("rel_hash", ""))
     if via.startswith("container"):
-        # Never build a pull command from something that is not a real digest. A
-        # prose error string used as a digest produces a plausible-looking but
-        # meaningless command, which is worse than emitting no command at all.
-        if (not tgt) or not tgt.startswith(("sha256:", "sha512:")):
+        # Never build a pull command from something that is not a real, COMPLETE
+        # digest. Two separate defects lived here:
+        #   - a prose error string ("upstream digest unreachable (registry
+        #     refused)") used as a digest, producing a plausible-looking but
+        #     meaningless command;
+        #   - a TRUNCATED digest. Checking only the "sha256:" prefix was not
+        #     enough: `sha256:` + 12 hex characters passes that test and
+        #     `podman pull repo@sha256:<12>` fails HTTP 400. The length is
+        #     part of what makes the reference valid, so it is checked.
+        # Emitting no command at all is strictly better than emitting a broken
+        # one: a human reads the row, a script gates on `steps` being non-empty.
+        if not is_complete_digest(tgt):
             return []
         return [
             f"podman pull {str(r.get('repo','')).split(' ')[0]}@{tgt}",
@@ -1769,6 +1866,21 @@ def render(inv, codename, offline):
           "require prior verification).")
         w("")
     w("## Full inventory")
+    w("")
+    # The last column mixes three different kinds of evidence, so the header
+    # names all three rather than calling them all "Installed":
+    #   (apt history) - a real Install: stanza in /var/log/apt/history.log.
+    #   (dpkg mtime)  - no apt record; the mtime of the dpkg manifest, which
+    #                   dpkg rewrites on every unpack. That is install OR last
+    #                   upgrade and cannot be told apart from the filesystem.
+    #   - (pre-window upgrade D) - apt shows an upgrade but no install, so the
+    #                   package predates the retained log window.
+    w("Last column: `(apt history)` is the real install date from "
+      "`/var/log/apt/history.log`. `(dpkg mtime)` means no apt record exists "
+      "and the value is the dpkg manifest mtime, which is install OR last "
+      "upgrade and cannot be distinguished. `- (pre-window upgrade D)` means "
+      "apt shows the package upgraded on D but installed it before the "
+      "retained log window.")
     w("")
     w("| Item | Via | Publisher | Repository / archive | Pinned | Version here | "
       "Up to date? | Released | Installed identity | Released identity | Installed | Download / source page |")
