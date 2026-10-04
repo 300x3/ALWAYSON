@@ -449,6 +449,36 @@ running but absent from the matrix — `gz-sim10-server`, `foxglove-bridge`, and
 digests `c6eabf74…` (used by both `ao-webodm-broker` and `mastodon-redis`, while the matrix
 records the older `91d0f7e8…`).
 
+**Re-verified 2026-10-04** by re-running every command in this audit against the live host.
+All findings above reproduced unchanged: 2 unpinned `Image=` lines in the repository, the same
+six tag-only running containers (`ao-sqli3`, `keen_bhabha`, `confident_khayyam`,
+`relaxed_tharp`, `dreamy_rosalind`, `vigorous_shannon`) still present, `kernel` still recorded
+as `7.0.0-34-generic` against a live `7.0.0-38-generic`, `nvidia-container-toolkit` still
+recorded as `1.20.0` against a live `1.20.1-1`, and `image_postgres_shared` still naming
+`postgres@sha256:a65e6a84…` while every running PostgreSQL container uses
+`postgres@sha256:d74eeac9…`.
+
+**Trap — `systemctl list-unit-files … | wc -l` is not a count of units.** It always prints
+three lines (the header, a blank line, and `0 unit files listed.`), so `wc -l` returns `3`
+whether or not any unit exists. Measured, with a control:
+
+```
+$ systemctl list-unit-files 'ao-webodm*' | wc -l
+3
+$ systemctl list-unit-files 'ao-nonexistentxyz*' | wc -l   # control: impossible pattern
+3                                    # identical -- so wc -l measures boilerplate
+$ systemctl list-unit-files 'ao-webodm*' | grep -c '^ao-'
+0                                    # the valid measurement
+$ systemctl --user list-unit-files 'ao-webodm*' | grep -c '^ao-'
+4                                    # same form, scope where units DO exist
+```
+
+This matters because an earlier `PLAT-01` proposal cited the `wc -l` form as evidence of "no
+system-level units". The **conclusion was right** — there are none — but the command shown
+could not have produced the number reported. A citation that does not reproduce is not
+evidence, and it is corrected in `agents/COORDINATION/proposals/plat-PLAT-01.md`. Reach for
+`grep -c '^ao-'`, or `--no-legend`, and always run a control pattern before believing a zero.
+
 **Remaining for `PLAT-02`:** the matrix is still hand-edited rather than captured by a
 generator, and these three rows plus the four missing digests need correcting.
 Verifying it by hand is what found the drift, so the capture automation matters — but that
@@ -2892,7 +2922,7 @@ their output are in `agents/COORDINATION/proposals/plat-PLAT-01.md`.
 | Is the operator Podman rootless? | `podman info --format '{{.Host.Security.Rootless}}'` → `true` |
 | Which store backs it? | `podman info --format '{{.Store.GraphRoot}}'` → `/home/scottw/.local/share/containers/storage` |
 | Do any Quadlet units name a `User=` or `Group=`? | none — `grep -rn '^User=\|^Group=' quadlet/` returns nothing |
-| Are there system-level `.container` units? | `systemctl list-unit-files 'ao-webodm*'` → 0; every mapping unit is `systemctl --user`, state `generated` (Quadlet generator output) |
+| Are there system-level `.container` units? | `systemctl list-unit-files 'ao-webodm*' \| grep -c '^ao-'` → `0`; every mapping unit is `systemctl --user`, state `generated` (Quadlet generator output) |
 | Are the WebODM containers in the operator store? | `podman ps` lists `ao-webodm-{webapp,worker,db,broker}` and `ao-nodeodm` from the rootless store above |
 | Are the declared extra connections real? | `podman system connection list` → header only; `~/.config/containers/podman-connections.json` is `{"Connection":{},"Farm":{}}` |
 | Does `/run/ao-podman/` exist? | `ls /run/ao-podman` → `No such file or directory` |

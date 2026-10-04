@@ -13,8 +13,22 @@ evidence: |
   ao-webodm-db.service         generated  -
   ao-webodm-web.service        generated  -
   ao-webodm-worker.service     generated  -
-  $ systemctl list-unit-files 'ao-webodm*' | wc -l
-  0
+  # NOTE 2026-10-04: the 'wc -l' form below was WRONG and is corrected.
+  # It printed 3, not 0. Use the grep form -- it discriminates.
+  $ systemctl list-unit-files 'ao-webodm*'
+  UNIT FILE                STATE     PRESET
+
+  0 unit files listed.
+  rc=1
+  $ systemctl list-unit-files 'ao-webodm*' | grep -c '^ao-'
+  0                                  # <- the valid measurement
+  # control: an impossible pattern prints the SAME 3 lines, which is how the
+  # error was found. 'grep -c .' also returns 2 (blank line dropped), not 0.
+  $ systemctl list-unit-files 'ao-nonexistentxyz*' | wc -l
+  3
+  # the same grep form in the scope where units DO exist:
+  $ systemctl --user list-unit-files 'ao-webodm*' | grep -c '^ao-'
+  4
 
   $ grep -rn '^User=\|^Group=' quadlet/
   (no output)
@@ -89,5 +103,33 @@ socket and no process, so they do not make the runtime mixed. **This corrects §
 deleting a user or a unit file needs explicit operator approval (README §4.1 rule 3). Reported,
 not executed.
 
-**Cross-group.** `OPS-14` asks for this same reconciliation and can close on §13.2.1, but
-§19.1 is not mine to edit — the compiler merges that row.
+## Re-verification 2026-10-04, and a correction to this file's own evidence
+
+Every measurement in this proposal was re-run against the live host on 2026-10-04 and
+reproduced unchanged: `Rootless` `true`, `GraphRoot` `/home/scottw/.local/share/containers/
+storage`, the four `ao-webodm-*` units still `generated` in the user scope, no `User=`/`Group=`
+in `quadlet/`, empty `podman-connections.json`, no `/run/ao-podman`, the bridge unit still
+`disabled`/`not-found`, the three per-service accounts still present with no process and no
+linger, `/var/lib/containers/storage/db.sql` still `Sep 30 20:26`, and the four WebODM
+containers still running from the operator store.
+
+**One citation in this file was wrong and is corrected above.** The system-level unit count
+was cited as `systemctl list-unit-files 'ao-webodm*' | wc -l` → `0`. That command returns
+**`3`**, not `0`, because systemctl prints a header, a blank line and a `0 unit files
+listed.` summary regardless of matches — a control with an impossible pattern returns the
+same `3`. **The conclusion (no system-level units) is correct and was re-measured with a
+form that works** (`| grep -c '^ao-'` → `0`, versus `4` in the user scope). What was wrong
+was the evidence, not the finding. Recorded because a citation an agent cannot reproduce is
+worse than no citation: it invites the next reader to trust a number that was never measured.
+
+**Fifth error overall, and the reason it survived two commits.** I wrote the `wc -l` form on
+2026-10-03 and did not re-run it when I later re-verified the *host* state on 2026-10-04 — I
+re-ran the substantive checks and assumed the recorded command still produced the recorded
+output. Re-verifying a claim is not the same as re-running the exact command that backs it,
+and for a method that is wrong *in a way that always looks plausible* only the exact command
+catches it. The `grep -c '^ao-'` form with a control pattern is now in §2.5 as a trap.
+
+## Cross-group
+
+`OPS-14` asks for this same reconciliation and can close on §13.2.1, but §19.1 is not
+mine to edit — the compiler merges that row.
