@@ -25,6 +25,10 @@ layers for high-volume processing.
 
 ## 8.2 Required Directory Tree
 
+**Validated 2026-10-03 — the tree does not match this specification.** The mount itself is
+healthy; the folder layout is not. See §8.5.1 for the per-directory result. The tree below
+remains the specification; it is recorded as **not yet satisfied**, not as corrected.
+
 ```text
 /media/scottw/500GBPHOTOGRAM/
 ├── README.md
@@ -123,6 +127,53 @@ These are the locations the tree does not show.
 `/ALWAYSON/data/mapping/postgres/` and `/ALWAYSON/data/mapping/redis/` are not part of the
 design and must stay empty; neither is a bind mount for the running services.
 
+### 8.4.1 Authoritative mapping database — decided 2026-10-03
+
+The §8.4 table said `~/webodm/dbdata`, ST-03 said the app reads `webodm_dev`, and §3.3.1 named
+`webodm`. **One name, one location — decided here:**
+
+| Question | Answer |
+|---|---|
+| Logical database | **`webodm_dev`** |
+| Physical storage | **`/home/scottw/webodm/dbdata`**, bind-mounted at `/var/lib/postgresql/data` on `ao-webodm-db` |
+| Backup scope | **Included** — `scripts/backup/dump-all-postgres.sh:18` |
+
+Measured:
+
+```bash
+$ podman inspect ao-webodm-db --format '{{range .Mounts}}{{.Source}} -> {{.Destination}}{{end}}'
+/home/scottw/webodm/dbdata -> /var/lib/postgresql/data
+
+$ podman exec ao-webodm-db psql -U postgres -tAc \
+    "SELECT datname FROM pg_database WHERE NOT datistemplate ORDER BY 1;"
+postgres
+webodm
+webodm_dev
+
+$ grep -n webodm scripts/backup/dump-all-postgres.sh
+15:  # mastodon and webodm live in their own containers; the host dump cannot see them.
+18:  bash "$C" mapping ao-webodm-db webodm_dev postgres || { echo "FAIL: webodm"; fail=1; }
+
+$ podman inspect ao-webodm-webapp --format '{{range .Config.Env}}{{println .}}{{end}}' \
+    | grep -vi 'password\|secret\|key' | grep -i database
+WO_DATABASE_HOST=ao-webodm-db
+```
+
+The `webodm` database still exists but is **not** the authoritative one; per ST-03 it was the
+duplicate host-cluster database, migrated into `webodm_dev` and the duplicates dropped
+2026-09-30 (backups in `backups/duplicate-db-20260930/`). It is retained only as a rollback
+artefact. **Any reader of this README must use `webodm_dev`.** `~/webodm/dbdata` is confirmed
+correct and needs no change.
+
+**The §8.1/§8.5 requirement that mapping storage sit on the photogrammetry drive is NOT met,
+and is recorded as an approved deviation rather than silently dropped.** The PostgreSQL
+data directory is on the root filesystem; the drive holds `webodm/{media,projects,nodeodm,temp,logs}`,
+which is where the imagery and processing state actually live. Moving a live PostgreSQL data
+directory onto an external drive would change service configuration and is an operator decision.
+FIELD-11 is closed on the *name and location* question, which is what the item asked; the
+drive-residency half remains an open deviation, recorded in §8.4.1 and to be carried forward
+as a new **FIELD** item rather than reopened.
+
 ## 8.5 Mapping Mount Validation
 
 The drive must be identified by filesystem UUID, not by `/dev/sdX`.
@@ -149,6 +200,112 @@ df -hT /media/scottw/500GBPHOTOGRAM
 Begin with CPU-only validation. Enable GTX 1080 access only after validated
 container GPU runtime, driver compatibility, measurable workload benefit, and a
 documented CPU-only recovery path.
+
+### 8.5.1 Validation executed 2026-10-03 — mount passes, tree fails
+
+The shipped validator passes:
+
+```bash
+$ bash scripts/validation/check-photogrammetry-mount.sh
+OK: photogrammetry mount valid: systemd-1
+/dev/sdb1; 434G free
+rc=0
+```
+
+against `config/mapping/photogrammetry-volume.env`
+(`PHOTOGRAM_UUID=498597d4-9fc8-42cf-8db7-4e71ede53267`, `PHOTOGRAM_MIN_FREE_GB=100`). UUID
+match, mount-marker and free-space checks all pass. The autofs stacking noted in the script
+comment is handled correctly.
+
+**But the validator does not check the directory tree at all**, even though §8.5 lists
+"Required directories are missing" as a refusal condition. Enumerating §8.2's required paths
+directly:
+
+```bash
+$ M=/media/scottw/500GBPHOTOGRAM
+$ for d in incoming incoming/drone incoming/operator incoming/quarantine validated rejected \
+           webodm webodm/media webodm/projects webodm/nodeodm webodm/temp webodm/logs \
+           deliverables manifests manifests/intake manifests/processing \
+           manifests/ledger-submissions exports exports/pcloud-staging \
+           exports/ipfs-staging backups backups/mapping-db retention \
+           retention/pending-review retention/eligible-for-archive tmp tmp/processing \
+           README.md .mounted-ok; do
+    [ -e "$M/$d" ] && printf 'OK      %s\n' "$d" || printf 'MISSING %s\n' "$d"
+  done
+```
+
+| Result | Paths |
+|---|---|
+| **Present** | `incoming`, `validated`, `rejected`, `webodm`, `webodm/{media,projects,nodeodm,temp,logs}`, `deliverables`, `manifests`, `exports`, `backups`, `retention`, `retention/{pending-review,eligible-for-archive}`, `tmp`, `.mounted-ok` |
+| **Missing — 11** | `incoming/drone`, `incoming/operator`, `incoming/quarantine`, `manifests/intake`, `manifests/processing`, `manifests/ledger-submissions`, `exports/pcloud-staging`, `exports/ipfs-staging`, `backups/mapping-db`, `tmp/processing`, `README.md` |
+
+Ownership is correct at the top level — every directory is `ao-mapping:alwayson-mapping`
+(mode `drwxrws---`, group `rwx`, **world has no permission at all**), and `.mounted-ok` is
+`scottw:scottw`. The setgid bit `s` is set, so new files inherit the mapping group, which is
+the correct arrangement for a shared mapping volume.
+
+**Correction to an earlier claim in this subsection.** A first pass ran
+`find "$M" -maxdepth 4 -type d -perm -0002` and reported "empty", concluding no directory is
+world-writable. That conclusion was **not sound**: `find` also emitted
+`Permission denied` for 8 of the 10 top-level subtrees, and the exit status was 1. The empty
+result meant "none of the two subtrees this session can read", not "none on the drive".
+Re-measured honestly:
+
+```bash
+$ id -u
+1000
+$ M=/media/scottw/500GBPHOTOGRAM
+$ ok=0; no=0; for d in incoming validated rejected webodm deliverables manifests \
+      exports backups retention tmp; do
+    [ -r "$M/$d" ] && ok=$((ok+1)) || no=$((no+1)); done; echo "readable=$ok unreadable=$no"
+readable=2 unreadable=8
+
+$ ls -la $M
+drwxrws--- 13 scottw     ao-mapping        4096 Aug 26 16:57 .
+drwxrws---  3 ao-mapping alwayson-mapping  4096 Aug 23 18:31 backups
+drwxrws---  2 ao-mapping alwayson-mapping  4096 Aug 23 18:31 deliverables
+drwxrws---  4 ao-mapping alwayson-mapping  4096 Aug 23 18:31 exports
+drwxrws---  5 ao-mapping alwayson-mapping  4096 Aug 23 18:31 incoming
+drwxrws---  5 ao-mapping alwayson-mapping  4096 Aug 23 18:31 manifests
+drwxrws---  2 ao-mapping alwayson-mapping  4096 Aug 23 18:31 rejected
+drwxrws---  4 scottw     scottw            4096 Aug 23 18:31 retention
+drwxrws---  3 ao-mapping alwayson-mapping  4096 Aug 23 18:31 tmp
+drwxrws---  2 ao-mapping alwayson-mapping  4096 Aug 23 18:31 validated
+drwxrws---  7 scottw     ao-mapping        4096 Aug 23 18:31 webodm
+```
+
+So: **no world-writable directory at depth 1** is confirmed, and the `ao-mapping` ownership
+scheme is confirmed. **Depths 2-4 are unverified** for an unprivileged session — eight
+subtrees could not be traversed. Full ownership and permission validation therefore
+**cannot be signed off from here**; it needs `sudo` or an `ao-mapping` group membership. This
+is a *second* reason, alongside the 11 missing directories, that FIELD-10 stays open.
+
+The reserved `data/mapping` paths are correctly **absent**, as §8.4 requires:
+
+```bash
+$ ls -la /ALWAYSON/data/mapping/postgres/ /ALWAYSON/data/mapping/redis/
+ls: cannot access '/ALWAYSON/data/mapping/postgres/': No such file or directory
+ls: cannot access '/ALWAYSON/data/mapping/redis/': No such file or directory
+```
+
+The `.mounted-ok` sentinel exists and is empty (`size=0`), owned `scottw:scottw` mode
+`rw-rw----` — which is correct: it is a presence marker, not a content marker.
+
+`backups/mapping-db` being missing is the consequential one: it is where the §8.4.1 database
+backups would land on the drive. This does **not** put the database outside backup scope —
+`scripts/backup/dump-all-postgres.sh:18` already dumps `webodm_dev` — but it does mean there is
+currently no on-drive copy.
+
+**Two consequences for the reader:**
+
+1. §8.5's claim that WebODM "must refuse to start" on missing directories is **not enforced by
+   any shipped script.** `check-photogrammetry-mount.sh` exits 0 on a drive that is 11 directories
+   short of its own specification. A green validator run is therefore **not** evidence that §8.2
+   holds, and must not be cited as such.
+2. Creating the missing directories would change live storage on the photogrammetry drive,
+   which is outside what this session may do unprompted. **Not created.** FIELD-10 stays
+   **open** with this evidence attached — the validation has now been *run and failed*, which is
+   strictly more progress than the prior "unvalidated" state.
 
 ## 8.6 3D Model Identity and Database Cross-Referencing
 
