@@ -195,8 +195,9 @@ Bridge state re-verified 2026-10-03 (evidence for COMM-04):
   described in COMM-04 — that earlier fault (cursor ahead of the newest id) is fixed
   and the bridge's own recovery log line is present in the journal.
 - **No 401 crash-loop regression.** `systemctl --user status` shows the unit
-  `active (running) since Thu 2026-10-01 18:50:55 PDT; 2 days ago`, with no restart
-  loop, and the service has consumed 719.9 M peak memory across a clean run.
+  `active (running) since Thu 2026-10-01 18:50:55 PDT`, with no restart loop
+  (re-confirmed 2026-10-04, 2 days uptime, `Main PID: 788109`, memory 14.1 M,
+  peak 19.8 M, CPU 47.1 s).
 
 ## 15.3 Local 300X3 Mastodon Deployment
 
@@ -527,7 +528,7 @@ edited here.
 | D3 | `scripts/operations/fetch-openclaw-mastodon-env.sh` | 19 | `printf 'MASTODON_BOT_EMAIL=300x3@posteo.net\n'` | `bot@300x3.com` | Superseded third-party mailbox identity. |
 | D4 | `config/mastodon/instance-policy.yaml` | 9 | `"https://300x3.com at the Cloudflare edge ... tunnel ao-mastodon-federation"` | `https://mastodon.300x3.com` | Names the retired network name `ao-mastodon-federation` and the apex host. |
 | D5 | `config/mastodon/instance-policy.yaml` | 8, 16, 34 | `approved_pub_host: "300x3.com"`; Tokodon origin `https://300x3.com` | `mastodon.300x3.com` | Approved publication host must be the federation host. |
-| D6 | `config/mastodon/instance-policy.yaml` | 24 | `registrations: "open with approval gate (approval_required: true)"` | `"closed"` | **Contradicted by the live instance** (`registrations=false`); see §15.4.2. |
+| D6 | `config/mastodon/instance-policy.yaml` | 20 | `registrations: "open with approval gate (approval_required: true)"` | `"closed"` | **Contradicted by the live instance** (`registrations=false`); see §15.4.2. |
 | D7 | `config/mastodon/instance-policy.yaml` | 18–19 | `admin@300x3.com`, `bot@300x3.com` | correct — matches the database | No change. |
 | D8 | `config/platform/version-matrix.yaml` | 41 | `local_domain: "mastodon.300x3.com"` | correct | Already reconciled 2026-10-01. Images are digest-pinned at v4.3.7, matching the running container. |
 | D9 | `config/platform/version-matrix.yaml` | 51 | note: `RAILS_FORCE_SSL/LOCAL_HTTPS are set false but are INERT … loopback proxy at https://127.0.0.1:3300` | `set true`; and the proxy port is **3000**, not 3300 | **Second instance of the same §15.4.2 error**, plus an independent port typo. Propagates the false claim into the platform matrix. |

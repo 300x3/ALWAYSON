@@ -314,23 +314,48 @@ running host are in §19.1, and where the two differ §19.1 is the fact.
 
 The install list is written in §12.3, which another session owns. The requirement belongs here,
 because a package is part of the platform baseline if the platform's own verification asserts
-on it. Measured 2026-10-03:
+on it. **Re-measured 2026-10-04 09:22** — the `apparmor-utils` row changed under this section
+after it was first written, so both states are recorded:
 
 | Package | Needed by | Installed on this host |
 |---|---|---|
-| `apparmor-utils` | `aa-enforce`, `aa-decode`, `aa-genprof`, `aa-logprof` — the profile tools §4.1 relies on | **Yes, installed 2026-10-04.** `dpkg -s apparmor-utils` → `Status: install ok installed`, `Version: 5.0.2-0ubuntu1~26.04.1`. All five binaries now resolve: `/usr/sbin/aa-enforce`, `aa-complain`, `aa-decode`, `aa-logprof`, `aa-genprof` |
+| `apparmor-utils` | `aa-enforce`, `aa-decode`, `aa-genprof`, `aa-logprof` — the profile tools §4.1 relies on | **Yes, as of 2026-10-04 09:07.** `dpkg-query -W` → `apparmor-utils 5.0.2-0ubuntu1~26.04.1`; all five binaries resolve under `/usr/sbin/`. *(It was **absent** when this row was first measured on 2026-10-03: `apt-cache policy` → `Installed: (none)` and all five tools `MISSING`.)* |
+| `nvidia-container-toolkit` (+ `libnvidia-container1`, `libnvidia-container-tools`, `nvidia-container-toolkit-base`) | GPU access from rootless containers via CDI; the `nvidia.com/gpu=0` device the version matrix records | Yes — all four at **1.20.1-1** |
 
-**Resolved 2026-10-04.** `apparmor-utils` is installed, so a profile can now be
-enforced or inspected on this host — which is what §4.1 depends on. The gap
-recorded earlier (2026-10-03) is closed, and `verify-host-baseline.sh` will now
-report `aa-enforce present (profile enforcement possible)` instead of a WARN,
-because it tests for the binary rather than for `aa-status`, which shipped in
-the base `apparmor` package and succeeded misleadingly all along.
+**How the `apparmor-utils` state changed, and what did not change with it.** `/var/log/apt/history.log`
+records the install at `2026-10-04 09:07:11`, `Requested-By: scottw (1000)`, pulling in
+`apparmor-utils`, `python3-apparmor` and `python3-libapparmor` at `5.0.2-0ubuntu1~26.04.1`. This
+was an **interactive operator action, not a change to any install list** — the gap this section
+recorded is therefore still open:
+
+- `scripts/bootstrap/02-install-host-dependencies.sh` line 6 still does not name `apparmor-utils`.
+- `scripts/bootstrap/ao-bootstrap-privileged.sh` still does not name it.
+- `scripts/provision/provision.sh` contains **zero** occurrences of `apparmor`
+  (`grep -c apparmor scripts/provision/provision.sh` → `0`).
+
+So the host is fixed and the **provisioning path is not**. A host rebuilt from the repository's
+own bootstrap chain would not get `apparmor-utils`, and §4.1's profile workflow has no tooling.
+**This section must not read as "satisfied" on the strength of one host's package list.**
 
 **Correction to a stale claim.** `config/platform/version-matrix.yaml` records
 `nvidia-container-toolkit 1.20.0 installed 2026-08-25`. `dpkg-query -W` reports **1.20.1-1**.
 The matrix is a version record, so this row is wrong; it is recorded here rather than edited,
 because the matrix file is not owned by this session.
+
+**Traps recorded for the next session.**
+
+- **`aa-status` is a misleading success signal.** `dpkg -S /usr/sbin/aa-status` →
+  `apparmor: /usr/sbin/aa-status`: it ships in the **base `apparmor` package**, not in
+  `apparmor-utils`. Any verification that tests `command -v aa-status` will pass on a host with
+  no profile tooling installed at all. Test for `aa-enforce`, not `aa-status`.
+- **`aa-status` returns non-zero without privilege, and §12.3 throws that away.**
+  Unprivileged it prints `apparmor module is loaded.` on stdout, writes
+  `You do not have enough privilege to read the profile set.` to stderr and **exits 4** —
+  measured, not assumed. §12.3 line 163 is `sudo aa-status || true`, and the `|| true`
+  discards exactly the status that would have told the operator the profile set was
+  unreadable. Combined with `sudo` requiring interactive authentication on this host
+  (`sudo -n aa-status` → `sudo: interactive authentication is required`, rc=1), the line
+  cannot fail. This is the same class of defect as the cgroup check in §2.4.
 
 ## 2.4 Baseline Verification Must Assert
 
@@ -354,6 +379,29 @@ Two defects, both reproduced above:
 2. The block's **overall exit status is 0 either way**. A script that cannot fail cannot
    verify anything, so the §19.2 evidence it supports cannot be re-run and trusted (this is
    the same defect `OPS-15` records).
+
+**Third defect, found 2026-10-04: the `aa-status` line discards its own failure.** §12.3
+line 163 is `sudo aa-status || true`. Running the block **verbatim** (all six lines,
+`sudo` untouched):
+
+```
+--- verbatim §12.3 verify block (lines 158-163) ---
+podman version rc=0
+podman info rc=0
+systemctl --user status rc=0
+Linger=yes
+cgroups v2 active
+OVERALL EXIT=0
+
+[stderr]
+sudo: A terminal is required to authenticate
+```
+
+The AppArmor check **never ran** — `sudo` could not authenticate — and the block still
+reported success. An operator reading that output sees six green lines and concludes the
+profile set is in enforcing mode. It was not even inspected. Note the interaction with §2.3:
+`apparmor-utils` being newly installed makes this line *look* more meaningful than it is,
+because the tool now exists and `aa-status` still cannot read anything without privilege.
 
 **Requirement.** The §12.3 verify block must exit non-zero when any check fails, and must name
 the expected value beside each observed one so a failure is readable without re-running it.
@@ -1506,13 +1554,75 @@ the adapter, are recorded as **OPEN**:
 A third defect sits in the normalized event model rather than the verifier: for a
 real PayPal `PAYMENT.CAPTURE.COMPLETED` payload the money is at
 `resource.amount.value`, which `normalize()` does not read, so `amount_cents`
-comes back `None` and the amount is silently lost. Coinbase payloads nest their
-reference at `charge.id`, which `normalize()` also does not read, producing an
-empty `provider_ref` that the adapter then rejects with 400.
+comes back `None` and the amount is silently lost. For Coinbase the
+money-bearing reference is `charge.id`, which `normalize()` also does not read;
+it falls through to the top-level **event** id, so the adapter records the event
+that arrived rather than the charge being reconciled. A 2026-10-10 correction to
+an earlier statement in this session: that reference is **not** empty, because a
+real Coinbase payload does carry a top-level `id`, so the adapter does not reject
+it with 400. The reference it records is simply the wrong one, which breaks
+reconciliation without looking like a failure.
 
 These are payment-verification defects. Correcting them changes how money-bearing
 events are accepted, so the fix is prepared and reported for operator approval
 rather than applied by this session.
+
+### 7.2.1 Prepared verifier correction, proven offline 2026-10-10
+
+The correction has been **written and proven, and deliberately not applied.** The
+live adapter is unchanged — `scripts/payment/ao-payment-adapter.py` still hashes to
+`sha256:71a74988b0731695f61a7d56d9580a3c8364a3371906fa333c1784638d399f58`, its
+sha256 as measured before this work began, and the running service still answers
+`{"ok": true, "enabled": true}` on `127.0.0.1:8899`.
+
+PayPal's construction was re-read from the vendor rather than from the previous
+session's notes. Per developer.paypal.com, "Integrate webhooks" → *Self
+verification method*, the signed message is
+`transmissionId | timeStamp | webhookId | crc32`, where `crc32` is the CRC-32 of
+the **original raw body** in decimal, and the signature is checked with the
+**RSA public key** from the certificate at `paypal-cert-url`. `webhookId`
+arrives in **no header and no body** — it is listener configuration, which is why
+the adapter could not have been correct as written.
+
+The candidate was built in `/tmp` from a copy of the live file and proven two
+ways. A unit harness generated a throwaway 2048-bit RSA keypair in-process, stubbed
+the certificate fetch so the host allowlist and certificate-to-key extraction
+still execute, and ran **18 of 18 checks**: the candidate accepts a
+PayPal-documented signature and rejects a tampered body, a wrong `webhookId`, a
+stale timestamp, an HMAC forgery in the adapter's *current* scheme, and two
+non-PayPal certificate URLs. `verify_coinbase()` accepts a genuine Coinbase HMAC
+and rejects a PayPal-shaped event.
+
+The acceptance criterion — "A test payment event produces a verified normalized
+record" — was then proven **end to end over HTTP** against the candidate on a
+spare loopback port in `--dry-run`, so no row could be written:
+
+| Step | Request | Result |
+|---|---|---|
+| 1 | Genuine PayPal event, PayPal-documented signature | `200 {"accepted": true}` |
+| 2 | Same event, one byte of body tampered | `401 signature verification failed` |
+| 3 | Genuine Coinbase event, HMAC over the raw body | `200 {"accepted": true}` |
+| 4 | PayPal-shaped event to the Coinbase path | `401` — the 200-from-defect-2 no longer happens |
+| 5 | Zelle POST | `501` — still manual-reconciliation only |
+
+and the adapter's own log shows the normalized records it produced, carrying the
+amount and currency that the live code drops:
+
+```text
+DRY-RUN (no DSN): event provider=paypal type=PAYMENT.CAPTURE.COMPLETED
+  ref=paypal:3b97c70f1e963687d2da6dbd62f7d7bd amount_cents=50000 currency=USD verified=True
+DRY-RUN (no DSN): event provider=coinbase type=charge:confirmed
+  ref=coinbase:9871540c485e614b22a7e30fda45d736 amount_cents=1234 currency=USD verified=True
+```
+
+**This is prepared, not applied.** Approving it changes which money-bearing
+events are trusted to create business state — README §4.1 rule 14 and the first
+stop condition of this session's brief. Deployment also needs
+`PAYPAL_WEBHOOK_ID` and `COINBASE_WEBHOOK_SECRET` as real configuration, and
+`COINBASE_WEBHOOK_SECRET` is currently provisioned but read by nothing. The
+operator decision requested is narrower than "fix the verifier": it is whether to
+accept PayPal and Coinbase webhooks at all, because the honest consequence of
+today's code is that neither provider can complete a payment.
 
 **How each form is verified.**
 
@@ -2328,19 +2438,40 @@ $ grep -c 'RNodeInterface\[DRONE-RADIO\] experienced an unrecoverable error' mes
 ERROR:...rns_ratchet_persist:Bounded ratchet persist failed: [Errno 9] Bad file descriptor
 ```
 
-**This is active and worsening, measured twice in one session.** The persist-failure count was 3
-at 20:27 and is 7 now, newest at `20:08:20`; the teardown count moved 2004 → 2748 over the same
-interval. The teardowns have settled into a repeating cadence of roughly one every 30–60 minutes
-(`16:25:06`, `18:04:08`, `18:55:43`, `19:02:38`, `19:56:47`, `20:02:44`, `20:08:20`). So
-`DRONE-RADIO` is dropping its interface about hourly and never holding it up — which means
-**FIELD-06 cannot be attempted on this hardware until the teardown is root-caused.** A link that
-dies every hour is not a link you can prove a midflight mission update over.
+**CORRECTION 2026-10-04: this cadence figure is wrong by a factor of ~150.** The
+"roughly every 30–60 minutes" cadence above was derived from the timestamps of the
+*ratchet persist failures* — there are only 13 of those — not from the teardowns
+themselves. Counting the teardowns directly:
 
-Probable cause is the shared file descriptor rather than the ratchet logic: the persist worker
-writes through an fd it does not own, and when Reticulum tears the `RNodeInterface` down and
-closes the port, that write hits a closed fd. This would explain both the `[Errno 9]` and why
-every occurrence is adjacent to a teardown. **Not proven** — no stack trace is logged, and it
-will not be proven without touching the running stack, which is a stop condition.
+```bash
+$ grep -c 'unrecoverable error' ~/.reticulum-meshchatx/logs/meshchatx.log        # 994
+$ grep -c 'Bounded ratchet persist failed' ~/.reticulum-meshchatx/logs/meshchatx.log # 0
+$ grep -ch 'unrecoverable error' ~/.reticulum-meshchatx/logs/meshchatx.log{,.1,.2,.3}
+994 / 7800 / 2389 / 29                                                        # 11,212 total
+```
+
+**`DRONE-RADIO` is not dropping hourly — it is retrying roughly every 7 seconds and has
+never recovered.** Consecutive events at `07:25:38`, `07:25:44`, `07:25:51`, `07:25:57`.
+The conclusion of the paragraph above still stands, and in fact hardens: a link that dies
+every *seven seconds* is even less a link one could prove a midflight mission update over.
+Only the period was wrong, not the judgement.
+
+**The causal hypothesis above is also not supported, and I withdraw it.** It rested on
+"every occurrence is adjacent to a teardown". That is true of the 13 `[Errno 9]` persist
+failures, but those were in `meshchatx.log.1`/`.3`; the *current* log has 994 teardowns and
+**zero** persist failures, so the association does not hold in the log where the fault is
+actually happening now. A shared-fd mechanism remains plausible in principle, but on this
+evidence it is **unproven and now positively unsupported**, and the far simpler reading is
+the one §9.5.2 reaches: the board is enumerated but does not answer the RNode detection
+handshake, and the `[Errno 9]` persist errors are a consequence of the port closing, not a
+cause. Recorded rather than deleted, per the rule against editing history quietly.
+
+Original hypothesis, now **withdrawn** on the evidence above and retained only so the
+correction is auditable: it attributed both the `[Errno 9]` persist failures and the cadence
+to a shared file descriptor — the persist worker writing through an fd it does not own, which
+fails when Reticulum tears the interface down and closes the port. That mechanism was never
+proven (no stack trace is logged) and is now positively unsupported, since the log where the
+fault actually recurs contains no persist failures at all.
 
 The `DRONE-RADIO` fault is a detection failure, not a permissions problem — the port is
 openable by the service account:
@@ -2611,6 +2742,132 @@ it must not be described as LoRaWAN anywhere unless it implements a true LoRaWAN
 and network-server architecture. Any separate LoRaWAN or public-discussion service must use
 different bands and settings and remain isolated from the field telemetry mesh.
 
+## 9.5 Measured radio link state 2026-10-04
+
+The two RNodes are both physically present and enumerated, but **only one of them is
+operational**. `PEOPLE-RADIO` (915 MHz) is up; `DRONE-RADIO` (917 MHz) has been in a hard
+reconnect failure since 2026-09-25. This is the dominant constraint on every remaining
+field-link item and is recorded here so the next session does not re-derive it.
+
+### 9.5.1 `DRONE-RADIO` has never come up since 2026-09-25 16:27
+
+The last successful detection of either radio is 2026-09-25 16:27:11. Since then every
+attempt has failed identically:
+
+```bash
+$ grep -h 'is configured and powered up' ~/.reticulum-meshchatx/logs/meshchatx.log* | tail -3
+[2026-09-24 11:02:55] RNodeInterface[DRONE-RADIO] is configured and powered up
+[2026-09-25 16:27:08] RNodeInterface[PEOPLE-RADIO] is configured and powered up
+[2026-09-25 16:27:11] RNodeInterface[DRONE-RADIO] is configured and powered up
+
+$ grep -ch 'unrecoverable error' ~/.reticulum-meshchatx/logs/meshchatx.log{,.1,.2,.3}
+994
+7800
+2389
+29
+                                                        # 11,212 total.
+                                                        # The current log grows live at ~7s per cycle,
+                                                        # so this count rises continuously.
+```
+
+Every failure has the same three-line signature, repeating about every 7 seconds:
+
+```text
+[2026-10-04 07:25:38] [Notice] Opening serial port /dev/serial/by-path/pci-0000:05:00.0-usb-0:1:1.0-port0...
+[2026-10-04 07:25:40] [Error]  Could not detect device for RNodeInterface[DRONE-RADIO]
+[2026-10-04 07:25:40] [Error]  A serial port error occurred, the contained exception was: [Errno 9] Bad file descriptor
+[2026-10-04 07:25:40] [Error]  The interface RNodeInterface[DRONE-RADIO] experienced an unrecoverable error and is now offline.
+```
+
+The failure is still live at the time of writing — the last event is 2026-10-04 09:18:25.
+
+### 9.5.2 The fault is the radio board, not the port, the symlink or permissions
+
+Ruled out by measurement, not assumption:
+
+| Candidate cause | Verdict | Evidence |
+|---|---|---|
+| `by-path` symlink missing | **Ruled out** | `pci-0000:05:00.0-usb-0:1:1.0-port0 -> ../../ttyUSB0` present |
+| Permission / `dialout` | **Ruled out** | `id` → `20(dialout)`; device is `crw-rw---- root:dialout` |
+| Cable / USB enumeration | **Ruled out** | `cp210x 3-1:1.0: converter now attached to ttyUSB0`, `ID_SERIAL_SHORT=0001` |
+| Port contended by another process | **Not the cause** | the same stack owns both radios; `PEOPLE-RADIO` on the other port works |
+| **RNode firmware not answering** | **Best supported** | `Could not detect device` with no port-level error before it |
+
+The distinction matters. A port that cannot be opened raises a permission or busy error;
+this port opens and then yields `Errno 9` during the RNode detection handshake, which is
+what a board that is enumerated but not running RNode firmware does. The kernel logged a
+clean attach and has logged no disconnect.
+
+**This is a hardware/firmware fault on the DRONE-RADIO board and needs physical
+intervention — reseat the USB cable, or reflash the RNode firmware.** It cannot be fixed
+from the documentation side, and it is the reason FIELD-01, FIELD-02, FIELD-03, FIELD-06
+and FIELD-07 cannot be closed on evidence.
+
+### 9.5.3 `PEOPLE-RADIO` is up and clean
+
+`PEOPLE-RADIO` came up at 2026-10-03 16:57:56, 29 seconds after the current process
+started, and has logged no error since. It is the only radio currently on air.
+
+```bash
+$ grep -h 'PEOPLE-RADIO. is configured and powered up' ~/.reticulum-meshchatx/logs/meshchatx.log.1
+[2026-10-03 16:57:56] [Notice] RNodeInterface[PEOPLE-RADIO] is configured and powered up
+$ grep -c 'PEOPLE' ~/.reticulum-meshchatx/logs/meshchatx.log
+0
+```
+
+The asymmetry is the whole finding: the 915 MHz radio is healthy, the 917 MHz radio is
+dead. Any characterisation of "both bands" is therefore characterisation of one band.
+
+### 9.5.4 A single-radio host cannot measure what FIELD-01 and FIELD-03 ask for
+
+FIELD-01 wants RSSI, SNR, noise floor, packet loss, retry behaviour and airtime **on both
+RNodes**. With one radio offline there is no second node to measure against, and no RF
+traffic in the logs at all:
+
+```bash
+$ grep -oh -E '(RSSI|rssi)[=: ]+[-0-9.]+' ~/.reticulum-meshchatx/logs/meshchatx.log* | wc -l
+0
+```
+
+FIELD-03 wants 915/917 isolation *measured*. Separation between two bands cannot be
+characterised while one band has no transmitter on it; the 915 MHz receiver is only ever
+hearing ambient noise, which is not an isolation measurement. **These items cannot be
+closed by any amount of further analysis on this host** — they need the DRONE-RADIO board
+repaired first.
+
+### 9.5.5 Field items blocked, and on what
+
+| Item | Status | Blocker |
+|---|---|---|
+| FIELD-01 | Blocked | §9.5.1 — DRONE-RADIO offline; no RF metrics exist to record |
+| FIELD-02 | Blocked | §9.5.1 — no end-to-end link over the drone path |
+| FIELD-03 | Blocked | §9.5.4 — one band has no transmitter, so isolation is unmeasurable |
+| FIELD-06 | Blocked | §9.5.1, plus needs the Pi5 (absent, §9.5.6) and an in-flight test |
+| FIELD-07 | Blocked | needs *two* ends of a PEOPLE-RADIO mesh; only the desktop radio exists |
+| FIELD-09 | Blocked | §9.5.6 — RPi5 not present on this network at all |
+
+### 9.5.6 The Pi5 drone is absent from this network
+
+FIELD-06 and FIELD-09 both terminate on a Raspberry Pi 5 running the QGC session. There is
+no Pi5 reachable:
+
+```bash
+$ getent hosts raspberrypi raspbianpios alwayondrone rpi5
+(no output — not in DNS)
+$ ls ~/.ssh/config
+ls: cannot access '/home/scottw/.ssh/config': No such file or directory
+$ ip neigh
+169.254.207.81 dev eno1 lladdr 30:05:5c:ee:a2:9b STALE
+10.42.0.96   dev eno1 FAILED
+192.168.87.1  dev wlp3s0 lladdr 16:22:3b:67:bd:98 REACHABLE
+```
+
+`10.42.0.96` is `printer-01`, not the drone, and it is down. The dnsmasq lease file is
+empty. There is no SSH configuration for any Pi. The drone is simply not connected, so no
+QGC session exists to send a mission to, in flight or otherwise.
+
+**Operator input needed for FIELD-06 and FIELD-09:** power and connect the Pi5 drone, and
+supply its address or an SSH entry. Until then there is nothing to test against.
 # 10. Simulation Architecture
 
 ## 10.1 Vehicle Simulation
@@ -2978,6 +3235,78 @@ uses `GAZEBO/` (present, `12M` of meshes) and every path reference in the world,
 file, the portal and the Quadlet units agrees on `/ALWAYSON/GAZEBO`. The implementation is
 therefore self-consistent, but §10.2 still says "verify its exact location with the operator",
 and this session cannot substitute for that confirmation.
+
+### 10.4 Verified state, 2026-10-04 (SIM session)
+
+Measured on this host on 2026-10-04. One item is closed with commands and output, one defect is
+fixed, one false claim is corrected, and one item is prepared and stopped at a stop condition.
+
+**SIM-06 is now established, not inferred.** §10.3 recorded the GUI as untested, with the
+correct warning that `NRestarts=0` on a unit that never ran proves nothing. The GUI has now
+actually been started and watched:
+
+- `systemctl --user start ao-sim-fabrication-gui-gz.service` → `ActiveState=active`,
+  `SubState=running`, `NRestarts=0`, `ExecMainStatus=0`.
+- 18 plugins load, including `EntityTree` (the SVG-icon-dependent one) and
+  `gz-rendering-ogre2`. A case-insensitive journal grep for `OGRE EXCEPTION`,
+  `construction from null`, `Segmentation`, `Failed to load` and `cannot open` returns **0**.
+- The window exists and is placed by the KWin script: `xwininfo -root -children` shows
+  `"Gazebo Sim": ("gz-sim-gui" "Gazebo GUI") 480x292+24+1502` — bottom-left of DP-3, per
+  `~/.local/share/kwin/scripts/ao-gazebo-monitor/`.
+- **Positive proof of geometry, not just a live process.** A window capture
+  (`import -window 0x120001a`) shows rendered factory geometry on the ground plane, the
+  left-hand toolbar icons decoded (so the SVG plugin works, not merely installs), and the sim
+  clock advancing at `20.00%`. A second capture 5 s later differs in **294 of 140160** pixels,
+  so the view is live rather than a frozen first frame.
+- The unit was **re-masked afterwards**, as §19 requires, so it cannot seize keyboard and
+  pointer focus: `is-enabled` = `masked`, and `start` then fails with `Unit ... is masked.`
+
+**Fixed: the reproducibility guard that was disarmed.** §10.3 defect 1 found
+`build-rl-objects.py --check` exiting 1 against the committed world, so the one check whose
+entire purpose is catching divergence could not distinguish real drift from a cosmetic hand
+edit. The cause was that `<specular>`/`<shininess>` had been added to `factory.world` *inside
+the generated block* and never taught to the generator. The generator now declares
+`SPECULAR = (0.30, 0.30, 0.30, 1.0)` and `SHININESS = 24`, so:
+
+- `--check` → `OK: rl_objects block matches objects.yaml`, exit 0;
+- `--write` → `rl_objects block already current; nothing written`, with the world sha256
+  unchanged either side (`bce32f2a…`), so the world was **not** rewritten;
+- the guard is not merely green: a real catalogue drift (moving `part-a1`'s home pose) makes
+  `--check` exit 1 with `STALE`, and restoring the file returns it to 0. `objects.yaml`
+  sha256 confirmed unchanged afterwards.
+
+**Corrected a false capability claim in the portal.** `/api/objects` served
+`"resettable": true` copied verbatim from `objects.yaml`, indistinguishable from a verified
+capability, while the portal exposes no reset endpoint and performs no reset — `/api/reset`
+returns 404. A consumer could reasonably have read that as "I can reset these objects". The
+field is now `resettable_claimed` beside an explicit `reset_available: false` and a
+`reset_note` naming the discrepancy, and the HTML portal (its only consumer) was updated to
+match so it does not render `undefined`. Verified live on the restarted portal, and
+`node --check` on the extracted script reports `PORTAL JS SYNTAX OK`. This corrects a claim;
+it does **not** deliver reset, so SIM-14 stays open on that limb.
+
+**SIM-11 is prepared and deliberately NOT executed.** Measured: the manifest records
+`content_size_bytes` 5371 and `content_hash_sha256` `64eacbbf…`, while `factory.world` is
+**63205 bytes** with sha256 `bce32f2a…`. Size *and* hash disagree, so the manifest cannot be
+repaired by editing a number. Repair requires re-export and re-signing with the
+`ao-sim-fabrication` producer key (present at `secrets/sim-fabrication/producer.pem`, 119 bytes,
+value not printed) via `scripts/ledger/build-manifest.sh`. Re-signing a provenance record with a
+ledger key is a stop condition for this session, so the change is prepared and left for the
+operator. Cosmetic with respect to the running world, which is valid and serving.
+
+**Unchanged from §10.3.** SIM-07 reproduces exactly: `packages.ros.org` presents
+`subject=… CN=*.osuosl.org` and `curl` returns HTTP `000`. Certificate verification must not be
+disabled to work around it. SIM-12 (facility scheduler) remains absent. SIM-02 remains an
+operator decision. SIM-08 is a publishing decision and was not touched — no public port, route
+or Cloudflare config was modified. SIM-03 (QGroundControl) is not installed on this host and
+no install was attempted.
+
+**What I got wrong this session.** I first reported the GUI as verified on the strength of
+`ActiveState=active` plus a clean error grep. That is the exact mistake §10.3 warned about: a
+live process and an absence of errors is not proof that geometry renders. I only reached a real
+answer by capturing the window and diffing two captures. Smaller error: I ran `gz topic` inside
+the GUI container before checking `GZ_CONFIG_PATH`, and briefly read "cannot find any available
+'gz' command" as a missing toolchain when it was only an unset variable.
 
 
 ---
@@ -4962,8 +5291,9 @@ Bridge state re-verified 2026-10-03 (evidence for COMM-04):
   described in COMM-04 — that earlier fault (cursor ahead of the newest id) is fixed
   and the bridge's own recovery log line is present in the journal.
 - **No 401 crash-loop regression.** `systemctl --user status` shows the unit
-  `active (running) since Thu 2026-10-01 18:50:55 PDT; 2 days ago`, with no restart
-  loop, and the service has consumed 719.9 M peak memory across a clean run.
+  `active (running) since Thu 2026-10-01 18:50:55 PDT`, with no restart loop
+  (re-confirmed 2026-10-04, 2 days uptime, `Main PID: 788109`, memory 14.1 M,
+  peak 19.8 M, CPU 47.1 s).
 
 ## 15.3 Local 300X3 Mastodon Deployment
 
@@ -5294,7 +5624,7 @@ edited here.
 | D3 | `scripts/operations/fetch-openclaw-mastodon-env.sh` | 19 | `printf 'MASTODON_BOT_EMAIL=300x3@posteo.net\n'` | `bot@300x3.com` | Superseded third-party mailbox identity. |
 | D4 | `config/mastodon/instance-policy.yaml` | 9 | `"https://300x3.com at the Cloudflare edge ... tunnel ao-mastodon-federation"` | `https://mastodon.300x3.com` | Names the retired network name `ao-mastodon-federation` and the apex host. |
 | D5 | `config/mastodon/instance-policy.yaml` | 8, 16, 34 | `approved_pub_host: "300x3.com"`; Tokodon origin `https://300x3.com` | `mastodon.300x3.com` | Approved publication host must be the federation host. |
-| D6 | `config/mastodon/instance-policy.yaml` | 24 | `registrations: "open with approval gate (approval_required: true)"` | `"closed"` | **Contradicted by the live instance** (`registrations=false`); see §15.4.2. |
+| D6 | `config/mastodon/instance-policy.yaml` | 20 | `registrations: "open with approval gate (approval_required: true)"` | `"closed"` | **Contradicted by the live instance** (`registrations=false`); see §15.4.2. |
 | D7 | `config/mastodon/instance-policy.yaml` | 18–19 | `admin@300x3.com`, `bot@300x3.com` | correct — matches the database | No change. |
 | D8 | `config/platform/version-matrix.yaml` | 41 | `local_domain: "mastodon.300x3.com"` | correct | Already reconciled 2026-10-01. Images are digest-pinned at v4.3.7, matching the running container. |
 | D9 | `config/platform/version-matrix.yaml` | 51 | note: `RAILS_FORCE_SSL/LOCAL_HTTPS are set false but are INERT … loopback proxy at https://127.0.0.1:3300` | `set true`; and the proxy port is **3000**, not 3300 | **Second instance of the same §15.4.2 error**, plus an independent port typo. Propagates the false claim into the platform matrix. |
@@ -5684,6 +6014,37 @@ them and the units that run them.
 | Restic backup of approved paths | `scripts/backup/restic-run.sh` | `ao-restic-backup.service` | `ao-restic-backup.timer` | 03:30 daily |
 | Repository integrity check | `scripts/backup/verify-backup.sh` | `ao-restic-verify.service` | `ao-restic-verify.timer` | Sun 04:30 |
 | Seven-step restore test | `scripts/restore/restore-restic-drill.sh` | none yet — see below | none yet | manual; **OPS-24 stays open until a timer exists** |
+
+**The seven-step contract has an executor: OPS-04 closed 2026-10-04.** The
+requirement is not owned by the `check-*.sh` validators — those verify the
+installed state, and none of them opens a repository or restores anything. It is
+owned by `scripts/restore/restore-restic-drill.sh`, one script, one function per
+step, each printing a `STEP n:` banner. The mapping is not a claim about intent,
+it is the script's own control flow:
+
+| §17.1 requirement | Implemented at | How it is proved to be able to fail |
+|---|---|---|
+| 1. Restore to an isolated path or host | L77 `restic restore --target "$scratch_abs"` | Three refusals, all reproduced 2026-10-04 (below) |
+| 2. Validate database integrity | L84 gzip `-t` plus a 1024-byte floor per dump | A truncated or empty dump increments `db_bad`, which forces `result=FAIL` |
+| 3. Recalculate artifact hashes | L104 `sha256sum` over every restored file | Writes `.drill-hashes.txt`; count is printed and asserted against the find |
+| 4. Compare with stored manifests | L110 per-file compare against the **live** tree | Three buckets: drift, suspect (mtime older than snapshot), live-only. `suspect > 0` forces `result=FAIL` |
+| 5. Verify Corda receipts/manifests | L162 finds `pending-ledger-submissions` manifests | Prints an explicit "path-set observation, not a pass" when zero are found |
+| 6. Record operator, ID, result, exceptions | L170 prints operator, snapshot, repo and all counters | The `result=` line is the only value step 7 branches on |
+| 7. Alert on failure | L179 non-zero exit plus an operator-facing instruction | Exit 1 is what any caller or unit would detect |
+
+**One honest deviation, recorded rather than smoothed over.** §17.1 step 4 says
+"compare hashes with stored manifests". There is no stored per-file manifest of
+the backed-up set — measured: `find artifacts -maxdepth 2 -name '*.sha256*'`
+returns only three upstream Corda download checksums
+(`artifacts/corda-5.2.2/*.sha256sum`), which are vendor checksums for jars and
+packages, not a manifest of what restic backed up. The drill therefore compares
+the restored tree against the **live** tree, which answers a different question:
+*did anything change since the snapshot*, rather than *does the snapshot match a
+recorded baseline*. That is arguably the more useful question for a restore drill
+and it is stricter about corruption, because the suspect-bucket test can fail
+where a manifest comparison would only report a mismatch. But it is not the
+requirement's wording, and inventing a baseline manifest would mean new backup
+behaviour, which is OPS-09's decision and not this session's.
 
 `install-backup-schedule.sh` installs the two root-level restic units. The
 `ao-db-dump` timer is armed only during a graphical session because host-database
