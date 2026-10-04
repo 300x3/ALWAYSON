@@ -180,15 +180,15 @@
         <visual name="visual">
           <geometry>
             <mesh>
-              <uri>model://factory_assets/meshes/massing_fab.dae</uri>
+              <uri>model://factory_assets/meshes/massing_flat.dae</uri>
               <scale>1.0 1.0 1.0</scale>
             </mesh>
           </geometry>
             <material>
-              <ambient>0 0 0 1</ambient>
-              <diffuse>0 0 0 1</diffuse>
-              <specular>0 0 0 1</specular>
-              <emissive>0.72 0.72 0.74 1</emissive>
+              <ambient>0.34 0.34 0.36 1</ambient>
+              <diffuse>0.58 0.58 0.60 1</diffuse>
+              <specular>0.03 0.03 0.03 1</specular>
+              <shininess>2</shininess>
               </material>
         </visual>
         <collision name="collision">
