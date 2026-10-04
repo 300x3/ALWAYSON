@@ -8225,14 +8225,7 @@ table and 3-2-1 status).<br><br><strong>Evidence:</strong><br><code># OPS-29's s
 <td valign="top">§4.2, §4.3, §17.2</td>
 <td valign="top">The README §4.3 SQLite rows are all projected to <code>ao_status.sqlite_store</code> with `present=true</td>
 </tr>
-<tr>
-<td valign="top">OPS-34</td>
-<td valign="top"><strong>Grafana reads SQLite through snapshots, never the live personal databases</strong></td>
-<td valign="top">ST-19</td>
-<td valign="top"><strong>Open</strong></td>
-<td valign="top">§6.A.2, §6.A.3, §4.3</td>
-<td valign="top"><strong>Superseded 2026-10-03 by operator directive: Grafana must have a real SQLite datasource.</strong> The reasoning that produced the snapshot design is retained here, not the earlier rejection. Grafana OSS 11.6.0 ships 19 bundled datasources and <strong>none is SQLite</strong> (verified in the running container: <code>ls /usr/share/grafana/public/app/plugins/datasource/</code>), so the <strong>community plugin <code>frser-sqlite-datasource</code></strong> is installed and named in <code>GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS</code> (allow-list of that one id, deliberately not <code>*</code>). It <strong>is unsigned</strong> — measured 2026-10-03: <code>plugin.json</code> carries <code>signature: null</code>, <code>signedByOrg: null</code>, and Grafana refuses to load it without the allow-list. That is the deviation, and it is bounded three ways: the id is named individually, the plugin is a <strong>pinned reviewed copy</strong> under <code>/ALWAYSON/data/monitoring/grafana-plugins</code> rather than fetched at start-up, and it is reachable only through read-only snapshots. One read-only datasource is provisioned <strong>per snapshot</strong> under <code>/var/lib/ao-sqlite</code>. <strong>Snapshots, not live files, is what makes this safe.</strong> The collector copies each permitted store with <code>VACUUM INTO</code> — which forces a non-WAL <code>delete</code>-mode output — into <code>/ALWAYSON/data/monitoring/sqlite-snapshots/</code>, so the plugin never opens a WAL database read-only (a WAL open needs a writable <code>-shm</code>) and never touches the original. Measured 2026-10-03: 7 snapshots integrated (<code>db-podman</code> 12 tables, <code>db-elisa</code> 12, <code>db-openclaw-agent-main</code> 21, <code>db-openclaw-agent-sitebot</code> 21, <code>db-nperf-history</code> 2, <code>db-nperf-settings</code> 1, <code>db-reticulum-meshchatx-observer</code> 4). This avoided the alternative the earlier row rejected: <strong>no ACL, no mode change and no bind mount of any personal file</strong> — the sources are opened only by the host collector, and <code>integrated=false</code> rows are never snapshotted. <strong>Mail and browser stores are excluded by operator instruction</strong>: no Akonadi mail database, no Chrome/Edge/Brave/Firefox history, cookies, autofill or <code>Login Data</code>. Only the non-personal system stores above are integrated. One datasource per snapshot is required because the plugin executes against the datasource's single <code>path</code> — its <code>databases</code> list is a UI picker only (measured: panels naming a different target returned the default <code>db-podman</code> rows).</td>
-</tr>
+
 </table>
 
 ## 19.2 Completed items and verification evidence
@@ -8252,6 +8245,39 @@ verification checks against the running system. Nothing listed here is outstandi
 </tr>
 </thead>
 <tbody>
+<tr>
+<td valign="top">OPS-34</td>
+<td valign="top"><strong>Grafana reads SQLite through snapshots, never the live personal databases</strong></td>
+<td valign="top">ST-19</td>
+<td valign="top"><strong>Implemented</strong></td>
+<td valign="top">§6.A.2, §6.A.3, §4.3</td>
+<td valign="top"><strong>CLOSED 17-backup-restore-monitoring-and-completion-criteria.</strong> Closed. The operator directive of 2026-10-03 — "Grafana must have a real SQLite
+datasource", superseding the snapshot design — is implemented and verified in
+the running container, not merely in the provisioning file.
+
+Verified three ways, deliberately: the plugin directory lists
+`frser-sqlite-datasource`; the unsign-plugin allow-list names that one id (not
+`*`); Grafana's own HTTP API returns the datasource with
+`"type":"frser-sqlite-datasource"` and `"status":"OK"` from `/health`; and the
+container log shows nine `checkHealth ... status=ok` entries across the seven
+provisioned stores (AO-SQLite, Elisa, MeshChatX observer, nPerf history, nPerf
+settings, openclaw main, openclaw sitebot).
+
+Note what did **not** change: the snapshot indirection described in
+`config/platform/monitoring/grafana/provisioning/datasources/sqlite-snapshots.yml`
+still stands, and it still holds. Every path points into `/var/lib/ao-sqlite`,
+which is a read-only bind mount of `VACUUM INTO` output written by
+`collect-system-health.py`, so Grafana still never opens a live store. A real
+SQLite datasource means a real SQLite *driver*, not a live read of a WAL store.
+Both measured reasons for the indirection survive: a WAL store cannot be read
+through a read-only mount because SQLite must write the `-shm` index, and
+`VACUUM INTO` output is delete-mode and opens cleanly read-only.
+
+The unsigned-plugin caveat recorded earlier still applies and is unchanged:
+`plugin.json` carries `signature: null` and Grafana refuses to load the plugin
+without the allow-list entry. That is a standing supply-chain decision for the
+operator, not an outstanding work item.<br><br><strong>Evidence:</strong><br><code>$ podman ps -a --format '{{.Names}} {{.Status}}' | grep -i grafana<br>ao-grafana Up 12 hours</code></td>
+</tr>
 <tr>
 <td valign="top">PLAT-04</td>
 <td valign="top">Asserting install verification</td>
