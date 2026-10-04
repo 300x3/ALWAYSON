@@ -78,6 +78,14 @@ def pid_alive(pid):
 
 
 def events(g):
+    """Events for the CURRENT run only.
+
+    events.jsonl is append-only across nudges, so a stale `error` or `done` from an
+    earlier run would otherwise match on the reverse scan and report the previous run's
+    outcome as this run's state - which is what kept `sec` in error while it was actually
+    running fine, and burned nudges against a live session. Truncate at the last
+    agent_start so only the current run is read.
+    """
     f = os.path.join(run_dir(g), "events.jsonl")
     if not os.path.exists(f):
         return []
@@ -90,7 +98,12 @@ def events(g):
             out.append(json.loads(line))
         except ValueError:
             pass
-    return out
+    # run boundary = last agent_start hook
+    start = 0
+    for i, e in enumerate(out):
+        if e.get("type") == "hook_event" and e.get("hookEventName") == "agent_start":
+            start = i
+    return out[start:]
 
 
 def state(g):
@@ -169,10 +182,14 @@ def cmd_watch(interval=60):
     while True:
         states = {g: state(g) for g in GROUPS}
         cmd_status()
-        active = [g for g in GROUPS if states[g][0] in ("running", "stuck")]
+        # A dead or errored session is NOT settled - it is a session that needs
+        # recovery. Treating it as inactive made `watch` report "all sessions
+        # settled" while a session sat dead and unrecovered.
+        NEEDS = ("running", "stuck", "error", "dead", "never")
+        active = [g for g in GROUPS if states[g][0] in NEEDS]
         for g in GROUPS:
             s, d = states[g]
-            if s == "stuck" and g not in nudged:
+            if s in ("stuck", "error", "dead") and g not in nudged:
                 nudge(g, d); nudged.add(g)
         if not active:
             print("\nall sessions settled.")
