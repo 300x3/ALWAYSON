@@ -77,13 +77,13 @@ it is the script's own control flow:
 
 | §17.1 requirement | Implemented at | How it is proved to be able to fail |
 |---|---|---|
-| 1. Restore to an isolated path or host | L77 `restic restore --target "$scratch_abs"` | Three refusals, all reproduced 2026-10-04 (below) |
-| 2. Validate database integrity | L84 gzip `-t` plus a 1024-byte floor per dump | A truncated or empty dump increments `db_bad`, which forces `result=FAIL` |
-| 3. Recalculate artifact hashes | L104 `sha256sum` over every restored file | Writes `.drill-hashes.txt`; count is printed and asserted against the find |
-| 4. Compare with stored manifests | L110 per-file compare against the **live** tree | Three buckets: drift, suspect (mtime older than snapshot), live-only. `suspect > 0` forces `result=FAIL` |
-| 5. Verify Corda receipts/manifests | L162 finds `pending-ledger-submissions` manifests | Prints an explicit "path-set observation, not a pass" when zero are found |
-| 6. Record operator, ID, result, exceptions | L170 prints operator, snapshot, repo and all counters | The `result=` line is the only value step 7 branches on |
-| 7. Alert on failure | L179 non-zero exit plus an operator-facing instruction | Exit 1 is what any caller or unit would detect |
+| 1. Restore to an isolated path or host | L89 `restic restore "$snapshot" --target "$scratch_abs"` | Three refusals, all reproduced 2026-10-04 (below) |
+| 2. Validate database integrity | L95–L113 gzip `-t` plus a 1024-byte floor per dump | A truncated or empty dump increments `db_bad`, which forces `result=FAIL` |
+| 3. Recalculate artifact hashes | L117 `sha256sum` over every file under the live root | Writes `.drill-hashes.txt`; count is printed at L118 |
+| 4. Compare with stored manifests | L121–L171 per-file compare against the **live** tree | Three buckets: drift, suspect (mtime older than snapshot), live-only. `suspect > 0` forces `result=FAIL` |
+| 5. Verify Corda receipts/manifests | L173 finds `pending-ledger-submissions` manifests | Prints an explicit "path-set observation, not a pass" when zero are found |
+| 6. Record operator, ID, result, exceptions | L181–L188 prints operator, snapshot, repo and all counters | The `result=` line at L188 is the only value step 7 branches on |
+| 7. Alert on failure | L190 non-zero exit plus an operator-facing instruction | Exit 1 is what any caller or unit would detect |
 
 **One honest deviation, recorded rather than smoothed over.** §17.1 step 4 says
 "compare hashes with stored manifests". There is no stored per-file manifest of
