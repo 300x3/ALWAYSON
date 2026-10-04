@@ -551,7 +551,38 @@ edited here.
 | D6 | `config/mastodon/instance-policy.yaml` | 20 | `registrations: "open with approval gate (approval_required: true)"` | `"closed"` | **Contradicted by the live instance** (`registrations=false`); see §15.4.2. |
 | D7 | `config/mastodon/instance-policy.yaml` | 18–19 | `admin@300x3.com`, `bot@300x3.com` | correct — matches the database | No change. |
 | D8 | `config/platform/version-matrix.yaml` | 41 | `local_domain: "mastodon.300x3.com"` | correct | Already reconciled 2026-10-01. Images are digest-pinned at v4.3.7, matching the running container. |
-| D9 | `config/platform/version-matrix.yaml` | 51 | note: `RAILS_FORCE_SSL/LOCAL_HTTPS are set false but are INERT … loopback proxy at https://127.0.0.1:3300` | `set true`; and the proxy port is **3000**, not 3300 | **Second instance of the same §15.4.2 error**, plus an independent port typo. Propagates the false claim into the platform matrix. |
+| D9 | `config/platform/version-matrix.yaml` | 51 | note: `RAILS_FORCE_SSL/LOCAL_HTTPS are set false but are INERT … loopback proxy at https://127.0.0.1:3300` | only the `set false` → `set true` wording | **Second instance of the same §15.4.2 error.** The `3300` in this note is **correct** and must not be "fixed". |
+
+**Correction to D9, made 2026-10-04.** An earlier pass recorded D9 as carrying "an
+independent port typo: it cites the loopback proxy at port `3300` where the real origin is
+`127.0.0.1:3000`", and instructed the owning session to change `3300` → `3000`. **That was
+wrong and would have introduced a real fault.** Both ports exist and both are correct for
+different processes:
+
+```console
+$ ss -ltnp | grep -E ':3000|:3300'
+LISTEN 127.0.0.1:3000 users:(("rootlessport",pid=8478))      # podman port publish -> Puma
+LISTEN 127.0.0.1:3300 users:(("python3",pid=2385))          # mastodon-local-proxy.py
+$ ps -p 2385 -o cmd --no-headers
+/usr/bin/python3 /ALWAYSON/scripts/operations/mastodon-local-proxy.py 3300 3000 ...
+$ curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:3000/api/v1/instance
+301
+$ curl -sk -o /dev/null -w '%{http_code}\n' https://127.0.0.1:3300/api/v1/instance
+200
+```
+
+`mastodon-local-proxy.service` ("ALWAYS ON Mastodon local HTTPS proxy
+(127.0.0.1:3300 -> :3000, self-signed TLS)") terminates TLS on `3300` and injects
+`X-Forwarded-Proto: https` so Puma's hardcoded `config.force_ssl = true` is satisfied —
+which is exactly why plain HTTP to `:3000` answers `301`. So `3300` is the *proxy* and
+`3000` is the *origin*, and the version-matrix note names the proxy correctly.
+
+Why this matters beyond the typo: the OpenClaw bridge depends on that distinction. Its
+`API` constant is `https://127.0.0.1:3300` with a pinned self-signed CA, and its in-code
+comment documents that using `http://…:3000` instead produces a TLS handshake against a
+non-TLS Puma and a crash loop. "Reconciling" `3300` to `3000` in the matrix would have
+documented a configuration that breaks the bridge. The only genuine drift in that note is
+the `set false` wording, which is the same §15.4.2 error as everywhere else.
 
 Proof that D2/D3 are live rather than theoretical: `scripts/mastodon/post.sh` line 17
 calls `fetch-openclaw-mastodon-env.sh` on every invocation and line 21 consumes
@@ -806,4 +837,137 @@ connection from this host to a fixed destination. If the control is stable while
 tunnel connections flap in lockstep across nine PoPs, the local path is confirmed and the
 tunnel is exonerated. I have not run that comparison because it is not required to record
 the finding, and running it well needs a deliberate observation window.
-(`remote_ip=104.21.41.83`).
+### 15.4.12 Re-Verification Pass, 2026-10-04 (liveness, not a status refresh)
+
+Re-measured the live claims in this section after the §15.4.11 tunnel finding, because
+several of them rest on artifacts whose age had grown past 48 h. Two things changed the
+picture: one of my own claims was wrong, and the tunnel fault in §15.4.11 is **still
+live**, not a historical episode.
+
+**`statuses` is empty, and that is the operator's wipe, not data loss.** The table reads
+zero, which looks alarming. It reconciles exactly with ST-13's documented 2026-10-01
+timeline wipe and its backup:
+
+```console
+$ podman exec mastodon-db psql -U mastodon -d mastodon -At -c 'select count(*) from statuses;'
+0
+$ awk '/^COPY public.statuses /,/^\\\.$/' \
+    /ALWAYSON/backups/mastodon-status-wipe-2026-10-01/statuses-before-wipe.sql | grep -c ''
+126
+$ podman exec mastodon-db psql -U mastodon -d mastodon -At \
+    -c "select id,username,coalesce(domain,'LOCAL') from accounts order by id;" | head -4
+-99|mastodon.internal|LOCAL                <- tombstone row, precedes every real id
+117363090403638110|admin|LOCAL
+117363090433277638|bot|LOCAL
+117367694533297015|300x3|mastodon.social
+$ podman exec mastodon-db psql -U mastodon -d mastodon -At \
+    -c 'select (select count(*) from follows), (select count(*) from accounts);'
+4|14
+```
+
+An earlier draft of this subsection quoted that accounts listing with `head -3` and showed
+it starting at `admin`. It does not: there is a `-99` `mastodon.internal` tombstone row
+that sorts first. The point I was making — that `admin`, `bot` and the remote `300x3`
+account survive the wipe — is unaffected, but the transcript must be the real one.
+
+126 statuses were deleted from a 126-row pre-wipe dump, and the accounts and follow rows
+ST-13 says were preserved are still present (`follows = 4`, `accounts = 14`). Anyone
+reading `count(*) = 0` as loss of data should read ST-13 first. Note the operational
+consequence: with zero statuses there is no local post for the federation queues to carry,
+so an empty `queue:push_public` no longer proves outbound delivery works — it only proves
+there is nothing to deliver.
+
+**The bridge is alive and polling; my first liveness measurement was wrong.** I sampled
+CPU ticks over 20 s, got `delta=0`, and read that as a stalled process. It is not. A 100 s
+sample shows steady consumption consistent with the 10 s poll loop:
+
+```console
+$ systemctl --user show mastodon-openclaw-bridge.service -p MainPID -p ActiveState -p NRestarts
+ActiveState=active
+MainPID=788109
+NRestarts=0
+$ ps -p 788109 -o lstart,etime --no-headers
+Thu Oct  1 18:50:54 2026    2-21:22:16
+$ t1=$(awk '{print $14+$15}' /proc/788109/stat); sleep 100
+$ t2=$(awk '{print $14+$15}' /proc/788109/stat); echo "delta_ticks=$((t2-t1))"
+delta_ticks=2
+$ cat /proc/788109/wchan
+hrtimer_nanosleep
+```
+
+A 10 s poll doing one HTTPS request per cycle costs ~2 ms per iteration, so **any sample
+shorter than about 60 s can read zero on a perfectly healthy process.** `wchan =
+hrtimer_nanosleep` and a `MainPID` unchanged since 2026-10-01 corroborate it, and
+`NRestarts=0` means the unit has never been restarted into a crash loop. Do not use a
+short CPU delta as a liveness test for this unit.
+
+**The idle cursor is real idleness, and the state file explains it.** The cursor is 7, the
+database `max(notifications.id)` is 8, and the state file has not been written since
+2026-10-01. Querying the API the way the bridge does resolves the apparent contradiction —
+notification 8 exists but is **not the bot's**:
+
+```console
+$ cat ~/.openclaw/mastodon-bridge-state.json
+{
+  "lastNotificationId": "7",
+  "updatedAt": 1790900850.2506645
+}
+$ ls -la ~/.openclaw/mastodon-bridge-state.json
+-rw-rw-r-- 1 scottw scottw 67 Oct  1 17:27 /home/scottw/.openclaw/mastodon-bridge-state.json
+# same call the bridge makes: /api/v1/notifications?limit=40
+notifications returned: 1
+ids/types: [('7', 'follow')]
+max id: 7
+$ podman exec mastodon-db psql -U mastodon -d mastodon -At \
+    -c "select id,type,account_id from notifications order by id;"
+7|follow|117363090433277638      <- bot
+8|follow|117363090403638110      <- admin
+```
+
+So the newest notification *the bridge can see* is 7, equal to its cursor, and there is
+nothing to advance to. The state file is only rewritten when a notification is newer than
+the cursor, so its 2026-10-01 mtime is consistent with a healthy idle loop and is **not**
+evidence of a stall. This refines the §15.4.9 claim that "max(notifications.id) is 8 while
+the cursor is 7" — those two numbers were never comparable, because the API view is
+per-account. §5 (README) states the same pairing and should be read with this in mind.
+
+**COMM-08 is still ongoing; §15.4.11 is not stale.** Re-measured the flap rate:
+
+```console
+$ for w in '15 min ago' '1 hour ago' '24 hours ago'; do
+    printf '%s: ' "$w"; journalctl --user -u cloudflared-alwayson.service --since "$w" \
+      | grep -c 'Lost connection with the edge'; done
+15 min ago: 7
+1 hour ago: 15
+24 hours ago: 381    # was 384 at the previous pass, i.e. the rate is NOT decaying
+$ systemctl --user show cloudflared-alwayson.service -p NRestarts -p ActiveState
+ActiveState=active
+NRestarts=1
+```
+
+Two corrections to what I wrote before the stall. First, **the `15 min ago: 0` sample I
+reported in the draft of this subsection was a quiet window, and I have now caught the flap
+mid-burst (`15 min ago: 7`).** That is exactly the trap §15.4.11 warns about, and it is
+the reason the short window must not be quoted on its own. Second, 381 in 24 h against 384
+previously is steady-state persistence, not decay — the fault has now run for over two days.
+
+I also ran the cheap control comparison §15.4.11 said it had not done: a long-lived TLS
+handshake to the same Cloudflare edge address succeeds cleanly, and a control request to a
+non-tunnel external host is stable:
+
+```console
+$ openssl s_client -connect 104.21.41.83:443 -servername mastodon.300x3.com </dev/null \
+    | grep -E 'Protocol|Verify return'
+Protocol: TLSv1.3
+Verify return code: 0 (ok)
+$ for i in 1 2 3; do curl -4 -s -o /dev/null -m 15 \
+    -w '%{http_code} ' https://mastodon.social/api/v2/instance; sleep 3; done
+200 200 200
+```
+
+This is **not** yet the confirmation §15.4.11 asked for, and must not be reported as one: a
+single short-lived TLS handshake succeeding says nothing about connection *stability* over
+the minutes-long window a tunnel connector needs. It does exclude "TLS to the edge IP is
+broken" and "general outbound HTTPS is broken", which is useful. Diagnosing the local path
+and changing tunnel transport remain live network configuration and therefore a stop
+condition. Tracked as COMM-08; status Open.
