@@ -1,0 +1,80 @@
+# ALWAYS ON - conveyor loops, drive motorboxes and carried loads.
+#
+# WHAT THIS IS. A declarative description of the conveyor areas in the
+# fabrication cell. scripts/simulation/build-conveyor-loops.py turns this into
+# SDF physics entities in GAZEBO/worlds/factory.world. Edit this file, not the
+# world; the generator is idempotent and rewrites its own block wholesale.
+#
+# WHY DATA AND NOT MESH. A motorbox that carries load and a crate that rides a
+# belt must be physics bodies with mass, inertia and contacts. Anything baked
+# into a Collada visual has none of those: it cannot be driven and it cannot
+# carry anything. conveyor.dae contains no gearbox geometry at all.
+#
+# OPERATOR SPEC (2026-10-03):
+#   The conveyors are LOOPS, not a serpentine - each loop is its own closed
+#   circuit, and the loops do not run into one another.
+#   Storage area: two pairs of loops - one pair LOW, one pair HIGH.
+#                Carries black and yellow storage bins.
+#   Freezer/fridge/pantry area: three pairs of loops - one LOW for the freezer,
+#                one MID for the fridge, one HIGH for the pantry.
+#                Carries milk crates.
+#   Every loop has at least one electric motorised gearbox, and every gearbox
+#   has load riding on it.
+#
+# PROVENANCE WARNING. The area datums below are PROVISIONAL. This project is
+# boned against real machines, so a wrong datum is worse than a missing one.
+# They are fitted clear of the measured cell-conveyor and cell-arms envelopes
+# from boning.yaml, not surveyed from the real installation. Loop geometry
+# (run length, width, deck height, motorbox and load sizes) is likewise a
+# starting point for the operator to correct, not measured data.
+
+meta:
+  generated_by: scripts/simulation/build-conveyor-loops.py
+  operator_spec_date: 2026-10-03
+  datums: provisional
+
+defaults:
+  # One loop = a closed rectangular circuit: two long runs and two short returns.
+  loop_run_length_m: 0.62
+  loop_width_m: 0.34
+  # Two loops of a pair sit side by side with this gap between their belts.
+  pair_gap_m: 0.05
+  motorbox:
+    size_m: [0.16, 0.13, 0.13]   # length along the run, width, height
+    mass_kg: 24.0                # geared motor + drive, sized to carry the load
+    motor:
+      topic: conveyor/loop_drive
+      max_effort_nm: 40.0
+      max_velocity_rad_s: 6.0
+
+areas:
+
+  # ---- Storage: two pairs, one LOW and one HIGH, carrying storage bins ------
+  storage:
+    origin: [0.70, 1.10, 0.0]         # PROVISIONAL
+    load:
+      name: storage_bin
+      size_m: [0.30, 0.22, 0.16]
+      mass_kg: 12.0
+      material:
+        # Hazard livery: black body with a yellow band. Two primitives, because
+        # one SDF material cannot express a two-tone part.
+        body:   {ambient: "0.05 0.05 0.05 1", diffuse: "0.06 0.06 0.06 1", specular: "0.25 0.25 0.25 1", shininess: "18"}
+        stripe: {ambient: "0.85 0.68 0.05 1", diffuse: "0.92 0.74 0.06 1", specular: "0.30 0.30 0.30 1", shininess: "24"}
+    pairs:
+      - {label: low,  deck_m: 0.45, at: [0.00, 0.00], loops: [0, 1]}
+      - {label: high, deck_m: 1.15, at: [0.00, 0.00], loops: [0, 1]}
+
+  # ---- Freezer / fridge / pantry: three pairs at three heights, milk crates --
+  fridge:
+    origin: [0.70, 3.10, 0.0]         # PROVISIONAL
+    load:
+      name: milk_crate
+      size_m: [0.29, 0.29, 0.26]
+      mass_kg: 18.0
+      material:
+        body: {ambient: "0.42 0.44 0.46 1", diffuse: "0.58 0.60 0.62 1", specular: "0.22 0.22 0.22 1", shininess: "14"}
+    pairs:
+      - {label: freezer, deck_m: 0.45, at: [0.00, 0.00], loops: [0, 1]}
+      - {label: fridge,  deck_m: 1.05, at: [0.00, 0.00], loops: [0, 1]}
+      - {label: pantry,  deck_m: 1.65, at: [0.00, 0.00], loops: [0, 1]}
