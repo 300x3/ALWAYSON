@@ -74,3 +74,41 @@ now fully evidenced and needs only a yes or no.
 I recommend (2) for the four database services only, since `file_env` is proven
 to work there; the remaining consumers are not all `file_env`-aware and would
 need separate handling.
+
+## Second pass, 2026-10-04 (this session)
+
+The recommendation above is now **wrong in an important way**, and the operator should weigh
+the correction before deciding.
+
+Re-measured 2026-10-04, the set of consumers the deviation covers is **nine env files across
+fifteen units**, not the four named in the acceptance criterion and in the first draft of
+§14.1.6's scope paragraph. §14.1.6 now carries the full table. Three consequences for this
+decision:
+
+1. **The migration is larger than option (2) implies.** Option (2) names four database
+   services because those are `file_env`-aware. The other five files (`payment.env`, the two
+   reporting files, `mastodon.env`, `mastodon-db.env` via the app-password branch) are not
+   Postgres-image consumers, so `Secret=` for them is not a copy of the same four-line change —
+   it needs per-consumer design. The migration should not be approved as one decision sized
+   for four units.
+
+2. **`mastodon.env` is `0640`, not `0600`** (`getfacl`: `user:ao-sales:r--`, `group::---`,
+   `other::---`). It is the widest-read delivery copy on the host, deliberately, so
+   `ao-sales`-group units can read it. A deviation that promises "`0600` env files" is
+   therefore not quite what exists; §14.1.6 no longer claims it is.
+
+3. **A delivery copy is already stale in practice** — §14.1.7, filed as **SEC-04**. The
+   deviation being ratified here is the *steady-state* delivery mechanism; `payment.env`
+   shows that mechanism can fail silently and run a live service on sixteen-hour-old
+   material. Ratifying the deviation without also addressing silent fetch failure ratifies a
+   mechanism that has a demonstrated silent-failure mode. That is an argument for addressing
+   SEC-04 first, not a reason to reject the deviation.
+
+The recommendation is therefore narrowed: **ratifying §14.1.6 as now written is reasonable**,
+with the scope corrected to nine files, **but the silent-failure mode (SEC-04) should be fixed
+either way**, since it is a fault in the mechanism rather than a property of the mechanism.
+
+Re-verified this pass and unchanged: `podman secret ls` still empty; `grep -rn 'Secret='
+quadlet/` still 0; `POSTGRES_PASSWORD_FILE` still honoured at line 235 of the pinned image's
+`docker-entrypoint.sh`. Nothing was applied — the migration remains prepared, not executed,
+because it changes live credential delivery.

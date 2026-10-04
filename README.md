@@ -5029,6 +5029,25 @@ service reads it from there. There is no generic or cross-domain wallet folder, 
 | `fabrication-db-password` | `ao-fabrication` |
 | `webodm-postgres-password` | `ao-mapping` |
 | `mastodon-db-password` | `ao-mastodon` |
+| `payment-db-password`, `payment-paypal-webhook-id`, `payment-paypal-webhook-secret`, `payment-coinbase-webhook-secret` | `ao-payment` |
+| `pcloud-webdav-password`, `pcloud-webdav-user` | `ao-archive` |
+
+The last two rows are mapped in `wallet_folder_for` but **neither folder exists on this
+host**. Measured 2026-10-04, `folderList` de-duplicated returns exactly seven `ao-*`
+folders — `ao-admin`, `ao-fabrication`, `ao-mapping`, `ao-mastodon`, `ao-sales`,
+`ao-sim-fabrication`, `ao-sim-vehicle` — and `ao-payment` and `ao-archive` are both absent.
+§14.1.1 already says these folders are "created only when the consumer exists and the
+credential is provisioned, never speculatively"; the `ao-payment` consumer does exist and is
+running, which makes its absent folder a fault rather than correct restraint. See §14.1.7.
+
+**Mapping is not the same as deliverability.** `wallet_folder_for` routes 30-odd entry names,
+but a mapping only means the fetcher will *try*. Several entries the fetcher names are read
+by other consumers instead — `openclaw-bot-client-secret` and
+`cloudflare-tunnel-credentials-json` by `fetch-openclaw-mastodon-env.sh` and
+`fetch-cloudflared-env.sh`, `producer-private-key` by `scripts/ledger/sign-manifest.sh` —
+and those are not affected by a missing entry in `wallet_folder_for`. Conversely an entry
+that *is* mapped but whose folder is absent is a hard fetch failure, which is the
+`ao-payment` case.
 
 A role and the application that connects to it must use the same password, so a fresh
 `mastodon-dbdata` cannot be created with a different password than the application connects
@@ -5256,11 +5275,43 @@ than silently left in place. **It is not self-approving** — README §4.1 rule 
 decision to the operator.
 
 **Scope of the deviation.** Secret *storage* is the KDE Wallet, encrypted at rest. Secret
-*delivery* to `ao-mastodon-db`, `ao-sales-db`, `ao-webodm-db` and `ao-fabrication-db` is a
-`0600` env file under `%h/.local/share/ao-secrets/`, refreshed at start-up by
+*delivery* is a `0600` env file under `%h/.local/share/ao-secrets/`, refreshed at start-up by
 `fetch-kwallet-secret.sh`. Env files are **delivery copies, not stores**: the wallet is the
 only system of record, and every file is rewritten from the wallet on each refresh, so losing
 one costs a re-fetch, not a credential.
+
+The **first draft of this paragraph named only four consumers** —
+`ao-mastodon-db`, `ao-sales-db`, `ao-webodm-db` and `ao-fabrication-db`. That understated the
+deviation by roughly a factor of three. Measured 2026-10-04, the delivery set is **eight
+secret-bearing env files**, not four:
+
+| Env file | Produced by | Consumer |
+|---|---|---|
+| `mastodon-db.env` | `fetch-kwallet-secret.sh … mastodon-db-password` | `ao-mastodon-db` |
+| `sales-db.env` | `… sales-db-password` | `ao-sales-db` |
+| `webodm.env` | `… webodm-postgres-password` | `ao-webodm-db` |
+| `fabrication-db.env` | `… fabrication-db-password` | `ao-fabrication-db` |
+| `payment.env` | `… payment-credentials` | `ao-ingress-payment` |
+| `reporting-grafana-admin.env` | `… grafana-admin-password` | `ao-grafana` |
+| `reporting-grafana-postgres.env` | `fetch-reporting-env.sh grafana` | `ao-grafana`, `ao-status-collect`, `ao-db-security-collect` |
+| `reporting-metabase.env` | `fetch-reporting-env.sh metabase` | `ao-metabase` |
+
+Plus `mastodon.env` (1041 bytes, mode `0640`, wallet entry `ao-mastodon/mastodon-env`,
+byte-identical to the file per §14.1.3), consumed by `ao-mastodon-web`, `-streaming` and
+`-sidekiq` and by the repair `ExecStartPost`. **The operator is therefore being asked to
+ratify a deviation covering nine files across fifteen units, not four files across four
+units.** The four-database framing was inherited from the SEC-01 acceptance criterion, which
+names only mastodon-db, sales-db and webodm-db; the criterion is narrower than the
+implementation, and the implementation is what needs approving.
+
+**A mode exception inside that set, stated precisely.** `mastodon.env` is `0640`, not `0600`,
+because `ao-wallet-bridge.sh` adds the ACL that lets `ao-sales` read it. Measured:
+
+    $ getfacl -p ~/.local/share/ao-secrets/mastodon.env
+    user::rw-  user:ao-sales:r--  group::---  mask::r--  other::---
+
+The other eight env files are `0600 scottw:scottw` with no ACL. So "all delivery copies are
+`0600`" is true of eight files and false of the ninth; §14.1.6 previously said so uniformly.
 
 **Why the mandated mechanism is not used.** Podman secrets (`podman secret ls` returns an
 empty list; Podman 5.7.0) would have to be populated *from* the wallet by a root or
@@ -5310,6 +5361,103 @@ why the wallet — not these files — is designated the system of record.
 `Secret=` mounted at `/run/secrets/…` plus `Environment=POSTGRES_PASSWORD_FILE=/run/secrets/…`
 would satisfy §14.1 for the database services. It has not been applied: it changes live unit
 definitions and live credential delivery, and therefore stops for operator approval.
+
+### 14.1.7 `payment.env` is a stale delivery copy, and §19 ST-12's "runs with no DSN" is wrong
+
+Found 2026-10-04. **The payment adapter has been running since 2026-10-01 15:08 with an env
+file whose wallet source does not exist.** This is a liveness and correctness fault, not a
+documentation drift, and it is in this section because the fault is in secret *delivery*.
+
+The measured chain, each step a command and its output:
+
+**1. The wallet folder the fetcher needs does not exist.**
+
+    $ python3 … folderList(h,'ao-secret-reader')
+    ao-payment exists: False
+    ao-archive exists: False
+
+`wallet_folder_for` maps `payment-db-password`, `payment-paypal-webhook-id`,
+`payment-paypal-webhook-secret` and `payment-coinbase-webhook-secret` to `ao-payment`
+(`fetch-kwallet-secret.sh` line 90). §19 ST-12 already recorded that "the four `ao-payment`
+wallet entries do not exist yet". Confirmed: the folder is absent, not merely empty.
+
+**2. The env file therefore cannot be refreshed, and has not been.**
+
+    $ stat -c '%n mtime=%y' ~/.local/share/ao-secrets/payment.env
+    payment.env mtime=2026-09-30 23:18:29
+    $ systemctl --user show ao-ingress-payment.service -p ActiveEnterTimestamp
+    ActiveEnterTimestamp=Thu 2026-10-01 15:08:41 PDT 2026
+
+**The file is older than the process reading it by roughly sixteen hours.** Every start since
+2026-10-01 has consumed a file frozen at 2026-09-30.
+
+**3. The fetch failure is silenced, so nothing reports it.**
+
+    $ grep -rn 'ExecStartPre=-' quadlet/
+    quadlet/payment/ao-ingress-payment.container:63:ExecStartPre=-…fetch-kwallet-secret.sh … payment-credentials
+
+The leading `-` makes systemd ignore the exit status. `fetch_secret` exits 2
+("no wallet folder mapped") and 3 ("wallet entry unavailable"), but `ExecStartPre=-` discards
+both. Consequently:
+
+    $ journalctl --user -u ao-ingress-payment.service --since 2026-10-01 \
+        | grep -cE 'wallet entry unavailable|no wallet folder mapped'
+    0
+
+**Zero** occurrences. The failure is real, recurring on every start, and produces no journal
+entry at all. This is the same class of fault as the 2026-10-01 grafana/metabase outage
+recorded in §14.1.4 — a failed fetch — except that there the fetch was loud and the units
+crashed visibly, and here it is silent and the unit runs on stale material. The `-` prefix
+converts a loud failure into a silent one.
+
+**4. The stale file is not inert, and §19 ST-12's claim is false.**
+
+ST-12 states the adapter "runs with no DSN and no webhook secret and cannot accept a payment."
+Measured, with the password reduced to a length and a sha256 prefix:
+
+    $ sed -n 's|^PAYMENT_DSN=postgresql://[^:]*:\([^@]*\)@.*|\1|p' payment.env | wc -c
+    49                                     # 48 chars + newline
+    $ sed -n 's|^PAYMENT_DSN=postgresql://[^:]*:\([^@]*\)@.*|\1|p' payment.env \
+        | tr -d '\n' | sha256sum | cut -c1-12
+    03521083973b
+
+That prefix is **identical to the live `sales-db-password`** recorded in §14.1.6
+(`03521083973b`, 48 chars) — the same value the orphaned `legacy-alwayson-folder.env` carries.
+So `payment.env` holds a **currently-valid sales database password**, embedded in a DSN as
+`postgresql://sales_migration_role:<password>@127.0.0.1:15432/salesdb`.
+
+**The DSN is present and usable. ST-12's "runs with no DSN" is incorrect**, and the
+conclusion drawn from it — that the adapter "cannot accept a payment" — rests on a measurement
+that does not hold. The three webhook secret lines are genuinely absent (the file has one key,
+`PAYMENT_DSN`), so the adapter has a database connection but no webhook verification material.
+The correct statement is narrower: **it holds a live sales-DB credential and no webhook
+secrets**, which is a different and less safe situation than ST-12 describes, because the
+DSN alone grants database access.
+
+**5. `check-secrets-exposure.sh` cannot see it**, for the same reason it missed
+`legacy-alwayson-folder.env`: the file is untracked and correctly `0600`, and the guard's
+`$secret_key_re` does not match `PAYMENT_DSN` — a deliberate carve-out at
+`check-secrets-exposure.sh` line 79, whose comment says `payment.env` "carries a DSN, not a key
+name". The carve-out was written so a healthy DSN file would not be flagged as leftover temp
+debris; the side effect is that the one file carrying a real password in DSN form is
+structurally invisible to the guard.
+
+**Operator decision requested. Not changed by this session**, because it touches payment
+credentials and a live running service (brief stop conditions; README §4.1 rules 12 and 14).
+
+1. **Create the four `ao-payment` wallet entries**, then restart `ao-ingress-payment`. This is
+   ST-12's own outstanding action and it also fixes the staleness. Recommended first.
+2. **Decide whether the `-` prefix on line 63 should stay.** It was presumably added so a
+   missing-wallet fetch would not block the unit — but the result is a unit that runs
+   indefinitely on an env file it can never refresh, with no log line. If it stays, the
+   staleness needs a separate check; if it goes, a locked wallet takes the unit down with it.
+   Either is defensible, but the current state documents neither.
+3. **Note for §19**: ST-12's "runs with no DSN" needs correcting. ST-12 is not this session's
+   file, so this is raised as a proposal, not an edit.
+
+Cross-group: the *credential content* of this is PAY territory and the ST-12 row is the
+compiler's. The *delivery-mechanism* fault — silent fetch failure on a `0600` stale copy — is
+SEC's and is what §14.1.7 records.
 
 ## 14.2 Credential rotation, revocation and recovery
 
@@ -5402,18 +5550,30 @@ secrets are rotated, never restored.**
 
 ### 14.2.5 Break-glass order for the operator
 
-In order, stopping at the first step that resolves the fault. Steps 1–3 are non-destructive;
-step 4 changes a live credential and is the operator's alone.
+In order, stopping at the first step that resolves the fault. Steps 1–4 are non-destructive;
+step 5 changes a live credential and is the operator's alone. Step 2 was added 2026-10-04
+after §14.1.7 found a delivery copy that had gone stale without any fault being reported.
 
 1. **Is it the wallet being locked?** Check `isOpen(handle)` — not `busctl --user list |
    grep kwalletd6`, which returns true the instant kwalletd is D-Bus-activated and therefore
    never waits. A `0-byte` `.tmp` under `ao-secrets/` is the forensic signature of a locked
    wallet (§14.1.4). Fix: unlock the wallet from the Plasma session and restart the unit.
-2. **Is the unit simply not started?** These units are `WantedBy=graphical-session.target` and
+2. **Is a delivery copy older than the process reading it?** Compare the two mtimes before
+   anything else, because it is the cheapest check and it catches the silent failure mode:
+
+       $ stat -c '%y %n' %h/.local/share/ao-secrets/*.env
+       $ systemctl --user show <unit> -p ActiveEnterTimestamp
+
+   An env file older than the unit's start timestamp means the `ExecStartPre` did not rewrite
+   it. §14.1.7 documents this happening silently for sixteen hours on `ao-ingress-payment`
+   because its `ExecStartPre` carries the `-` ignore-failure prefix. **A fetch that fails on a
+   `-`-prefixed `ExecStartPre` leaves no journal entry**, so mtime-versus-start-timestamp is
+   the only reliable signal that a delivery copy has gone stale.
+3. **Is the unit simply not started?** These units are `WantedBy=graphical-session.target` and
    are *expected* to be down before Plasma login. That is the login-gated design, not a fault.
-3. **Is the entry present?** `hasEntry` on the owning folder via `kwallet-provision.sh get` /
+4. **Is the entry present?** `hasEntry` on the owning folder via `kwallet-provision.sh get` /
    `fetch_secret`; a missing entry is re-provisioned by the operator with a **new** value.
-4. **Rotate, do not restore.** If a value is suspected exposed, or unrecoverable, write a new
+5. **Rotate, do not restore.** If a value is suspected exposed, or unrecoverable, write a new
    value to the owning `ao-*` folder and restart (§14.2.1). This is the only path for a lost
    wallet, and it does not require the old value.
 

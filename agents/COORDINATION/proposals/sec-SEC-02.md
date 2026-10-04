@@ -2,21 +2,52 @@
 item: SEC-02
 action: update
 evidence: |
-  $ find ~/secrets -name 'fabrication*' -o -name '*fabrication-db*'
-  (no output — the file ST-30 records does not exist)
+  Re-measured independently 2026-10-04, not inherited. Each legacy key compared
+  against the live env file the owning unit reads, by sha256 prefix, no values
+  printed. The loop checks that the live file actually has a POSTGRES_PASSWORD
+  key first, so a missing key is reported as a broken measurement rather than a
+  negative result:
 
-  $ ls -la ~/.local/share/ao-secrets/fabrication-db.env
-  -rw-------  1 scottw scottw  100 Oct  1 21:31 fabrication-db.env
-  → the real path, consistent with the single-env-root rule in §14.1.2.
+    $ for pair in sales-db-password:sales-db.env webodm-postgres-password:webodm.env \
+                 fabrication-db-password:fabrication-db.env mastodon-db-password:mastodon-db.env; do …
 
-  $ ls -la ~/secrets/mastodon.env
-  lrwxrwxrwx ... 39 Aug 29 19:39 mastodon.env -> /ALWAYSON/secrets/mastodon/mastodon.env
-  $ ls -la /ALWAYSON/secrets/mastodon/mastodon.env
-  ls: cannot access '/ALWAYSON/secrets/mastodon/mastodon.env': No such file or directory
-  → dangling symlink. Inert: units read %h/.local/share/ao-secrets/, not ~/secrets/.
+    sales-db-password        -> sales-db.env        : SAME len=48  sha256(03521083973b)
+    webodm-postgres-password -> webodm.env           : SAME len=32  sha256(6d174927d250)
+    fabrication-db-password  -> fabrication-db.env   : SAME len=32  sha256(f0d6bb4481fd)
+    mastodon-db-password     -> mastodon-db.env      : DIFFERENT len 48 vs 40  sha256(8c3319896c87)
 
-  $ grep -rn 'Secret=' quadlet/ | wc -l
-  0
+  → reproduces the prior session's table exactly. Three of four are live.
+
+  NEW this pass — the guard's blind spot is now two instances, not one:
+
+    $ bash scripts/validation/check-secrets-exposure.sh
+    OK: no secret-shaped content in tracked files      (rc=0)
+
+  It returns OK while two untracked 0600 files hold live credentials. Reason,
+  at check-secrets-exposure.sh line 79: the `$secret_key_re` carve-out comment
+  says payment.env "carries a DSN, not a key name", so PAYMENT_DSN is not
+  matched. See the sec-SEC-04 proposal for the payment.env instance.
+
+  NEW — the deviation's scope was understated. Measured delivery set is NINE
+  env files, not the four the section previously named:
+
+    $ ls -la ~/.local/share/ao-secrets/*.env   (10 files, of which 9 are live
+      or orphaned delivery copies; legacy-alwayson-folder.env is the 10th)
+    $ grep -rln 'ao-secrets' quadlet/ | wc -l
+    15
+
+  §14.1.6 now carries the full table. The four-database framing was inherited
+  from this item's own acceptance criterion, which names only mastodon-db,
+  sales-db and webodm-db — the criterion is narrower than the implementation,
+  and the implementation is what needs ratifying.
+
+  NEW — a mode exception inside that set. mastodon.env is 0640, not 0600:
+
+    $ getfacl -p ~/.local/share/ao-secrets/mastodon.env
+    user::rw-  user:ao-sales:r--  group::---  mask::r--  other::---
+
+  The other eight are 0600 scottw:scottw with no ACL. §14.1.6 previously said
+  "0600" uniformly; it no longer does.
 section: 14-secrets-and-service-identity
 ---
 `update`. The policy/implementation reconciliation itself is done and is recorded in
@@ -102,3 +133,39 @@ its own first line said "awaiting operator ratification" — the heading claimed
 approval that does not exist. I changed it to "Recorded deviation". A heading that
 asserts operator consent is exactly the kind of thing this session must not
 produce unprompted.
+
+**Still true from the prior pass, re-checked 2026-10-04 and unchanged:** `~/secrets/mastodon.env`
+is still a dangling symlink to `/ALWAYSON/secrets/mastodon/mastodon.env` (absent), still inert,
+still not removed. `~/secrets/` contains only that symlink plus TLS key material in
+`mastodon/` (`mastodon-local.key`, mode 0600) — no `.env` file exists there at all, which
+confirms ST-30's `~/secrets/fabrication-db.env` never existed under any name.
+
+## Third pass, 2026-10-04 (this session)
+
+§14.1.2 gained the two missing folder rows (`ao-payment`, `ao-archive`) and the measured fact
+that **neither folder exists**, plus the distinction between an entry being *mapped* in
+`wallet_folder_for` and it being *deliverable*. The second distinction matters because several
+entries the fetcher names are in fact read by other consumers
+(`fetch-openclaw-mastodon-env.sh`, `fetch-cloudflared-env.sh`, `sign-manifest.sh`), so an
+absent mapping is not always a fault — whereas a present mapping with an absent folder is a
+hard failure, which is `ao-payment`.
+
+The measured `ao-*` folders, de-duplicated per §14.1.4's duplicate-row rule:
+
+    ao-admin, ao-fabrication, ao-mapping, ao-mastodon, ao-sales,
+    ao-sim-fabrication, ao-sim-vehicle        (7 folders, 37 entries)
+
+`ao-payment` and `ao-archive` absent. **37 `ao-*` entries, plus 2 in `Passwords` = 39**,
+which reconciles exactly with the 39 §14.1.4 records for "`ao-*` + `Passwords`" and confirms
+that figure is still current, not stale. (Total across all 15 folders is 52; the other 11
+folders are unrelated application folders — `Chrome Keys`, `obsidian Keys`, `imap`, etc.
+— which is why the count must be taken over the `ao-*` set specifically.)
+
+One further correction to my own reasoning: I nearly recorded the `ao-archive` absence as a
+second instance of the §14.1.7 fault. It is not. `pcloud-restic-setup.sh` is an
+operator-run setup script that *creates* the folder's entry as its first act and dies with
+"wallet entry ao-archive/pcloud-webdav-password unavailable" if it cannot — so an absent
+`ao-archive` is that script's expected pre-setup state, not a live consumer running on stale
+material. `ao-payment` is different precisely because `ao-ingress-payment.service` is
+`active (running)`. The distinction is whether a consumer is live, not whether a folder is
+missing, and I would have conflated the two had I not checked the service state.
