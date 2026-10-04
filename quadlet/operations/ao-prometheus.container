@@ -10,6 +10,12 @@ Image=docker.io/prom/prometheus@sha256:d47ad27caa12a6f81491a5f6e0d724d6eee5954b4
 ContainerName=ao-prometheus
 Network=ao-admin.network
 Volume=/ALWAYSON/config/platform/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro,Z
+# README 17.2 alerting rules (OPS-11). Loaded via rule_files in prometheus.yml.
+# It cannot be inlined into prometheus.yml: Prometheus rejects a top-level
+# `groups:` key there (measured with promtool -- "field groups not found in type
+# config.plain"), so the rules live in this second file and must be mounted at
+# the exact path prometheus.yml names.
+Volume=/ALWAYSON/config/platform/monitoring/alwayson-alerts.yml:/etc/prometheus/alwayson-alerts.yml:ro,Z
 PublishPort=127.0.0.1:9090:9090
 NoNewPrivileges=true
 DropCapability=all

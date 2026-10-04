@@ -35,9 +35,26 @@ if (( AO_DRY_RUN )); then
 else
   # Snapshot ID comes from restic itself, not from a guess. Recorded only on
   # success; a failure below is journalled by the trap and exits non-zero.
-  snapshot="$(bash -c "set -a && source '$envfile' && restic snapshots --latest 1 --json 2>/dev/null" \
-    | grep -oE '"short_id"[[:space:]]*:[[:space:]]*"[0-9a-f]+"' | head -1 \
-    | grep -oE '[0-9a-f]{8,}' || true)"
+  #
+  # `--latest 1` returns one snapshot PER PATH GROUP, not one snapshot overall.
+  # This backup passes 11 paths in a single restic invocation, so the array
+  # holds one element per path, each from a different timestamp, and `head -1`
+  # picks the FIRST element rather than the newest. Measured on a scratch repo
+  # 2026-10-03: 2 path groups produced a 2-element array whose head was the
+  # OLDER snapshot. That made the backup journal record a stale ID forever:
+  # /ALWAYSON/logs/backup.log showed 548d9910 on three consecutive runs while
+  # journalctl showed the real IDs e79edfbf and fbc25f93.
+  #
+  # Fix: sort by the snapshot time field and take the maximum explicitly
+  # instead of trusting array order, and filter to this run's --tag.
+  snapshot="$(bash -c "set -a && source '$envfile' && restic snapshots --tag alwayson --json 2>/dev/null" \
+    | python3 -c 'import json,sys
+try:
+    snaps = json.load(sys.stdin)
+except Exception:
+    sys.exit(0)
+if snaps:
+    print(max(snaps, key=lambda s: s.get("time",""))["short_id"])' || true)"
   ao_backup_run "${snapshot:-unavailable}" OK "restic backup completed"
   ao_audit "restic backup completed"
 fi
