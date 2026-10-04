@@ -233,14 +233,45 @@ The unit files are installed at `~/.config/containers/systemd/` (`generated`
 means the service is not enabled to start at boot). No container is attached to
 `ao-build-update`; the network is allocated and empty.
 
-> **The allowlist is documentation of intent, not an enforced control.** The
-> `Internal=false` bridge cannot restrict destinations by itself: any container
-> attached to `ao-build-update` can reach any host on the internet. Nothing at
-> runtime reads `registry-allowlist.yaml`, so the *only sanctioned outbound*
-> sentence in **Containment** below is a **requirement the adapter must satisfy,
-> not a property it currently has.** Enforcement needs a firewall rule set on the
-> bridge, a filtering proxy, or per-destination proxies — all firewall policy,
-> all requiring explicit operator approval (Rule 6, §4.1 rule 13). Until that is
+> **The allowlist is enforced in code, but not by the network.** These are two
+> different controls and it matters which one you are relying on.
+>
+> *Enforced:* `scripts/build-update/ao-build-update.py` reads
+> `config/build-update/registry-allowlist.yaml` at runtime and **refuses**
+> anything not on it. Verified 2026-10-04 by execution — a denied host, an
+> allowed-but-unpinned reference, and an allowed-and-pinned reference:
+>
+> ```text
+> $ python3 scripts/build-update/ao-build-update.py localhost/foo:latest
+> allowlist boundary enforced; see the audit record
+>   localhost/foo:latest: DENIED: localhost is on the adapter deny list
+> EXIT=4
+>
+> $ python3 scripts/build-update/ao-build-update.py docker.io/library/nginx:latest
+> allowlist boundary enforced; see the audit record
+>   docker.io/library/nginx: UNPINNED: docker.io is allowed but the reference carries no sha256 digest
+> EXIT=4
+>
+> $ python3 scripts/build-update/ao-build-update.py \
+>     'docker.io/library/nginx@sha256:0000…0000'
+>   docker.io/library/nginx@sha256:0000…0000: ALLOWED-PINNED
+> EXIT=0
+> ```
+>
+> Every run also appends to the append-only audit log and writes a staging
+> report. The control is real, and it is a *refusal to plan*, not a refusal to
+> route.
+>
+> *Not enforced:* the network itself. `Internal=false` is an ordinary bridge, so
+> **anything else** attached to `ao-build-update` bypasses the allowlist
+> completely — it can reach any host on the internet. The allowlist governs this
+> one script; it does not govern the segment.
+>
+> Therefore the *only sanctioned outbound* sentence in **Containment** below is a
+> **requirement the adapter must satisfy, not a property the segment currently
+> has.** Segment-level enforcement needs a firewall rule set on the bridge, a
+> filtering proxy, or per-destination proxies — all firewall policy, all
+> requiring explicit operator approval (Rule 6, §4.1 rule 13). Until that is
 > approved and built, do not attach any container to this network. NET-01 is open
 > on exactly this point; see `proposals/net-NET-01.md`.
 
