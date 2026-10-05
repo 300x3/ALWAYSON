@@ -1,13 +1,37 @@
 {
   "_comment": "Which decisions still need the operator. 'answered' = the answer is sufficient to act on, the item leaves the dashboard. 'needs_action' = the answer was acted on but one operator action remains (usually entering a credential). Items absent are treated as answered.",
-  "needs_action": {
-    "LEDGER-04": "Action for you: create the pCloud entry in KDE Wallet and fill in the credentials. I cannot do this - it is your wallet.",
-    "SEC-01":   "Action for you: put the four database passwords in KDE Wallet. I cannot do this - it is your wallet. Then I wire the Quadlets to read them.",
-    "OPS-30":   "Action for you: enter the pCloud password into the KDE Wallet entry. Then the off-site repo can be created.",
-    "OPS-31":   "Confirm before I move backup data. This relocates real backup data and I will not do it unprompted.",
-    "OPS-13":   "Confirm the TimeoutStopSec=20s option I proposed. Linger is already yes and is binary - the 20 seconds is a per-service systemd timeout.",
-    "OPS-24":   "Confirm the restore drill into a scratch directory. It never touches live data, but I want your go-ahead first.",
-    "PLAT-02":  "Confirm I build the version matrix from the installation log, which is a free-form block report rather than the two-column table described."
-  },
-  "answered": ["COMM-01","COMM-05","COMM-06","COMM-07","LEDGER-01","LEDGER-02","LEDGER-03","LEDGER-07","NET-01","OPS-01","OPS-07","OPS-09","OPS-11","OPS-14","OPS-16","OPS-28","OPS-29","PAY-01","PAY-02","PAY-05","SEC-02","SIM-01","SIM-07","SIM-08"]
+  "needs_action": {},
+  "answered": [
+    "COMM-01",
+    "COMM-05",
+    "COMM-06",
+    "COMM-07",
+    "LEDGER-01",
+    "LEDGER-02",
+    "LEDGER-03",
+    "LEDGER-04",
+    "LEDGER-07",
+    "NET-01",
+    "OPS-01",
+    "OPS-07",
+    "OPS-09",
+    "OPS-11",
+    "OPS-13",
+    "OPS-14",
+    "OPS-16",
+    "OPS-24",
+    "OPS-28",
+    "OPS-29",
+    "OPS-30",
+    "OPS-31",
+    "PAY-01",
+    "PAY-02",
+    "PAY-05",
+    "PLAT-02",
+    "SEC-01",
+    "SEC-02",
+    "SIM-01",
+    "SIM-07",
+    "SIM-08"
+  ]
 }
