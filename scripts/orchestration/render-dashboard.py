@@ -321,8 +321,15 @@ button:hover{background:#6a4f11}
 button.ghost{background:#fff;color:#7a5c15}
 .status{font-size:12px;color:#6b5a2e}
 .status.ok{color:#15803d}
+.status.bad{color:#b91c1c}
+.ctl{display:flex;gap:9px;align-items:center;margin:0 0 14px}
 </style><div class=wrap>
 <h1>ALWAYS ON &mdash; section 19 work items</h1>
+<div class=ctl>
+ <button id=ctlspawn>Spawn the 11 sessions</button>
+ <button class=ghost id=ctlstop>Stop everything</button>
+ <span class=status id=ctlst>checking&hellip;</span>
+</div>
 <div class=sub>outstanding (19.1) vs completed (19.2) per work group &middot; snapshot @WHEN@ UTC</div>
 <div class=cards>
  <div class="card o"><div class=k>Outstanding</div><div class=v>@OPEN@</div></div>
@@ -389,6 +396,51 @@ button.ghost{background:#fff;color:#7a5c15}
     document.querySelectorAll('input.ans').forEach(function(i){ i.value=''; i.classList.remove('saved'); });
     st.textContent='cleared - press Save to write'; st.className='status';
   });
+
+  /* ---- team control: spawn / stop ----
+     Same file:// problem as Save: a relative fetch cannot resolve from a page
+     opened off disk, so point at the writer's absolute address instead. There is
+     no offline fallback here and there must not be - spawning sessions is a
+     side effect on the machine, not a file the browser could hold for you. If
+     the writer is unreachable the button says so rather than pretending. */
+  var ctl = document.getElementById('ctlst');
+  function ep(p){ return (location.protocol==='file:') ? 'http://127.0.0.1:8766/'+p : p; }
+  function ctlCall(path, label, confirmMsg){
+    if(confirmMsg && !confirm(confirmMsg)) return;
+    ctl.textContent = label + '…'; ctl.className='status';
+    fetch(ep(path), {method:'POST'})
+      .then(function(r){ return r.json().then(function(j){ return {ok:r.ok, j:j}; }); })
+      .then(function(x){
+        if(!x.ok){ ctl.textContent = label+' FAILED: '+(x.j.error||'http error'); ctl.className='status bad'; return; }
+        var n = (path==='/spawn') ? x.j.live : x.j.live;
+        ctl.textContent = path==='/spawn'
+          ? ('spawned — '+x.j.live+' live processes' + (x.j.returncode?' (rc '+x.j.returncode+')':''))
+          : ('stopped — '+x.j.signalled+' processes signalled, '+x.j.live+' live now');
+        ctl.className = (n>0?'status ok':'status');
+        setTimeout(refreshCtl, 15000);
+      })
+      .catch(function(e){
+        ctl.textContent = label+' FAILED: ' + e.message +
+          ' — is dashboard-writer.py running on 8766?';
+        ctl.className='status bad';
+      });
+  }
+  function refreshCtl(){
+    fetch(ep('health')).then(function(r){ return r.json(); }).then(function(j){
+      ctl.textContent = j.live + ' session process' + (j.live===1?'':'es') + ' running';
+      ctl.className = j.live>0 ? 'status ok' : 'status bad';
+    }).catch(function(){ ctl.textContent='writer unreachable'; ctl.className='status bad'; });
+  }
+  document.getElementById('ctlspawn').addEventListener('click',function(){
+    ctlCall('/spawn','spawning');
+  });
+  document.getElementById('ctlstop').addEventListener('click',function(){
+    ctlCall('/stop','stopping',
+      'Stop every agent session, the supervisor watcher, the metrics collector and the 30-minute loop?\n\n' +
+      'Work already committed in the worktrees is kept. Uncommitted work in /tmp is not.');
+  });
+  refreshCtl();
+  setInterval(refreshCtl, 60000);
   document.querySelectorAll('input.ans').forEach(function(i){
     if(i.value.trim()) i.classList.add('saved');
   });
