@@ -652,5 +652,69 @@ For a sold product, the 3D model metadata (`model_object_id`,
 `sale_contract_lines`, receipt/correlation projection, and signed Corda
 provenance reference. The receipt and model may each show a reference to the
 same correlation record. Neither file is the authoritative sale ledger.
+### 8.5.4 Re-verification 2026-10-04 17:52 — both mapping blockers unchanged
+
+§8.5.2 and §8.5.3 are dated earlier today. Re-measured at **17:52**. Nothing has changed.
+
+**The shipped validator still passes on a drive that fails its own specification.** This is
+the standing FIELD-10 finding and it is unchanged:
+
+```bash
+$ bash scripts/validation/check-photogrammetry-mount.sh
+OK: photogrammetry mount valid: systemd-1
+/dev/sdb1; 434G free
+rc=0
+```
+
+The mount is genuinely present and correct:
+
+```bash
+$ findmnt -no SOURCE,FSTYPE,LABEL /media/scottw/500GBPHOTOGRAM
+/dev/sdb1 ext4   500GBPHOTOGRAM
+```
+
+**The FIELD-15 ordering gate is still shut.** §8.5.2's finding was that any move of the
+mapping database onto this drive must fix group membership *first*. That has not happened —
+`alwayson-mapping` still has no members, the operator is still not in it, and the paths §8.2
+requires still cannot be created:
+
+```bash
+$ getent group alwayson-mapping
+alwayson-mapping:x:975:                 # no members
+$ id -nG scottw
+scottw adm tty dialout cdrom sudo dip plugdev input lpadmin sambashare ao-mapping
+                                            # 975 absent
+$ mkdir /media/scottw/500GBPHOTOGRAM/tmp/processing
+mkdir: Permission denied
+```
+
+**The mapping database is still off the drive**, which is FIELD-15's premise:
+
+```bash
+$ podman inspect ao-webodm-db --format '{{range .Mounts}}{{.Source}} -> {{.Destination}}{{"\n"}}{{end}}'
+/home/scottw/webodm/dbdata -> /var/lib/postgresql/data
+```
+
+The database is named `webodm` and the role is `postgres` (names only, no values read):
+
+```bash
+$ podman inspect ao-webodm-db --format '{{range .Config.Env}}{{println .}}{{end}}' \
+    | grep -vi 'password\|secret\|key' | grep -iE 'POSTGRES_DB|POSTGRES_USER|PGDATA'
+POSTGRES_HOST_AUTH_METHOD=trust
+POSTGRES_DB=webodm
+POSTGRES_USER=postgres
+PGDATA=/var/lib/postgresql/data
+```
+
+**§8.4.1's decision stands unexecuted.** The name and location are decided (`webodm` at
+`/home/scottw/webodm/dbdata`) but the database has not been moved to the photogrammetry
+drive, because doing so is an operator decision under §4.1 rule 12 *and* is gated behind the
+group-membership fix above.
+
+**Nothing was touched.** No `mkdir`, no `chgrp`, no `usermod`, no database stop, no mount
+change. Creating directories on the operator's validated drive without approval is exactly the
+rule 2/rule 12 case.
+
+---
 
 ---

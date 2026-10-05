@@ -810,5 +810,112 @@ glob while §9.5.7 used a per-file loop; the two agree (`4063+7800+2389+29 = 142
 totals are not sensitive to that choice, but the **`-a` flag is** — see §9.5.7, where a file
 that `grep` calls binary is still counted correctly without it.
 
+### 9.5.9 Third re-verification 2026-10-04 17:52 — blockers unchanged, and the port is now *proven* open
+
+§9.5.7 and §9.5.8 are dated 15:09 and 15:59. Re-measured at **17:52**, per §9.5.7's own
+rule that a count is quoted with its timestamp or not at all.
+
+**Totals have moved; state has not.** Detection failures, per file, each with its own span:
+
+```bash
+$ date -Is
+2026-10-04T17:52:44-07:00
+$ cd ~/.reticulum-meshchatx/logs
+$ for f in meshchatx.log.3 meshchatx.log.2 meshchatx.log.1 meshchatx.log; do \
+    printf '%-16s %s .. %s  detect-fail=%s\n' "$f" \
+      "$(head -1 $f | grep -oE '\[[0-9-]+ [0-9:]+\]')" \
+      "$(tail -1 $f | grep -oE '\[[0-9-]+ [0-9:]+\]')" \
+      "$(grep -ac 'Could not detect device' $f)"; done
+meshchatx.log.3   .. [2026-09-25 16:27:17]  detect-fail=328
+meshchatx.log.2  [2026-09-25 16:27:17] .. [2026-10-03 14:39:54]  detect-fail=2487
+meshchatx.log.1  [2026-10-03 14:39:56] .. [2026-10-04 07:25:33]  detect-fail=8270
+meshchatx.log    [2026-10-04 07:25:38] .. [2026-10-04 17:52:43]  detect-fail=5155
+                                                         # total 16,240 (was 14,281 at 15:59)
+```
+
+**New this pass — the port opens, proved by watching the file descriptors.** §9.5.2 argued
+the port opens because the error is `Errno 9` rather than `EACCES`/`EBUSY`. That is
+inference from an error string. It can now be observed directly: `DRONE-RADIO`'s descriptor
+is repeatedly created and destroyed on the retry cycle, while `PEOPLE-RADIO`'s descriptor is
+held open continuously.
+
+```bash
+$ (for i in $(seq 1 20); do \
+    printf '%s count=%s fds=[%s]\n' "$(date +%T)" \
+      "$(ls -l /proc/840861/fd | grep -c ttyUSB)" \
+      "$(ls -l /proc/840861/fd | grep ttyUSB | awk '{print $9"="$11}' | tr '\n' ' ')"; \
+    sleep 2; done)
+17:48:02 count=1 fds=[48=/dev/ttyUSB1 ]
+17:48:05 count=2 fds=[30=/dev/ttyUSB0 48=/dev/ttyUSB1 ]
+17:48:07 count=1 fds=[48=/dev/ttyUSB1 ]
+17:48:13 count=2 fds=[20=/dev/ttyUSB0 48=/dev/ttyUSB1 ]
+17:48:19 count=2 fds=[48=/dev/ttyUSB1 64=/dev/ttyUSB0 ]
+...
+```
+
+`fd 48 -> /dev/ttyUSB1` (`PEOPLE-RADIO`) is present in **every** sample. The `ttyUSB0`
+descriptor appears, changes number between attempts (20, 30, 64), and disappears. That is the
+signature of a **successful open immediately followed by a close** — the kernel grants the
+descriptor and the RNode detection handshake then fails. A permission fault would never
+produce a descriptor at all; a contended port would fail at open.
+
+The descriptor is also *not* stale. The inode behind it matches the live device node, so
+this is not a leaked handle to a removed device:
+
+```bash
+$ stat -c '%n inode=%i' /dev/ttyUSB0 /dev/ttyUSB1
+/dev/ttyUSB0 inode=782
+/dev/ttyUSB1 inode=786
+$ for f in /proc/840861/fd/*; do t=$(readlink $f); case "$t" in *ttyUSB*) \
+    echo "fd=$(basename $f) $t inode=$(stat -Lc %i $f)";; esac; done
+fd=48 /dev/ttyUSB1 inode=786
+```
+
+**Retry cadence is steady at roughly one failure every 7–8 seconds**, consistent since the
+fault began and showing no decay, no backoff and no recovery:
+
+```bash
+$ tail -2000 ~/.reticulum-meshchatx/logs/meshchatx.log | grep 'unrecoverable error' \
+    | grep -oE '\[[0-9-]+ [0-9:]+\]' | cut -c2-17 | cut -c1-16 | uniq -c | tail -5
+      8 2026-10-04 17:43
+      7 2026-10-04 17:44
+      7 2026-10-04 17:45
+      8 2026-10-04 17:46
+      5 2026-10-04 17:48
+```
+
+**Everything else in §9.5 still holds.** `PEOPLE-RADIO` has logged nothing at all in the
+current log (0 lines, zero errors). There is still zero RF telemetry — `RSSI`, `SNR`,
+`noise floor`, `airtime` and `packet loss` all return 0 matches across all four logs. The Pi5
+is still absent. The live radio settings are unchanged (915 MHz / 125 kHz / SF7 / 17 dBm and
+917 MHz / 250 kHz / SF7 / 17 dBm), so §9.4.1's profile-vs-live comparison stands.
+
+#### What I got wrong this pass, and the reason
+
+**I announced a hardware event that had not happened.** The first `ls -la /dev/ttyUSB*` in
+this pass showed `Oct 4 17:42` on both nodes, at almost exactly the moment I was logging in,
+and I recorded it as "the USB devices were re-enumerated at 17:42 today — right now". That
+would have been a significant claim: a fresh enumeration would have meant someone had
+re-plugged the hardware and the radio still failed.
+
+It was false. `mtime` on a device node moves when the node is **accessed**, and my own
+commands were reading them. `ctime` — the creation/change time — is what answers this
+question, and it has not moved since 2026-10-01 23:53:
+
+```bash
+$ stat -c '%n mtime=%y ctime=%z' /dev/ttyUSB0 /dev/ttyUSB1
+/dev/ttyUSB0 mtime=2026-10-04 17:51:22 ctime=2026-10-01 23:53:34
+/dev/ttyUSB1 mtime=2026-10-04 17:51:20 ctime=2026-10-01 23:53:34
+```
+
+**Reason: I read a timestamp field without knowing what it measured, and the coincidence
+with my own session start made the wrong reading feel like a discovery.** The generalisable
+form, which joins the rotated-log-filename lesson in FIELD-05: *a number that appears to
+corroborate what you expected is the most dangerous kind of evidence here.* Verify that the
+field means what you think it means before you build a finding on it.
+
+**Nothing was touched.** No radio, no serial port, no firewall, no config file, no restart of
+the Reticulum stack. All six blockers in §9.5.5 remain live.
+
 **Nothing was touched.** No radio, no serial port, no firewall, no config file. Every blocker in
 §9.5.5 still requires physical repair or operator action.
