@@ -14,6 +14,13 @@ Description=ALWAYS ON nightly restic backup of approved paths
 Type=oneshot
 ExecStart=/ALWAYSON/scripts/backup/restic-run.sh
 TimeoutStartSec=7200
+# Operator approved 2026-10-04 (OPS-13). Linger is already yes and is a
+# BINARY per-service setting, so the 20s is a separate systemd stop timeout.
+# restic is not a daemon: it holds no state between runs, so a stop that
+# interrupts a snapshot only loses the in-flight snapshot, which the next
+# nightly run recreates. Without it, systemd's default 90s stop timeout makes
+# a wedged restic hold the unit in 'stopping' long after the timer fires.
+TimeoutStopSec=20
 UNIT
 
 install -m 0644 /dev/stdin /etc/systemd/system/ao-restic-backup.timer <<'UNIT'
@@ -49,6 +56,41 @@ UNIT
 
 systemctl daemon-reload
 systemctl enable --now ao-restic-backup.timer ao-restic-verify.timer
+systemctl list-timers --no-pager | grep alwayson || true
+
+# Retention, per the operator's 40 GB budget (2026-10-04, OPS-24/OPS-31).
+# Installed as its own timer rather than appended to the backup unit so that a
+# prune failure cannot fail the backup, and a backup failure cannot skip the
+# prune: they are independent recovery concerns. The prune runs at 05:10, well
+# after the 03:30 backup, so it trims what that night's snapshot just added.
+# Retained: last 24 hourly, 7 daily, 4 weekly, 6 monthly, grouped per host+path.
+install -m 0644 /dev/stdin /etc/systemd/system/ao-restic-retention.service <<'UNIT'
+[Unit]
+Description=ALWAYS ON restic retention and prune (40 GB budget)
+# Runs after the backup so it trims what tonight's snapshot added.
+After=ao-restic-backup.service
+[Service]
+Type=oneshot
+Environment=RESTIC_ENV_FILE=/run/user/1000/ao-restic.env
+ExecStartPre=/ALWAYSON/scripts/operations/fetch-restic-env.sh /run/user/1000/ao-restic.env
+ExecStart=/ALWAYSON/scripts/backup/restic-retention.sh --env-file /run/user/1000/ao-restic.env --max-gb 40
+TimeoutStartSec=7200
+TimeoutStopSec=20
+UNIT
+
+install -m 0644 /dev/stdin /etc/systemd/system/ao-restic-retention.timer <<'UNIT'
+[Unit]
+Description=ALWAYS ON nightly restic retention timer (05:10)
+[Timer]
+OnCalendar=*-*-* 05:10:00
+Persistent=true
+RandomizedDelaySec=600
+[Install]
+WantedBy=timers.target
+UNIT
+
+systemctl daemon-reload
+systemctl enable --now ao-restic-retention.timer
 systemctl list-timers --no-pager | grep alwayson || true
 
 echo '--- running one restic backup now to verify end-to-end ---'
