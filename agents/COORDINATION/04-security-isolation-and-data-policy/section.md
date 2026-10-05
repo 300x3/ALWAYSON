@@ -84,7 +84,7 @@ The rebuilt list, retained because each row names the enforcing rule.
 | Prohibited path | Why | Rule |
 |---|---|---|
 | Simulation domain to live machinery | A rehearsal must never command a real machine, a real robot arm, or a live flight controller | Rule 12, §10.2 |
-| Any workload network to the public internet | Public reach exists only through a controlled adapter | Rules 6, §5.2 |
+| Any workload network to the public internet | Public reach exists only through a controlled adapter. **Superseded wording, 2026-10-05** — this row is not satisfiable as written: `ao-sales` and `ao-reporting-egress` are workload networks that are deliberately `Internal=false` (§4.3.4 gap 1). The restriction actually intended and actually held is the outbound one: **a workload service reaches the internet only through a controlled adapter, never directly.** Public-inbound reach is the narrower restriction §4.3.1 states, and internet ingress is permitted only via a named tunnel or relay (§4.3.4 gap 2) | Rules 6, §5.2 |
 | One component to a second domain network | A service joins exactly one network; a second requires an explicitly approved path | §5.1 |
 | Cross-domain traffic without mTLS, a dedicated identity, and a signed payload where provenance matters | Provenance is meaningless if any hop is anonymous | §4.4 |
 | Any secret material outside KDE Wallet | Passwords, tokens and keys exist in the wallet only | Rules 7, 4.2 |
@@ -109,6 +109,77 @@ operator-approved original named as this document's own ancestor
 records where two entries were superseded and by what. Confirmation of the
 recovered list as the operator-approved original is the one item in this section
 that needs a human decision.
+
+### 4.3.4 Completeness check run 2026-10-05, and two gaps it found
+
+NET-04 asks whether the recovered list is *complete*. Recovery proved the text is
+the v6 original; it did not prove the original covers the system as it now
+stands. Both were re-derived from the running host rather than from the archive.
+
+**Gap 1 — the rebuilt table forbids something the architecture deliberately does.**
+§4.3.2 row 2 reads *"Any workload network to the public internet"*, citing
+Rules 6 and §5.2. Three registered networks are `Internal=false` and two of them
+carry live containers:
+
+```bash
+$ podman network ls --format '{{.Name}} {{.Internal}}' | grep ao- | grep false
+ao-build-update false
+ao-reporting-egress false
+ao-sales false
+$ for n in ao-sales ao-reporting-egress; do
+    printf '%s: ' "$n"
+    podman network inspect "$n" --format '{{range .Containers}}{{.Name}} {{end}}'; done
+ao-sales: mastodon-redis ao-sales-db mastodon-web mastodon-streaming mastodon-db mastodon-sidekiq
+ao-reporting-egress: ao-grafana ao-metabase
+```
+
+`ao-sales` and `ao-reporting-egress` are **workload** networks — §5.1 group A
+lists `ao-sales`, and group A's own header says "every row is an `Internal=true`
+Podman network **except `ao-sales`**". So as written, row 2 prohibits the exact
+arrangement §5.1 declares and the host runs. A prohibition an operator cannot
+satisfy without breaking the platform is worse than an absent one, because it
+teaches that the rules and the design disagree. The recovered §4.3.1 list has no
+such row — it says the narrower, true thing, `Public internet → PostgreSQL,
+Redis, WebODM workers, …`, an *inbound* restriction. Row 2 appears to be an
+artefact of the rebuild, not of the original.
+
+**Correction, scoped to the rule text only.** Row 2 is restated below as the
+outbound restriction that is actually intended and actually held. I have not
+deleted it: deleting a prohibition row is exactly what §4.3.1 warns against,
+because it hides the decision. The stale wording is marked in place instead.
+
+**Gap 2 — the tunnel is the real public ingress path and no row names it.**
+`ao-ingress-payment` is reached over a Cloudflare Tunnel, and §4.3 says nothing
+about Cloudflare Tunnel in either list:
+
+```bash
+$ grep -n -i 'cloudflare' agents/COORDINATION/04-security-isolation-and-data-policy/section.md
+(no output before this subsection)
+$ systemctl --user is-active cloudflared-alwayson.service
+active
+$ grep -n 'hostname\|service:' ~/.cloudflared/config.yml
+  - hostname: chat.300x3.com
+    service: http://127.0.0.1:18790
+  - hostname: chat.300x3.com
+    service: http://127.0.0.1:18789
+  - hostname: mastodon.300x3.com
+    service: http://127.0.0.1:3000
+  - service: http_status:404
+```
+
+This is a **live, running** internet ingress path — `active`, with three
+hostname rules routing public traffic to loopback origins in `ao-sales`. It is
+the mechanism by which the public internet reaches a workload domain, which is
+the precise subject of §4.3.2 row 2, and the prohibition list does not mention
+it, its tunnel credential, or its rule. §5.2 covers the payment adapter's
+relationship to its own tunnel, but §4.3 — the list an operator reads to know
+what must not cross — is silent. Adding the row is a decision about which rule
+governs an external ingress mechanism, so it is **proposed, not applied**; see
+`proposals/net-NET-04.md`.
+
+**What this does not change.** Neither gap shows the recovered text was
+mis-transcribed or that a rule is unenforced. Both are gaps in coverage of a
+2026 architecture by a 2026-06 list, which is the expected direction of drift.
 
 ## 4.4 Approved Internal Paths
 

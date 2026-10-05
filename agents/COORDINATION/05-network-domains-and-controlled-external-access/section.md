@@ -514,7 +514,38 @@ and this is payment processing: an explicit stop condition in my brief and
 README §4.1 rules 14 and 15. I measured, corrected my own row, and stopped. I
 have not edited the adapter, the unit, the relay, or the credential.
 
-### 5.3 Approved Local Data Paths
+#### 5.2.3 The three `Internal=false` networks are a prohibition boundary, and §4.3 now says which rule governs them
+
+Measured 2026-10-05. This section is where the NET-04 completeness check landed,
+because the question — *which prohibition covers a non-internal workload network*
+— is answerable only by reading §5.1 and §4.3.2 together.
+
+Three registered networks are `Internal=false`, and they are **not** three
+instances of one thing. §5.1 group A already splits them:
+
+| Network | Group in §5.1 | Live containers | Why it is non-internal |
+|---|---|---|---|
+| `ao-sales` | **A — workload domain** | 6 (Mastodon stack + `ao-sales-db`) | Sidekiq must deliver ActivityPub outbound |
+| `ao-reporting-egress` | **C — component boundary** | 2 (`ao-grafana`, `ao-metabase`) | Reporting sources are remote |
+| `ao-build-update` | **B — controlled adapter** | 0 — scaffolded, not enabled | Registry acquisition needs a resolver and a route |
+
+The distinction matters because §4.3.2 said *"Any workload network to the public
+internet"* with no exception, which would have prohibited two of these three by
+name. §4.3.4 gap 1 records that and restates the rule as the outbound
+restriction that is actually intended and actually held. **I have not changed
+the isolation posture of any network** — no network was created, removed,
+re-CIDRed, or re-flagged; the registry is untouched.
+
+The remaining honesty point, unchanged and still true: **non-internal means
+anything else attached can reach the internet.** `ao-sales` and
+`ao-reporting-egress` have no firewall or destination allowlist between them and
+the public internet. Their containment rests on the one-network-per-component
+rule (§5.1) plus the fact that nothing else is attached to them — a
+convention, not a control. `ao-build-update` is the one case where the
+convention is load-bearing and unenforced; §5.2.1 covers it and NET-01 is open
+on it.
+
+## 5.3 Approved Local Data Paths
 
 The following local paths are normal integration paths and do not require a
 new architecture decision:

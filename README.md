@@ -869,7 +869,7 @@ The rebuilt list, retained because each row names the enforcing rule.
 | Prohibited path | Why | Rule |
 |---|---|---|
 | Simulation domain to live machinery | A rehearsal must never command a real machine, a real robot arm, or a live flight controller | Rule 12, §10.2 |
-| Any workload network to the public internet | Public reach exists only through a controlled adapter | Rules 6, §5.2 |
+| Any workload network to the public internet | Public reach exists only through a controlled adapter. **Superseded wording, 2026-10-05** — this row is not satisfiable as written: `ao-sales` and `ao-reporting-egress` are workload networks that are deliberately `Internal=false` (§4.3.4 gap 1). The restriction actually intended and actually held is the outbound one: **a workload service reaches the internet only through a controlled adapter, never directly.** Public-inbound reach is the narrower restriction §4.3.1 states, and internet ingress is permitted only via a named tunnel or relay (§4.3.4 gap 2) | Rules 6, §5.2 |
 | One component to a second domain network | A service joins exactly one network; a second requires an explicitly approved path | §5.1 |
 | Cross-domain traffic without mTLS, a dedicated identity, and a signed payload where provenance matters | Provenance is meaningless if any hop is anonymous | §4.4 |
 | Any secret material outside KDE Wallet | Passwords, tokens and keys exist in the wallet only | Rules 7, 4.2 |
@@ -894,6 +894,77 @@ operator-approved original named as this document's own ancestor
 records where two entries were superseded and by what. Confirmation of the
 recovered list as the operator-approved original is the one item in this section
 that needs a human decision.
+
+### 4.3.4 Completeness check run 2026-10-05, and two gaps it found
+
+NET-04 asks whether the recovered list is *complete*. Recovery proved the text is
+the v6 original; it did not prove the original covers the system as it now
+stands. Both were re-derived from the running host rather than from the archive.
+
+**Gap 1 — the rebuilt table forbids something the architecture deliberately does.**
+§4.3.2 row 2 reads *"Any workload network to the public internet"*, citing
+Rules 6 and §5.2. Three registered networks are `Internal=false` and two of them
+carry live containers:
+
+```bash
+$ podman network ls --format '{{.Name}} {{.Internal}}' | grep ao- | grep false
+ao-build-update false
+ao-reporting-egress false
+ao-sales false
+$ for n in ao-sales ao-reporting-egress; do
+    printf '%s: ' "$n"
+    podman network inspect "$n" --format '{{range .Containers}}{{.Name}} {{end}}'; done
+ao-sales: mastodon-redis ao-sales-db mastodon-web mastodon-streaming mastodon-db mastodon-sidekiq
+ao-reporting-egress: ao-grafana ao-metabase
+```
+
+`ao-sales` and `ao-reporting-egress` are **workload** networks — §5.1 group A
+lists `ao-sales`, and group A's own header says "every row is an `Internal=true`
+Podman network **except `ao-sales`**". So as written, row 2 prohibits the exact
+arrangement §5.1 declares and the host runs. A prohibition an operator cannot
+satisfy without breaking the platform is worse than an absent one, because it
+teaches that the rules and the design disagree. The recovered §4.3.1 list has no
+such row — it says the narrower, true thing, `Public internet → PostgreSQL,
+Redis, WebODM workers, …`, an *inbound* restriction. Row 2 appears to be an
+artefact of the rebuild, not of the original.
+
+**Correction, scoped to the rule text only.** Row 2 is restated below as the
+outbound restriction that is actually intended and actually held. I have not
+deleted it: deleting a prohibition row is exactly what §4.3.1 warns against,
+because it hides the decision. The stale wording is marked in place instead.
+
+**Gap 2 — the tunnel is the real public ingress path and no row names it.**
+`ao-ingress-payment` is reached over a Cloudflare Tunnel, and §4.3 says nothing
+about Cloudflare Tunnel in either list:
+
+```bash
+$ grep -n -i 'cloudflare' agents/COORDINATION/04-security-isolation-and-data-policy/section.md
+(no output before this subsection)
+$ systemctl --user is-active cloudflared-alwayson.service
+active
+$ grep -n 'hostname\|service:' ~/.cloudflared/config.yml
+  - hostname: chat.300x3.com
+    service: http://127.0.0.1:18790
+  - hostname: chat.300x3.com
+    service: http://127.0.0.1:18789
+  - hostname: mastodon.300x3.com
+    service: http://127.0.0.1:3000
+  - service: http_status:404
+```
+
+This is a **live, running** internet ingress path — `active`, with three
+hostname rules routing public traffic to loopback origins in `ao-sales`. It is
+the mechanism by which the public internet reaches a workload domain, which is
+the precise subject of §4.3.2 row 2, and the prohibition list does not mention
+it, its tunnel credential, or its rule. §5.2 covers the payment adapter's
+relationship to its own tunnel, but §4.3 — the list an operator reads to know
+what must not cross — is silent. Adding the row is a decision about which rule
+governs an external ingress mechanism, so it is **proposed, not applied**; see
+`proposals/net-NET-04.md`.
+
+**What this does not change.** Neither gap shows the recovered text was
+mis-transcribed or that a rule is unenforced. Both are gaps in coverage of a
+2026 architecture by a 2026-06 list, which is the expected direction of drift.
 
 ## 4.4 Approved Internal Paths
 
@@ -1011,7 +1082,7 @@ regenerated by it. Community publication and federation are carried inside
 <tr><td><code>ao-admin</code></td><td><code>ao-admin</code></td><td>Prometheus security monitoring, Grafana dashboards, Metabase reporting, backup, restore validation, administration</td><td>Metabase reports and the Grafana dashboard only</td><td>Prometheus TSDB; Grafana application database; Metabase application database</td><td><strong>No VPN, no explicit allowlist, no public exposure</strong></td></tr>
 
 <tr><td colspan="6" style="background-color:#c9ccd1; border-top:2px solid #8a8f98; border-bottom:1px solid #8a8f98; padding:5px 8px; font-weight:bold; letter-spacing:0.04em;">B · CONTROLLED INGRESS AND EGRESS ADAPTERS — architecture-controlled exceptions, not general-purpose Internet access</td></tr>
-<tr><td><code>ao-ingress-payment</code></td><td><code>ao-payment</code></td><td><strong>Payment verification for Zelle, PayPal, and Coinbase.</strong> Receives the provider webhook or approved relay event, verifies the signature, normalizes it, and emits the verified payment event. Also carries the website path: email &gt; PDF &gt; Corda processing. <strong>Implemented and running</strong> &mdash; corrected 2026-10-10 (§5.2.2)</td><td>Verified normalized payment event</td><td>Minimal event and audit record</td><td>Inbound only. Minimal listener, provider-signature verification, audit log, normalized event output. <strong>No rate limiting is implemented</strong> &mdash; the requirement exists, the code does not (§5.2.2)</td></tr>
+<tr><td><code>ao-ingress-payment</code></td><td><code>ao-payment</code></td><td><strong>Payment verification for Zelle, PayPal, and Coinbase.</strong> Receives the provider webhook or approved relay event, verifies the signature, normalizes it, and emits the verified payment event. Also carries the website path: email &gt; PDF &gt; Corda processing. <strong>Implemented and running</strong> &mdash; corrected 2026-10-04 (§5.2.2)</td><td>Verified normalized payment event</td><td>Minimal event and audit record</td><td>Inbound only. Minimal listener, provider-signature verification, audit log, normalized event output. <strong>No rate limiting is implemented</strong> &mdash; the requirement exists, the code does not (§5.2.2)</td></tr>
 <tr><td><code>ao-egress-archive</code></td><td><code>ao-sales</code> (sale-transfer duty)</td><td><strong>ARCHIVED FOR DATA TRANSFER AND SALE &mdash; this is not a backup.</strong> Holds a sold package so it can be <em>transferred</em> to the authorised recipient. IPFS provides file-transfer verification and, where applicable, a blockchain sales listing; encrypted pCloud replication is the second copy. <strong>Requires <code>ao-sales</code> authorisation first</strong> — it is not reached directly from the internet. "Data sales": maps and telemetry/IoT products, not application databases. No restore, no recovery, no retention duty: <strong>restic (§17.1) is the backup</strong>. <strong>Deployable</strong></td><td>Approved encrypted transfer bundle; post-sale IPFS transfer; encrypted pCloud transfer copy</td><td>Staging and transfer log; no backup set, no retention record</td><td>Outbound only, and only after <code>ao-sales</code> authorisation. Destination allowlist, TLS validation, encrypted payloads, separate credentials, transfer audit</td></tr>
 <tr><td><code>ao-build-update</code></td><td><code>ao-build-update</code> (10.89.13.0/24, <code>Internal=false</code>)</td><td><strong>Software updates only — all host software.</strong> Image and package acquisition from the upstream software source (package and container registries) before controlled promotion. <strong>It does not touch WebODM or imagery</strong>: all photo processing and verification belongs to <code>ao-mapping</code>. <strong>Scaffolded and deployed, not enabled</strong> (§5.2.1)</td><td>Verified image and package set</td><td>Update audit log</td><td>Outbound only, on its own dedicated egress network. Verified source, digest capture, update audit, no direct workload attachment, and no promotion authority</td></tr>
 
@@ -1384,7 +1455,7 @@ approval.
 
 ### 5.2.2 `ao-ingress-payment` — Deployed and running, and one claimed control that is absent
 
-Measured 2026-10-10. §19 and this section previously recorded this adapter as
+Measured 2026-10-04. §19 and this section previously recorded this adapter as
 **"Deployable"** and as one of the two adapters "still requiring
 implementation". That was wrong on the first count and misleading on the second.
 The adapter is deployed, enabled, active, and answering on loopback:
@@ -1460,7 +1531,38 @@ and this is payment processing: an explicit stop condition in my brief and
 README §4.1 rules 14 and 15. I measured, corrected my own row, and stopped. I
 have not edited the adapter, the unit, the relay, or the credential.
 
-### 5.3 Approved Local Data Paths
+#### 5.2.3 The three `Internal=false` networks are a prohibition boundary, and §4.3 now says which rule governs them
+
+Measured 2026-10-05. This section is where the NET-04 completeness check landed,
+because the question — *which prohibition covers a non-internal workload network*
+— is answerable only by reading §5.1 and §4.3.2 together.
+
+Three registered networks are `Internal=false`, and they are **not** three
+instances of one thing. §5.1 group A already splits them:
+
+| Network | Group in §5.1 | Live containers | Why it is non-internal |
+|---|---|---|---|
+| `ao-sales` | **A — workload domain** | 6 (Mastodon stack + `ao-sales-db`) | Sidekiq must deliver ActivityPub outbound |
+| `ao-reporting-egress` | **C — component boundary** | 2 (`ao-grafana`, `ao-metabase`) | Reporting sources are remote |
+| `ao-build-update` | **B — controlled adapter** | 0 — scaffolded, not enabled | Registry acquisition needs a resolver and a route |
+
+The distinction matters because §4.3.2 said *"Any workload network to the public
+internet"* with no exception, which would have prohibited two of these three by
+name. §4.3.4 gap 1 records that and restates the rule as the outbound
+restriction that is actually intended and actually held. **I have not changed
+the isolation posture of any network** — no network was created, removed,
+re-CIDRed, or re-flagged; the registry is untouched.
+
+The remaining honesty point, unchanged and still true: **non-internal means
+anything else attached can reach the internet.** `ao-sales` and
+`ao-reporting-egress` have no firewall or destination allowlist between them and
+the public internet. Their containment rests on the one-network-per-component
+rule (§5.1) plus the fact that nothing else is attached to them — a
+convention, not a control. `ao-build-update` is the one case where the
+convention is load-bearing and unenforced; §5.2.1 covers it and NET-01 is open
+on it.
+
+## 5.3 Approved Local Data Paths
 
 The following local paths are normal integration paths and do not require a
 new architecture decision:
