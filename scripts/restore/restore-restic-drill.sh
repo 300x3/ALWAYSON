@@ -35,6 +35,20 @@ done
 [ -n "$repo" ] || { echo "ERROR: --repo is required" >&2; exit 2; }
 [ -n "$scratch" ] || { echo "ERROR: --scratch is required (never defaults to a live path)" >&2; exit 2; }
 
+# DEFECT FIXED 2026-10-04: --repo was validated and echoed but NEVER passed to
+# any restic invocation. Every call below was a bare `restic ...`, which reads
+# the repository from $RESTIC_REPOSITORY in the environment. So the drill only
+# ever worked when the caller happened to export RESTIC_REPOSITORY, and with
+# just --repo it failed at STEP 0 with the misleading
+#   ERROR: could not resolve a snapshot; pass --snapshot explicitly
+# which blames the snapshot argument for what is actually a missing repository
+# argument. Measured on a throwaway repo that held one valid snapshot.
+# Exporting the validated path here is what --repo was always meant to do.
+export RESTIC_REPOSITORY="$repo"
+if [ ! -d "$repo" ]; then
+  echo "ERROR: repository path does not exist or is not a directory: $repo" >&2; exit 3
+fi
+
 command -v restic >/dev/null || { echo "ERROR: restic not installed" >&2; exit 3; }
 
 # The safety refusals below come BEFORE the credential check, deliberately. They

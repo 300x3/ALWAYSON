@@ -74,6 +74,38 @@ operator-access implementation must comply with this subsection and §§4, 5, 14
   superuser with `CREATEDB` and `CREATEROLE`. That is the migration identity and it is not
   handed to a reporting tool, but any future convenience that grants it to Metabase or
   Grafana would void the read-only boundary above.*
+
+  **Re-verified 2026-10-04 by executing as the reporting role, not by reading a catalog.**
+  A catalog view reports what is *granted*; this proves what actually *happens* when the
+  reporting identity connects, which is the claim that matters:
+
+  ```
+  $ podman exec ao-sales-db psql -U sales_reporting_role -d salesdb -tAc "select count(*) from orders;"
+  ERROR:  permission denied for table orders
+  $ podman exec ao-sales-db psql -U sales_reporting_role -d salesdb -tAc "select count(*) from v_reporting_orders;"
+  1
+  $ podman exec ao-sales-db psql -U sales_migration_role -d salesdb -tAc \
+      "select rolname,rolsuper,rolcreatedb,rolcreaterole from pg_roles where rolname like 'sales_%';"
+  sales_admin_role|f|f|f
+  sales_api_role|f|f|f
+  sales_backup_role|f|f|f
+  sales_migration_role|t|t|t
+  sales_reporting_role|f|f|f
+  ```
+
+  Denied on the base table, permitted on the view, and `sales_migration_role` is the only
+  row with superuser/`CREATEDB`/`CREATEROLE` set — exactly as the watch-note above says.
+  The grant set is still exactly the five views, and `metabase_app` still does not exist
+  in `salesdb`, so the reporting path remains `sales_reporting_role`.
+
+  **A trap worth naming, because it reads as a broken container.** The obvious probe —
+  `psql -U postgres` inside `ao-sales-db` — fails with `role "postgres" does not exist`,
+  because that cluster is initialised with `POSTGRES_USER=sales_migration_role` and has no
+  `postgres` role at all. The container is not broken and the database is not missing;
+  there is simply no `postgres` superuser in it. Use the `sales_migration_role` identity.
+  Someone reading "PostgreSQL 17 container", reaching for `-U postgres`, and recording
+  "reporting store unreachable" would be wrong, and the fix is to read
+  `POSTGRES_USER` from the container env before concluding anything about the data.
 - `ao-admin` receives approved PostgreSQL reporting, exporter, status,
   projection, API, relay, tunnel, or push paths. It must not join every
   workload network.
@@ -163,30 +195,109 @@ misled.
 
 #### 6.A.3.2 Four unmanaged Grafana containers are running (measured 2026-10-04)
 
-Beyond the YAML's staleness, `podman ps` shows **four Grafana containers that no Quadlet
-unit owns**, alongside the one sanctioned `ao-grafana`. All four are leftovers from
-2026-10-03 datasource/plugin investigation, two of them from an unnamed probe:
+Measured 2026-10-04 with the correct label key (see the correction immediately
+below — an earlier revision used the wrong one):
 
 ```
-$ for c in relaxed_tharp confident_khayyam keen_bhabha ao-sqli3 ao-grafana; do
-    podman inspect $c --format '{{.Name}} created={{.Created}} nets={{range $k,$v := .NetworkSettings.Networks}}{{$k}} {{end}} netmode={{.HostConfig.NetworkMode}} priv={{.HostConfig.Privileged}} unit={{index .Config.Labels "io.podman.annotations.quadlet"}}'; done
-relaxed_tharp     created=2026-10-03 08:54:41 nets= netmode=pasta priv=false unit=
-confident_khayyam created=2026-10-03 09:00:35 nets= netmode=pasta priv=false unit=
-keen_bhabha       created=2026-10-03 11:50:02 nets= netmode=pasta priv=false unit=
-ao-sqli3          created=2026-10-03 11:50:58 nets= netmode=pasta priv=false unit=
-ao-grafana        created=(managed)   nets=ao-admin ao-reporting-egress netmode=bridge priv=false unit=ao-grafana.service
+$ podman inspect relaxed_tharp --format '{{index .Config.Labels "PODMAN_SYSTEMD_UNIT"}}'
+$ podman inspect ao-grafana     --format '{{index .Config.Labels "PODMAN_SYSTEMD_UNIT"}}'
+ao-grafana.service
+```
+
+**Correction 2026-10-04 — the ownership evidence in this subsection was gathered with a
+label key that does not exist on this host.** The command shown above is what produced
+the numbers; an earlier revision of this subsection used
+`{{index .Config.Labels "io.podman.annotations.quadlet"}}` and printed `unit=` for every
+container. On Podman 5.7.0 that key is never set, so that command proves nothing and
+would have reported `ao-grafana` as ownerless too. The key Quadlet actually writes here
+is **`PODMAN_SYSTEMD_UNIT`** — measured:
+
+```
+$ for c in $(podman ps --format '{{.Names}}'); do u=$(podman inspect $c \
+    --format '{{index .Config.Labels "PODMAN_SYSTEMD_UNIT"}}'); \
+    printf '%-30s -> %s\n' "$c" "${u:-<none>}"; done
+ao-prometheus              -> ao-prometheus.service
+ao-grafana                 -> ao-grafana.service
+ao-metabase                -> ao-metabase.service
+ao-sim-fabrication-gz      -> ao-sim-fabrication-gz.service
+ao-sim-fabrication-foxglove -> ao-sim-fabrication-foxglove.service
+vigorous_shannon           -> <none>
+dreamy_rosalind            -> <none>
+relaxed_tharp              -> <none>
+confident_khayyam          -> <none>
+keen_bhabha                -> <none>
+ao-sqli3                   -> <none>
+```
+
+The **conclusion is unchanged** — exactly six running containers have no service owner,
+and they are the four Grafana duplicates and the two Foxglove duplicates. But it now
+rests on a key that returns a value, and on the whole-container enumeration rather than
+on a hand-picked subset. A reader should treat any ownership claim anywhere in this
+section that does not show `PODMAN_SYSTEMD_UNIT` as unproven.
+
+Beyond the YAML's staleness, `podman ps` shows **four Grafana containers that no Quadlet
+unit owns**, alongside the one sanctioned `ao-grafana`. All four are leftovers from
+2026-10-03 datasource/plugin investigation, two of them from an unnamed probe. Each was
+created on 2026-10-03 (`relaxed_tharp` 08:54:41, `confident_khayyam` 09:00:35,
+`keen_bhabha` 11:50:02, `ao-sqli3` 11:50:58), all use rootless `pasta` rather than a
+bridge network, and none is privileged:
+
+```
+$ podman inspect $c --format '{{.Name}} created={{.Created}} nets={{range $k,$v := .NetworkSettings.Networks}}{{$k}} {{end}} netmode={{.HostConfig.NetworkMode}} priv={{.HostConfig.Privileged}}'
+relaxed_tharp     created=2026-10-03 08:54:41 nets= netmode=pasta priv=false
+confident_khayyam created=2026-10-03 09:00:35 nets= netmode=pasta priv=false
+keen_bhabha       created=2026-10-03 11:50:02 nets= netmode=pasta priv=false
+ao-sqli3          created=2026-10-03 11:50:58 nets= netmode=pasta priv=false
+ao-grafana        nets=ao-admin ao-reporting-egress netmode=bridge priv=false
 ```
 
 Why this belongs in §6 rather than §19 only: §6.A.3 requires every containerized GUI to have a
 **documented Podman-network membership, listener policy, service owner and least-privilege
-identity**. These four have no service owner (no Quadlet label), no declared network
+identity**. These four have no service owner (no `PODMAN_SYSTEMD_UNIT` label), no declared network
 (`pasta` rootless-NAT, per-process — not any of the fourteen registered `ao-*` networks), and
 they are **absent from §5.1 group D**, which claims to enumerate all eighteen GUI and workflow
-rows. Two of them also mount host paths that are *not* the sanctioned read-only snapshot
-copies: `confident_khayyam` mounts `/tmp/tmp.2HBNsh7zgo:/probe` and `ao-sqli3` mounts
-`/tmp/sqli-plugins2:/var/lib/grafana/plugins`, both **writable, both from `/tmp`**, one of them
-supplying the unsigned `frser-sqlite-datasource` plugin to a Grafana instance that is not the
-one with the allow-list policy.
+rows. Two of them mount host paths from `/tmp`, and **one of the two is writable**:
+
+```
+$ for c in relaxed_tharp confident_khayyam keen_bhabha ao-sqli3; do
+    printf '%-20s mounts=[%s]\n' "$c" \
+      "$(podman inspect $c --format '{{range .Mounts}}{{.Source}}:{{.Destination}}:rw={{.RW}};{{end}}')"; done
+relaxed_tharp        mounts=[]
+confident_khayyam    mounts=[/tmp/tmp.2HBNsh7zgo:/probe:rw=false;]
+keen_bhabha          mounts=[]
+ao-sqli3             mounts=[/tmp/sqli-plugins2:/var/lib/grafana/plugins:rw=true;]
+```
+
+`ao-sqli3` is the writable one: it bind-mounts `/tmp/sqli-plugins2` **read-write** over
+Grafana's plugin directory, and that host directory contains the `frser-sqlite-datasource`
+plugin alongside two Grafana-authored apps.
+
+**Do not over-read this as "an unsigned plugin got in".** The same plugin is deliberately
+used by the sanctioned `ao-grafana` — it is the datasource type behind the five
+`ALWAYS ON SQLite (…)` datasources in
+`config/platform/monitoring/grafana/provisioning/datasources/sqlite-snapshots.yml`. The
+difference is **not** which plugin, it is where it comes from and in which direction it
+can be written:
+
+```
+sanctioned ao-grafana : /ALWAYSON/data/monitoring/grafana-plugins -> /var/lib/grafana/plugins : ro,Z
+unmanaged  ao-sqli3  : /tmp/sqli-plugins2                        -> /var/lib/grafana/plugins : rw
+```
+
+So the sanctioned path is a curated, repository-adjacent directory mounted **read-only**
+(`ro,Z`, and `rw=false` measured). The unmanaged one is a **`/tmp` directory mounted
+read-write**, so the plugin set of a running container can be changed by anything that can
+write `/tmp`, and it survives into whatever runs next. That is the real defect — writable
+plugin supply, not plugin identity. `confident_khayyam` mounts
+`/tmp/tmp.2HBNsh7zgo` at `/probe` **read-only** (`"RW":false`); it is a probe scratch
+directory, not a writable attack surface.
+
+**Correction 2026-10-04 — an earlier revision of this paragraph said "both writable,
+both from `/tmp`". The second half was right and the first was wrong.** Only `ao-sqli3`
+is `RW:true`. The reason the error happened is the same class as the label-key error
+below: the earlier revision enumerated the two `/tmp` mounts but never asked for the
+`RW` flag, so "two mounts from `/tmp`" was silently promoted to "two writable mounts".
+Read the flag, do not infer it from the mount's existence.
 
 Mitigating, measured, and worth stating so this is not over-read:
 
@@ -196,17 +307,27 @@ Mitigating, measured, and worth stating so this is not over-read:
 - **None is privileged**, none is on an `ao-*` network, and none is quadlet-started.
 
 So this is a **conformance and hygiene defect, not an exposure**: unmanaged duplicate GUIs
-outside the inventory, two of them writable-mount-bearing. **Not mine to remediate.** Stopping
-containers is destructive, touches another group's running work, and the `/tmp` plugin mounts
-are the subject of the unsigned-plugin question that §6.A.3 and the OPS group already track.
-Recorded here and reported to the operator; no action taken.
+outside the inventory, one of them with a writable `/tmp` plugin mount feeding it an
+unsigned plugin. **Not mine to remediate.** Stopping containers is destructive, touches
+another group's running work, and the `/tmp` plugin mount is the subject of the
+unsigned-plugin question that §6.A.3 and the OPS group already track. Recorded here and
+reported to the operator; no action taken.
 
-**Trap for the next session.** `podman ps` is sorted by name, so a `grep grafana` against the
-**image** column finds these while a search for `ao-grafana` does not. The Foxglove containers
-are the same class of leftover: of three `localhost/foxglove-bridge` containers,
-`ao-sim-fabrication-foxglove` is the sanctioned, **digest-pinned** one, while `vigorous_shannon`
-and `dreamy_rosalind` are unnamed duplicates on the mutable `:latest` tag with no Quadlet label
-— the same §4.1 rule 9 pinning concern, already measured above. Enumerate by *label presence*,
-not by image string.
+**Trap for the next session — two of them, and the first one cost me a whole review
+pass.** `podman ps` is sorted by name, so a `grep grafana` against the **image** column
+finds these while a search for `ao-grafana` does not. The Foxglove containers are the same
+class of leftover: of three `localhost/foxglove-bridge` containers,
+`ao-sim-fabrication-foxglove` is the sanctioned, **digest-pinned** one, while
+`vigorous_shannon` and `dreamy_rosalind` are unnamed duplicates on the mutable `:latest` tag
+with no `PODMAN_SYSTEMD_UNIT` label — the same §4.1 rule 9 pinning concern.
+
+Enumerate by *label presence*, not by image string — but **look the key up first**. The
+instinct is `io.podman.annotations.quadlet`, and on this host it is simply not set on
+anything: a query using it returns an empty string for all twenty-five running containers,
+including every genuinely managed one. An empty result from that key looks like a finding
+("nothing has an owner!") and is indistinguishable from "I asked the wrong question." The
+correct key is `PODMAN_SYSTEMD_UNIT`, and the self-check is to run it over the whole
+container list and confirm that the containers you believe are managed actually come back
+with a service name. If every row is empty, the key is wrong, not the fleet.
 
 ---

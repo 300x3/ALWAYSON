@@ -42,6 +42,33 @@ evidence: |
   5
 section: 07-public-storefront-and-payment-policy
 ---
+**INDEPENDENT RE-VERIFICATION 2026-10-04 — item still OPEN, nothing built.**
+
+Re-measured rather than assumed. The storefront tree is still exactly the two files
+recorded in §7.1.1, every asset is still a still image, and the publish script is
+still gated:
+
+```text
+$ find '/home/scottw/pCloudDrive/PUBLIC FOLDER/***CURRENT***/site' -type f
+.../site/index.html
+.../site/alwayson-single-topology.html
+count=2
+
+$ find '/home/scottw/pCloudDrive/PUBLIC FOLDER/***CURRENT***/assets' -type f \
+    | grep -vE '\.(png|jpg|jpeg|gif)$' | wc -l
+0
+```
+
+Note the path, because getting it wrong caused the error recorded in the note above:
+it is `~/pCloudDrive/PUBLIC FOLDER` — **no space, `PUBLIC FOLDER` in caps**. A
+`find` against `~/pCloud Drive/Public Folder` returns nothing and looks identical to
+"the storefront does not exist".
+
+**Nothing was built, published, or exposed this session.** All nine rows remain
+blocked per §7.1.3. Rows 2, 7 and 8 each require a new public ingress, which is
+§4.1 rule 6 and reserved to the operator.
+
+---
 **PAY-05 stays OPEN. Nothing was built, published, or exposed.** I am filing
 `update`, not `close`, because the criterion ("the nine views ... are built and
 reachable from the modals") is not met and cannot be met by me — six of the nine

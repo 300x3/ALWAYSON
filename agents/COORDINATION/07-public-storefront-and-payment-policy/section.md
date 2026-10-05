@@ -225,7 +225,7 @@ real PayPal `PAYMENT.CAPTURE.COMPLETED` payload the money is at
 comes back `None` and the amount is silently lost. For Coinbase the
 money-bearing reference is `charge.id`, which `normalize()` also does not read;
 it falls through to the top-level **event** id, so the adapter records the event
-that arrived rather than the charge being reconciled. A 2026-10-10 correction to
+that arrived rather than the charge being reconciled. A 2026-10-04 correction to
 an earlier statement in this session: that reference is **not** empty, because a
 real Coinbase payload does carry a top-level `id`, so the adapter does not reject
 it with 400. The reference it records is simply the wrong one, which breaks
@@ -235,7 +235,7 @@ These are payment-verification defects. Correcting them changes how money-bearin
 events are accepted, so the fix is prepared and reported for operator approval
 rather than applied by this session.
 
-### 7.2.1 Prepared verifier correction, proven offline 2026-10-10
+### 7.2.1 Prepared verifier correction, proven offline 2026-10-04
 
 The correction has been **written and proven, and deliberately not applied.** The
 live adapter is unchanged — `scripts/payment/ao-payment-adapter.py` still hashes to
@@ -291,6 +291,30 @@ stop condition of this session's brief. Deployment also needs
 operator decision requested is narrower than "fix the verifier": it is whether to
 accept PayPal and Coinbase webhooks at all, because the honest consequence of
 today's code is that neither provider can complete a payment.
+
+**Independent re-verification, 2026-10-04.** The `/tmp` harness and candidate
+referenced above were session-local and no longer exist on disk, so the candidate's
+**18/18** result could not be re-run and is **not** re-claimed here. The three
+defects it was built to fix *were* re-derived independently against the live file, and
+all three reproduce:
+
+- `verify_paypal()` returns `False` for a signature built on PayPal's documented
+  message string (`transmissionId|timeStamp|webhookId|crc32`, with `crc32` the
+  CRC-32 of the raw body in decimal) and returns `True` only for the adapter's own
+  HMAC construction.
+- `verify_coinbase` is **not defined** in the file, `AUTOMATED` still contains
+  `coinbase`, and line 209 gates **both** webhook paths through the single
+  `verify_paypal()`. `COINBASE_WEBHOOK_SECRET` is referenced **zero** times.
+- `normalize()` returns `amount_cents: null` for both providers on realistic
+  payloads.
+
+One detail the earlier account did not record, found by re-running: **Coinbase's
+`amount_cents` is also lost**, not only its `provider_ref`. A real `charge:confirmed`
+carries the money at `charge.amount.amount`, which `normalize()` does not read, so it
+returns `null` for the amount *and* records the top-level event `id` in place of
+`charge.id`. Coinbase events therefore lose both the money and the reconciled
+reference. Reproduced with a throwaway in-memory payload only; no secret, no live
+request and no row was written.
 
 **How each form is verified.**
 

@@ -1,0 +1,3403 @@
+{
+  "__inputs": [],
+  "__requires": [
+    {
+      "type": "grafana",
+      "id": "grafana",
+      "name": "Grafana",
+      "version": "10.0.0"
+    },
+    {
+      "type": "datasource",
+      "id": "postgres",
+      "name": "PostgreSQL",
+      "version": "1.0.0"
+    },
+    {
+      "type": "panel",
+      "id": "nodeGraph",
+      "name": "Node graph",
+      "version": ""
+    }
+  ],
+  "description": "ALWAYS ON system topology: networks, ports, IP addresses, local software names, field radio and drone links.",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "links": [],
+  "panels": [
+    {
+      "id": 1,
+      "type": "row",
+      "title": "SYSTEM HEALTH \u2014 live, from PostgreSQL ao_status",
+      "description": "Every value here is a real query. The previous ten tiles queried a metric named ALWAYSON_STATIC that nothing ever wrote, so they always rendered No data.",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "panels": []
+    },
+    {
+      "id": 100,
+      "type": "stat",
+      "title": "Containers running",
+      "description": "",
+      "datasource": {
+        "type": "postgres",
+        "uid": "ao-status"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 0,
+        "y": 1
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "ao-status"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT containers_running AS value FROM ao_status.v_system_health"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "area",
+        "textMode": "auto",
+        "justifyMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": null,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 80
+              },
+              {
+                "color": "red",
+                "value": 90
+              }
+            ]
+          },
+          "mappings": []
+        }
+      }
+    },
+    {
+      "id": 101,
+      "type": "stat",
+      "title": "Containers unhealthy",
+      "description": "",
+      "datasource": {
+        "type": "postgres",
+        "uid": "ao-status"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 4,
+        "y": 1
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "ao-status"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT containers_unhealthy AS value FROM ao_status.v_system_health"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "area",
+        "textMode": "auto",
+        "justifyMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": null,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 2
+              }
+            ]
+          },
+          "mappings": []
+        }
+      }
+    },
+    {
+      "id": 102,
+      "type": "stat",
+      "title": "Units failed",
+      "description": "",
+      "datasource": {
+        "type": "postgres",
+        "uid": "ao-status"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 8,
+        "y": 1
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "ao-status"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT units_failed AS value FROM ao_status.v_system_health"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "area",
+        "textMode": "auto",
+        "justifyMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": null,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 2
+              }
+            ]
+          },
+          "mappings": []
+        }
+      }
+    },
+    {
+      "id": 103,
+      "type": "stat",
+      "title": "Restart loops",
+      "description": "",
+      "datasource": {
+        "type": "postgres",
+        "uid": "ao-status"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 12,
+        "y": 1
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "ao-status"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT containers_restarting AS value FROM ao_status.v_system_health"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "area",
+        "textMode": "auto",
+        "justifyMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": null,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 2
+              }
+            ]
+          },
+          "mappings": []
+        }
+      }
+    },
+    {
+      "id": 104,
+      "type": "stat",
+      "title": "Non-loopback listeners",
+      "description": "",
+      "datasource": {
+        "type": "postgres",
+        "uid": "ao-status"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 16,
+        "y": 1
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "ao-status"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT listeners_non_loopback AS value FROM ao_status.v_system_health"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "area",
+        "textMode": "auto",
+        "justifyMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": null,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          },
+          "mappings": []
+        }
+      }
+    },
+    {
+      "id": 105,
+      "type": "stat",
+      "title": "Disk max %",
+      "description": "",
+      "datasource": {
+        "type": "postgres",
+        "uid": "ao-status"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 20,
+        "y": 1
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "ao-status"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT disk_max_use_percent AS value FROM ao_status.v_system_health"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "area",
+        "textMode": "auto",
+        "justifyMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 2,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 80
+              },
+              {
+                "color": "red",
+                "value": 90
+              }
+            ]
+          },
+          "mappings": []
+        }
+      }
+    },
+    {
+      "id": 110,
+      "type": "stat",
+      "title": "Networks live",
+      "description": "",
+      "datasource": {
+        "type": "postgres",
+        "uid": "ao-status"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 0,
+        "y": 5
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "ao-status"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT networks_observed AS value FROM ao_status.v_system_health"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "area",
+        "textMode": "auto",
+        "justifyMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": []
+        }
+      }
+    },
+    {
+      "id": 111,
+      "type": "stat",
+      "title": "Internal networks",
+      "description": "",
+      "datasource": {
+        "type": "postgres",
+        "uid": "ao-status"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 4,
+        "y": 5
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "ao-status"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT networks_internal AS value FROM ao_status.v_system_health"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "area",
+        "textMode": "auto",
+        "justifyMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": []
+        }
+      }
+    },
+    {
+      "id": 112,
+      "type": "stat",
+      "title": "Non-internal networks",
+      "description": "README 3.x: workload networks are Internal=true by convention.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "ao-status"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 8,
+        "y": 5
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "ao-status"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT networks_non_internal AS value FROM ao_status.v_system_health"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "area",
+        "textMode": "auto",
+        "justifyMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 4
+              }
+            ]
+          },
+          "mappings": []
+        }
+      }
+    },
+    {
+      "id": 113,
+      "type": "stat",
+      "title": "Listeners tracked",
+      "description": "",
+      "datasource": {
+        "type": "postgres",
+        "uid": "ao-status"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 12,
+        "y": 5
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "ao-status"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT listeners AS value FROM ao_status.v_system_health"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "area",
+        "textMode": "auto",
+        "justifyMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": []
+        }
+      }
+    },
+    {
+      "id": 114,
+      "type": "stat",
+      "title": "GPU max \u00b0C",
+      "description": "",
+      "datasource": {
+        "type": "postgres",
+        "uid": "ao-status"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 16,
+        "y": 5
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "ao-status"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT gpu_max_temperature_c AS value FROM ao_status.v_system_health"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "area",
+        "textMode": "auto",
+        "justifyMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "celsius",
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 75
+              },
+              {
+                "color": "red",
+                "value": 85
+              }
+            ]
+          },
+          "mappings": []
+        }
+      }
+    },
+    {
+      "id": 115,
+      "type": "stat",
+      "title": "Fact age (s)",
+      "description": "Age of the projection. A large value means ao-status-collect.timer has stopped, so the numbers here are stale rather than healthy.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "ao-status"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 20,
+        "y": 5
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "ao-status"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT fact_age_seconds AS value FROM ao_status.v_system_health"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "area",
+        "textMode": "auto",
+        "justifyMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 180
+              },
+              {
+                "color": "red",
+                "value": 300
+              }
+            ]
+          },
+          "mappings": []
+        }
+      }
+    },
+    {
+      "id": 120,
+      "type": "bargauge",
+      "title": "Filesystem use %",
+      "description": "Real filesystems only. The collector excludes pseudo mounts (AppImage, efivarfs) so a 0-byte mount cannot report as 100% full.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "ao-status"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 12,
+        "x": 0,
+        "y": 9
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "ao-status"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT mountpoint AS metric, use_percent AS value FROM ao_status.disk ORDER BY use_percent DESC"
+        }
+      ],
+      "options": {
+        "displayMode": "gradient",
+        "orientation": "horizontal",
+        "showUnfilled": true,
+        "valueMode": "text",
+        "minVizWidth": 8,
+        "minVizHeight": 8,
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": []
+        }
+      }
+    },
+    {
+      "id": 121,
+      "type": "bargauge",
+      "title": "GPU core temperature",
+      "description": "GPU core temperature in \u00b0C.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "ao-status"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 12,
+        "x": 12,
+        "y": 9
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "ao-status"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT name AS metric, temperature_c AS value FROM ao_status.gpu"
+        }
+      ],
+      "options": {
+        "displayMode": "gradient",
+        "orientation": "horizontal",
+        "showUnfilled": true,
+        "valueMode": "text",
+        "minVizWidth": 8,
+        "minVizHeight": 8,
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "celsius",
+          "min": 0,
+          "max": null,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": []
+        }
+      }
+    },
+    {
+      "id": 2,
+      "type": "row",
+      "title": "TOPOLOGY COVERAGE \u2014 live, every network and container",
+      "description": "Covers every ao-* network and every container on the host. Internal=true means the network has no route off this host.",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 14
+      },
+      "panels": []
+    },
+    {
+      "id": 130,
+      "type": "table",
+      "title": "Networks \u2014 Internal flag, subnets, members",
+      "description": "Every ao-* network observed on the host.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "ao-status"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 15
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "ao-status"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT name AS network,   CASE WHEN internal THEN 'true' ELSE 'false' END AS internal,   driver, cidr AS subnets, member_count AS members FROM ao_status.network ORDER BY name"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {},
+            "indexByName": {},
+            "renameByName": {}
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "fields": {},
+            "sort": [
+              {
+                "field": "",
+                "desc": false
+              }
+            ]
+          }
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false,
+          "reducer": [
+            "sum"
+          ],
+          "countRows": false,
+          "fields": ""
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "filterable": true,
+            "cellOptions": {
+              "type": "auto"
+            }
+          },
+          "mappings": []
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 131,
+      "type": "table",
+      "title": "Containers \u2014 state, health, restarts, image",
+      "description": "Every container, including exited ones, so a stopped service is visible rather than simply absent.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "ao-status"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 15
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "ao-status"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT name AS container, quadlet, state, health,   restart_count AS restarts, image FROM ao_status.container ORDER BY name"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {},
+            "indexByName": {},
+            "renameByName": {}
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "fields": {},
+            "sort": [
+              {
+                "field": "",
+                "desc": false
+              }
+            ]
+          }
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false,
+          "reducer": [
+            "sum"
+          ],
+          "countRows": false,
+          "fields": ""
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "filterable": true,
+            "cellOptions": {
+              "type": "auto"
+            }
+          },
+          "mappings": []
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 132,
+      "type": "table",
+      "title": "Container network attachments \u2014 IP per network",
+      "description": "",
+      "datasource": {
+        "type": "postgres",
+        "uid": "ao-status"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 24
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "ao-status"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT cn.container, cn.network, cn.ip_address AS ip FROM ao_status.container_network cn ORDER BY cn.container, cn.network"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {},
+            "indexByName": {},
+            "renameByName": {}
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "fields": {},
+            "sort": [
+              {
+                "field": "",
+                "desc": false
+              }
+            ]
+          }
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false,
+          "reducer": [
+            "sum"
+          ],
+          "countRows": false,
+          "fields": ""
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "filterable": true,
+            "cellOptions": {
+              "type": "auto"
+            }
+          },
+          "mappings": []
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 133,
+      "type": "table",
+      "title": "Systemd units \u2014 active/sub/load state, restarts",
+      "description": "Every ao-* user unit. Quadlets deploy flat, so a unit file present in the deployed directory is what marks a container.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "ao-status"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 24
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "ao-status"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT name AS unit, active_state, sub_state, load_state, kind, restarts FROM ao_status.unit ORDER BY name"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {},
+            "indexByName": {},
+            "renameByName": {}
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "fields": {},
+            "sort": [
+              {
+                "field": "",
+                "desc": false
+              }
+            ]
+          }
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false,
+          "reducer": [
+            "sum"
+          ],
+          "countRows": false,
+          "fields": ""
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "filterable": true,
+            "cellOptions": {
+              "type": "auto"
+            }
+          },
+          "mappings": []
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 134,
+      "type": "table",
+      "title": "Listening sockets \u2014 loopback vs published",
+      "description": "Sockets owned by ao-*, podman or docker. A PUBLISHED row is the section 6.A.3 finding that needs review: exposing an operator port outside loopback requires explicit approval.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "ao-status"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 33
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "ao-status"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT owner, protocol, address, port,   CASE WHEN loopback THEN 'loopback' ELSE 'PUBLISHED' END AS scope FROM ao_status.listener ORDER BY loopback, owner, port"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {},
+            "indexByName": {},
+            "renameByName": {}
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "fields": {},
+            "sort": [
+              {
+                "field": "",
+                "desc": false
+              }
+            ]
+          }
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false,
+          "reducer": [
+            "sum"
+          ],
+          "countRows": false,
+          "fields": ""
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "filterable": true,
+            "cellOptions": {
+              "type": "auto"
+            }
+          },
+          "mappings": []
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 3,
+      "type": "row",
+      "title": "TOPOLOGY DETAIL \u2014 full graph",
+      "description": "Static, generated from the README-authoritative topology model plus live inspection: networks, containers, host services, host software, databases, field radios, edge paths and planned components.",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 42
+      },
+      "panels": []
+    },
+    {
+      "id": 200,
+      "type": "nodeGraph",
+      "title": "ALWAYS ON \u2014 networks \u00b7 containers \u00b7 host software \u00b7 field radios \u00b7 edge",
+      "description": "Generated by /ALWAYSON/scripts/operations/generate-topology.py from README-authoritative declarations plus live inspection. Node mainStat = CIDR or container IP; edge labels = published port / IP.",
+      "gridPos": {
+        "h": 22,
+        "w": 24,
+        "x": 0,
+        "y": 43
+      },
+      "datasource": {
+        "type": "datasource",
+        "uid": "grafana"
+      },
+      "nodes": [
+        {
+          "id": "host",
+          "title": "ALWAYS ON HOST \u2014 Kubuntu 26.04 LTS workstation",
+          "subTitle": "Kubuntu 26.04 LTS (Ubuntu 26.04.1 userland)",
+          "mainStat": "25",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "lo 127.0.0.1/8,::1/128 \u00b7 eno1 169.254.248.253/16,10.42.0.1/24,fe80::b47b:8101:204:7f5b/64 \u00b7 wlp3s0 192.168.87.135/24,fe80::abd7:e952:c515:db0d/64",
+          "status": "ok"
+        },
+        {
+          "id": "host-postgresql",
+          "title": "PostgreSQL 18.6 (host cluster)",
+          "subTitle": "postgresql-18 18.6 / PostGIS 3.6.2",
+          "mainStat": "127.0.0.1:5432, [::1]:5432, unix:/var/run/postgresql/.s.PGSQL.5432",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "Consolidated relational platform; REVOKE CONNECT FROM PUBLIC enforced",
+          "status": "ok"
+        },
+        {
+          "id": "host-redis",
+          "title": "Redis 8.0.5 (host service)",
+          "subTitle": "redis-server 8.0.5",
+          "mainStat": "127.0.0.1:6379",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "cache / coordination layer, not a system of record",
+          "status": "ok"
+        },
+        {
+          "id": "net-ao-admin",
+          "title": "ao-admin",
+          "subTitle": "workload",
+          "mainStat": "10.89.9.0/24",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "implemented \u00b7 gw 10.89.9.1 \u00b7 Internal=True \u00b7 members: ao-grafana, ao-metabase, ao-node-exporter, ao-prometheus",
+          "status": "ok"
+        },
+        {
+          "id": "net-ao-build-update",
+          "title": "ao-build-update",
+          "subTitle": "adapter",
+          "mainStat": "10.89.13.0/24",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "scaffolded \u00b7 gw 10.89.13.1 \u00b7 Internal=False \u00b7 members: ao-build-update",
+          "status": "ok"
+        },
+        {
+          "id": "net-ao-data",
+          "title": "ao-data",
+          "subTitle": "workload",
+          "mainStat": "10.89.8.0/24",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "implemented \u00b7 gw 10.89.8.1 \u00b7 Internal=True \u00b7 members: none",
+          "status": "ok"
+        },
+        {
+          "id": "net-ao-egress-archive",
+          "title": "ao-egress-archive",
+          "subTitle": "adapter",
+          "mainStat": "no subnet",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "planned \u00b7 gw \u2014 \u00b7 Internal=None \u00b7 members: none",
+          "status": "neutral"
+        },
+        {
+          "id": "net-ao-egress-community",
+          "title": "ao-egress-community",
+          "subTitle": "adapter",
+          "mainStat": "no subnet",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "implemented \u00b7 gw \u2014 \u00b7 Internal=None \u00b7 members: none",
+          "status": "neutral"
+        },
+        {
+          "id": "net-ao-fabrication",
+          "title": "ao-fabrication",
+          "subTitle": "workload",
+          "mainStat": "10.89.12.0/24",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "implemented \u00b7 gw 10.89.12.1 \u00b7 Internal=True \u00b7 members: ao-fabrication-db",
+          "status": "ok"
+        },
+        {
+          "id": "net-ao-field",
+          "title": "ao-field",
+          "subTitle": "workload",
+          "mainStat": "10.89.2.0/24",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "in_progress \u00b7 gw 10.89.2.1 \u00b7 Internal=True \u00b7 members: none",
+          "status": "ok"
+        },
+        {
+          "id": "net-ao-html-window",
+          "title": "ao-html-window",
+          "subTitle": "workload",
+          "mainStat": "10.89.14.0/24",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "implemented \u00b7 gw 10.89.14.1 \u00b7 Internal=True \u00b7 members: ao-sim-fabrication-foxglove",
+          "status": "ok"
+        },
+        {
+          "id": "net-ao-ingress-payment",
+          "title": "ao-ingress-payment",
+          "subTitle": "adapter",
+          "mainStat": "no subnet",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "planned \u00b7 gw \u2014 \u00b7 Internal=None \u00b7 members: none",
+          "status": "neutral"
+        },
+        {
+          "id": "net-ao-ledger-core",
+          "title": "ao-ledger-core",
+          "subTitle": "workload",
+          "mainStat": "10.89.7.0/24",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "blocked \u00b7 gw 10.89.7.1 \u00b7 Internal=True \u00b7 members: none",
+          "status": "error"
+        },
+        {
+          "id": "net-ao-ledger-ingest",
+          "title": "ao-ledger-ingest",
+          "subTitle": "workload",
+          "mainStat": "10.89.6.0/24",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "blocked \u00b7 gw 10.89.6.1 \u00b7 Internal=True \u00b7 members: none",
+          "status": "error"
+        },
+        {
+          "id": "net-ao-mapping",
+          "title": "ao-mapping",
+          "subTitle": "workload",
+          "mainStat": "10.89.3.0/24",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "implemented \u00b7 gw 10.89.3.1 \u00b7 Internal=True \u00b7 members: ao-nodeodm, ao-webodm-broker, ao-webodm-db, ao-webodm-webapp, ao-webodm-worker",
+          "status": "ok"
+        },
+        {
+          "id": "net-ao-payment",
+          "title": "ao-payment",
+          "subTitle": "workload",
+          "mainStat": "10.89.1.0/24",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "planned \u00b7 gw 10.89.1.1 \u00b7 Internal=True \u00b7 members: ao-ingress-payment",
+          "status": "ok"
+        },
+        {
+          "id": "net-ao-reporting-egress",
+          "title": "ao-reporting-egress",
+          "subTitle": "adapter",
+          "mainStat": "10.89.10.0/24",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "implemented \u00b7 gw 10.89.10.1 \u00b7 Internal=False \u00b7 members: ao-grafana, ao-metabase",
+          "status": "ok"
+        },
+        {
+          "id": "net-ao-sales",
+          "title": "ao-sales",
+          "subTitle": "workload",
+          "mainStat": "10.89.0.0/24",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "in_progress \u00b7 gw 10.89.0.1 \u00b7 Internal=False \u00b7 members: mastodon-db, mastodon-redis, mastodon-sidekiq, mastodon-streaming, mastodon-web, ao-sales-db",
+          "status": "warning"
+        },
+        {
+          "id": "net-ao-sim-fabrication",
+          "title": "ao-sim-fabrication",
+          "subTitle": "workload",
+          "mainStat": "10.89.5.0/24",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "implemented \u00b7 gw 10.89.5.1 \u00b7 Internal=True \u00b7 members: ao-sim-fabrication-foxglove, ao-sim-fabrication-gz",
+          "status": "ok"
+        },
+        {
+          "id": "net-ao-sim-vehicle",
+          "title": "ao-sim-vehicle",
+          "subTitle": "workload",
+          "mainStat": "10.89.4.0/24",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "implemented \u00b7 gw 10.89.4.1 \u00b7 Internal=True \u00b7 members: ardupilot-sitl",
+          "status": "ok"
+        },
+        {
+          "id": "ctr-ao-build-update",
+          "title": "ao-build-update",
+          "subTitle": "python sha256:79e7a9b9ff",
+          "mainStat": "no IP assigned",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "not running \u00b7 ports: internal only \u00b7 unit: \u2014 \u00b7 status: declared",
+          "status": "neutral"
+        },
+        {
+          "id": "ctr-ao-fabrication-db",
+          "title": "ao-fabrication-db",
+          "subTitle": "postgres sha256:d74eeac9a6",
+          "mainStat": "ao-fabrication=10.89.12.3",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "running \u00b7 ports: 127.0.0.1:15433->5432/tcp \u00b7 unit: active \u00b7 status: implemented",
+          "status": "ok"
+        },
+        {
+          "id": "ctr-ao-nodeodm",
+          "title": "ao-nodeodm",
+          "subTitle": "nodeodm sha256:553fe5cacb",
+          "mainStat": "ao-mapping=10.89.3.3",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "running \u00b7 ports: internal only \u00b7 unit: active \u00b7 status: implemented",
+          "status": "ok"
+        },
+        {
+          "id": "ctr-ao-webodm-broker",
+          "title": "ao-webodm-broker",
+          "subTitle": "redis sha256:c6eabf748f",
+          "mainStat": "ao-mapping=10.89.3.7",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "running \u00b7 ports: internal only \u00b7 unit: active \u00b7 status: implemented",
+          "status": "ok"
+        },
+        {
+          "id": "ctr-ao-webodm-db",
+          "title": "ao-webodm-db",
+          "subTitle": "webodm_db sha256:03f18ec008",
+          "mainStat": "ao-mapping=10.89.3.6",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "running \u00b7 ports: internal only \u00b7 unit: active \u00b7 status: implemented",
+          "status": "ok"
+        },
+        {
+          "id": "ctr-ao-webodm-webapp",
+          "title": "ao-webodm-webapp",
+          "subTitle": "webodm_webapp sha256:188267c654",
+          "mainStat": "ao-mapping=10.89.3.4",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "running \u00b7 ports: 127.0.0.1:8000->8000/tcp \u00b7 unit: active \u00b7 status: implemented",
+          "status": "ok"
+        },
+        {
+          "id": "ctr-ao-webodm-worker",
+          "title": "ao-webodm-worker",
+          "subTitle": "webodm_webapp sha256:188267c654",
+          "mainStat": "ao-mapping=10.89.3.5",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "running \u00b7 ports: internal only \u00b7 unit: active \u00b7 status: implemented",
+          "status": "ok"
+        },
+        {
+          "id": "ctr-ao-grafana",
+          "title": "ao-grafana",
+          "subTitle": "grafana-oss sha256:b739cda4b6",
+          "mainStat": "ao-admin=10.89.9.61, ao-reporting-egress=10.89.10.58",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "running \u00b7 ports: 127.0.0.1:3001->3000/tcp \u00b7 unit: active \u00b7 status: implemented",
+          "status": "ok"
+        },
+        {
+          "id": "ctr-ao-metabase",
+          "title": "ao-metabase",
+          "subTitle": "metabase sha256:fc96bfa830",
+          "mainStat": "ao-admin=10.89.9.4, ao-reporting-egress=10.89.10.2",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "running \u00b7 ports: 127.0.0.1:3002->3000/tcp \u00b7 unit: active \u00b7 status: implemented",
+          "status": "ok"
+        },
+        {
+          "id": "ctr-ao-node-exporter",
+          "title": "ao-node-exporter",
+          "subTitle": "node-exporter sha256:863b62ff9f",
+          "mainStat": "ao-admin=10.89.9.10",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "running \u00b7 ports: internal only \u00b7 unit: active \u00b7 status: implemented",
+          "status": "ok"
+        },
+        {
+          "id": "ctr-ao-prometheus",
+          "title": "ao-prometheus",
+          "subTitle": "prometheus sha256:d47ad27caa",
+          "mainStat": "ao-admin=10.89.9.3",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "running \u00b7 ports: 127.0.0.1:9090->9090/tcp \u00b7 unit: active \u00b7 status: implemented",
+          "status": "ok"
+        },
+        {
+          "id": "ctr-ao-ingress-payment",
+          "title": "ao-ingress-payment",
+          "subTitle": "python sha256:79e7a9b9ff",
+          "mainStat": "ao-payment=10.89.1.2",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "running \u00b7 ports: 127.0.0.1:8899->8899/tcp \u00b7 unit: active \u00b7 status: implemented",
+          "status": "ok"
+        },
+        {
+          "id": "ctr-ao-sales-db",
+          "title": "ao-sales-db",
+          "subTitle": "postgres sha256:d74eeac9a6",
+          "mainStat": "ao-sales=10.89.0.13",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "running \u00b7 ports: 127.0.0.1:15432->5432/tcp \u00b7 unit: active \u00b7 status: implemented",
+          "status": "ok"
+        },
+        {
+          "id": "ctr-mastodon-db",
+          "title": "mastodon-db",
+          "subTitle": "postgres sha256:d74eeac9a6",
+          "mainStat": "ao-sales=10.89.0.14",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "running \u00b7 ports: internal only \u00b7 unit: active \u00b7 status: implemented",
+          "status": "ok"
+        },
+        {
+          "id": "ctr-mastodon-redis",
+          "title": "mastodon-redis",
+          "subTitle": "redis sha256:c6eabf748f",
+          "mainStat": "ao-sales=10.89.0.15",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "running \u00b7 ports: internal only \u00b7 unit: active \u00b7 status: implemented",
+          "status": "ok"
+        },
+        {
+          "id": "ctr-mastodon-sidekiq",
+          "title": "mastodon-sidekiq",
+          "subTitle": "mastodon sha256:76436bccad",
+          "mainStat": "ao-sales=10.89.0.9",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "running \u00b7 ports: internal only \u00b7 unit: active \u00b7 status: implemented",
+          "status": "ok"
+        },
+        {
+          "id": "ctr-mastodon-streaming",
+          "title": "mastodon-streaming",
+          "subTitle": "mastodon-streaming sha256:24834e873c",
+          "mainStat": "ao-sales=10.89.0.5",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "running \u00b7 ports: 127.0.0.1:4000->4000/tcp \u00b7 unit: active \u00b7 status: implemented",
+          "status": "ok"
+        },
+        {
+          "id": "ctr-mastodon-web",
+          "title": "mastodon-web",
+          "subTitle": "mastodon sha256:76436bccad",
+          "mainStat": "ao-sales=10.89.0.8",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "running \u00b7 ports: 127.0.0.1:3000->3000/tcp \u00b7 unit: active \u00b7 status: implemented",
+          "status": "ok"
+        },
+        {
+          "id": "ctr-ao-sim-fabrication-foxglove",
+          "title": "ao-sim-fabrication-foxglove",
+          "subTitle": "foxglove-bridge sha256:9acc6d4df7",
+          "mainStat": "ao-html-window=10.89.14.60, ao-sim-fabrication=10.89.5.55",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "running \u00b7 ports: 127.0.0.1:8081->8081/tcp \u00b7 unit: active \u00b7 status: implemented",
+          "status": "ok"
+        },
+        {
+          "id": "ctr-ao-sim-fabrication-gui-gz",
+          "title": "ao-sim-fabrication-gui-gz",
+          "subTitle": "gz-sim10-resolute gui-svgfix",
+          "mainStat": "no IP assigned",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "not running \u00b7 ports: internal only \u00b7 unit: \u2014 \u00b7 status: declared",
+          "status": "neutral"
+        },
+        {
+          "id": "ctr-ao-sim-fabrication-gz",
+          "title": "ao-sim-fabrication-gz",
+          "subTitle": "gz-sim10-server sha256:55f8dbcf8d",
+          "mainStat": "ao-sim-fabrication=10.89.5.10",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "running \u00b7 ports: internal only \u00b7 unit: active \u00b7 status: implemented",
+          "status": "ok"
+        },
+        {
+          "id": "ctr-ardupilot-sitl",
+          "title": "ardupilot-sitl",
+          "subTitle": "ardupilot-sitl latest",
+          "mainStat": "no IP assigned",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "not running \u00b7 ports: internal only \u00b7 unit: \u2014 \u00b7 status: declared",
+          "status": "neutral"
+        },
+        {
+          "id": "ctr-ao-sqli3",
+          "title": "ao-sqli3",
+          "subTitle": "grafana-oss 11.6.0",
+          "mainStat": "no IP assigned",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "running \u00b7 ports: internal only \u00b7 unit: \u2014 \u00b7 status: implemented",
+          "status": "ok"
+        },
+        {
+          "id": "ctr-confident_khayyam",
+          "title": "confident_khayyam",
+          "subTitle": "grafana 11.6.0",
+          "mainStat": "no IP assigned",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "running \u00b7 ports: internal only \u00b7 unit: \u2014 \u00b7 status: implemented",
+          "status": "ok"
+        },
+        {
+          "id": "ctr-dreamy_rosalind",
+          "title": "dreamy_rosalind",
+          "subTitle": "foxglove-bridge latest",
+          "mainStat": "no IP assigned",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "running \u00b7 ports: internal only \u00b7 unit: \u2014 \u00b7 status: implemented",
+          "status": "ok"
+        },
+        {
+          "id": "ctr-keen_bhabha",
+          "title": "keen_bhabha",
+          "subTitle": "grafana-oss 11.6.0",
+          "mainStat": "no IP assigned",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "running \u00b7 ports: internal only \u00b7 unit: \u2014 \u00b7 status: implemented",
+          "status": "ok"
+        },
+        {
+          "id": "ctr-relaxed_tharp",
+          "title": "relaxed_tharp",
+          "subTitle": "grafana 11.6.0",
+          "mainStat": "no IP assigned",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "running \u00b7 ports: internal only \u00b7 unit: \u2014 \u00b7 status: implemented",
+          "status": "ok"
+        },
+        {
+          "id": "ctr-vigorous_shannon",
+          "title": "vigorous_shannon",
+          "subTitle": "foxglove-bridge latest",
+          "mainStat": "no IP assigned",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "running \u00b7 ports: internal only \u00b7 unit: \u2014 \u00b7 status: implemented",
+          "status": "ok"
+        },
+        {
+          "id": "dbnode-db-host-postgres",
+          "title": "Host PostgreSQL 18.6 cluster",
+          "subTitle": "postgresql-18 18.6 + PostGIS 3.6.2 (host systemd service)",
+          "mainStat": "127.0.0.1:5432, [::1]:5432, unix:/var/run/postgresql/.s.PGSQL.5432",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "authoritative relational \u00b7 used by: \u2014 \u00b7 System-wide relational platform. One cluster, separate logical databases, separate application roles. REVOKE CONNECT FROM PUBLIC enforced.",
+          "status": "ok"
+        },
+        {
+          "id": "dbnode-db-salesdb",
+          "title": "salesdb",
+          "subTitle": "PostgreSQL 18 (host cluster target)",
+          "mainStat": "postgresql",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "authoritative relational \u00b7 used by: Sales API, ao-payment (planned), Metabase (reporting) \u00b7 Authoritative sales/payment records: customers, orders, products, payments, receipts, entitlements, audit history.",
+          "status": "ok"
+        },
+        {
+          "id": "dbnode-db-mastodon",
+          "title": "mastodon",
+          "subTitle": "PostgreSQL 18 (in container-scoped mastodon-db today)",
+          "mainStat": "postgresql",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "authoritative relational \u00b7 used by: Mastodon web, Mastodon Sidekiq, Mastodon streaming \u00b7 Mastodon application state: accounts, posts, media metadata, federation state, background-job data.",
+          "status": "ok"
+        },
+        {
+          "id": "dbnode-db-webodm",
+          "title": "webodm (PostGIS)",
+          "subTitle": "PostgreSQL/PostGIS (in container-scoped db today)",
+          "mainStat": "postgis",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "authoritative relational \u00b7 used by: WebODM webapp, WebODM worker, NodeODM, Metabase (reporting) \u00b7 Mapping projects, processing state, users, geospatial data.",
+          "status": "ok"
+        },
+        {
+          "id": "dbnode-db-grafana",
+          "title": "grafana",
+          "subTitle": "PostgreSQL 18 (host cluster)",
+          "mainStat": "postgresql",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "authoritative relational \u00b7 used by: Grafana ao-grafana \u00b7 Grafana users, dashboards, folders, datasource definitions, preferences, alert state.",
+          "status": "ok"
+        },
+        {
+          "id": "dbnode-db-metabase",
+          "title": "metabase",
+          "subTitle": "PostgreSQL 18 (host cluster)",
+          "mainStat": "postgresql",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "authoritative relational \u00b7 used by: Metabase ao-metabase \u00b7 Metabase users, collections, questions, dashboards, database connections, settings.",
+          "status": "ok"
+        },
+        {
+          "id": "dbnode-db-cordadb",
+          "title": "cordadb (Corda persistence)",
+          "subTitle": "PostgreSQL 18 \u2014 separate logical database with its own roles and backup scope",
+          "mainStat": "postgresql",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "authoritative ledger \u00b7 used by: Corda node ao-ledger-core (planned) \u00b7 Corda persistence. AUTHORITATIVE LEDGER for sale/contract, receipt association, entitlement, approved state transitions.",
+          "status": "ok"
+        },
+        {
+          "id": "dbnode-db-postgres-admin",
+          "title": "postgres (administrative)",
+          "subTitle": "PostgreSQL 18 (host cluster)",
+          "mainStat": "postgresql",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "authoritative relational \u00b7 used by: Maintenance, backup, restore validation \u00b7 Administrative/maintenance database for the shared cluster.",
+          "status": "ok"
+        },
+        {
+          "id": "dbnode-db-host-redis",
+          "title": "Host Redis 8.0.5 (database 0)",
+          "subTitle": "redis-server 8.0.5 (host systemd service)",
+          "mainStat": "127.0.0.1:6379",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "not authoritative \u00b7 used by: general coordination \u00b7 General low-latency cache/coordination layer. NOT a system of record; no current application data confirmed.",
+          "status": "neutral"
+        },
+        {
+          "id": "dbnode-db-mastodon-redis",
+          "title": "mastodon-redis (database 0)",
+          "subTitle": "Redis 8 (container-scoped)",
+          "mainStat": "redis",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "not authoritative \u00b7 used by: Mastodon web, Mastodon Sidekiq \u00b7 Mastodon cache, queues, background-job coordination. Not authoritative business data.",
+          "status": "neutral"
+        },
+        {
+          "id": "dbnode-db-broker",
+          "title": "broker (database 0)",
+          "subTitle": "Redis 8 (container-scoped)",
+          "mainStat": "redis",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "not authoritative \u00b7 used by: WebODM worker, WebODM broker \u00b7 Celery/task broker and worker coordination. Not authoritative mapping data.",
+          "status": "neutral"
+        },
+        {
+          "id": "dbnode-db-prometheus",
+          "title": "Prometheus TSDB",
+          "subTitle": "prometheus v3.4.1 \u2014 /prometheus persistent volume",
+          "mainStat": "tsdb",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "not authoritative \u00b7 used by: Grafana (metrics datasource), alerting, rule evaluation \u00b7 Specialized time-series store: metrics, service health, resource usage, operational monitoring. Works without Grafana.",
+          "status": "neutral"
+        },
+        {
+          "id": "dbnode-db-openclaw",
+          "title": "OpenClaw SQLite state",
+          "subTitle": "SQLite (desktop application state)",
+          "mainStat": "~/.openclaw/state/openclaw.sqlite",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "not authoritative \u00b7 used by: OpenClaw gateway, OpenClaw chat relay \u00b7 Local operational state. Not part of SQL reporting.",
+          "status": "neutral"
+        },
+        {
+          "id": "dbnode-db-akonadi",
+          "title": "Akonadi / KDE PIM SQLite",
+          "subTitle": "SQLite (desktop application state)",
+          "mainStat": "sqlite",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "not authoritative \u00b7 used by: Akonadi, KDE PIM \u00b7 Contacts, calendars, mail indexes, local personal-information data.",
+          "status": "neutral"
+        },
+        {
+          "id": "dbnode-db-browsers",
+          "title": "Browser profile SQLite stores",
+          "subTitle": "SQLite (Konqueror/KDE WebEngine, Firefox, Brave, Chrome, Edge)",
+          "mainStat": "sqlite",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "not authoritative \u00b7 used by: browsers \u00b7 History, site storage, caches, certificates, profile data.",
+          "status": "neutral"
+        },
+        {
+          "id": "dbnode-db-podman",
+          "title": "Podman rootless metadata store",
+          "subTitle": "SQLite (rootless Podman)",
+          "mainStat": "sqlite",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "not authoritative \u00b7 used by: Podman \u00b7 Container, image, network, volume metadata. Not application data.",
+          "status": "neutral"
+        },
+        {
+          "id": "dbnode-db-sim-local",
+          "title": "ROS / simulation local SQLite",
+          "subTitle": "SQLite (application-specific local files)",
+          "mainStat": "sqlite",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "not authoritative \u00b7 used by: ROS 2 Lyrical, Gazebo Sim, ArduPilot SITL, QGroundControl \u00b7 Local tool state where enabled. Not a shared reporting source.",
+          "status": "neutral"
+        },
+        {
+          "id": "dbnode-db-filesystem-state",
+          "title": "Filesystem / local application state",
+          "subTitle": "Application files, logs, project files, local state",
+          "mainStat": "filesystem",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "not authoritative \u00b7 used by: LM Studio, OpenClaw, MeshChatX, QGroundControl, ArduPilot, Gazebo, simulation tools, restic \u00b7 Operational or engineering data that is not automatically part of SQL reporting.",
+          "status": "neutral"
+        },
+        {
+          "id": "dbnode-db-mapping-media",
+          "title": "Photogrammetry media (filesystem, ext4)",
+          "subTitle": "/media/scottw/500GBPHOTOGRAM/ \u2014 ext4 /dev/sdb1, UUID verified",
+          "mainStat": "filesystem",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "not authoritative \u00b7 used by: WebODM, NodeODM, imagery intake/exporter \u00b7 Source imagery, orthophotos, point clouds, 3D model artifacts. Large binaries stay filesystem-resident; only metadata is in webodm.",
+          "status": "neutral"
+        },
+        {
+          "id": "dbnode-db-h2-legacy",
+          "title": "H2 legacy migration backups",
+          "subTitle": "H2 (retained backup files only)",
+          "mainStat": "h2",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "not an application db \u00b7 used by: Grafana/Metabase legacy migration \u00b7 No longer active; retained temporarily for rollback and migration evidence.",
+          "status": "error"
+        },
+        {
+          "id": "internet",
+          "title": "PUBLIC INTERNET",
+          "subTitle": "no inbound port-forward",
+          "mainStat": "outbound only",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "cloudflared tunnel publishes loopback origins; origin ports stay loopback",
+          "status": "warning"
+        },
+        {
+          "id": "plan-corda-core",
+          "title": "Corda 5.2.2 DLT core (ao-ledger-core)",
+          "subTitle": "Corda 5.2.2 node + cordadb (PostgreSQL 18) persistence",
+          "mainStat": "blocked",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "Blocked on operator key/certificate ceremony (README 3.2, 18.3)",
+          "status": "error"
+        },
+        {
+          "id": "plan-corda-ingest",
+          "title": "Ledger-ingestion gateway (ao-ledger-ingest)",
+          "subTitle": "mTLS validation, authorization, idempotency, audit",
+          "mainStat": "blocked",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "Manifest + correlation + signature requirements pending (README 4.4, 11.2)",
+          "status": "error"
+        },
+        {
+          "id": "plan-sales-api",
+          "title": "Sales API + payment adapter (ao-payment)",
+          "subTitle": "sales API, provider webhook verifier",
+          "mainStat": "planned",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "Blocked on payment provider selection (README 18.4)",
+          "status": "neutral"
+        },
+        {
+          "id": "plan-sim-fabrication",
+          "title": "Fabrication / facility simulation (ao-sim-fabrication)",
+          "subTitle": "ROS 2 Lyrical + Gazebo Sim 10.5.0 robot cells, AM, kitchen, logistics",
+          "mainStat": "implemented",
+          "secondaryStat": "",
+          "arc__": "",
+          "detail__": "Headless smoke test passed; GUI workflow pending (README 3.2, 6.A.1)",
+          "status": "neutral"
+        }
+      ],
+      "edges": [
+        {
+          "id": "host=>host-postgresql",
+          "source": "host",
+          "target": "host-postgresql",
+          "mainStat": "tcp/5432",
+          "secondaryStat": "loopback",
+          "detail__": "host PostgreSQL serves every containerised database role"
+        },
+        {
+          "id": "host=>host-redis",
+          "source": "host",
+          "target": "host-redis",
+          "mainStat": "tcp/6379",
+          "secondaryStat": "loopback",
+          "detail__": ""
+        },
+        {
+          "id": "host=>net-ao-admin",
+          "source": "host",
+          "target": "net-ao-admin",
+          "mainStat": "Internal=true",
+          "secondaryStat": "implemented",
+          "detail__": "Monitoring, backup, restore validation, administration"
+        },
+        {
+          "id": "host=>net-ao-build-update",
+          "source": "host",
+          "target": "net-ao-build-update",
+          "mainStat": "Internal=false",
+          "secondaryStat": "scaffolded",
+          "detail__": "Image and package acquisition before controlled promotion (outbound adapter)"
+        },
+        {
+          "id": "host=>net-ao-data",
+          "source": "host",
+          "target": "net-ao-data",
+          "mainStat": "Internal=true",
+          "secondaryStat": "implemented",
+          "detail__": "Narrow controlled data plumbing where unavoidable"
+        },
+        {
+          "id": "host=>net-ao-egress-archive",
+          "source": "host",
+          "target": "net-ao-egress-archive",
+          "mainStat": "Internal=false",
+          "secondaryStat": "planned",
+          "detail__": "Encrypted pCloud replication and approved IPFS operations (outbound adapter)"
+        },
+        {
+          "id": "host=>net-ao-egress-community",
+          "source": "host",
+          "target": "net-ao-egress-community",
+          "mainStat": "Internal=false",
+          "secondaryStat": "implemented",
+          "detail__": "Approved Mastodon/community federation egress adapter"
+        },
+        {
+          "id": "host=>net-ao-fabrication",
+          "source": "host",
+          "target": "net-ao-fabrication",
+          "mainStat": "Internal=true",
+          "secondaryStat": "implemented",
+          "detail__": ""
+        },
+        {
+          "id": "host=>net-ao-field",
+          "source": "host",
+          "target": "net-ao-field",
+          "mainStat": "Internal=true",
+          "secondaryStat": "in_progress",
+          "detail__": "Heltec gateway, RNS/MeshChatX, telemetry spool, mission-release service"
+        },
+        {
+          "id": "host=>net-ao-html-window",
+          "source": "host",
+          "target": "net-ao-html-window",
+          "mainStat": "Internal=true",
+          "secondaryStat": "implemented",
+          "detail__": ""
+        },
+        {
+          "id": "host=>net-ao-ingress-payment",
+          "source": "host",
+          "target": "net-ao-ingress-payment",
+          "mainStat": "Internal=false",
+          "secondaryStat": "planned",
+          "detail__": "Payment-provider webhook receiver (inbound adapter)"
+        },
+        {
+          "id": "host=>net-ao-ledger-core",
+          "source": "host",
+          "target": "net-ao-ledger-core",
+          "mainStat": "Internal=true",
+          "secondaryStat": "blocked",
+          "detail__": "Corda node, ledger database, certificate/keystore material"
+        },
+        {
+          "id": "host=>net-ao-ledger-ingest",
+          "source": "host",
+          "target": "net-ao-ledger-ingest",
+          "mainStat": "Internal=true",
+          "secondaryStat": "blocked",
+          "detail__": "mTLS validation gateway, authorization, audit, idempotency"
+        },
+        {
+          "id": "host=>net-ao-mapping",
+          "source": "host",
+          "target": "net-ao-mapping",
+          "mainStat": "Internal=true",
+          "secondaryStat": "implemented",
+          "detail__": "WebODM, NodeODM, Redis broker, mapping DB, imagery intake/exporter"
+        },
+        {
+          "id": "host=>net-ao-payment",
+          "source": "host",
+          "target": "net-ao-payment",
+          "mainStat": "Internal=true",
+          "secondaryStat": "planned",
+          "detail__": "Provider webhook verifier and payment adapter"
+        },
+        {
+          "id": "host=>net-ao-reporting-egress",
+          "source": "host",
+          "target": "net-ao-reporting-egress",
+          "mainStat": "Internal=false",
+          "secondaryStat": "implemented",
+          "detail__": "Reporting-tool egress to the host PostgreSQL bridge (10.42.0.1:5432)"
+        },
+        {
+          "id": "host=>net-ao-sales",
+          "source": "host",
+          "target": "net-ao-sales",
+          "mainStat": "Internal=false",
+          "secondaryStat": "in_progress",
+          "detail__": "Sales API, sales PostgreSQL, Mastodon stack, OpenClaw, LM Studio"
+        },
+        {
+          "id": "host=>net-ao-sim-fabrication",
+          "source": "host",
+          "target": "net-ao-sim-fabrication",
+          "mainStat": "Internal=true",
+          "secondaryStat": "implemented",
+          "detail__": "ROS 2, Gazebo facility/robot cells, additive manufacturing, kitchen, logistics"
+        },
+        {
+          "id": "host=>net-ao-sim-vehicle",
+          "source": "host",
+          "target": "net-ao-sim-vehicle",
+          "mainStat": "Internal=true",
+          "secondaryStat": "implemented",
+          "detail__": "ROS 2 Lyrical, Gazebo Sim 10.5.0, ArduPilot SITL, MAVLink, QGroundControl"
+        },
+        {
+          "id": "net-ao-build-update=>ctr-ao-build-update",
+          "source": "net-ao-build-update",
+          "target": "ctr-ao-build-update",
+          "mainStat": "",
+          "secondaryStat": "ao-build-update",
+          "detail__": ""
+        },
+        {
+          "id": "net-ao-fabrication=>ctr-ao-fabrication-db",
+          "source": "net-ao-fabrication",
+          "target": "ctr-ao-fabrication-db",
+          "mainStat": "10.89.12.3",
+          "secondaryStat": "ao-fabrication",
+          "detail__": ""
+        },
+        {
+          "id": "ctr-ao-fabrication-db=>host-postgresql",
+          "source": "ctr-ao-fabrication-db",
+          "target": "host-postgresql",
+          "mainStat": "tcp/5432",
+          "secondaryStat": "host bridge",
+          "detail__": ""
+        },
+        {
+          "id": "net-ao-mapping=>ctr-ao-nodeodm",
+          "source": "net-ao-mapping",
+          "target": "ctr-ao-nodeodm",
+          "mainStat": "10.89.3.3",
+          "secondaryStat": "ao-mapping",
+          "detail__": ""
+        },
+        {
+          "id": "net-ao-mapping=>ctr-ao-webodm-broker",
+          "source": "net-ao-mapping",
+          "target": "ctr-ao-webodm-broker",
+          "mainStat": "10.89.3.7",
+          "secondaryStat": "ao-mapping",
+          "detail__": ""
+        },
+        {
+          "id": "net-ao-mapping=>ctr-ao-webodm-db",
+          "source": "net-ao-mapping",
+          "target": "ctr-ao-webodm-db",
+          "mainStat": "10.89.3.6",
+          "secondaryStat": "ao-mapping",
+          "detail__": ""
+        },
+        {
+          "id": "net-ao-mapping=>ctr-ao-webodm-webapp",
+          "source": "net-ao-mapping",
+          "target": "ctr-ao-webodm-webapp",
+          "mainStat": "10.89.3.4",
+          "secondaryStat": "ao-mapping",
+          "detail__": ""
+        },
+        {
+          "id": "net-ao-mapping=>ctr-ao-webodm-worker",
+          "source": "net-ao-mapping",
+          "target": "ctr-ao-webodm-worker",
+          "mainStat": "10.89.3.5",
+          "secondaryStat": "ao-mapping",
+          "detail__": ""
+        },
+        {
+          "id": "net-ao-admin=>ctr-ao-grafana",
+          "source": "net-ao-admin",
+          "target": "ctr-ao-grafana",
+          "mainStat": "10.89.9.61",
+          "secondaryStat": "ao-admin",
+          "detail__": ""
+        },
+        {
+          "id": "net-ao-reporting-egress=>ctr-ao-grafana",
+          "source": "net-ao-reporting-egress",
+          "target": "ctr-ao-grafana",
+          "mainStat": "10.89.10.58",
+          "secondaryStat": "ao-reporting-egress",
+          "detail__": ""
+        },
+        {
+          "id": "net-ao-admin=>ctr-ao-metabase",
+          "source": "net-ao-admin",
+          "target": "ctr-ao-metabase",
+          "mainStat": "10.89.9.4",
+          "secondaryStat": "ao-admin",
+          "detail__": ""
+        },
+        {
+          "id": "net-ao-reporting-egress=>ctr-ao-metabase",
+          "source": "net-ao-reporting-egress",
+          "target": "ctr-ao-metabase",
+          "mainStat": "10.89.10.2",
+          "secondaryStat": "ao-reporting-egress",
+          "detail__": ""
+        },
+        {
+          "id": "net-ao-admin=>ctr-ao-node-exporter",
+          "source": "net-ao-admin",
+          "target": "ctr-ao-node-exporter",
+          "mainStat": "10.89.9.10",
+          "secondaryStat": "ao-admin",
+          "detail__": ""
+        },
+        {
+          "id": "net-ao-admin=>ctr-ao-prometheus",
+          "source": "net-ao-admin",
+          "target": "ctr-ao-prometheus",
+          "mainStat": "10.89.9.3",
+          "secondaryStat": "ao-admin",
+          "detail__": ""
+        },
+        {
+          "id": "net-ao-payment=>ctr-ao-ingress-payment",
+          "source": "net-ao-payment",
+          "target": "ctr-ao-ingress-payment",
+          "mainStat": "10.89.1.2",
+          "secondaryStat": "ao-payment",
+          "detail__": ""
+        },
+        {
+          "id": "net-ao-sales=>ctr-ao-sales-db",
+          "source": "net-ao-sales",
+          "target": "ctr-ao-sales-db",
+          "mainStat": "10.89.0.13",
+          "secondaryStat": "ao-sales",
+          "detail__": ""
+        },
+        {
+          "id": "ctr-ao-sales-db=>host-postgresql",
+          "source": "ctr-ao-sales-db",
+          "target": "host-postgresql",
+          "mainStat": "tcp/5432",
+          "secondaryStat": "host bridge",
+          "detail__": ""
+        },
+        {
+          "id": "net-ao-sales=>ctr-mastodon-db",
+          "source": "net-ao-sales",
+          "target": "ctr-mastodon-db",
+          "mainStat": "10.89.0.14",
+          "secondaryStat": "ao-sales",
+          "detail__": ""
+        },
+        {
+          "id": "net-ao-sales=>ctr-mastodon-redis",
+          "source": "net-ao-sales",
+          "target": "ctr-mastodon-redis",
+          "mainStat": "10.89.0.15",
+          "secondaryStat": "ao-sales",
+          "detail__": ""
+        },
+        {
+          "id": "net-ao-sales=>ctr-mastodon-sidekiq",
+          "source": "net-ao-sales",
+          "target": "ctr-mastodon-sidekiq",
+          "mainStat": "10.89.0.9",
+          "secondaryStat": "ao-sales",
+          "detail__": ""
+        },
+        {
+          "id": "net-ao-sales=>ctr-mastodon-streaming",
+          "source": "net-ao-sales",
+          "target": "ctr-mastodon-streaming",
+          "mainStat": "10.89.0.5",
+          "secondaryStat": "ao-sales",
+          "detail__": ""
+        },
+        {
+          "id": "net-ao-sales=>ctr-mastodon-web",
+          "source": "net-ao-sales",
+          "target": "ctr-mastodon-web",
+          "mainStat": "10.89.0.8",
+          "secondaryStat": "ao-sales",
+          "detail__": ""
+        },
+        {
+          "id": "net-ao-html-window=>ctr-ao-sim-fabrication-foxglove",
+          "source": "net-ao-html-window",
+          "target": "ctr-ao-sim-fabrication-foxglove",
+          "mainStat": "10.89.14.60",
+          "secondaryStat": "ao-html-window",
+          "detail__": ""
+        },
+        {
+          "id": "net-ao-sim-fabrication=>ctr-ao-sim-fabrication-foxglove",
+          "source": "net-ao-sim-fabrication",
+          "target": "ctr-ao-sim-fabrication-foxglove",
+          "mainStat": "10.89.5.55",
+          "secondaryStat": "ao-sim-fabrication",
+          "detail__": ""
+        },
+        {
+          "id": "net-ao-sim-fabrication=>ctr-ao-sim-fabrication-gz",
+          "source": "net-ao-sim-fabrication",
+          "target": "ctr-ao-sim-fabrication-gz",
+          "mainStat": "10.89.5.10",
+          "secondaryStat": "ao-sim-fabrication",
+          "detail__": ""
+        },
+        {
+          "id": "net-ao-sim-vehicle=>ctr-ardupilot-sitl",
+          "source": "net-ao-sim-vehicle",
+          "target": "ctr-ardupilot-sitl",
+          "mainStat": "",
+          "secondaryStat": "ao-sim-vehicle",
+          "detail__": ""
+        },
+        {
+          "id": "host=>dbnode-db-host-postgres",
+          "source": "host",
+          "target": "dbnode-db-host-postgres",
+          "mainStat": "postgresql",
+          "secondaryStat": "active",
+          "detail__": ""
+        },
+        {
+          "id": "host=>dbnode-db-salesdb",
+          "source": "host",
+          "target": "dbnode-db-salesdb",
+          "mainStat": "postgresql",
+          "secondaryStat": "current_migration_state",
+          "detail__": ""
+        },
+        {
+          "id": "dbnode-db-host-postgres=>dbnode-db-salesdb",
+          "source": "dbnode-db-host-postgres",
+          "target": "dbnode-db-salesdb",
+          "mainStat": "logical database",
+          "secondaryStat": "current_migration_state",
+          "detail__": ""
+        },
+        {
+          "id": "host=>dbnode-db-mastodon",
+          "source": "host",
+          "target": "dbnode-db-mastodon",
+          "mainStat": "postgresql",
+          "secondaryStat": "current_migration_state",
+          "detail__": ""
+        },
+        {
+          "id": "dbnode-db-host-postgres=>dbnode-db-mastodon",
+          "source": "dbnode-db-host-postgres",
+          "target": "dbnode-db-mastodon",
+          "mainStat": "logical database",
+          "secondaryStat": "current_migration_state",
+          "detail__": ""
+        },
+        {
+          "id": "host=>dbnode-db-webodm",
+          "source": "host",
+          "target": "dbnode-db-webodm",
+          "mainStat": "postgis",
+          "secondaryStat": "current_migration_state",
+          "detail__": ""
+        },
+        {
+          "id": "dbnode-db-host-postgres=>dbnode-db-webodm",
+          "source": "dbnode-db-host-postgres",
+          "target": "dbnode-db-webodm",
+          "mainStat": "logical database",
+          "secondaryStat": "current_migration_state",
+          "detail__": ""
+        },
+        {
+          "id": "host=>dbnode-db-grafana",
+          "source": "host",
+          "target": "dbnode-db-grafana",
+          "mainStat": "postgresql",
+          "secondaryStat": "target",
+          "detail__": ""
+        },
+        {
+          "id": "dbnode-db-host-postgres=>dbnode-db-grafana",
+          "source": "dbnode-db-host-postgres",
+          "target": "dbnode-db-grafana",
+          "mainStat": "logical database",
+          "secondaryStat": "target",
+          "detail__": ""
+        },
+        {
+          "id": "host=>dbnode-db-metabase",
+          "source": "host",
+          "target": "dbnode-db-metabase",
+          "mainStat": "postgresql",
+          "secondaryStat": "target",
+          "detail__": ""
+        },
+        {
+          "id": "dbnode-db-host-postgres=>dbnode-db-metabase",
+          "source": "dbnode-db-host-postgres",
+          "target": "dbnode-db-metabase",
+          "mainStat": "logical database",
+          "secondaryStat": "target",
+          "detail__": ""
+        },
+        {
+          "id": "host=>dbnode-db-cordadb",
+          "source": "host",
+          "target": "dbnode-db-cordadb",
+          "mainStat": "postgresql",
+          "secondaryStat": "blocked",
+          "detail__": ""
+        },
+        {
+          "id": "dbnode-db-host-postgres=>dbnode-db-cordadb",
+          "source": "dbnode-db-host-postgres",
+          "target": "dbnode-db-cordadb",
+          "mainStat": "logical database",
+          "secondaryStat": "blocked",
+          "detail__": ""
+        },
+        {
+          "id": "host=>dbnode-db-postgres-admin",
+          "source": "host",
+          "target": "dbnode-db-postgres-admin",
+          "mainStat": "postgresql",
+          "secondaryStat": "active",
+          "detail__": ""
+        },
+        {
+          "id": "dbnode-db-host-postgres=>dbnode-db-postgres-admin",
+          "source": "dbnode-db-host-postgres",
+          "target": "dbnode-db-postgres-admin",
+          "mainStat": "logical database",
+          "secondaryStat": "active",
+          "detail__": ""
+        },
+        {
+          "id": "host=>dbnode-db-host-redis",
+          "source": "host",
+          "target": "dbnode-db-host-redis",
+          "mainStat": "redis",
+          "secondaryStat": "active",
+          "detail__": ""
+        },
+        {
+          "id": "host=>dbnode-db-mastodon-redis",
+          "source": "host",
+          "target": "dbnode-db-mastodon-redis",
+          "mainStat": "redis",
+          "secondaryStat": "active",
+          "detail__": ""
+        },
+        {
+          "id": "host=>dbnode-db-broker",
+          "source": "host",
+          "target": "dbnode-db-broker",
+          "mainStat": "redis",
+          "secondaryStat": "active",
+          "detail__": ""
+        },
+        {
+          "id": "host=>dbnode-db-prometheus",
+          "source": "host",
+          "target": "dbnode-db-prometheus",
+          "mainStat": "tsdb",
+          "secondaryStat": "implemented",
+          "detail__": ""
+        },
+        {
+          "id": "host=>dbnode-db-openclaw",
+          "source": "host",
+          "target": "dbnode-db-openclaw",
+          "mainStat": "sqlite",
+          "secondaryStat": "active",
+          "detail__": ""
+        },
+        {
+          "id": "host=>dbnode-db-akonadi",
+          "source": "host",
+          "target": "dbnode-db-akonadi",
+          "mainStat": "sqlite",
+          "secondaryStat": "active",
+          "detail__": ""
+        },
+        {
+          "id": "host=>dbnode-db-browsers",
+          "source": "host",
+          "target": "dbnode-db-browsers",
+          "mainStat": "sqlite",
+          "secondaryStat": "active",
+          "detail__": ""
+        },
+        {
+          "id": "host=>dbnode-db-podman",
+          "source": "host",
+          "target": "dbnode-db-podman",
+          "mainStat": "sqlite",
+          "secondaryStat": "active",
+          "detail__": ""
+        },
+        {
+          "id": "host=>dbnode-db-sim-local",
+          "source": "host",
+          "target": "dbnode-db-sim-local",
+          "mainStat": "sqlite",
+          "secondaryStat": "active",
+          "detail__": ""
+        },
+        {
+          "id": "host=>dbnode-db-filesystem-state",
+          "source": "host",
+          "target": "dbnode-db-filesystem-state",
+          "mainStat": "filesystem",
+          "secondaryStat": "active",
+          "detail__": ""
+        },
+        {
+          "id": "host=>dbnode-db-mapping-media",
+          "source": "host",
+          "target": "dbnode-db-mapping-media",
+          "mainStat": "filesystem",
+          "secondaryStat": "implemented",
+          "detail__": ""
+        },
+        {
+          "id": "host=>dbnode-db-h2-legacy",
+          "source": "host",
+          "target": "dbnode-db-h2-legacy",
+          "mainStat": "h2",
+          "secondaryStat": "not_active",
+          "detail__": ""
+        },
+        {
+          "id": "host=>internet",
+          "source": "host",
+          "target": "internet",
+          "mainStat": "outbound",
+          "secondaryStat": "controlled",
+          "detail__": ""
+        },
+        {
+          "id": "internet=>host",
+          "source": "internet",
+          "target": "host",
+          "mainStat": "ingress",
+          "secondaryStat": "tunnel",
+          "detail__": "mastodon.300x3.com -> 127.0.0.1:3000; chat.300x3.com -> 127.0.0.1:18790 (OpenClaw relay / sitebot); www.300x3.com -> 127.0.0.1:3300 (300X3 storefront proxy)"
+        },
+        {
+          "id": "host=>plan-corda-core",
+          "source": "host",
+          "target": "plan-corda-core",
+          "mainStat": "planned",
+          "secondaryStat": "blocked",
+          "detail__": ""
+        },
+        {
+          "id": "host=>plan-corda-ingest",
+          "source": "host",
+          "target": "plan-corda-ingest",
+          "mainStat": "planned",
+          "secondaryStat": "blocked",
+          "detail__": ""
+        },
+        {
+          "id": "host=>plan-sales-api",
+          "source": "host",
+          "target": "plan-sales-api",
+          "mainStat": "planned",
+          "secondaryStat": "planned",
+          "detail__": ""
+        },
+        {
+          "id": "host=>plan-sim-fabrication",
+          "source": "host",
+          "target": "plan-sim-fabrication",
+          "mainStat": "planned",
+          "secondaryStat": "implemented",
+          "detail__": ""
+        }
+      ],
+      "options": {
+        "nodeSize": {
+          "width": 340,
+          "height": 110
+        },
+        "zoomMode": "cooperative",
+        "dragging": true,
+        "legend": {
+          "showLabel": true,
+          "showType": true,
+          "showStats": true,
+          "showPorts": true
+        }
+      }
+    },
+    {
+      "id": 4,
+      "type": "row",
+      "title": "DATA STORES \u2014 PostgreSQL live, SQLite declared vs present",
+      "description": "The PostgreSQL panel queries the cluster it is connected to. The SQLite panel is the live presence check for each store named in the README store inventory.",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 65
+      },
+      "panels": []
+    },
+    {
+      "id": 210,
+      "type": "table",
+      "title": "PostgreSQL databases and roles \u2014 live from the cluster",
+      "description": "Every non-template database on the host cluster, which is the cluster ao-grafana and ao-metabase both authenticate to. Grafana holds CONNECT on its own database only, so size shows 'no access' elsewhere -- that restriction is the point, not a defect. Measured 2026-10-02: the unrestricted form of this query failed outright with 'permission denied for database cordadb'.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "ao-status"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 66
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "ao-status"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT d.datname AS database,   pg_catalog.pg_get_userbyid(d.datdba) AS owner,   pg_catalog.pg_encoding_to_char(d.encoding) AS encoding,   d.datconnlimit AS conn_limit,   COALESCE(a.active_conns, 0) AS active_conns,   CASE WHEN pg_catalog.has_database_privilege(d.datname, 'CONNECT')     THEN pg_catalog.pg_size_pretty(           pg_catalog.pg_database_size(d.datname))     ELSE 'no access' END AS size,   CASE WHEN pg_catalog.has_database_privilege(d.datname, 'CONNECT')     THEN 'visible' ELSE 'restricted to grafana' END AS readable FROM pg_catalog.pg_database d LEFT JOIN (  SELECT datname, count(*) AS active_conns   FROM pg_catalog.pg_stat_activity GROUP BY datname) a ON a.datname = d.datname WHERE NOT d.datistemplate ORDER BY d.datname"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {},
+            "indexByName": {},
+            "renameByName": {}
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "fields": {},
+            "sort": [
+              {
+                "field": "",
+                "desc": false
+              }
+            ]
+          }
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false,
+          "reducer": [
+            "sum"
+          ],
+          "countRows": false,
+          "fields": ""
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "filterable": true,
+            "cellOptions": {
+              "type": "auto"
+            }
+          },
+          "mappings": []
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 211,
+      "type": "table",
+      "title": "SQLite stores \u2014 declared vs present, integrated vs excluded",
+      "description": "A declared store showing ABSENT is a real finding for this host, not a collector error. Integrated stores are opened mode=ro and snapshotted; EXCLUDED stores are the mail and browser stores, excluded by operator directive -- they are never opened, so table_count is empty by design and that is not a fault.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "ao-status"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 66
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "ao-status"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT id AS store, label,   CASE WHEN present THEN 'present' ELSE 'ABSENT' END AS status,   CASE WHEN integrated THEN 'integrated' ELSE 'excluded (not opened)' END AS coverage,   table_count AS tables, journal_mode,   round(size_bytes / 1048576.0, 2) AS size_mib,   modified_utc, authority, read_error FROM ao_status.sqlite_store ORDER BY integrated DESC, present DESC, id"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {},
+            "indexByName": {},
+            "renameByName": {}
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "fields": {},
+            "sort": [
+              {
+                "field": "",
+                "desc": false
+              }
+            ]
+          }
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false,
+          "reducer": [
+            "sum"
+          ],
+          "countRows": false,
+          "fields": ""
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "filterable": true,
+            "cellOptions": {
+              "type": "auto"
+            }
+          },
+          "mappings": []
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 212,
+      "type": "table",
+      "title": "SQLite store metrics \u2014 row counts only",
+      "description": "Counts only. Message bodies, mail and browsing history are never read into the projection.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "ao-status"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 75
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "ao-status"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT s.id AS store, s.label, m.metric, m.value FROM ao_status.sqlite_metric m JOIN ao_status.sqlite_store s ON s.id = m.store_id ORDER BY s.id, m.metric"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {},
+            "indexByName": {},
+            "renameByName": {}
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "fields": {},
+            "sort": [
+              {
+                "field": "",
+                "desc": false
+              }
+            ]
+          }
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false,
+          "reducer": [
+            "sum"
+          ],
+          "countRows": false,
+          "fields": ""
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "filterable": true,
+            "cellOptions": {
+              "type": "auto"
+            }
+          },
+          "mappings": []
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 213,
+      "type": "table",
+      "title": "Declared data stores \u2014 authority from the topology model",
+      "description": "PostgreSQL, Redis and declared SQLite stores from config/platform/topology-model.yaml. Authority is the README classification: an authoritative store is a system of record and may not be deleted; a cache is not.",
+      "datasource": {
+        "type": "postgres",
+        "uid": "ao-status"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 75
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "postgres",
+            "uid": "ao-status"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT id AS store, label, kind, software, status, authority FROM ao_status.declared_store ORDER BY kind, id"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {},
+            "indexByName": {},
+            "renameByName": {}
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "fields": {},
+            "sort": [
+              {
+                "field": "",
+                "desc": false
+              }
+            ]
+          }
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false,
+          "reducer": [
+            "sum"
+          ],
+          "countRows": false,
+          "fields": ""
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "filterable": true,
+            "cellOptions": {
+              "type": "auto"
+            }
+          },
+          "mappings": []
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 6,
+      "type": "row",
+      "title": "SQLITE DIRECT QUERY \u2014 read-only snapshots, via the Grafana SQLite datasource (not PostgreSQL)",
+      "description": "",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 83
+      },
+      "panels": []
+    },
+    {
+      "id": 220,
+      "type": "table",
+      "title": "Elisa music library \u2014 tracks / albums / artists",
+      "description": "Queried live through Grafana's SQLite datasource against the delete-mode VACUUM INTO snapshot. Grafana opens a copy, never the running library.",
+      "datasource": {
+        "type": "frser-sqlite-datasource",
+        "uid": "ao-sqlite-elisa"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 84
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "frser-sqlite-datasource",
+            "uid": "ao-sqlite-elisa"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "queryText": "SELECT (SELECT count(*) FROM Tracks) AS tracks,        (SELECT count(*) FROM Albums) AS albums,        (SELECT count(*) FROM Artists) AS artists,        (SELECT count(*) FROM Genre) AS genres,        (SELECT count(*) FROM Composer) AS composers",
+          "rawQueryText": "SELECT (SELECT count(*) FROM Tracks) AS tracks,        (SELECT count(*) FROM Albums) AS albums,        (SELECT count(*) FROM Artists) AS artists,        (SELECT count(*) FROM Genre) AS genres,        (SELECT count(*) FROM Composer) AS composers",
+          "rawSql": "SELECT (SELECT count(*) FROM Tracks) AS tracks,        (SELECT count(*) FROM Albums) AS albums,        (SELECT count(*) FROM Artists) AS artists,        (SELECT count(*) FROM Genre) AS genres,        (SELECT count(*) FROM Composer) AS composers",
+          "database": {
+            "path": "/var/lib/ao-sqlite/db-elisa.db"
+          }
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {},
+            "indexByName": {},
+            "renameByName": {}
+          }
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false,
+          "reducer": [
+            "sum"
+          ],
+          "countRows": false,
+          "fields": ""
+        }
+      }
+    },
+    {
+      "id": 221,
+      "type": "table",
+      "title": "nPerf \u2014 run history",
+      "description": "Network performance monitor run history from the snapshot.",
+      "datasource": {
+        "type": "frser-sqlite-datasource",
+        "uid": "ao-sqlite-nperf-history"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 84
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "frser-sqlite-datasource",
+            "uid": "ao-sqlite-nperf-history"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "queryText": "SELECT count(*) AS runs, min(start_date) AS first_run, max(start_date) AS last_run FROM history",
+          "rawQueryText": "SELECT count(*) AS runs, min(start_date) AS first_run, max(start_date) AS last_run FROM history",
+          "rawSql": "SELECT count(*) AS runs, min(start_date) AS first_run, max(start_date) AS last_run FROM history",
+          "database": {
+            "path": "/var/lib/ao-sqlite/db-nperf-history.db"
+          }
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {},
+            "indexByName": {},
+            "renameByName": {}
+          }
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false,
+          "reducer": [
+            "sum"
+          ],
+          "countRows": false,
+          "fields": ""
+        }
+      }
+    },
+    {
+      "id": 222,
+      "type": "table",
+      "title": "Podman store \u2014 containers, pods and volumes in the snapshot",
+      "description": "Counts only. Podman's own live metadata database is never opened by Grafana; the live container view is the container and network tables in the TOPOLOGY COVERAGE row.",
+      "datasource": {
+        "type": "frser-sqlite-datasource",
+        "uid": "ao-sqlite-podman"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 84
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "frser-sqlite-datasource",
+            "uid": "ao-sqlite-podman"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "queryText": "SELECT (SELECT count(*) FROM ContainerConfig) AS containers,        (SELECT count(*) FROM ContainerState) AS container_states,        (SELECT count(*) FROM PodConfig) AS pods,        (SELECT count(*) FROM VolumeConfig) AS volumes",
+          "rawQueryText": "SELECT (SELECT count(*) FROM ContainerConfig) AS containers,        (SELECT count(*) FROM ContainerState) AS container_states,        (SELECT count(*) FROM PodConfig) AS pods,        (SELECT count(*) FROM VolumeConfig) AS volumes",
+          "rawSql": "SELECT (SELECT count(*) FROM ContainerConfig) AS containers,        (SELECT count(*) FROM ContainerState) AS container_states,        (SELECT count(*) FROM PodConfig) AS pods,        (SELECT count(*) FROM VolumeConfig) AS volumes",
+          "database": {
+            "path": "/var/lib/ao-sqlite/db-podman.db"
+          }
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {},
+            "indexByName": {},
+            "renameByName": {}
+          }
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false,
+          "reducer": [
+            "sum"
+          ],
+          "countRows": false,
+          "fields": ""
+        }
+      }
+    },
+    {
+      "id": 223,
+      "type": "table",
+      "title": "MeshChatX performance observer \u2014 reports held",
+      "description": "MeshChatX observer database. The main MeshChatX message store is not present on this host, so only the observer store has a snapshot.",
+      "datasource": {
+        "type": "frser-sqlite-datasource",
+        "uid": "ao-sqlite-meshchatx-observer"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 92
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "frser-sqlite-datasource",
+            "uid": "ao-sqlite-meshchatx-observer"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "queryText": "SELECT (SELECT count(*) FROM declarative_performance_observer_reports) AS reports,        (SELECT count(*) FROM declarative_performance_observer_policies) AS policies",
+          "rawQueryText": "SELECT (SELECT count(*) FROM declarative_performance_observer_reports) AS reports,        (SELECT count(*) FROM declarative_performance_observer_policies) AS policies",
+          "rawSql": "SELECT (SELECT count(*) FROM declarative_performance_observer_reports) AS reports,        (SELECT count(*) FROM declarative_performance_observer_policies) AS policies",
+          "database": {
+            "path": "/var/lib/ao-sqlite/db-reticulum-meshchatx-observer.db"
+          }
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {},
+            "indexByName": {},
+            "renameByName": {}
+          }
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false,
+          "reducer": [
+            "sum"
+          ],
+          "countRows": false,
+          "fields": ""
+        }
+      }
+    },
+    {
+      "id": 224,
+      "type": "table",
+      "title": "OpenClaw agent memory index \u2014 main agent",
+      "description": "Row counts only from the main agent snapshot. No memory text, embedding payload or credential material is displayed.",
+      "datasource": {
+        "type": "frser-sqlite-datasource",
+        "uid": "ao-sqlite-openclaw-main"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 92
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "frser-sqlite-datasource",
+            "uid": "ao-sqlite-openclaw-main"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "queryText": "SELECT (SELECT count(*) FROM memory_index_sources) AS sources,        (SELECT count(*) FROM memory_index_chunks) AS chunks,        (SELECT count(*) FROM cache_entries) AS cache_entries",
+          "rawQueryText": "SELECT (SELECT count(*) FROM memory_index_sources) AS sources,        (SELECT count(*) FROM memory_index_chunks) AS chunks,        (SELECT count(*) FROM cache_entries) AS cache_entries",
+          "rawSql": "SELECT (SELECT count(*) FROM memory_index_sources) AS sources,        (SELECT count(*) FROM memory_index_chunks) AS chunks,        (SELECT count(*) FROM cache_entries) AS cache_entries",
+          "database": {
+            "path": "/var/lib/ao-sqlite/db-openclaw-agent-main.db"
+          }
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {},
+            "indexByName": {},
+            "renameByName": {}
+          }
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false,
+          "reducer": [
+            "sum"
+          ],
+          "countRows": false,
+          "fields": ""
+        }
+      }
+    },
+    {
+      "id": 5,
+      "type": "row",
+      "title": "OPERATIONS",
+      "description": "",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 100
+      },
+      "panels": []
+    },
+    {
+      "id": 300,
+      "type": "text",
+      "title": "Where the artifacts live, and how to refresh",
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 101
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "**Datasource:** PostgreSQL only. Schema `ao_status`, read over the host UNIX socket that `ao-grafana` already bind-mounts read-only \u2014 no TCP listener, no published port, no extra network. Grafana does not read Prometheus.\n\n**Projection:** `scripts/operations/collect-system-health.py`, run every 60s by `ao-status-collect.timer`. It only inspects \u2014 podman, systemctl, ss, df, nvidia-smi \u2014 and opens each declared SQLite store read-only. It never starts, stops or reconfigures anything.\n\n**Topology artifacts:** `/ALWAYSON/TOPOLOGY/` \u2014 SVG, PNG, self-contained HTML, Graphviz DOT, `topology-inventory.json`, `TOPOLOGY.md`, `LIVE-LINKS.md`.\n\n**Metabase:** http://127.0.0.1:3002 \u00b7 **Grafana:** http://127.0.0.1:3001 (loopback only, operator login).\n\nRegenerate after any Quadlet, network, or port change: `python3 /ALWAYSON/scripts/operations/generate-topology.py`"
+      }
+    }
+  ],
+  "preload": false,
+  "refresh": "60s",
+  "schemaVersion": 39,
+  "tags": [
+    "alwayson",
+    "topology",
+    "networks"
+  ],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "ALWAYS ON \u2014 system topology",
+  "uid": "ao-topology",
+  "url": "/d/ao-topology/ao-system-topology",
+  "version": 1,
+  "weekStart": ""
+}

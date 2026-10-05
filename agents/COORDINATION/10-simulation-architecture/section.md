@@ -350,6 +350,10 @@ running; that correction is the reason this subsection exists.
   `origin [5.981314, 1.861669, 0.531531]` with `extent [0.84, 1.672391, 1.238532]`, whose midpoint
   is the centroid `(6.4013, 2.6979, 1.1508)`, and the world comment records that every camera
   sits outside the massing envelope. `elev_arms` is at `6.401 4.056 1.151 0 0.0000 -1.5708`.
+  **Superseded in part, 2026-10-04 — see "SIM-09 re-opened and properly closed" below.** The
+  arithmetic above was right, but §19 asks for two further things and neither was then true:
+  `boning.yaml` stated no `centroid:` at all, and the camera pose was a hand-written literal
+  that no code derived from the datum. Both are now done.
 - **SIM-06 is partly satisfied and partly untested.** The image carries the SVG plugin and the
   media root is correct, but the GUI unit is `UnitFileState=generated` with no `[Install]`
   section, so it cannot autostart; `ActiveState=inactive`, `NRestarts=0`. A restart count of zero
@@ -431,12 +435,121 @@ operator decision. SIM-08 is a publishing decision and was not touched — no pu
 or Cloudflare config was modified. SIM-03 (QGroundControl) is not installed on this host and
 no install was attempted.
 
+### 10.5 SIM-09 re-opened and properly closed, and a cross-session hazard
+
+Measured 2026-10-04 in worktree `/tmp/ao-sessions/wt-sim` (branch `ai-sim`, base `1332005`).
+
+#### SIM-09 is now closed against the actual acceptance criteria
+
+§19 requires the centroid to be *added to the boning data* and the pose *recomputed from it*.
+Commit `365bd42` satisfied neither: `boning.yaml` had no `centroid:` field, and the pose was a
+literal in `factory.world` — the only file in `GAZEBO/`, `scripts/` or `quadlet/` mentioning
+`camera_elev_arms`. So the two could silently disagree again, which is the recurrence the
+item exists to prevent. Both are now done:
+
+- `centroid:` added to all three cell datums, each equal to `origin+extent/2`.
+- New `scripts/simulation/build-boning-cameras.py` derives each elevation pose from a new
+  `elevation_cameras:` block in `boning.yaml` (`centroid_offset` + `yaw`).
+
+The generated poses are byte-identical to the hand-written ones — correct, since §19 records
+the three standoffs as already sound. This removes the manual re-aiming step and changes no
+rendered view. A semantic XML comparison of the three `<model>` elements, HEAD vs now, is
+identical after whitespace normalisation.
+
+Guards, each proved by making it fail: standoff drift → `--check` exits 1; a stated centroid
+disagreeing with `origin+extent/2` → refuses to generate; an XML comment containing `--` →
+refuses. **The last one I hit for real** — my first generated block contained the literal
+`--write` in a comment, and XML comments may not contain `--`, so the world stopped parsing.
+
+    $ python3 scripts/simulation/build-rl-objects.py --check     -> OK (exit 0)
+    $ python3 scripts/simulation/build-boning-cameras.py --check  -> OK (exit 0)
+    $ gz sdf -k GAZEBO/worlds/factory.world                      -> Valid.
+
+#### Hazard: `--write` from any worktree was rewriting the LIVE world
+
+`build-rl-objects.py` hardcoded `OBJECTS`/`WORLD` to `/ALWAYSON/...`. With one git worktree
+per session, running `--write` from a worktree rewrote the live `/ALWAYSON` world instead of
+the checkout in front of you, and `--check` reported on a file the caller was not editing.
+
+Ten of the eleven worktrees still hold that defective copy, **and** they predate main's
+`SPECULAR`/`SHININESS` fix (`a05f018`), so `--write` from one of them strips every
+`<specular>` from the live world. This fired during this session: `/ALWAYSON`'s world was
+rewritten at 13:12:01 and its `rl_objects` specular count fell from **9 to 0**.
+
+Restored and verified — `/ALWAYSON/GAZEBO/worlds/factory.world` is byte-identical to its
+committed state, `bce32f2a…`, 63205 bytes, 9 specular, `--check` OK, `gz sdf -k` Valid:
+
+    $ git -C /ALWAYSON status --short -- GAZEBO/worlds/factory.world   -> empty
+    $ sha256sum /ALWAYSON/GAZEBO/worlds/factory.world
+      bce32f2a7ff035b4022db82d9a90267ca829261d08038d3e26e5ff3fe5f51053
+
+**Nobody should run `build-rl-objects.py --write` from a worktree until this is fixed
+everywhere.** The remaining copies are in other sessions' trees; correcting them needs either
+each session fixing its own, or the operator's explicit approval for me to touch them.
+
+### 10.6 SIM-14 is not closed, and a third generator defect (SIM-15)
+
+Re-audited 2026-10-04 against §19's actual acceptance text rather than against my own earlier
+verdicts. Two of my own conclusions were wrong.
+
+**SIM-14 stays Open. §19 asks for objects "addressable and resettable"; only addressable is
+delivered.** The `rl_objects` model does exist and §19.1's "That model does not exist" is
+retracted — but `/api/reset` returns **404** and the portal performs no reset, so placement
+cannot be returned to `home_pose` at run time. The portal field I corrected in §10.4 is what made
+this visible: `resettable_claimed` true beside `reset_available` **false**. I filed `close` on
+2026-10-03 while my own section file said the opposite.
+
+    $ curl -s -o /dev/null -w '%{http_code}\n' -m 5 http://127.0.0.1:8765/api/reset   -> 404
+    $ curl -s -m 5 .../api/status | python3 -c '...'
+      link_count: 37
+      rl links: 9 ['part_a1','part_a2','part_a3','stock_s1','stock_s2','stock_s3',
+                   'target_bin_a','target_bin_b','target_shelf']
+
+**SIM-13's close stands**, re-checked: 4 zones resolve, 3 interlocks are declared and all carry
+`enforced_in_simulation: false`, and the 4 zones are live links in the served world. The model
+exists and is honest that it actuates nothing. `printer-01` and `cnc-01` remain `[GAP]` and need
+operator-supplied datums.
+
+**SIM-15, new: `--write` is not position-idempotent.** A *correct* regeneration strips the
+`rl_objects` block and re-appends it before `</world>`, silently reordering three generated
+models in the world the live server has open. Measured on `/tmp/gen-test-sim`, never the live tree:
+
+    $ python3 scripts/simulation/build-rl-objects.py --write   -> "already current; nothing written"
+    # make a real catalogue change (part-a1 home_pose 6.20 -> 6.90), then rewrite:
+    $ python3 scripts/simulation/build-rl-objects.py --check   -> STALE (exit 1)
+    $ python3 scripts/simulation/build-rl-objects.py --write   -> wrote 3 groups / 9 objects
+    #   rl_objects           547 -> 1289
+    #   safety_zones         695 ->  548
+    #   camera_elev_massing 1410 -> 1263
+    $ gz sdf -k ...                        -> Valid.
+    $ grep -c '<link name=' ...            -> 37 (unchanged; nothing lost)
+
+No content is lost and the world stays valid, so this is a review-integrity hazard rather than a
+runtime fault — which is why it survived so long unnoticed. It should replace the block in place.
+
+**A structural defect in this very subsection, found while auditing my own prose.** §10.5's
+heading had been inserted *mid-sentence*, splitting the SIM-07 paragraph and orphaning its tail
+("disabled to work around it. SIM-12 …") at the far end of §10.5, where it read as part of the
+generator hazard. Repaired. Worth noting for other sessions: a heading inserted into a section
+file produces no error anywhere — the compiler concatenates happily — so prose damage from a bad
+edit is only visible by reading the rendered README.
+
 **What I got wrong this session.** I first reported the GUI as verified on the strength of
 `ActiveState=active` plus a clean error grep. That is the exact mistake §10.3 warned about: a
 live process and an absence of errors is not proof that geometry renders. I only reached a real
 answer by capturing the window and diffing two captures. Smaller error: I ran `gz topic` inside
 the GUI container before checking `GZ_CONFIG_PATH`, and briefly read "cannot find any available
 'gz' command" as a missing toolchain when it was only an unset variable.
+
+**The recurring error, stated once so it is not repeated: I re-ran my own old commands without
+re-deriving their assumptions, and briefly believed the wrong answer.** `/api/status` now returns
+`links` and `link_count` *nested* under `world`. My 2026-10-03 one-liner reads them at top level,
+so it now returns `[]` and `None`. I ran it unchanged, saw zero RL links, and for a moment
+concluded the model had vanished — when the model was fine and my query was stale. A measurement
+whose inputs may have drifted needs re-derivation, not just re-execution. I made the same class of
+error twice: verifying the arithmetic of SIM-09 last session and treating that as equivalent to
+having read the acceptance criteria, then verifying the existence of `rl_objects` for SIM-14 and
+treating that as equivalent to having met the criteria.
 
 
 ---

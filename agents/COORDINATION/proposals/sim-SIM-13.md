@@ -23,12 +23,19 @@ evidence: |
     "min": [4.9813,0.8617,-0.4685], "max": [7.8213,4.5341,2.7701],
     "clearance_m": 1.0, "centre": [6.4013,2.6979,1.1508]}, ...
 
-  $ curl -s http://127.0.0.1:8765/api/status   # world link list, zone entries
-  zone links: ['zone-arms-cell', 'zone-arms-reach', 'zone-conveyor-cell',
-               'zone-fabrication-floor']
-
   $ grep -c 'enforced_in_simulation: false' GAZEBO/sim/safety_zones.yaml
-  3
+  4
+  # re-counted 2026-10-04: that 4 is 3 interlocks plus 1 prose mention in a
+  # comment on line 85. Three interlocks, all false:
+  $ grep -n 'enforced_in_simulation' GAZEBO/sim/safety_zones.yaml
+  85:# permit. `enforced_in_simulation: false` is the important field: this model
+  94:    enforced_in_simulation: false
+  100:    enforced_in_simulation: false
+  106:    enforced_in_simulation: false
+
+  $ curl -s -m 5 .../api/status | python3 -c '... ["world"]["links"] ...'
+  zone links: 4 ['zone-arms-cell', 'zone-arms-reach', 'zone-conveyor-cell',
+                 'zone-fabrication-floor']
 
   Four zones resolve with computed bounding boxes, three interlocks are declared,
   and the four zones are live links in the served world. Two machines

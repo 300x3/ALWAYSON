@@ -48,3 +48,7 @@ is a different measurement from *interference events on one receiver*. Reading t
 before choosing the evidence would have saved the detour — and note this is the same class
 of mistake I made on FIELD-01, which is worth the compiler knowing: **twice this session I
 picked a method from a title instead of from the criteria.**
+
+---
+
+**RE-VERIFIED 2026-10-04 15:09 — still blocked, nothing recovered.** All prerequisites re-measured before relying on the original finding (full output in §9.5.7). `DRONE-RADIO` has still not come up since 2026-09-25 16:27; the offline-retry total is now **13,885** (was 11,212 at 09:18) and the failure signature is still live at the final log line. The Pi5 drone is still absent from DNS, SSH config and the ARP cache, so there is no peer at the far end of any link. **No new evidence was found and no claim in this proposal has been weakened.** This item cannot be closed or narrowed from the desktop host; it needs the radio board repaired and/or the drone powered and connected.

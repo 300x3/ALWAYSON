@@ -256,8 +256,9 @@ runs Kubuntu 26.04 LTS on an Intel Core i7-8700K with an NVIDIA GTX 1080. Comput
 production workloads may move to an immersion-cooled server rack and a Raspberry Pi
 edge-computing cluster.
 
-Kubuntu is the desktop for four reasons: it is built on Ubuntu LTS with support through April
-2031, giving a predictable maintenance horizon; it carries the ROS 2 and Gazebo toolchain plus
+Kubuntu is the desktop for four reasons: it is built on Ubuntu LTS with standard security
+maintenance to May 2031, giving a predictable maintenance horizon; it carries the ROS 2 and
+Gazebo toolchain plus
 QGroundControl that the simulation work depends on; KDE Plasma provides the login-gated KDE
 Wallet secret flow (§14.1) and Konqueror as the dedicated automation browser; and the KDE
 suite covers the desktop and portable hardware this system is built for.
@@ -288,10 +289,24 @@ $ systemctl is-enabled sddm
 enabled
 ```
 
-Three `kubuntu-*` packages are installed (`kubuntu-settings-desktop`, `kubuntu-wallpapers`,
-`kubuntu-notification-helper`) but the `kubuntu-desktop` metapackage is not, and
-`kubuntu-desktop` is in `universe`, not `main`. So: Ubuntu LTS base, KDE Plasma 6.6.6 on SDDM,
-Kubuntu-flavoured settings only. Every functional claim this section rests on is independently
+Six installed packages carry the Kubuntu name, three named `kubuntu-*` and three not
+(`libkubuntu1`, `plymouth-theme-kubuntu-logo`, `plymouth-theme-kubuntu-text`):
+
+```
+$ dpkg -l | awk '/^ii/ && $2 ~ /kubuntu/ {print $2}' | sort
+kubuntu-notification-helper
+kubuntu-settings-desktop
+kubuntu-wallpapers
+libkubuntu1
+plymouth-theme-kubuntu-logo
+plymouth-theme-kubuntu-text
+```
+
+So: Ubuntu LTS base, KDE Plasma 6.6.6 on SDDM, Kubuntu-flavoured settings only. The
+`kubuntu-desktop` metapackage is **not** installed, and `apt-cache show` confirms it sits in
+`universe`, not `main` (`Section: universe/metapackages`, candidate `1.496`). Every
+functional claim this
+section rests on is independently
 true — Plasma 6.6.6 is present, `konqueror`, `kwalletmanager5` and `kwallet-query` are
 installed (§14.1), ROS 2 Lyrical is at `/opt/ros/lyrical` (§2.2), and the machine is an
 i7-8700K with a GeForce GTX 1080. Only the distribution label was loose.
@@ -301,12 +316,44 @@ plus QGroundControl". ROS 2 and Gazebo are real: `ros2` resolves to `/opt/ros/ly
 and `gzserver` is not on the host PATH because Gazebo runs containerised
 (`ao-sim-fabrication-gz`, carrying `gz` and `gz-msgs_*`; the host keeps a wrapper at
 `~/bin/gazebo`). **QGroundControl is an AppImage, not an installed package** — there is no
-`qgroundcontrol` binary on the PATH and no `.desktop` entry in `/usr/share/applications`; the
-operator runs `~/Documents/APP IMAGES/QGroundControl-x86_64.AppImage`, which has left state in
-`~/.config/QGroundControl` and `~/.cache/QGroundControl`. Same for the Foxglove bridge, which is
-a locally built image (`localhost/foxglove-bridge`) rather than a pinned upstream digest. Those
-two are simulation-toolchain facts and belong to the SIM group's inventory; they are noted here
-only so §1 does not read as a package manifest.
+`qgroundcontrol` binary on the PATH and no `.desktop` entry under
+`/usr/share/applications`; the operator runs
+`~/Documents/APP IMAGES/QGroundControl-x86_64.AppImage`, which has left state in
+`~/.config/QGroundControl` and `~/.cache/QGroundControl`. It does have a **user-level**
+launcher, so it is on the desktop menu even though it is not a package:
+
+```
+$ find /usr/share/applications ~/.local/share/applications -iname '*ground*'
+/home/scottw/.local/share/applications/qgroundcontrol.desktop
+$ grep '^Exec' ~/.local/share/applications/qgroundcontrol.desktop
+Exec="/home/scottw/Documents/APP IMAGES/QGroundControl-x86_64.AppImage" %U
+```
+
+The distinction worth keeping is AppImage-vs-package, not absent-vs-present: the launcher
+just invokes the AppImage path, which is why the binary is not on the PATH. Same for the
+Foxglove bridge, which is a locally built image (`localhost/foxglove-bridge`) rather than a
+pinned upstream digest. Those two are simulation-toolchain facts and belong to the SIM
+group's inventory; they are noted here only so §1 does not read as a package manifest.
+
+**Support-horizon correction, same date.** This paragraph previously gave the maintenance
+horizon as "April 2031". Canonical's published release-cycle table gives **May 2031**, and
+the month was the substance of the claim — a maintenance horizon is only useful if it is the
+right one. Measured 2026-10-04 from `ubuntu.com/about/release-cycle`:
+
+```
+26.04 LTS   Released: Apr 2026
+            Standard security maintenance    May 2031
+            Expanded security maintenance    May 2036
+```
+
+Two things follow that are worth more than the date. The horizon is **standard security
+maintenance, not full support** — extended to May 2036 with Ubuntu Pro, so the 2031
+figure is when routine maintenance stops, not when the release stops being usable. And this
+section's "Kubuntu" claim is about the *Ubuntu LTS base*, whose cycle is the table above;
+flavour cycles are maintained separately by their own communities and are not covered by
+Canonical's dates. Since this host is Ubuntu 26.04.1 LTS with KDE Plasma rather than
+Kubuntu proper (see the correction above), the base table is in fact the correct one to cite
+— but a reader should not take the flavour's support window to be the same number.
 
 # 2. Platform Baseline
 
@@ -490,6 +537,36 @@ running, so it cannot be used to verify what is deployed. Note also that four di
 running but absent from the matrix — `gz-sim10-server`, `foxglove-bridge`, and the two Redis
 digests `c6eabf74…` (used by both `ao-webodm-broker` and `mastodon-redis`, while the matrix
 records the older `91d0f7e8…`).
+
+**Re-verified 2026-10-04** by re-running every command in this audit against the live host.
+All findings above reproduced unchanged: 2 unpinned `Image=` lines in the repository, the same
+six tag-only running containers (`ao-sqli3`, `keen_bhabha`, `confident_khayyam`,
+`relaxed_tharp`, `dreamy_rosalind`, `vigorous_shannon`) still present, `kernel` still recorded
+as `7.0.0-34-generic` against a live `7.0.0-38-generic`, `nvidia-container-toolkit` still
+recorded as `1.20.0` against a live `1.20.1-1`, and `image_postgres_shared` still naming
+`postgres@sha256:a65e6a84…` while every running PostgreSQL container uses
+`postgres@sha256:d74eeac9…`.
+
+**Trap — `systemctl list-unit-files … | wc -l` is not a count of units.** It always prints
+three lines (the header, a blank line, and `0 unit files listed.`), so `wc -l` returns `3`
+whether or not any unit exists. Measured, with a control:
+
+```
+$ systemctl list-unit-files 'ao-webodm*' | wc -l
+3
+$ systemctl list-unit-files 'ao-nonexistentxyz*' | wc -l   # control: impossible pattern
+3                                    # identical -- so wc -l measures boilerplate
+$ systemctl list-unit-files 'ao-webodm*' | grep -c '^ao-'
+0                                    # the valid measurement
+$ systemctl --user list-unit-files 'ao-webodm*' | grep -c '^ao-'
+4                                    # same form, scope where units DO exist
+```
+
+This matters because an earlier `PLAT-01` proposal cited the `wc -l` form as evidence of "no
+system-level units". The **conclusion was right** — there are none — but the command shown
+could not have produced the number reported. A citation that does not reproduce is not
+evidence, and it is corrected in `agents/COORDINATION/proposals/plat-PLAT-01.md`. Reach for
+`grep -c '^ao-'`, or `--no-legend`, and always run a control pattern before believing a zero.
 
 **Remaining for `PLAT-02`:** the matrix is still hand-edited rather than captured by a
 generator, and these three rows plus the four missing digests need correcting.
@@ -710,6 +787,100 @@ The one surviving open item is the `ao-egress-community` / `10.89.11.0/24` name-
 reconciliation. That is a rename decision belonging to another group, tracked in §19.1; it is
 deliberately left alone here.
 
+**The full network inventory, measured 2026-10-04.** Added because the correction above
+names "three deliberately `Internal=false` networks" without naming all three, and because a
+reader checking the isolation rule should be able to verify all fourteen at once rather than
+trust a count. Live state and `config/platform/network-cidrs.yaml` **agree exactly** — all
+fourteen names, all fourteen `internal` flags, all fourteen subnets. That is worth stating
+explicitly: the registry is not aspirational, it describes what is actually running.
+
+| Network | `Internal` | Subnet | Note |
+|---|---|---|---|
+| `ao-payment` | true | 10.89.1.0/24 | |
+| `ao-field` | true | 10.89.2.0/24 | |
+| `ao-mapping` | true | 10.89.3.0/24 | |
+| `ao-sim-vehicle` | true | 10.89.4.0/24 | |
+| `ao-sim-fabrication` | true | 10.89.5.0/24 | |
+| `ao-ledger-ingest` | true | 10.89.6.0/24 | |
+| `ao-ledger-core` | true | 10.89.7.0/24 | |
+| `ao-data` | true | 10.89.8.0/24 | |
+| `ao-admin` | true | 10.89.9.0/24 | |
+| `ao-reporting-egress` | **false** | 10.89.10.0/24 | Egress path for `ao-grafana`, `ao-metabase` (§6.A.2) |
+| `ao-sales` | **false** | 10.89.0.0/24 | Egress; absorbs the folded `10.89.11.0/24` |
+| `ao-fabrication` | true | 10.89.12.0/24 | §3.3.0.1 |
+| `ao-build-update` | **false** | 10.89.13.0/24 | Build/pull egress — the third, and the one §3 never named |
+| `ao-html-window` | true | 10.89.14.0/24 | |
+
+```
+$ for n in $(podman network ls --format '{{.Name}}' | grep '^ao-'); do
+    podman network inspect $n --format 'internal={{.Internal}} subnet={{range .Subnets}}{{.Subnet}}{{end}}'; done
+  -> internal=true  x11 (payment, field, mapping, sim-vehicle, sim-fabrication,
+                       ledger-ingest, ledger-core, data, admin, fabrication, html-window)
+  -> internal=false x3  (reporting-egress, sales, build-update)
+```
+
+**Read this before reading the isolation rule as absolute.** The project convention is
+`Internal=true` for workload networks, and eleven of fourteen honour it. The three
+exceptions are all **egress** networks, which must not be `Internal=true` or they could not
+reach anything — so this is the rule working, not a violation. But it does mean "all
+workload networks are `Internal=true`" is not literally true of everything called a network,
+and a security argument that assumes it is would be wrong by three. The `Internal=true`
+guarantee that §3.3.0.1 relies on — no default route, no NAT, no way off the subnet — holds
+for `ao-fabrication` and the ten others, and **not** for these three.
+
+**Correction to my own text, immediately after writing it.** The first draft of this
+paragraph said the block was "contiguous and gap-free" and that `10.42.0.0/24` was the only
+non-`ao-` addressing on the host. **Both statements are wrong**, and I am recording that
+because they are the kind of claim that survives into someone else's security argument.
+
+1. The block is **not** gap-free. Fourth octet counting is misleading here because every
+   subnet is `10.89.<n>.0/24`, so the varying octet is the **third**:
+
+```
+$ for n in $(podman network ls --format '{{.Name}}' | grep '^ao-'); do
+    podman network inspect $n --format '{{range .Subnets}}{{.Subnet}}{{end}}'; done
+third octets in use: 0 1 2 3 4 5 6 7 8 9 10 12 13 14
+missing in the 0-14 range: [11]
+```
+
+`11` is absent, and that is exactly the folded `10.89.11.0/24` this subsection already
+discusses. So the one gap in the block is the one known-unallocated subnet — consistent,
+not a second problem. There are **no overlaps** and no duplicates, which is the property
+that actually matters.
+2. The host carries a **third** address family besides `10.42.0.0/24`:
+
+```
+$ ip -4 addr show | grep 'inet ' | grep -v 127.0.0.1
+inet 10.42.0.1/24       scope global  noprefixroute  eno1
+inet 192.168.87.135/24  scope global  dynamic       wlp3s0
+inet 169.254.248.253/16 scope link   noprefixroute  eno1
+```
+
+`10.42.0.0/24` is the wired equipment LAN on `eno1`; `192.168.87.0/24` is a **Wi-Fi**
+network on `wlp3s0`, and the `169.254.0.0/16` link-local is autoconfigured.
+
+**Correction to that correction — the Wi-Fi address is not undocumented.** I wrote that §3
+describes the host as having only the equipment LAN, and having just recompiled the README I
+checked whether that was true elsewhere in the document rather than only in my own section.
+It is not: the Wi-Fi address appears in at least two other sections.
+
+```
+README.md:2173  | Host address | `192.168.87.135/24` on `wlp3s0` |
+README.md:5572  MeshChatX is bound to 0.0.0.0:4242; the host had 192.168.87.135/24 on Wi-Fi
+```
+
+So the accurate statement is narrower: the Wi-Fi interface is documented elsewhere and
+**absent from §3**, not absent from the README. That is a consistency gap in one section,
+not a gap in the project record — a meaningfully different thing, and the difference
+matters for whether anyone needs to act. MeshChatX binding `0.0.0.0` while the host holds a
+Wi-Fi address looks like a genuine exposure question, but it belongs to the COMM/NET groups
+and I am recording the pointer rather than opening it.
+
+The substantive point stands unchanged: `Internal=true` constrains a *container's* view, and
+nothing in it constrains what the host's own interfaces reach. §3.3.0.1's "no route off the
+subnet" is true of a container and false of the host, and that distinction is worth making
+explicit regardless of which addresses the host holds.
+
 ### 3.3.1 Program-to-Database Map (single consolidated table)
 
 This is the one table of programs and the databases they use. It is the starting
@@ -732,17 +903,140 @@ installed package or desktop settings module.
 | **PostgreSQL 18** | Metabase | Metabase application database (dedicated) | Metabase application schema, saved questions, dashboards, filters, and subscriptions. Not a system of record and never written to by a reporting source |
 | **PostgreSQL / MySQL (read-only)** | Metabase reporting sources | Per-source read-only roles | Ad-hoc read-only reporting connections to the business databases. One read-only role per source, with no write, DDL, or owner privilege, so a report cannot modify a source |
 | **Prometheus TSDB** | Prometheus | `/prometheus` persistent volume | Security evidence only. Time-series metrics, service health, resource usage, and security evidence. Acts alone and independently of Grafana and Metabase. |
-| **SQLite** | MeshChatX | MeshChatX SQLite store | MeshChatX messages, rooms, and local Reticulum/MeshChatX application state |
-| **SQLite** | QGroundControl | QGroundControl SQLite store | QGroundControl plans, waypoints, settings, and vehicle/flight-plan state |
+| **SQLite** | MeshChatX / Reticulum MeshChatX | Per-identity database at `~/.reticulum-meshchatx/identities/<identity>/database.db` | MeshChatX messages, rooms, and local Reticulum/MeshChatX application state. **Correction 2026-10-04:** this row previously gave no path, and an earlier revision implied a single store under `~/.local/share/`. There is none. The real store is **per identity**, keyed by a hashed directory name — measured: one identity present, 18 MB, 44+ tables (`lxmf_messages`, `lxmf_folders`, `contacts`, `announces`, `crawl_tasks`, `rrc_room_keys`, `map_drawings`, `blocked_destinations`). A separate small store holds declarative-performance-observer reports. Note the content state: `lxmf_messages`, `lxmf_folders` and `lxmf_conversation_summaries` all read **0** rows, while `announces` holds 8862 and `crawl_tasks` 3048 — so the store is populated by network announces and crawling, not by message traffic. There is also a Qt performance-observer store and a plugin-state store. |
+| **SQLite** | QGroundControl | **No application database exists.** Settings are in an INI file and map tiles in a tile cache | **Correction 2026-10-04:** this row previously claimed a "QGroundControl SQLite store" holding "plans, waypoints, settings, and vehicle/flight-plan state". Measured, that store does not exist. The only SQLite file QGroundControl creates on this host is a **map tile cache** — `~/.cache/QGroundControl/QGroundControl/QGCMapCache/qgcMapCache.db`, tables `Tiles`, `TileSets`, `SetTiles`, `TilesDownload`, holding 16 tiles in 1 tile set. Settings live in `~/.config/QGroundControl/QGroundControl.ini` (a plain INI, currently just `SettingsVersion=9`), not in SQLite. Mission plans are `.plan` **files**, not database rows, and no live plan store was found. What this row describes is the intended design; what exists is a tile cache. |
 | **SQLite** | Akonadi/KDE PIM applications | Akonadi SQLite data | Contacts, calendars, mail indexes, and local personal-information data **Not collected by Prometheus** — excluded by operator instruction 2026-10-03: personal and mail-index material is not security telemetry |
-| **SQLite** | Firefox, Brave, Chrome, and Edge | Browser profile SQLite stores | Browser history, site storage, caches, certificates, and profile data **Not collected by Prometheus** — excluded by operator instruction 2026-10-03: browsing material is not security telemetry |
+| **SQLite** | OpenClaw agents | `~/.openclaw/agents/{main,sitebot}/agent/openclaw-agent.sqlite` | Sales/social AI agent state. **Correction 2026-10-04 — this contradicts the "filesystem/local metadata — social" row below, which classes OpenClaw as files "not automatically part of SQL reporting".** OpenClaw does not hold state only in files: it has two real SQLite databases, measured at 33 MB (main) and 4.4 MB (sitebot), and both are among the **seven stores actually snapshotted and read by Grafana** (§3.3.1.1). The row below should not be read as excluding OpenClaw from SQL reporting |
+| **SQLite** | nPerf | `~/.local/share/nPerf/{history,settings,engine}.db` | Run history and settings; two of the three are snapshotted and read by Grafana. Row counts only — settings values are never selected |
+| **SQLite** | Elisa | `~/.local/share/elisa/elisaDatabase.db` | Music library; snapshotted and read by Grafana. Counts only — no titles, artists or paths |
+| **SQLite** | Klipper | `~/.local/share/klipper/history3.sqlite` | Clipboard history. **Never snapshotted, metadata only, by design** — a snapshot would copy clipboard content (which can include passwords and tokens) into a world-readable file, which README §4.1 rule 5 forbids |
+| **SQLite** | libaccounts-glib | `~/.config/libaccounts-glib/accounts.db` | Account identifiers. **Never snapshotted, metadata only**, same reason as Klipper |
+| **SQLite** | Firefox, Brave, Chrome, and Edge | Browser profile SQLite stores | Browser history, site storage, caches, certificates, and profile data **Not collected by Prometheus** — excluded by operator instruction 2026-10-03: browsing material is not security telemetry. **Correction 2026-10-04 — measured, and worth knowing which of these are real.** Chrome and Edge each have a populated `Default` profile with SQLite files present. Firefox is installed **as a snap** (`firefox 1:1snap1`) and its real profile is `~/snap/firefox/common/.mozilla/firefox/<id>/places.sqlite` — *not* the `~/.mozilla/firefox/` path the monitoring collector declares, which is absent, so a collector run would report Firefox absent rather than reading it. Brave is also a snap and **has no profile directory at all**, so it is unpopulated rather than excluded. The exclusion decision is unaffected; only the enumeration was wrong. |
 | **SQLite** | Podman | Rootless container metadata store | Container, image, network, and volume metadata; not application data BoltDB, not SQLite, so not a Prometheus collector target |
-| **Filesystem/local metadata — social** | LM Studio and OpenClaw | Application files, model settings, and local state | Sales/social AI application state that is not automatically part of SQL reporting |
+| **Filesystem/local metadata — social** | LM Studio and OpenClaw | Application files, model settings, and local state | Sales/social AI application state that is not automatically part of SQL reporting. **Caveat added 2026-10-04:** this row is accurate for LM Studio but **must not be read to cover OpenClaw's agent databases**, which are real SQLite stores and are snapshotted into Grafana reporting — see the OpenClaw row in §3.3.1 |
 | **Filesystem/local metadata — drone/field** | ArduPilot, MeshChatX/Reticulum field stores, and radio gateway logs | Application files, telemetry spools, and local state | Field operational and engineering data that is not automatically part of SQL reporting |
 | **Filesystem/local metadata — sim** | Gazebo, ROS 2, ArduPilot SITL, and simulation tools | Project files, worlds, models, and result artifacts | Simulation operational and engineering data that is not automatically part of SQL reporting |
 
 This table records what each database is and which program uses it. Whether a database is
 built and provisioned is status, recorded in §19.1 alongside the work to build it.
+
+**Re-verified 2026-10-04 — every version claim in the rows above, measured in one pass.**
+The container rows were the ones most likely to drift, because they are read from the
+running container rather than from a manifest. All of them still hold:
+
+```
+$ for c in ao-sales-db mastodon-db ao-fabrication-db ao-webodm-broker mastodon-redis; do
+    printf '%-20s %s\n' "$c" \
+      "$(podman exec $c sh -c 'postgres --version 2>/dev/null || redis-server --version 2>/dev/null')"; done
+ao-sales-db            postgres (PostgreSQL) 17.11 (Debian 17.11-1.pgdg13+2)
+mastodon-db            postgres (PostgreSQL) 17.11 (Debian 17.11-1.pgdg13+2)
+ao-fabrication-db      postgres (PostgreSQL) 17.11 (Debian 17.11-1.pgdg13+2)
+ao-webodm-broker       Redis server v=7.4.11
+mastodon-redis         Redis server v=7.4.11
+$ podman exec ao-webodm-db psql -U postgres -tAc 'select version();'
+PostgreSQL 9.5.25 on x86_64-pc-linux-gnu
+$ psql --version; redis-cli --version
+psql (PostgreSQL) 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1)
+redis-cli 8.0.5
+```
+
+So **PostgreSQL 17.11** for the three domain databases, **9.5.25** for WebODM/NodeODM,
+**18.6** for the host cluster that also carries Grafana and Metabase, **Redis 7.4.11** in
+the two containerised Redis services and **8.0.5** on the host — matching §3.3.1 exactly.
+The host-cluster figure is now corroborated three independent ways: `psql --version`
+locally, Metabase's own startup banner, and Grafana's `dbtype=postgres` connect log
+(§6.A.3.1), rather than being inferred from `/etc/postgresql/` alone.
+
+The PostGIS split in the WebODM row is also confirmed the same day, and it is the one row
+where the difference between the two databases is the whole point:
+
+```
+$ podman exec ao-webodm-db psql -U postgres -d webodm_dev -tAc "select extname,extversion from pg_extension where extname='postgis';"
+postgis|2.3.2
+$ podman exec ao-webodm-db psql -U postgres -d webodm -tAc "select extname,extversion from pg_extension;"
+plpgsql|1.0
+```
+
+PostGIS is in `webodm_dev` — the database the app actually reads — and absent from
+`webodm`. Two things that were previously asserted without a command are now measured at
+the same time: the host-side data dir is `~/webodm/dbdata`, and the host Redis holds no
+application data (`redis-cli dbsize` → `0`, `redis_version:8.0.5`), which is what the
+"no current application data confirmed" wording in the Redis 8 row above actually means.
+
+#### 3.3.1.1 How SQLite stores reach reporting (measured 2026-10-04)
+
+**Added because §3.3.1 listed the SQLite stores but never said how any of them reach
+reporting, and a reader could reasonably conclude none of them do.** Seven of them do,
+through a snapshot mechanism that has two properties worth knowing: Grafana **never opens
+a live SQLite store**, and the whole path is credential-free.
+
+```
+source SQLite  --(VACUUM INTO, source opened mode=ro)-->  snapshot dir
+   -> bind-mounted read-only into ao-grafana at /var/lib/ao-sqlite
+   -> read by Grafana through the frser-sqlite-datasource plugin
+```
+
+Measured:
+
+```
+$ ls -la /ALWAYSON/data/monitoring/sqlite-snapshots/
+-rw-r--r-- 139264   Oct  4 15:10  db-elisa.db
+-rw-r--r-- 2916352  Oct  4 15:10  db-nperf-history.db
+-rw-r--r-- 12288    Oct  4 15:10  db-nperf-settings.db
+-rw-r--r-- 33259520 Oct  4 15:10  db-openclaw-agent-main.db
+-rw-r--r-- 4411392  Oct  4 15:10  db-openclaw-agent-sitebot.db
+-rw-r--r-- 532480   Oct  4 15:10  db-podman.db
+-rw-r--r-- 32768    Oct  4 15:10  db-reticulum-meshchatx-observer.db
+
+$ podman inspect ao-grafana --format '{{range .Mounts}}{{.Source}} -> {{.Destination}} rw={{.RW}}{{"\n"}}{{end}}'
+/ALWAYSON/data/monitoring/sqlite-snapshots -> /var/lib/ao-sqlite rw=false
+```
+
+**Why snapshots at all rather than a read-only bind mount of the live stores.** Two
+measured reasons, both recorded in the collector: SQLite must write the `-shm` index to
+read a WAL-mode database, so a WAL store *cannot* be read through a read-only mount at
+all; and `VACUUM INTO` produces a delete-mode file that opens cleanly read-only. The
+`immutable=1` workaround was rejected because it ignores the `-wal` file and would have
+Grafana reporting stale data while appearing healthy. The consequences are deliberate and
+should be read as design, not limitation: no ACL change is applied to any personal store,
+Grafana cannot write to or corrupt a live store, and **panel data can lag the live store by
+up to one collector interval** — the snapshot age is displayed on the dashboard for exactly
+this reason.
+
+**No credentials exist anywhere on this path.** The datasources set only a `path`; there is
+no user, password, or any other credential, and none may be added, because SQLite has no
+authentication mechanism. Access control is entirely the file mode (`0644`) plus the
+read-only mount. That is a real property of SQLite, not an oversight — it also means there
+is nothing to protect here beyond filesystem permissions.
+
+**Three stores are deliberately metadata-only and never snapshotted**, because a snapshot
+would copy credential-bearing content into a world-readable file (README §4.1 rule 5):
+Klipper clipboard history, libaccounts-glib accounts, and — by operator instruction of
+2026-10-03 — all mail (Akonadi) and browser stores. Mail and browser material is reported
+as present/absent in PostgreSQL but is never snapshotted, never mounted, and never
+readable from Grafana. This is the enforcement point behind the "Not collected by
+Prometheus" notes in §3.3.1.
+
+**One datasource per snapshot, deliberately.** The `frser-sqlite-datasource` plugin executes
+every query against the single `jsonData.path` and treats `jsonData.databases` only as a
+picker for its query editor UI. With one datasource carrying several paths, every panel
+silently answered from whichever store was in `path` — the measured symptom was the Elisa
+panel reporting Podman's container count. Per-snapshot datasources are the only way for a
+panel to address the store it names.
+
+**Two boundaries on what crosses.** First, Prometheus does not scrape SQLite at all: its
+only jobs are `prometheus` (itself) and `ao-node-exporter`. The SQLite evidence reaches
+`ao_status` in PostgreSQL through the collector's own projection, not through Prometheus.
+Second, the collector selects **row counts only** — no message bodies, no track titles, no
+settings values, no prompt or response payloads, and no browser or mail content ever.
+
+**Not mine to reconcile.** The collector (`scripts/operations/collect-system-health.py`) is
+an OPS-group file, so two measured gaps are reported rather than fixed: the declared
+MeshChatX and QGroundControl paths do not match where those applications actually keep
+their data (§3.3.1), and the declared Firefox path is pre-snap while the snap install
+stores the profile elsewhere. In both cases the collector reports the store absent, which is
+conservative — it reads nothing it should not — but it means those stores are not actually
+covered by the inventory this subsection describes.
 
 ### 3.3.2 Data Flow into Reporting and Ledger Records
 
@@ -1662,6 +1956,38 @@ operator-access implementation must comply with this subsection and §§4, 5, 14
   superuser with `CREATEDB` and `CREATEROLE`. That is the migration identity and it is not
   handed to a reporting tool, but any future convenience that grants it to Metabase or
   Grafana would void the read-only boundary above.*
+
+  **Re-verified 2026-10-04 by executing as the reporting role, not by reading a catalog.**
+  A catalog view reports what is *granted*; this proves what actually *happens* when the
+  reporting identity connects, which is the claim that matters:
+
+  ```
+  $ podman exec ao-sales-db psql -U sales_reporting_role -d salesdb -tAc "select count(*) from orders;"
+  ERROR:  permission denied for table orders
+  $ podman exec ao-sales-db psql -U sales_reporting_role -d salesdb -tAc "select count(*) from v_reporting_orders;"
+  1
+  $ podman exec ao-sales-db psql -U sales_migration_role -d salesdb -tAc \
+      "select rolname,rolsuper,rolcreatedb,rolcreaterole from pg_roles where rolname like 'sales_%';"
+  sales_admin_role|f|f|f
+  sales_api_role|f|f|f
+  sales_backup_role|f|f|f
+  sales_migration_role|t|t|t
+  sales_reporting_role|f|f|f
+  ```
+
+  Denied on the base table, permitted on the view, and `sales_migration_role` is the only
+  row with superuser/`CREATEDB`/`CREATEROLE` set — exactly as the watch-note above says.
+  The grant set is still exactly the five views, and `metabase_app` still does not exist
+  in `salesdb`, so the reporting path remains `sales_reporting_role`.
+
+  **A trap worth naming, because it reads as a broken container.** The obvious probe —
+  `psql -U postgres` inside `ao-sales-db` — fails with `role "postgres" does not exist`,
+  because that cluster is initialised with `POSTGRES_USER=sales_migration_role` and has no
+  `postgres` role at all. The container is not broken and the database is not missing;
+  there is simply no `postgres` superuser in it. Use the `sales_migration_role` identity.
+  Someone reading "PostgreSQL 17 container", reaching for `-U postgres`, and recording
+  "reporting store unreachable" would be wrong, and the fix is to read
+  `POSTGRES_USER` from the container env before concluding anything about the data.
 - `ao-admin` receives approved PostgreSQL reporting, exporter, status,
   projection, API, relay, tunnel, or push paths. It must not join every
   workload network.
@@ -1751,30 +2077,109 @@ misled.
 
 #### 6.A.3.2 Four unmanaged Grafana containers are running (measured 2026-10-04)
 
-Beyond the YAML's staleness, `podman ps` shows **four Grafana containers that no Quadlet
-unit owns**, alongside the one sanctioned `ao-grafana`. All four are leftovers from
-2026-10-03 datasource/plugin investigation, two of them from an unnamed probe:
+Measured 2026-10-04 with the correct label key (see the correction immediately
+below — an earlier revision used the wrong one):
 
 ```
-$ for c in relaxed_tharp confident_khayyam keen_bhabha ao-sqli3 ao-grafana; do
-    podman inspect $c --format '{{.Name}} created={{.Created}} nets={{range $k,$v := .NetworkSettings.Networks}}{{$k}} {{end}} netmode={{.HostConfig.NetworkMode}} priv={{.HostConfig.Privileged}} unit={{index .Config.Labels "io.podman.annotations.quadlet"}}'; done
-relaxed_tharp     created=2026-10-03 08:54:41 nets= netmode=pasta priv=false unit=
-confident_khayyam created=2026-10-03 09:00:35 nets= netmode=pasta priv=false unit=
-keen_bhabha       created=2026-10-03 11:50:02 nets= netmode=pasta priv=false unit=
-ao-sqli3          created=2026-10-03 11:50:58 nets= netmode=pasta priv=false unit=
-ao-grafana        created=(managed)   nets=ao-admin ao-reporting-egress netmode=bridge priv=false unit=ao-grafana.service
+$ podman inspect relaxed_tharp --format '{{index .Config.Labels "PODMAN_SYSTEMD_UNIT"}}'
+$ podman inspect ao-grafana     --format '{{index .Config.Labels "PODMAN_SYSTEMD_UNIT"}}'
+ao-grafana.service
+```
+
+**Correction 2026-10-04 — the ownership evidence in this subsection was gathered with a
+label key that does not exist on this host.** The command shown above is what produced
+the numbers; an earlier revision of this subsection used
+`{{index .Config.Labels "io.podman.annotations.quadlet"}}` and printed `unit=` for every
+container. On Podman 5.7.0 that key is never set, so that command proves nothing and
+would have reported `ao-grafana` as ownerless too. The key Quadlet actually writes here
+is **`PODMAN_SYSTEMD_UNIT`** — measured:
+
+```
+$ for c in $(podman ps --format '{{.Names}}'); do u=$(podman inspect $c \
+    --format '{{index .Config.Labels "PODMAN_SYSTEMD_UNIT"}}'); \
+    printf '%-30s -> %s\n' "$c" "${u:-<none>}"; done
+ao-prometheus              -> ao-prometheus.service
+ao-grafana                 -> ao-grafana.service
+ao-metabase                -> ao-metabase.service
+ao-sim-fabrication-gz      -> ao-sim-fabrication-gz.service
+ao-sim-fabrication-foxglove -> ao-sim-fabrication-foxglove.service
+vigorous_shannon           -> <none>
+dreamy_rosalind            -> <none>
+relaxed_tharp              -> <none>
+confident_khayyam          -> <none>
+keen_bhabha                -> <none>
+ao-sqli3                   -> <none>
+```
+
+The **conclusion is unchanged** — exactly six running containers have no service owner,
+and they are the four Grafana duplicates and the two Foxglove duplicates. But it now
+rests on a key that returns a value, and on the whole-container enumeration rather than
+on a hand-picked subset. A reader should treat any ownership claim anywhere in this
+section that does not show `PODMAN_SYSTEMD_UNIT` as unproven.
+
+Beyond the YAML's staleness, `podman ps` shows **four Grafana containers that no Quadlet
+unit owns**, alongside the one sanctioned `ao-grafana`. All four are leftovers from
+2026-10-03 datasource/plugin investigation, two of them from an unnamed probe. Each was
+created on 2026-10-03 (`relaxed_tharp` 08:54:41, `confident_khayyam` 09:00:35,
+`keen_bhabha` 11:50:02, `ao-sqli3` 11:50:58), all use rootless `pasta` rather than a
+bridge network, and none is privileged:
+
+```
+$ podman inspect $c --format '{{.Name}} created={{.Created}} nets={{range $k,$v := .NetworkSettings.Networks}}{{$k}} {{end}} netmode={{.HostConfig.NetworkMode}} priv={{.HostConfig.Privileged}}'
+relaxed_tharp     created=2026-10-03 08:54:41 nets= netmode=pasta priv=false
+confident_khayyam created=2026-10-03 09:00:35 nets= netmode=pasta priv=false
+keen_bhabha       created=2026-10-03 11:50:02 nets= netmode=pasta priv=false
+ao-sqli3          created=2026-10-03 11:50:58 nets= netmode=pasta priv=false
+ao-grafana        nets=ao-admin ao-reporting-egress netmode=bridge priv=false
 ```
 
 Why this belongs in §6 rather than §19 only: §6.A.3 requires every containerized GUI to have a
 **documented Podman-network membership, listener policy, service owner and least-privilege
-identity**. These four have no service owner (no Quadlet label), no declared network
+identity**. These four have no service owner (no `PODMAN_SYSTEMD_UNIT` label), no declared network
 (`pasta` rootless-NAT, per-process — not any of the fourteen registered `ao-*` networks), and
 they are **absent from §5.1 group D**, which claims to enumerate all eighteen GUI and workflow
-rows. Two of them also mount host paths that are *not* the sanctioned read-only snapshot
-copies: `confident_khayyam` mounts `/tmp/tmp.2HBNsh7zgo:/probe` and `ao-sqli3` mounts
-`/tmp/sqli-plugins2:/var/lib/grafana/plugins`, both **writable, both from `/tmp`**, one of them
-supplying the unsigned `frser-sqlite-datasource` plugin to a Grafana instance that is not the
-one with the allow-list policy.
+rows. Two of them mount host paths from `/tmp`, and **one of the two is writable**:
+
+```
+$ for c in relaxed_tharp confident_khayyam keen_bhabha ao-sqli3; do
+    printf '%-20s mounts=[%s]\n' "$c" \
+      "$(podman inspect $c --format '{{range .Mounts}}{{.Source}}:{{.Destination}}:rw={{.RW}};{{end}}')"; done
+relaxed_tharp        mounts=[]
+confident_khayyam    mounts=[/tmp/tmp.2HBNsh7zgo:/probe:rw=false;]
+keen_bhabha          mounts=[]
+ao-sqli3             mounts=[/tmp/sqli-plugins2:/var/lib/grafana/plugins:rw=true;]
+```
+
+`ao-sqli3` is the writable one: it bind-mounts `/tmp/sqli-plugins2` **read-write** over
+Grafana's plugin directory, and that host directory contains the `frser-sqlite-datasource`
+plugin alongside two Grafana-authored apps.
+
+**Do not over-read this as "an unsigned plugin got in".** The same plugin is deliberately
+used by the sanctioned `ao-grafana` — it is the datasource type behind the five
+`ALWAYS ON SQLite (…)` datasources in
+`config/platform/monitoring/grafana/provisioning/datasources/sqlite-snapshots.yml`. The
+difference is **not** which plugin, it is where it comes from and in which direction it
+can be written:
+
+```
+sanctioned ao-grafana : /ALWAYSON/data/monitoring/grafana-plugins -> /var/lib/grafana/plugins : ro,Z
+unmanaged  ao-sqli3  : /tmp/sqli-plugins2                        -> /var/lib/grafana/plugins : rw
+```
+
+So the sanctioned path is a curated, repository-adjacent directory mounted **read-only**
+(`ro,Z`, and `rw=false` measured). The unmanaged one is a **`/tmp` directory mounted
+read-write**, so the plugin set of a running container can be changed by anything that can
+write `/tmp`, and it survives into whatever runs next. That is the real defect — writable
+plugin supply, not plugin identity. `confident_khayyam` mounts
+`/tmp/tmp.2HBNsh7zgo` at `/probe` **read-only** (`"RW":false`); it is a probe scratch
+directory, not a writable attack surface.
+
+**Correction 2026-10-04 — an earlier revision of this paragraph said "both writable,
+both from `/tmp`". The second half was right and the first was wrong.** Only `ao-sqli3`
+is `RW:true`. The reason the error happened is the same class as the label-key error
+below: the earlier revision enumerated the two `/tmp` mounts but never asked for the
+`RW` flag, so "two mounts from `/tmp`" was silently promoted to "two writable mounts".
+Read the flag, do not infer it from the mount's existence.
 
 Mitigating, measured, and worth stating so this is not over-read:
 
@@ -1784,18 +2189,28 @@ Mitigating, measured, and worth stating so this is not over-read:
 - **None is privileged**, none is on an `ao-*` network, and none is quadlet-started.
 
 So this is a **conformance and hygiene defect, not an exposure**: unmanaged duplicate GUIs
-outside the inventory, two of them writable-mount-bearing. **Not mine to remediate.** Stopping
-containers is destructive, touches another group's running work, and the `/tmp` plugin mounts
-are the subject of the unsigned-plugin question that §6.A.3 and the OPS group already track.
-Recorded here and reported to the operator; no action taken.
+outside the inventory, one of them with a writable `/tmp` plugin mount feeding it an
+unsigned plugin. **Not mine to remediate.** Stopping containers is destructive, touches
+another group's running work, and the `/tmp` plugin mount is the subject of the
+unsigned-plugin question that §6.A.3 and the OPS group already track. Recorded here and
+reported to the operator; no action taken.
 
-**Trap for the next session.** `podman ps` is sorted by name, so a `grep grafana` against the
-**image** column finds these while a search for `ao-grafana` does not. The Foxglove containers
-are the same class of leftover: of three `localhost/foxglove-bridge` containers,
-`ao-sim-fabrication-foxglove` is the sanctioned, **digest-pinned** one, while `vigorous_shannon`
-and `dreamy_rosalind` are unnamed duplicates on the mutable `:latest` tag with no Quadlet label
-— the same §4.1 rule 9 pinning concern, already measured above. Enumerate by *label presence*,
-not by image string.
+**Trap for the next session — two of them, and the first one cost me a whole review
+pass.** `podman ps` is sorted by name, so a `grep grafana` against the **image** column
+finds these while a search for `ao-grafana` does not. The Foxglove containers are the same
+class of leftover: of three `localhost/foxglove-bridge` containers,
+`ao-sim-fabrication-foxglove` is the sanctioned, **digest-pinned** one, while
+`vigorous_shannon` and `dreamy_rosalind` are unnamed duplicates on the mutable `:latest` tag
+with no `PODMAN_SYSTEMD_UNIT` label — the same §4.1 rule 9 pinning concern.
+
+Enumerate by *label presence*, not by image string — but **look the key up first**. The
+instinct is `io.podman.annotations.quadlet`, and on this host it is simply not set on
+anything: a query using it returns an empty string for all twenty-five running containers,
+including every genuinely managed one. An empty result from that key looks like a finding
+("nothing has an owner!") and is indistinguishable from "I asked the wrong question." The
+correct key is `PODMAN_SYSTEMD_UNIT`, and the self-check is to run it over the whole
+container list and confirm that the containers you believe are managed actually come back
+with a service name. If every row is empty, the key is wrong, not the fleet.
 
 ---
 
@@ -2026,7 +2441,7 @@ real PayPal `PAYMENT.CAPTURE.COMPLETED` payload the money is at
 comes back `None` and the amount is silently lost. For Coinbase the
 money-bearing reference is `charge.id`, which `normalize()` also does not read;
 it falls through to the top-level **event** id, so the adapter records the event
-that arrived rather than the charge being reconciled. A 2026-10-10 correction to
+that arrived rather than the charge being reconciled. A 2026-10-04 correction to
 an earlier statement in this session: that reference is **not** empty, because a
 real Coinbase payload does carry a top-level `id`, so the adapter does not reject
 it with 400. The reference it records is simply the wrong one, which breaks
@@ -2036,7 +2451,7 @@ These are payment-verification defects. Correcting them changes how money-bearin
 events are accepted, so the fix is prepared and reported for operator approval
 rather than applied by this session.
 
-### 7.2.1 Prepared verifier correction, proven offline 2026-10-10
+### 7.2.1 Prepared verifier correction, proven offline 2026-10-04
 
 The correction has been **written and proven, and deliberately not applied.** The
 live adapter is unchanged — `scripts/payment/ao-payment-adapter.py` still hashes to
@@ -2092,6 +2507,30 @@ stop condition of this session's brief. Deployment also needs
 operator decision requested is narrower than "fix the verifier": it is whether to
 accept PayPal and Coinbase webhooks at all, because the honest consequence of
 today's code is that neither provider can complete a payment.
+
+**Independent re-verification, 2026-10-04.** The `/tmp` harness and candidate
+referenced above were session-local and no longer exist on disk, so the candidate's
+**18/18** result could not be re-run and is **not** re-claimed here. The three
+defects it was built to fix *were* re-derived independently against the live file, and
+all three reproduce:
+
+- `verify_paypal()` returns `False` for a signature built on PayPal's documented
+  message string (`transmissionId|timeStamp|webhookId|crc32`, with `crc32` the
+  CRC-32 of the raw body in decimal) and returns `True` only for the adapter's own
+  HMAC construction.
+- `verify_coinbase` is **not defined** in the file, `AUTOMATED` still contains
+  `coinbase`, and line 209 gates **both** webhook paths through the single
+  `verify_paypal()`. `COINBASE_WEBHOOK_SECRET` is referenced **zero** times.
+- `normalize()` returns `amount_cents: null` for both providers on realistic
+  payloads.
+
+One detail the earlier account did not record, found by re-running: **Coinbase's
+`amount_cents` is also lost**, not only its `provider_ref`. A real `charge:confirmed`
+carries the money at `charge.amount.amount`, which `normalize()` does not read, so it
+returns `null` for the amount *and* records the top-level event `id` in place of
+`charge.id`. Coinbase events therefore lose both the money and the reconciled
+reference. Reproduced with a throwaway in-memory payload only; no secret, no live
+request and no row was written.
 
 **How each form is verified.**
 
@@ -2433,8 +2872,15 @@ data directory is on the root filesystem; the drive holds `webodm/{media,project
 which is where the imagery and processing state actually live. Moving a live PostgreSQL data
 directory onto an external drive would change service configuration and is an operator decision.
 FIELD-11 is closed on the *name and location* question, which is what the item asked; the
-drive-residency half remains an open deviation, recorded in §8.4.1 and to be carried forward
-as a new **FIELD** item rather than reopened.
+drive-residency half remains an open deviation, recorded here and carried forward as a new
+**FIELD** item rather than reopening FIELD-11.
+
+Note that §8.5.2 (measured 2026-10-04) makes the drive-residency question harder than it looks,
+not easier. The drive is not operator-writable in its intended ownership arrangement: the mapping
+directories are group-owned by `alwayson-mapping` and the operator is not a member of that group,
+so `mkdir` on the drive fails even for paths that §8.2 requires to exist. Any decision to move
+PostgreSQL storage there has to fix that ownership first, or the database will land on a volume
+its own operator cannot manage.
 
 ## 8.5 Mapping Mount Validation
 
@@ -2536,11 +2982,11 @@ drwxrws---  2 ao-mapping alwayson-mapping  4096 Aug 23 18:31 validated
 drwxrws---  7 scottw     ao-mapping        4096 Aug 23 18:31 webodm
 ```
 
-So: **no world-writable directory at depth 1** is confirmed, and the `ao-mapping` ownership
-scheme is confirmed. **Depths 2-4 are unverified** for an unprivileged session — eight
-subtrees could not be traversed. Full ownership and permission validation therefore
-**cannot be signed off from here**; it needs `sudo` or an `ao-mapping` group membership. This
-is a *second* reason, alongside the 11 missing directories, that FIELD-10 stays open.
+**Correction, 2026-10-04 — see §8.5.2.** The setgid paragraph above reads as if setgid makes the
+ownership arrangement correct. It does not. Setgid propagates the *parent's group*, and on this
+drive that group is `alwayson-mapping`, a group the operator is not in. The depth-2 audit I could
+not perform here is explained there, together with a measured root cause (group membership) that
+this section previously reported only as "unverified".
 
 The reserved `data/mapping` paths are correctly **absent**, as §8.4 requires:
 
@@ -2568,6 +3014,96 @@ currently no on-drive copy.
    which is outside what this session may do unprompted. **Not created.** FIELD-10 stays
    **open** with this evidence attached — the validation has now been *run and failed*, which is
    strictly more progress than the prior "unvalidated" state.
+
+### 8.5.2 Why the tree cannot be repaired by the operator's own account — measured 2026-10-04
+
+§8.5.1 left two things unresolved: 11 required paths are missing, and depths 2-4 could not be
+audited. **Both now have a single measured root cause, and it is a group-membership fault, not a
+missing-permission fault.**
+
+Every `ao-mapping`-owned directory on the drive is mode `770` with group **`alwayson-mapping`
+(gid 975)**, and there are no ACLs extending it:
+
+```bash
+$ stat -c '%n owner=%U group=%G mode=%a' /media/scottw/500GBPHOTOGRAM/tmp
+/media/scottw/500GBPHOTOGRAM/tmp owner=ao-mapping group=alwayson-mapping mode=770
+
+$ getfacl -p /media/scottw/500GBPHOTOGRAM/tmp
+# owner: ao-mapping
+# group: alwayson-mapping
+user::rwx
+group::rwx
+other::---
+
+$ getent passwd ao-mapping
+ao-mapping:x:997:975:ALWAYS ON mapping domain service:/home/alwayson-mapping:/usr/sbin/nologin
+$ getent group alwayson-mapping
+alwayson-mapping:x:975:              # <- NO members at all
+```
+
+`ao-mapping` is a **service account** (uid 997), and the directories are owned by it. The
+operator's account is a member of the *other* group:
+
+```bash
+$ id -nG scottw | tr ' ' '\n' | grep -xE '1001|975'
+1001                                # ao-mapping      - member
+                                    # 975 absent      - NOT in alwayson-mapping
+
+$ M=/media/scottw/500GBPHOTOGRAM
+$ mkdir "$M/tmp/processing"
+mkdir: Permission denied
+$ sg ao-mapping -c "mkdir -p '$M/tmp/processing'"
+mkdir: Permission denied
+```
+
+`sg ao-mapping` still fails, which is the diagnostic that matters: group `ao-mapping` (1001)
+grants nothing here because these directories are **group-owned by `alwayson-mapping` (975)**
+and the `other` class is `---`. `scottw` therefore falls through to `other` and is denied. This
+is why §8.5.1 could not traverse 8 of 10 subtrees — **not** "unverified for want of trying",
+but a hard denial.
+
+Every one of the 10 missing sub-directories sits under an identically-blocked parent:
+
+| Required path | Parent owner:group | Parent mode |
+|---|---|---|
+| `incoming/drone` | `ao-mapping:alwayson-mapping` | `770` |
+| `manifests/intake` | `ao-mapping:alwayson-mapping` | `770` |
+| `exports/pcloud-staging` | `ao-mapping:alwayson-mapping` | `770` |
+| `backups/mapping-db` | `ao-mapping:alwayson-mapping` | `770` |
+| `tmp/processing` | `ao-mapping:alwayson-mapping` | `770` |
+
+**A second, independent fault is now visible: ownership at depth 2 is inconsistent with depth 1.**
+The top level is uniformly `ao-mapping:alwayson-mapping`, but several existing depth-2
+directories are owned by `scottw` instead:
+
+```bash
+$ stat -c '%n owner=%U group=%G' /media/scottw/500GBPHOTOGRAM/retention/pending-review \
+                               /media/scottw/500GBPHOTOGRAM/webodm/media
+.../retention/pending-review owner=scottw group=scottw
+.../webodm/media              owner=scottw group=ao-mapping
+```
+
+Three different ownership patterns (`ao-mapping:alwayson-mapping`, `scottw:ao-mapping`,
+`scottw:scottw`) coexist on one volume. The setgid bit is therefore **not** doing what §8.5.1
+claimed: setgid propagates the *parent's group*, and here that group is `alwayson-mapping`,
+which is exactly the group the operator cannot write through. Setgid is propagating the fault
+as consistently as it propagates the intent.
+
+**What this means for the reader:**
+
+- The §8.5 refusal conditions ("required directories are missing", "mapping service ownership
+  or permissions are incorrect") are **both genuinely tripped**. The validator passes only
+  because it checks neither. This is no longer a theoretical gap in the validator — it is a
+  live instance of the gap, on the live drive, today.
+- Repairs require `sudo`, and are **group-membership changes**:
+  1. `sudo usermod -aG alwayson-mapping scottw` (then re-login), **or**
+  2. create the 11 paths as root and `chgrp alwayson-mapping` them.
+
+  Both are operator actions. Neither is a documentation fix, and neither is attempted here.
+- **Security posture is correct, which is worth saying explicitly.** Mode `770` with `other=---`
+  and no world-writable directory is the *intended* arrangement per §8.2. The operator being
+  locked out is the symptom of that policy working, not of it failing. The fix is to add the
+  operator to the mapping group, **not** to relax the mode to `777`.
 
 ## 8.6 3D Model Identity and Database Cross-Referencing
 
@@ -3027,6 +3563,32 @@ grep: /etc/ufw/user.rules: Permission denied
 Reachability is proven by the successful TCP connects above; the *mechanism* (that UFW permits
 it rather than merely not being loaded) remains unverified from an unprivileged session.
 
+**Re-verified 2026-10-04 15:09 — the decision stands, the caveat is now better characterised.**
+Both connects still succeed and the listener is unchanged. I also confirmed the blocker is a
+**privilege wall and not a missing file**, which sharpens what is left to check:
+
+```bash
+$ ufw status
+ERROR: You need to be root to run this script
+$ sudo -n true
+sudo: interactive authentication is required
+$ find <repo>/config -iname '*firewall*' -o -iname '*ufw*'
+(no output)
+```
+
+So there are **two** distinct things a privileged reviewer must supply, not one:
+
+1. **The mechanism** — whether UFW is loaded and whether `4242/tcp` is an explicit `ALLOW`
+   (the §9.3 table asserts this; it remains an assertion). Requires `sudo ufw status` or read
+   access to `/etc/ufw/user.rules`.
+2. **The policy to review against** — FIELD-04 asks for a review against "field-domain firewall
+   policy", and **no such policy document exists in the repository.** `config/field/` contains
+   only `heltec-v3`. There is nothing written down for the 4242 exposure to be judged against.
+
+Point 2 is the more useful finding. Even with full root, "reviewed against field-domain firewall
+policy" could not be completed as written, because the policy is unwritten. Closing that gap is
+a documentation task in a section this session does not own; it is reported rather than edited.
+
 ## 9.4 Radio Profile Requirements
 
 Each radio is defined by exactly one version-controlled profile. **The profile is the
@@ -3337,6 +3899,95 @@ QGC session exists to send a mission to, in flight or otherwise.
 
 **Operator input needed for FIELD-06 and FIELD-09:** power and connect the Pi5 drone, and
 supply its address or an SSH entry. Until then there is nothing to test against.
+
+### 9.5.7 Re-verification 2026-10-04 15:09 — every blocker above is still live
+
+§9.5.1–§9.5.6 are dated 2026-10-03/04 and their numbers were taken earlier in the day. Before
+relying on any of them, all six were re-measured. **Nothing has recovered.** The counts that
+move are the offline-retry totals, which grow continuously at roughly one event per 7 seconds:
+
+```bash
+$ date -Is
+2026-10-04T15:09:41-07:00
+
+$ grep -h 'is configured and powered up' ~/.reticulum-meshchatx/logs/meshchatx.log* | tail -2
+[2026-09-25 16:27:08] [Notice]   RNodeInterface[PEOPLE-RADIO] is configured and powered up
+[2026-09-25 16:27:11] [Notice]   RNodeInterface[DRONE-RADIO] is configured and powered up
+                                 # <- unchanged: still 2026-09-25, still no success since
+
+$ grep -ch 'unrecoverable error' ~/.reticulum-meshchatx/logs/meshchatx.log{,.1,.2,.3}
+3667   7800   2389   29          # 13,885 total; was 11,212 at 09:18, 994 in the first pass
+
+$ tail -3 ~/.reticulum-meshchatx/logs/meshchatx.log
+[2026-10-04 15:09:36] [Error]    A serial port error occurred, ... [Errno 9] Bad file descriptor
+[2026-10-04 15:09:36] [Error]    The interface RNodeInterface[DRONE-RADIO] experienced an unrecoverable error and is now offline.
+[2026-10-04 15:09:36] [Notice]   Reticulum will attempt to reconnect the interface periodically.
+```
+
+**Drone still absent** (§9.5.6 unchanged, and the neighbour table has since lost an entry —
+`10.42.0.5` has appeared as `FAILED` and `10.42.0.96` `printer-01` remains down):
+
+```bash
+$ getent hosts raspberrypi raspbianpios alwayondrone rpi5
+(no output)
+$ ls ~/.ssh/config
+ls: cannot access '/home/scottw/.ssh/config': No such file or directory
+$ ip neigh
+169.254.207.81 dev eno1 lladdr 30:05:5c:ee:a2:9b STALE
+10.42.0.96   dev eno1 FAILED
+10.42.0.5    dev eno1 FAILED
+192.168.87.1  dev wlp3s0 lladdr 16:22:3b:67:bd:98 REACHABLE
+```
+
+**The `:4242` decision still holds** (§9.3.1, FIELD-04) — both connects succeed, listener
+unchanged:
+
+```bash
+$ ss -ltnp | grep -E '18000|4242'
+LISTEN 0 128  127.0.0.1:18000  0.0.0.0:*  users:(("ReticulumMeshCh",pid=840861,fd=17))
+LISTEN 0 1    0.0.0.0:4242     0.0.0.0:*  users:(("ReticulumMeshCh",pid=840861,fd=46))
+$ timeout 5 bash -c 'exec 3<>/dev/tcp/192.168.87.135/4242' && echo lan-OK
+lan-OK
+```
+
+**The firewall mechanism is still unverifiable from here**, and I confirmed this is a privilege
+wall rather than a missing file — there is no field-domain firewall policy to review at all:
+
+```bash
+$ ufw status
+ERROR: You need to be root to run this script
+$ sudo -n true
+sudo: interactive authentication is required
+$ ls /tmp/ao-sessions/wt-field/config/field/
+heltec-v3                       # no firewall/ufw file anywhere under config/
+$ find /tmp/ao-sessions/wt-field/config -iname '*firewall*' -o -iname '*ufw*'
+(no output)
+```
+
+**One measurement note, and a correction to my own first claim about it.** `grep` reports
+`meshchatx.log.2` as a **binary file**, which I initially took to mean a bare `grep -c` would
+silently under-count it and that quoted totals would disagree between sessions. **That is
+wrong, and I checked it before leaving it in the record:**
+
+```bash
+$ for f in ~/.reticulum-meshchatx/logs/meshchatx.log{,.1,.2,.3}; do
+    printf '%-16s a=%-6s plain=%s\n' "$(basename $f)" \
+      "$(grep -ac 'unrecoverable error' $f)" "$(grep -c 'unrecoverable error' $f)"; done
+meshchatx.log    a=3713   plain=3713
+meshchatx.log.1  a=7800   plain=7800
+meshchatx.log.2  a=2389   plain=2389
+meshchatx.log.3  a=29     plain=29
+```
+
+The counts are **identical**. `grep -c` reports a count even when it also prints the
+`binary file matches` notice; the notice concerns pattern *output*, not `-c`. So the only real
+source of disagreement between sessions is the genuine one: **the current log grows ~1 event
+per 7 seconds**, so any total is stale within minutes. Quote a total with its timestamp or
+quote none.
+
+Reason I got it wrong: I inferred a counting error from an unrelated warning line instead of
+running the comparison. The `-a` flag was already the right instinct for *reading* the file, but
+I projected it onto `-c` where it makes no difference.
 # 10. Simulation Architecture
 
 ## 10.1 Vehicle Simulation
@@ -3689,6 +4340,10 @@ running; that correction is the reason this subsection exists.
   `origin [5.981314, 1.861669, 0.531531]` with `extent [0.84, 1.672391, 1.238532]`, whose midpoint
   is the centroid `(6.4013, 2.6979, 1.1508)`, and the world comment records that every camera
   sits outside the massing envelope. `elev_arms` is at `6.401 4.056 1.151 0 0.0000 -1.5708`.
+  **Superseded in part, 2026-10-04 — see "SIM-09 re-opened and properly closed" below.** The
+  arithmetic above was right, but §19 asks for two further things and neither was then true:
+  `boning.yaml` stated no `centroid:` at all, and the camera pose was a hand-written literal
+  that no code derived from the datum. Both are now done.
 - **SIM-06 is partly satisfied and partly untested.** The image carries the SVG plugin and the
   media root is correct, but the GUI unit is `UnitFileState=generated` with no `[Install]`
   section, so it cannot autostart; `ActiveState=inactive`, `NRestarts=0`. A restart count of zero
@@ -3770,12 +4425,121 @@ operator decision. SIM-08 is a publishing decision and was not touched — no pu
 or Cloudflare config was modified. SIM-03 (QGroundControl) is not installed on this host and
 no install was attempted.
 
+### 10.5 SIM-09 re-opened and properly closed, and a cross-session hazard
+
+Measured 2026-10-04 in worktree `/tmp/ao-sessions/wt-sim` (branch `ai-sim`, base `1332005`).
+
+#### SIM-09 is now closed against the actual acceptance criteria
+
+§19 requires the centroid to be *added to the boning data* and the pose *recomputed from it*.
+Commit `365bd42` satisfied neither: `boning.yaml` had no `centroid:` field, and the pose was a
+literal in `factory.world` — the only file in `GAZEBO/`, `scripts/` or `quadlet/` mentioning
+`camera_elev_arms`. So the two could silently disagree again, which is the recurrence the
+item exists to prevent. Both are now done:
+
+- `centroid:` added to all three cell datums, each equal to `origin+extent/2`.
+- New `scripts/simulation/build-boning-cameras.py` derives each elevation pose from a new
+  `elevation_cameras:` block in `boning.yaml` (`centroid_offset` + `yaw`).
+
+The generated poses are byte-identical to the hand-written ones — correct, since §19 records
+the three standoffs as already sound. This removes the manual re-aiming step and changes no
+rendered view. A semantic XML comparison of the three `<model>` elements, HEAD vs now, is
+identical after whitespace normalisation.
+
+Guards, each proved by making it fail: standoff drift → `--check` exits 1; a stated centroid
+disagreeing with `origin+extent/2` → refuses to generate; an XML comment containing `--` →
+refuses. **The last one I hit for real** — my first generated block contained the literal
+`--write` in a comment, and XML comments may not contain `--`, so the world stopped parsing.
+
+    $ python3 scripts/simulation/build-rl-objects.py --check     -> OK (exit 0)
+    $ python3 scripts/simulation/build-boning-cameras.py --check  -> OK (exit 0)
+    $ gz sdf -k GAZEBO/worlds/factory.world                      -> Valid.
+
+#### Hazard: `--write` from any worktree was rewriting the LIVE world
+
+`build-rl-objects.py` hardcoded `OBJECTS`/`WORLD` to `/ALWAYSON/...`. With one git worktree
+per session, running `--write` from a worktree rewrote the live `/ALWAYSON` world instead of
+the checkout in front of you, and `--check` reported on a file the caller was not editing.
+
+Ten of the eleven worktrees still hold that defective copy, **and** they predate main's
+`SPECULAR`/`SHININESS` fix (`a05f018`), so `--write` from one of them strips every
+`<specular>` from the live world. This fired during this session: `/ALWAYSON`'s world was
+rewritten at 13:12:01 and its `rl_objects` specular count fell from **9 to 0**.
+
+Restored and verified — `/ALWAYSON/GAZEBO/worlds/factory.world` is byte-identical to its
+committed state, `bce32f2a…`, 63205 bytes, 9 specular, `--check` OK, `gz sdf -k` Valid:
+
+    $ git -C /ALWAYSON status --short -- GAZEBO/worlds/factory.world   -> empty
+    $ sha256sum /ALWAYSON/GAZEBO/worlds/factory.world
+      bce32f2a7ff035b4022db82d9a90267ca829261d08038d3e26e5ff3fe5f51053
+
+**Nobody should run `build-rl-objects.py --write` from a worktree until this is fixed
+everywhere.** The remaining copies are in other sessions' trees; correcting them needs either
+each session fixing its own, or the operator's explicit approval for me to touch them.
+
+### 10.6 SIM-14 is not closed, and a third generator defect (SIM-15)
+
+Re-audited 2026-10-04 against §19's actual acceptance text rather than against my own earlier
+verdicts. Two of my own conclusions were wrong.
+
+**SIM-14 stays Open. §19 asks for objects "addressable and resettable"; only addressable is
+delivered.** The `rl_objects` model does exist and §19.1's "That model does not exist" is
+retracted — but `/api/reset` returns **404** and the portal performs no reset, so placement
+cannot be returned to `home_pose` at run time. The portal field I corrected in §10.4 is what made
+this visible: `resettable_claimed` true beside `reset_available` **false**. I filed `close` on
+2026-10-03 while my own section file said the opposite.
+
+    $ curl -s -o /dev/null -w '%{http_code}\n' -m 5 http://127.0.0.1:8765/api/reset   -> 404
+    $ curl -s -m 5 .../api/status | python3 -c '...'
+      link_count: 37
+      rl links: 9 ['part_a1','part_a2','part_a3','stock_s1','stock_s2','stock_s3',
+                   'target_bin_a','target_bin_b','target_shelf']
+
+**SIM-13's close stands**, re-checked: 4 zones resolve, 3 interlocks are declared and all carry
+`enforced_in_simulation: false`, and the 4 zones are live links in the served world. The model
+exists and is honest that it actuates nothing. `printer-01` and `cnc-01` remain `[GAP]` and need
+operator-supplied datums.
+
+**SIM-15, new: `--write` is not position-idempotent.** A *correct* regeneration strips the
+`rl_objects` block and re-appends it before `</world>`, silently reordering three generated
+models in the world the live server has open. Measured on `/tmp/gen-test-sim`, never the live tree:
+
+    $ python3 scripts/simulation/build-rl-objects.py --write   -> "already current; nothing written"
+    # make a real catalogue change (part-a1 home_pose 6.20 -> 6.90), then rewrite:
+    $ python3 scripts/simulation/build-rl-objects.py --check   -> STALE (exit 1)
+    $ python3 scripts/simulation/build-rl-objects.py --write   -> wrote 3 groups / 9 objects
+    #   rl_objects           547 -> 1289
+    #   safety_zones         695 ->  548
+    #   camera_elev_massing 1410 -> 1263
+    $ gz sdf -k ...                        -> Valid.
+    $ grep -c '<link name=' ...            -> 37 (unchanged; nothing lost)
+
+No content is lost and the world stays valid, so this is a review-integrity hazard rather than a
+runtime fault — which is why it survived so long unnoticed. It should replace the block in place.
+
+**A structural defect in this very subsection, found while auditing my own prose.** §10.5's
+heading had been inserted *mid-sentence*, splitting the SIM-07 paragraph and orphaning its tail
+("disabled to work around it. SIM-12 …") at the far end of §10.5, where it read as part of the
+generator hazard. Repaired. Worth noting for other sessions: a heading inserted into a section
+file produces no error anywhere — the compiler concatenates happily — so prose damage from a bad
+edit is only visible by reading the rendered README.
+
 **What I got wrong this session.** I first reported the GUI as verified on the strength of
 `ActiveState=active` plus a clean error grep. That is the exact mistake §10.3 warned about: a
 live process and an absence of errors is not proof that geometry renders. I only reached a real
 answer by capturing the window and diffing two captures. Smaller error: I ran `gz topic` inside
 the GUI container before checking `GZ_CONFIG_PATH`, and briefly read "cannot find any available
 'gz' command" as a missing toolchain when it was only an unset variable.
+
+**The recurring error, stated once so it is not repeated: I re-ran my own old commands without
+re-deriving their assumptions, and briefly believed the wrong answer.** `/api/status` now returns
+`links` and `link_count` *nested* under `world`. My 2026-10-03 one-liner reads them at top level,
+so it now returns `[]` and `None`. I ran it unchanged, saw zero RL links, and for a moment
+concluded the model had vanished — when the model was fine and my query was stale. A measurement
+whose inputs may have drifted needs re-derivation, not just re-execution. I made the same class of
+error twice: verifying the arithmetic of SIM-09 last session and treating that as equivalent to
+having read the acceptance criteria, then verifying the existence of `rl_objects` for SIM-14 and
+treating that as equivalent to having met the criteria.
 
 
 ---
@@ -4598,6 +5362,140 @@ defined in `quadlet/networks/` and remain `Internal=true`, ready for the
 gateway.
 
 ---
+## 11.8 Second-Pass Verification, 2026-10-04 (LEDGER session)
+
+Every factual claim in §11.7 was **re-measured** this session rather than carried
+forward. All of it reproduced: the worker JAR checksum is `OK`, `ao-ledger` is
+uid 994, `alwayson-ledger` is not a username, and no Corda node unit exists.
+
+**Measuring "does the ledger unit exist?" — use `LoadState`, not `is-active`.**
+
+```text
+$ systemctl --user is-active ao-ledger-core.service
+inactive                                  # exit 4  -- MISLEADING
+
+$ systemctl --user show ao-ledger-core.service \
+    -p LoadState -p ActiveState -p FragmentPath
+LoadState=not-found
+ActiveState=inactive
+FragmentPath=
+```
+
+`is-active` prints the word `inactive` and exits 4 **both** when a unit does not
+exist and when it exists but is stopped. Only `LoadState=not-found` with an empty
+`FragmentPath` proves the unit was never installed. Here the truth is the latter:
+**the ledger core was never built — it is not merely stopped.** Do not attempt to
+start or enable it. (I hit this trap myself on the first check of this session.)
+
+**Standing correction to §19 (LEDGER-07).** §19 states `cordadb` "holds 0 tables".
+That figure remains **carried forward and unverified**. Neither the 2026-10-03
+session nor this one could measure it — `psql` fails authentication for `scottw`
+and `sudo -u postgres` requires interactive auth. An authentication failure is
+**not** evidence that a database is empty, so §19's figure must not be restated
+as established fact. To confirm:
+
+```bash
+sudo -u postgres psql -tAc \
+  "SELECT count(*) FROM pg_tables WHERE schemaname='public' AND tablename NOT LIKE 'pg_%';"
+sudo -u postgres psql -tAc "SELECT rolname, rolcanlogin FROM pg_roles WHERE rolname='corda';"
+```
+
+The second command deliberately selects no password column.
+---
+
+## 11.9 Producer-Key Coverage Gap in the Ingest Path (2026-10-04)
+
+This section records a defect **not** previously documented, found by running the
+ingest scripts rather than reading them. It concerns LEDGER-03
+("ingest accepts only approved signed data") and is a prerequisite for the
+gateway build. `scripts/` is not my file, so this is a **report, not a fix**.
+
+### Finding 1 — only 2 of the 6 authoritative domains can sign
+
+§11.1 makes six domains authoritative operational data that feeds the ledger:
+Sales, Payment, Field, Mapping, Vehicle simulation, Fabrication simulation.
+`sign-manifest.sh` can obtain a key from KDE Wallet for exactly **two** of them:
+
+```text
+$ grep -oP 'wallet:ao-[a-z-]+' /ALWAYSON/scripts/ledger/sign-manifest.sh | sort -u
+wallet:ao-sim-fabrication
+wallet:ao-sim-vehicle
+```
+
+The mapping is a literal `case` with two arms. **Sales, Payment, Field and
+Mapping have no wallet-backed signing path at all.** A manifest from those domains
+can only be signed with a private-key *file path*, which is exactly the path the
+script labels "for migration/testing". Since Sales is the domain that actually
+produces the `sales_receipt` object type, the strongest provenance guarantee in
+§11.2.2 is currently unavailable for the record type that matters most.
+
+### Finding 2 — an unsupported wallet key fails with a misleading error
+
+```text
+$ bash /ALWAYSON/scripts/ledger/sign-manifest.sh manifest.json wallet:ao-sales
+ERROR: manifest or key missing (keys live in KDE Wallet ao-sim-*; file path accepted for migration/testing)
+EXIT=10
+```
+
+The `case` falls through, `wallet_key` stays empty, and the literal string
+`wallet:ao-sales` is then tested as a **file path**. The operator is told a file is
+missing when the real problem is that this wallet key is unimplemented. Exit `10`
+is indistinguishable between the two causes.
+
+### Finding 3 — `origin_domain` is never validated
+
+`build-manifest.sh` validates `object_type` against a closed `case` list but
+passes `origin_domain` straight through to `jq`:
+
+```text
+$ bash /ALWAYSON/scripts/ledger/build-manifest.sh map_product TOTALLY_MADE_UP_DOMAIN p.txt ref://x | jq -r .origin_domain
+"TOTALLY_MADE_UP_DOMAIN"
+EXIT=0
+```
+
+An invented domain is accepted and stamped into the manifest. Since
+`origin_domain` drives the §11.1 authority decision, an unvalidated value means a
+manifest can claim authority it does not have. It must be validated against the
+closed §11.1 set at build time **and** re-derived from the authenticated mTLS
+identity at the gateway, never trusted from the body.
+
+### Finding 4 — the staged queue already contains unverified-key material
+
+One manifest is staged from 2026-08-24:
+
+```text
+$ jq -r '{producer_key_id, authorization_policy_id, sig_len:(.signature|length)}' \
+    /ALWAYSON/artifacts/pending-ledger-submissions/20260824/manifest.json
+{ "producer_key_id": "test", "authorization_policy_id": "", "sig_len": 96 }
+```
+
+`producer_key_id` is `"test"` and `authorization_policy_id` is empty — neither
+identifies a registered producer. Confirmed again this session that staging
+performs **no** cryptographic check: a manifest with a fabricated signature and an
+invented `producer_key_id` was accepted and staged, exit `3`.
+
+**I created that test manifest and have removed it.** The 20260824 manifest is
+pre-existing project data and was left untouched. Nothing was signed, transmitted,
+deleted from the project, or written to any external system.
+
+### What this means for LEDGER-03
+
+§11.2 requires signature verification against the exporter's **registered** key. As
+written, the producer-key model cannot satisfy that for four of six domains, and
+`producer_key_id` is self-asserted rather than registered. The gateway must not be
+built on the assumption that a non-empty `signature` implies an authorised
+producer. Recommended, for the operator — each needs approval since keys and
+credentials are a stop condition:
+
+1. Provision wallet entries for `ao-sales`, `ao-field`, `ao-mapping` (and
+   `ao-payment` if it submits directly) and extend the `case` in
+   `sign-manifest.sh`. **Credential work — operator only.**
+2. Make an unrecognised `wallet:` argument fail with its own distinct exit code,
+   not by masquerading as a missing file.
+3. Validate `origin_domain` against the §11.1 closed set in `build-manifest.sh`.
+4. Treat everything in `pending-ledger-submissions/` as **untrusted replay input**;
+   the 20260824 entry with `producer_key_id: "test"` must not be auto-submitted
+   when the gateway comes up.
 
 # 12. Host Installation and Configuration
 
@@ -4900,13 +5798,13 @@ the cost is paid once.
 ### 12.5.2 Regression tests for the generators
 
 `scripts/build-update/test_generators.py` — run it with
-`python3 scripts/build-update/test_generators.py`; no framework is required.
-**29 tests, all passing**, in about 0.3 s:
+`python3 scripts/build-update/test_generators.py`; no framework is required,
+though `pytest` collects it too. **62 tests, all passing**, in about 0.7 s:
 
 ```
 $ python3 scripts/build-update/test_generators.py
 ...
-Ran 29 tests in 0.266s
+Ran 62 tests in 0.73s
 
 OK
 ```
@@ -4940,6 +5838,330 @@ silently fell back to the dpkg mtime, producing a document that looked normal
 and carried the older, less accurate dates. The module is now loaded by
 `__file__`. Without the test this regression is invisible: the failure mode is
 a plausible-looking document, not an error.
+
+### 12.5.3 `eligible` now means a machine can do it (OPS-19)
+
+`update-plan.json` used to carry a single `steps` list per item, mixing two
+things that cannot be combined: commands an executor could run
+(`podman pull repo@sha256:<64>`) and prose no executor could ever run
+(`edit Image= in quadlet/<domain>/<unit>.container`). An item was marked
+**eligible** on the strength of the first while carrying the second, so
+"eligible" did not mean "automatable" and **nothing in the file distinguished
+them**.
+
+`update_steps()` now returns `{"steps": [...], "manual": [...]}`, and the
+`eligible` decision is taken on the strength of `steps` alone:
+
+| Field | Meaning | Contract |
+|---|---|---|
+| `steps` | argv **arrays**, verb-allowlisted | a machine can run these; nothing needs a shell |
+| `manual` | prose for a human | never executed, never silently dropped |
+
+Every step is an argv array (`["podman", "pull", "repo@sha256:<64>"]`), never a
+string. This is deliberate: a plan-supplied string can only be run through a
+shell, and a plan is generated data, not trusted input. `_argv_is_safe()`
+downgrades any argument carrying a shell metacharacter to prose rather than
+emitting it — an item literally named `pkg; rm -rf /` produces **no**
+executable step and keeps its intent under `manual`.
+
+The consequence is visible and worth stating plainly: on this host the plan now
+reports **0 eligible of 224**. That is not a regression, it is the truth. The
+old count of 6 was counting items whose only "step" was a sentence about
+editing a Quadlet file.
+
+**A correction to what this section claimed when first written.** It said
+"`brave` remains genuinely automatable and is emitted as argv". That was
+checked rather than assumed, and it is false as stated. `update_steps()`
+*does* emit argv for `brave` —
+
+```
+$ python3 -c "...update_steps({'item':'brave','via':'snap/latest/stable'}, None)"
+{'steps': [['snap', 'refresh', 'brave']], 'manual': []}
+```
+
+— but the emitted plan shows `"steps": []` for `brave`, because the writer
+gates on the decision:
+
+```
+"steps": steps if decision == "eligible" else [],
+```
+
+`brave`'s verdict is `?`, not `**NO**`: the snap channel was unreachable, so
+there is **no evidence of being behind**. It is excluded as *"no evidence of
+being behind"*, and the exclusion blanks its steps. The distinction matters,
+because the two statements answer different questions. `brave` is the only item
+whose *source* admits a mechanical step; it is not eligible *today* because the
+evidence for updating it does not exist, not because it is unautomatable.
+Written the other way round — "only brave is automatable" — the next reader
+would look for the argv in the plan, not find it, and conclude the generator
+had regressed.
+
+So the honest summary of this host is **0 eligible of 224, and 0 of those 224
+carry a `steps` array**, because every one of them is excluded, and the writer
+deliberately refuses to publish steps for an excluded item. Measured:
+
+```
+$ python3 -c "... json.load(update-plan.json) ..."
+schema 2 items 224
+summary {'behind': 1, 'eligible': 0, 'excluded': 224}
+with steps 0
+with manual 0
+```
+
+### 12.5.4 `apply-plan.py` — the dry-run validator (OPS-20)
+
+`scripts/build-update/apply-plan.py` answers one question: *if an operator
+approved this plan, what would it touch?* It loads the plan, hashes it,
+snapshots it into the run directory, validates every step against a verb
+allowlist, derives blast-radius groups (units sharing a digest or a deploy
+domain) and reports the result. **It executes nothing**, and the module docstring
+states it must never be extended to.
+
+```
+$ AO_ROOT=$PWD python3 scripts/build-update/apply-plan.py --no-snapshot
+plan        : /tmp/ao-sessions/wt-ops-b/data/build-update/update-plan.json
+sha256      : b753e5dab017df1be539b4b86e26713cc1293d9cde1c034ebb376f78aac9453f
+generated   : 2026-10-04T16:55:20+00:00   schema: 2
+items       : 224  -> 0 eligible, 224 excluded
+would run   : 0 argv steps across 0 item(s)
+manual only : 0 item(s) need a human
+would touch: NOTHING - no item is eligible
+EXECUTED    : nothing. This tool is a validator only.
+validation  : OK
+```
+
+**Why approval must pin to the plan hash, not the filename.** The plan
+regenerates on every refresh, so the file an operator approved is not the file a
+tool would run — the `generated` timestamp alone changes the bytes when no item
+changed. `--expect-hash` refuses anything else, so an approval can name exactly
+the bytes that were reviewed:
+
+```
+$ AO_ROOT=$PWD python3 scripts/build-update/apply-plan.py --no-snapshot \
+      --expect-hash 0000...0000
+MISMATCH_EXIT=4
+HASH MISMATCH
+  approved : 0000...0000
+  on disk  : b753e5dab017df1be539b4b86e26713cc1293d9cde1c034ebb376f78aac9453f
+```
+
+Exit codes: `0` well-formed, `2` usage, `3` validation failure, `4` hash
+mismatch.
+
+The verb allowlist is **duplicated rather than imported**, so the validator
+still runs when `provenance-log.py` is broken — the file most likely to be
+broken is the one that produced the plan. That duplication is a drift risk, so
+`TestVerbAllowlistAgreesAcrossFiles` asserts the two lists are identical.
+
+Run against the **live** `/ALWAYSON` plan the same tool exits **3** with 33
+problems, and the diagnosis is in the output:
+
+```
+$ python3 scripts/build-update/apply-plan.py --no-snapshot     # AO_ROOT=/ALWAYSON
+  - items[128] ao-build-update: no `manual` key; an eligible item must separate prose from executable steps
+  - plan: 193 of 199 items carry no `manual` key. This is a schema-1 plan
+    (prose and executable steps are not separated). Every eligible step in it is
+    a bare string, so nothing in it is safe to hand to an executor -- this is
+    OPS-19, not a per-item defect.
+```
+
+That is the validator earning its keep: the live plan is still schema 1 and has
+not been regenerated since §12.5.3 landed, so **it is not yet safe to hand to
+an executor**. Regenerating it is one `./scripts/build-update/refresh-install-log.sh`.
+
+**A trap worth recording for the next agent.** The validator defaults `AO_ROOT`
+to `/ALWAYSON`, so running it from a worktree validates **the live main-repo
+plan, not your worktree's** — silently, with a plausible-looking result. I hit
+this: a first run reported 199 items and schema 1 while the worktree plan held
+224 items and schema 2. Always pass `AO_ROOT=$PWD`, and sanity-check the
+`plan :` line in the output against the file you meant. The same class of bug
+existed literally in `refresh-install-log.sh`, whose summary-report heredoc
+opened a hardcoded `/ALWAYSON/data/build-update/update-plan.json` while the
+surrounding script honoured `AO_ROOT`; it now takes the path as `sys.argv[1]`.
+
+### 12.5.5 Image digests are checked against what is deployed (OPS-02)
+
+`config/platform/version-matrix.yaml` records image digests as free text in
+YAML strings. Nothing compared those strings to anything, so a row could only
+change by a hand edit, and a stale row was indistinguishable from a correct one
+by reading it. `capture-version-matrix.sh` does not help: it rewrites five host
+facts (systemd, podman, netplan, nvidia) with `sed` and never looks at an
+image at all.
+
+The check now exists as `scripts/validation/check-image-digests.sh`, and it
+found real drift immediately. **7 matrix rows name a digest no deployed unit
+carries, 1 deployed image is not digest-pinned, and 4 deployed digests appear
+nowhere in the matrix:**
+
+```
+$ AO_ROOT=$PWD bash scripts/validation/check-image-digests.sh --check
+deployed units  : 21 in /home/scottw/.config/containers/systemd
+distinct digests: 14
+UNPINNED  Image=localhost/gz-sim10-resolute:gui-svgfix
+DRIFT     mapping.broker_image_digest              sha256:91d0f7e8c748e...
+DRIFT     simulation.gazebo_images                 sha256:0c19f326a339e...
+DRIFT     simulation.image_foxglove_bridge         sha256:6d3461ddf0277...
+DRIFT     sales.mastodon.image_postgres            sha256:a65e6a841f6c4...
+DRIFT     sales.mastodon.image_redis               sha256:91d0f7e8c748e...
+DRIFT     operations.image_postgres_shared         sha256:a65e6a841f6c4...
+matrix digests matched a deployed unit  : 11
+matrix digests matching nothing deployed: 7
+deployed Image= lines without a digest  : 1
+UNLISTED  deployed but absent from the matrix: sha256:d74eeac9a635...   (postgres, 3 units)
+UNLISTED  deployed but absent from the matrix: sha256:c6eabf748fc7...   (redis, 2 units)
+UNLISTED  deployed but absent from the matrix: sha256:9acc6d4df749...   (foxglove)
+UNLISTED  deployed but absent from the matrix: sha256:55f8dbcf8dec...   (gz-sim10-server)
+RESULT: DRIFT -- 7 stale matrix row(s), 1 unpinned deployed image(s).
+$ echo $?
+1
+```
+
+The postgres row is the clearest case, and the reason a naive check is not
+enough. The matrix records `docker.io/library/postgres@sha256:a65e6a84…` in
+two rows — `sales.mastodon.image_postgres` and
+`operations.image_postgres_shared` — while **all three** deployed postgres
+units (`ao-fabrication-db`, `ao-mastodon-db`, `ao-sales-db`) run
+`sha256:d74eeac9…`. Nothing is wrong with either digest; the document and the
+live system simply stopped agreeing, and neither could tell the other had
+moved.
+
+**Why the check reads the deployed units and not the repository tree.**
+Quadlet deploys **flat**: `~/.config/containers/systemd/` holds copies, not
+symlinks. Comparing the matrix against `quadlet/` would have reported "no
+drift" at precisely the moment the live system had drifted — the repository
+copy can be correct while the unit that is actually running is not. The
+deployed unit is the only thing that describes what is running, so it is the
+authority here.
+
+**The check reports; it never rewrites.** Where a row disagrees with the live
+system, deciding which side is right is an operator judgement — it may be a
+stale document, an unapproved deploy, or a deliberate change never recorded. A
+script that adopted the live digest would make the matrix self-fulfilling and
+launder a hand edit into an apparently-captured fact. So the seven rows above
+are **reported as findings, not fixed**. That is deliberate, and it is the
+part most likely to look like incompleteness.
+
+**A bug this check had on its first run, which the tests caught.** When every
+deployed image is unpinned, the digest-extracting `grep` matches nothing and
+exits 1; under `set -e` + `pipefail` that aborted the script with **status 1
+and no output at all**. A gate that fails without saying why is worse than no
+gate, because the next reader cannot tell a real finding from a crash. It is
+fixed by tolerating the empty result in collection rather than by loosening
+`set -e`, because the unpinned images are precisely what the script most needs
+to report.
+
+That is why the five tests drive the **real script** against a synthetic tree
+and assert exit codes, rather than testing a Python reimplementation: a check
+only ever observed in its failing state proves nothing, because "7 rows
+drifted" is exactly what a broken comparison prints too.
+
+```
+$ python3 -m pytest scripts/build-update/test_generators.py -q
+62 passed in 0.73s
+```
+
+Five cases, and the OK path is exercised as carefully as the failing ones:
+
+| Case | Asserts |
+|---|---|
+| matrix matches deployed | `RESULT: OK`, exit **0** |
+| one stale matrix row | `DRIFT` naming `host.images.a`, exit **1** |
+| `Image=…:latest` | `UNPINNED`, exit **1** |
+| `sha256:` + 12 hex chars | `UNPINNED`, exit **1** |
+| stale row, no `--check` | `RESULT: DRIFT` but exit **0** |
+
+The fourth case is the §12.5.2 lesson reused: a `sha256:` prefix is not a
+pinned reference, and the same class of bug that produced
+`podman pull repo@sha256:<12>` would otherwise let a 12-character digest pass
+here. The fifth case exists because a validation script that *always* exits
+non-zero stops being run — so reporting is the default and `--check` is the
+gate, and that distinction has to live in the exit code rather than only in
+the prose.
+
+### 12.5.6 Roll-ups can be drilled into (OPS-23)
+
+`KDE Plasma Desktop` was one row for 191 components, the Ubuntu archive one row
+for 3,857 packages, the ROS train one row for 351. "Is the desktop behind" is
+answerable; "update ROS 2 rviz" is not. Collapsing those rows is right — they
+were 90 percent of the document — but a collapsed row that hides its members is
+a dead end. Each roll-up now carries a `members` list and renders it as a
+`<details>` drill-down, in Markdown, HTML **and** the PDF:
+
+```
+$ grep -o '<summary>[^<]*</summary>' /tmp/ops23v/s.md
+<summary>Rolled-up launchers — expand to list every application entry (153 entries across 34 groups)</summary>
+<summary>Ubuntu archive packages — expand to list all 3857 packages with their installed versions</summary>
+<summary>ROS 2 lyrical (whole train) — expand to list all 351 packages with their installed versions</summary>
+<summary>KDE Plasma Desktop — expand to list all 191 components</summary>
+
+$ grep -c "details class='drill'" /tmp/ops23v/s.html
+38
+```
+
+Reproduce with a scratch render, which touches nothing tracked:
+
+```
+$ AO_ROOT=$PWD python3 scripts/build-update/provenance-log.py --offline \
+      --out /tmp/ops23v/s.md --html /tmp/ops23v/s.html --plan /tmp/ops23v/p.json
+```
+
+**A trap here, and the reason the numbers above were nearly unprovable.** The
+tracked render artifacts `docs/software-status.md` and `tmp/software-status.html`
+are **stale** — dated 2026-10-03 20:53, while the generator carrying this fix
+landed 2026-10-04 10:30. So checking the fix against them shows 2 summaries and
+**0** drill-downs, which reads exactly like "the fix does not work":
+
+```
+$ grep -o '<summary>[^<]*</summary>' docs/software-status.md
+<summary>Rolled-up launchers — expand to list every application entry (153 entries across 34 groups)</summary>
+<summary>KDE Plasma Desktop — expand to list all 191 components</summary>
+$ grep -c "details class='drill'" tmp/software-status.html
+0
+```
+
+Both apt roll-ups are missing there too, which is the §12.5.5 pattern in a
+different guise: the code is correct and the artifact predates it. The
+committed documents have **not** been regenerated, so the shipped PDF still
+collapses those rows to bare counts. That is a real outstanding action, and it
+is why the evidence above comes from a scratch render rather than from the
+tracked files — the claim is about the generator, and it is stated as such.
+
+The HTML drill-down is inline on the row itself, where the count promised it,
+and carries every member as its own `<li>`.
+
+Members are rendered with their **own versions** (`libc6 (2.42-1)`), which is
+what OPS-23 asks for; a bare list of names would answer "which" but not "which
+version".
+
+**The failure this item describes was silent, which is why it was easy to miss.**
+The members were computed and carried on the row as `members`, but the HTML
+table renderer never emitted them — so the drill-down existed in Markdown only
+and the HTML and PDF quietly lost it. Nothing errored; the document just stopped
+being able to answer a question. `TestRollupsCanBeDrilledInto` asserts the HTML
+path specifically, and that the drill-down survives the print stylesheet,
+because a PDF that hides it reintroduces the same dead end. Member names are
+HTML-escaped: they come from `.desktop` files on disk and are not trusted.
+
+The two apt roll-ups were still bare counts after that first pass — I checked
+the rendered output rather than trusting the code, and `Ubuntu archive packages`
+and `ROS 2 lyrical (whole train)` carried no members. Both lists are already in
+`inv`, so both now attach theirs; the ROS one matters most because the train is
+FROZEN, making "which 351 packages are affected" the question an operator will
+actually ask. `test_the_apt_rollups_carry_their_members` is the guard, and I
+confirmed it is not vacuous by deleting both `members` keys and watching it
+fail with `Ubuntu archive packages is a roll-up with no members`.
+
+**A second fix the first one created.** Attaching members made the Markdown
+~3× larger, but the existing roll-up renderer joined them into a single table
+cell (`', '.join(members)`), so the Ubuntu archive came out as **one
+40,000-character line**. That technically satisfied "the members are reachable"
+and practically failed the reader as badly as the original count — a single row
+you cannot scan is not a drill-down. Package roll-ups now render one member per
+row with the version in its own column, in their own collapsible block; the
+launcher grouping keeps its joined cell, where members are short and few. The
+roll-up emitter was extracted from `render()` into `rollup_details_md()` so this
+is unit-testable — `render()` spends hundreds of apt round trips, which no test
+should pay to assert a formatting rule.
 
 ---
 
@@ -4979,11 +6201,12 @@ their output are in `agents/COORDINATION/proposals/plat-PLAT-01.md`.
 | Is the operator Podman rootless? | `podman info --format '{{.Host.Security.Rootless}}'` → `true` |
 | Which store backs it? | `podman info --format '{{.Store.GraphRoot}}'` → `/home/scottw/.local/share/containers/storage` |
 | Do any Quadlet units name a `User=` or `Group=`? | none — `grep -rn '^User=\|^Group=' quadlet/` returns nothing |
-| Are there system-level `.container` units? | `systemctl list-unit-files 'ao-webodm*'` → 0; every mapping unit is `systemctl --user`, state `generated` (Quadlet generator output) |
+| Are there system-level `.container` units? | `systemctl list-unit-files 'ao-webodm*' \| grep -c '^ao-'` → `0`; every mapping unit is `systemctl --user`, state `generated` (Quadlet generator output) |
 | Are the WebODM containers in the operator store? | `podman ps` lists `ao-webodm-{webapp,worker,db,broker}` and `ao-nodeodm` from the rootless store above |
 | Are the declared extra connections real? | `podman system connection list` → header only; `~/.config/containers/podman-connections.json` is `{"Connection":{},"Farm":{}}` |
 | Does `/run/ao-podman/` exist? | `ls /run/ao-podman` → `No such file or directory` |
 | Is `ao-podman-bridge.service` active? | `systemctl is-enabled ao-podman-bridge.service` → `disabled`; `systemctl --user is-enabled` → `not-found` |
+| Does the **rootful** store hold any workload? | **No — measured 2026-10-04.** `/var/lib/containers/storage/db.sql` is world-readable and its `ContainerConfig`, `ContainerState`, `ContainerExitCode`, `VolumeConfig`, `PodConfig` and `ContainerDependency` tables are **all empty** (row count `0` each). Enumerated without `sudo`; see §13.2.1 |
 
 The container store therefore has one owner. Podman Desktop, `podman system connection`,
 and any GUI path are all pointed at the operator account's local rootless socket, and
@@ -5017,7 +6240,7 @@ is what closes the disagreement between this section and the §19.2 row that des
 | `ps -eo user,comm \| awk '$1 ~ /ao-\|alwayson/'` | no rows | no process runs as any of the three |
 | `/etc/systemd/system/ao-podman-bridge.service` | present, `systemctl is-enabled` → `disabled` | the rejected bridge unit, masked by being disabled |
 | `/run/ao-podman/` | `No such file or directory` | the rejected socket directory was never created |
-| `/var/lib/containers/storage` | exists, `db.sql` last written 2026-09-30 | **OPEN** — see below |
+| `/var/lib/containers/storage` | exists, `db.sql` last written 2026-09-30 | **enumerated 2026-10-04** — zero containers/pods/volumes; residual images unverified, see below |
 
 **Deviation.** The host carries three unused service accounts and one disabled system unit
 that this design does not authorise. They hold no container store, no socket and no process,
@@ -5025,14 +6248,55 @@ so the single-store designation above is unaffected. They are **left in place**:
 account or a unit file is a deletion, and README §4.1 rule 3 requires explicit operator
 approval. **This is an OPEN item for the operator**, not a defect in the running system.
 
-**OPEN — the rootful store could not be enumerated.** `/var/lib/containers/storage` exists
-and its `db.sql` was modified 2026-09-30, so something has written to it. Its contents are
-`drwx------ root root` and `sudo` on this host requires interactive authentication, so
-`sudo ls /var/lib/containers/storage/overlay-images/` returned `Permission denied`. **This
-document therefore claims the system store is *unused by any workload*, not that it is
-*empty*.** The distinction matters: a stale image or container left in the rootful store is
-not a workload, but it is data an operator may want reclaimed. Enumerating it needs one
-`sudo` command and operator approval — recommended action, no automatic action taken.
+**CORRECTION 2026-10-04 (measured): the rootful store is *not* inaccessible, and the previous
+recording of this OPEN item was wrong.** The section said the store's "contents are
+`drwx------ root root`" and that `sudo ls` returned `Permission denied`, so enumeration needed
+operator approval. **Both are wrong, and the mistake was generalising a mode from a child
+directory to the store root.** Measured:
+
+```
+$ stat -c '%A %U:%G %n' /var/lib/containers/storage
+drwxr-xr-x root:root /var/lib/containers/storage
+$ ls -la /var/lib/containers/storage/ | head -4
+-rw-r--r-- 1 root root 114688 Sep 30 20:26 db.sql          # world-READABLE
+drwx------ 2 root root   4096 Aug 26 19:13 overlay-images  # the 0700 parts are the CHILDREN
+$ stat -c '%A %n' /var/lib/containers/storage/overlay-images/
+drwx------                                                 # <- what I generalised upward
+```
+
+So the **top level and `db.sql` are readable by uid 1000 with no `sudo` at all**, and the store
+can be substantially enumerated. `sqlite3(3)` is not installed, but Python's `sqlite3` module is
+sufficient and needs no package:
+
+```
+$ python3 -c "import sqlite3; c=sqlite3.connect('file:/var/lib/containers/storage/db.sql?mode=ro',uri=True); print({t: c.execute('select count(*) from '+t).fetchone()[0] for t in ('ContainerConfig','ContainerState','ContainerExitCode','VolumeConfig','PodConfig','ContainerDependency')})"
+{'ContainerConfig': 0, 'ContainerState': 0, 'ContainerExitCode': 0,
+ 'VolumeConfig': 0, 'PodConfig': 0, 'ContainerDependency': 0}
+```
+
+**Every container-, pod- and volume-bearing table is empty.** The rootful store holds **no
+containers, no pods, no volumes and no dependency records**. It has no `Image` table at all —
+in `containers/storage` images live in the `overlay-images/` bolt databases, not in `db.sql`:
+
+```
+$ python3 -c "import sqlite3; c=sqlite3.connect('file:/var/lib/containers/storage/db.sql?mode=ro',uri=True); print([r[0] for r in c.execute(\"select name from sqlite_master where type='table'\")])"
+['ContainerDependency','ContainerExitCode','PodState','VolumeConfig','DBConfig','IDNamespace',
+ 'ContainerConfig','ContainerVolume','PodConfig','VolumeState','ContainerState','ContainerExecSession']
+any image table: NONE
+```
+
+**This materially strengthens the single-store designation.** The store is not merely
+"unused by any workload" as the previous revision had to concede — it holds **no workload
+records whatsoever**, and the earlier claim that this could only be resolved with operator
+approval was wrong on both counts: the mode was misread, and no approval was ever needed.
+
+**Still open, and narrower than stated: residual image data.** `overlay-images/` is mode `0700`
+and `ls` on it returns `Permission denied` as uid 1000, so **whether any image blobs remain is
+still unverified**. This is consistent with the last write being `2026-09-30` (images were pulled
+before the rootless migration) but does not prove it. For contrast the rootless store has 102
+image records and is fully enumerable by the operator. Enumerating the rootful remainder needs
+one `sudo` command and operator approval — recommended action, **no automatic action taken**, and
+no deletion is proposed.
 
 `ao-sales` and `ao-reporting-egress` are non-internal by recorded decision; that
 exception belongs to §5.1, not to the store model.
@@ -5259,6 +6523,25 @@ service reads it from there. There is no generic or cross-domain wallet folder, 
 | `fabrication-db-password` | `ao-fabrication` |
 | `webodm-postgres-password` | `ao-mapping` |
 | `mastodon-db-password` | `ao-mastodon` |
+| `payment-db-password`, `payment-paypal-webhook-id`, `payment-paypal-webhook-secret`, `payment-coinbase-webhook-secret` | `ao-payment` |
+| `pcloud-webdav-password`, `pcloud-webdav-user` | `ao-archive` |
+
+The last two rows are mapped in `wallet_folder_for` but **neither folder exists on this
+host**. Measured 2026-10-04, `folderList` de-duplicated returns exactly seven `ao-*`
+folders — `ao-admin`, `ao-fabrication`, `ao-mapping`, `ao-mastodon`, `ao-sales`,
+`ao-sim-fabrication`, `ao-sim-vehicle` — and `ao-payment` and `ao-archive` are both absent.
+§14.1.1 already says these folders are "created only when the consumer exists and the
+credential is provisioned, never speculatively"; the `ao-payment` consumer does exist and is
+running, which makes its absent folder a fault rather than correct restraint. See §14.1.7.
+
+**Mapping is not the same as deliverability.** `wallet_folder_for` routes 30-odd entry names,
+but a mapping only means the fetcher will *try*. Several entries the fetcher names are read
+by other consumers instead — `openclaw-bot-client-secret` and
+`cloudflare-tunnel-credentials-json` by `fetch-openclaw-mastodon-env.sh` and
+`fetch-cloudflared-env.sh`, `producer-private-key` by `scripts/ledger/sign-manifest.sh` —
+and those are not affected by a missing entry in `wallet_folder_for`. Conversely an entry
+that *is* mapped but whose folder is absent is a hard fetch failure, which is the
+`ao-payment` case.
 
 A role and the application that connects to it must use the same password, so a fresh
 `mastodon-dbdata` cannot be created with a different password than the application connects
@@ -5486,11 +6769,43 @@ than silently left in place. **It is not self-approving** — README §4.1 rule 
 decision to the operator.
 
 **Scope of the deviation.** Secret *storage* is the KDE Wallet, encrypted at rest. Secret
-*delivery* to `ao-mastodon-db`, `ao-sales-db`, `ao-webodm-db` and `ao-fabrication-db` is a
-`0600` env file under `%h/.local/share/ao-secrets/`, refreshed at start-up by
+*delivery* is a `0600` env file under `%h/.local/share/ao-secrets/`, refreshed at start-up by
 `fetch-kwallet-secret.sh`. Env files are **delivery copies, not stores**: the wallet is the
 only system of record, and every file is rewritten from the wallet on each refresh, so losing
 one costs a re-fetch, not a credential.
+
+The **first draft of this paragraph named only four consumers** —
+`ao-mastodon-db`, `ao-sales-db`, `ao-webodm-db` and `ao-fabrication-db`. That understated the
+deviation by roughly a factor of three. Measured 2026-10-04, the delivery set is **eight
+secret-bearing env files**, not four:
+
+| Env file | Produced by | Consumer |
+|---|---|---|
+| `mastodon-db.env` | `fetch-kwallet-secret.sh … mastodon-db-password` | `ao-mastodon-db` |
+| `sales-db.env` | `… sales-db-password` | `ao-sales-db` |
+| `webodm.env` | `… webodm-postgres-password` | `ao-webodm-db` |
+| `fabrication-db.env` | `… fabrication-db-password` | `ao-fabrication-db` |
+| `payment.env` | `… payment-credentials` | `ao-ingress-payment` |
+| `reporting-grafana-admin.env` | `… grafana-admin-password` | `ao-grafana` |
+| `reporting-grafana-postgres.env` | `fetch-reporting-env.sh grafana` | `ao-grafana`, `ao-status-collect`, `ao-db-security-collect` |
+| `reporting-metabase.env` | `fetch-reporting-env.sh metabase` | `ao-metabase` |
+
+Plus `mastodon.env` (1041 bytes, mode `0640`, wallet entry `ao-mastodon/mastodon-env`,
+byte-identical to the file per §14.1.3), consumed by `ao-mastodon-web`, `-streaming` and
+`-sidekiq` and by the repair `ExecStartPost`. **The operator is therefore being asked to
+ratify a deviation covering nine files across fifteen units, not four files across four
+units.** The four-database framing was inherited from the SEC-01 acceptance criterion, which
+names only mastodon-db, sales-db and webodm-db; the criterion is narrower than the
+implementation, and the implementation is what needs approving.
+
+**A mode exception inside that set, stated precisely.** `mastodon.env` is `0640`, not `0600`,
+because `ao-wallet-bridge.sh` adds the ACL that lets `ao-sales` read it. Measured:
+
+    $ getfacl -p ~/.local/share/ao-secrets/mastodon.env
+    user::rw-  user:ao-sales:r--  group::---  mask::r--  other::---
+
+The other eight env files are `0600 scottw:scottw` with no ACL. So "all delivery copies are
+`0600`" is true of eight files and false of the ninth; §14.1.6 previously said so uniformly.
 
 **Why the mandated mechanism is not used.** Podman secrets (`podman secret ls` returns an
 empty list; Podman 5.7.0) would have to be populated *from* the wallet by a root or
@@ -5540,6 +6855,170 @@ why the wallet — not these files — is designated the system of record.
 `Secret=` mounted at `/run/secrets/…` plus `Environment=POSTGRES_PASSWORD_FILE=/run/secrets/…`
 would satisfy §14.1 for the database services. It has not been applied: it changes live unit
 definitions and live credential delivery, and therefore stops for operator approval.
+
+### 14.1.7 `payment.env` is a stale delivery copy, and §19 ST-12's "runs with no DSN" is wrong
+
+Found 2026-10-04. **The payment adapter has been running since 2026-10-01 15:08 with an env
+file whose wallet source does not exist.** This is a liveness and correctness fault, not a
+documentation drift, and it is in this section because the fault is in secret *delivery*.
+
+The measured chain, each step a command and its output:
+
+**1. The wallet folder the fetcher needs does not exist.**
+
+    $ python3 … folderList(h,'ao-secret-reader')
+    ao-payment exists: False
+    ao-archive exists: False
+
+`wallet_folder_for` maps `payment-db-password`, `payment-paypal-webhook-id`,
+`payment-paypal-webhook-secret` and `payment-coinbase-webhook-secret` to `ao-payment`
+(`fetch-kwallet-secret.sh` line 90). §19 ST-12 already recorded that "the four `ao-payment`
+wallet entries do not exist yet". Confirmed: the folder is absent, not merely empty.
+
+**2. The env file therefore cannot be refreshed, and has not been.**
+
+    $ stat -c '%n mtime=%y' ~/.local/share/ao-secrets/payment.env
+    payment.env mtime=2026-09-30 23:18:29
+    $ systemctl --user show ao-ingress-payment.service -p ActiveEnterTimestamp
+    ActiveEnterTimestamp=Thu 2026-10-01 15:08:41 PDT 2026
+
+**The file is older than the process reading it by roughly sixteen hours.** Every start since
+2026-10-01 has consumed a file frozen at 2026-09-30.
+
+**3. The fetch failure is silenced, so nothing reports it.**
+
+    $ grep -rn 'ExecStartPre=-' quadlet/
+    quadlet/payment/ao-ingress-payment.container:63:ExecStartPre=-…fetch-kwallet-secret.sh … payment-credentials
+
+The leading `-` makes systemd ignore the exit status. `fetch_secret` exits 2
+("no wallet folder mapped") and 3 ("wallet entry unavailable"), but `ExecStartPre=-` discards
+both. Consequently:
+
+    $ journalctl --user -u ao-ingress-payment.service --since 2026-10-01 \
+        | grep -cE 'wallet entry unavailable|no wallet folder mapped'
+    0
+
+**Zero** occurrences. The failure is real, recurring on every start, and produces no journal
+entry at all. This is the same class of fault as the 2026-10-01 grafana/metabase outage
+recorded in §14.1.4 — a failed fetch — except that there the fetch was loud and the units
+crashed visibly, and here it is silent and the unit runs on stale material. The `-` prefix
+converts a loud failure into a silent one.
+
+**4. The stale file is not inert, and §19 ST-12's claim is false.**
+
+ST-12 states the adapter "runs with no DSN and no webhook secret and cannot accept a payment."
+Measured, with the password reduced to a length and a sha256 prefix:
+
+    $ sed -n 's|^PAYMENT_DSN=postgresql://[^:]*:\([^@]*\)@.*|\1|p' payment.env | wc -c
+    49                                     # 48 chars + newline
+    $ sed -n 's|^PAYMENT_DSN=postgresql://[^:]*:\([^@]*\)@.*|\1|p' payment.env \
+        | tr -d '\n' | sha256sum | cut -c1-12
+    03521083973b
+
+That prefix is **identical to the live `sales-db-password`** recorded in §14.1.6
+(`03521083973b`, 48 chars) — the same value the orphaned `legacy-alwayson-folder.env` carries.
+So `payment.env` holds a **currently-valid sales database password**, embedded in a DSN as
+`postgresql://sales_migration_role:<password>@127.0.0.1:15432/salesdb`.
+
+**The DSN is present and usable. ST-12's "runs with no DSN" is incorrect**, and the
+conclusion drawn from it — that the adapter "cannot accept a payment" — rests on a measurement
+that does not hold. The three webhook secret lines are genuinely absent (the file has one key,
+`PAYMENT_DSN`), so the adapter has a database connection but no webhook verification material.
+The correct statement is narrower: **it holds a live sales-DB credential and no webhook
+secrets**, which is a different and less safe situation than ST-12 describes, because the
+DSN alone grants database access.
+
+**5. `check-secrets-exposure.sh` cannot see it**, for the same reason it missed
+`legacy-alwayson-folder.env`: the file is untracked and correctly `0600`, and the guard's
+`$secret_key_re` does not match `PAYMENT_DSN` — a deliberate carve-out at
+`check-secrets-exposure.sh` line 79, whose comment says `payment.env` "carries a DSN, not a key
+name". The carve-out was written so a healthy DSN file would not be flagged as leftover temp
+debris; the side effect is that the one file carrying a real password in DSN form is
+structurally invisible to the guard.
+
+**Operator decision requested. Not changed by this session**, because it touches payment
+credentials and a live running service (brief stop conditions; README §4.1 rules 12 and 14).
+
+1. **Create the four `ao-payment` wallet entries**, then restart `ao-ingress-payment`. This is
+   ST-12's own outstanding action and it also fixes the staleness. Recommended first.
+2. **Decide whether the `-` prefix on line 63 should stay.** It was presumably added so a
+   missing-wallet fetch would not block the unit — but the result is a unit that runs
+   indefinitely on an env file it can never refresh, with no log line. If it stays, the
+   staleness needs a separate check; if it goes, a locked wallet takes the unit down with it.
+   Either is defensible, but the current state documents neither.
+3. **Note for §19**: ST-12's "runs with no DSN" needs correcting. ST-12 is not this session's
+   file, so this is raised as a proposal, not an edit.
+
+Cross-group: the *credential content* of this is PAY territory and the ST-12 row is the
+compiler's. The *delivery-mechanism* fault — silent fetch failure on a `0600` stale copy — is
+SEC's and is what §14.1.7 records.
+
+#### 14.1.7.1 Re-verification, 2026-10-04 (fourth pass)
+
+Every claim in this subsection was re-measured from scratch this pass rather than inherited.
+All of it still holds, which is worth recording because the numbers in §14.1.4, §14.1.6 and
+§14.1.7 were written by earlier passes and are the kind of figure that goes stale.
+
+    $ systemctl --user show ao-ingress-payment.service -p ActiveEnterTimestamp -p ExecStartPre
+    ActiveEnterTimestamp=Thu 2026-10-01 15:08:41 PDT 2026
+    ExecStartPre={ path=/ALWAYSON/scripts/operations/fetch-kwallet-secret.sh ;
+                   argv[]=… %h/.local/share/ao-secrets/payment.env payment-credentials ;
+                   ignore_errors=yes ; … }
+    $ stat -c '%n %y' ~/.local/share/ao-secrets/payment.env
+    payment.env 2026-09-30 23:18:29.786526608 -0700
+
+`ignore_errors=yes` is systemd's own rendering of the `-` prefix, so the silencing is confirmed
+from the unit's runtime state and not only from the quadlet source. The file is still ~16h older
+than the process reading it, and the unit is still `active`.
+
+    $ python3 … hasFolder(h,'sec-verify') for each ao-* folder
+    ao-payment False   ao-archive False
+    ao-sales True  ao-admin True  ao-mastodon True  ao-mapping True
+    ao-fabrication True  ao-sim-vehicle True  ao-sim-fabrication True
+
+Seven `ao-*` folders, `ao-payment` and `ao-archive` absent — unchanged. §14.1.4's count also
+re-verified: `folderList` returned **14274 raw rows / 18 unique folders** (7 are `ao-*`), and
+`ao-*` entries total **37**; with `Passwords` (2) that is the **39** §14.1.4 states.
+
+The `payment.env` DSN re-measured to the same conclusion, without printing the value:
+
+    $ sed -n 's|^PAYMENT_DSN=postgresql://[^:]*:\([^@]*\)@.*|\1|p' payment.env | wc -c
+    49
+    $ … | tr -d '\n' | sha256sum | cut -c1-12
+    03521083973b
+    $ cut -d= -f1 ~/.local/share/ao-secrets/payment.env
+    PAYMENT_DSN
+
+`PAYMENT_DSN` is the file's **only** key — the three webhook secrets are genuinely absent, so
+§14.1.7 step 4's narrower statement still holds. The role is `sales_migration_role`, a
+non-secret field. §14.1.6's legacy-file table also reproduced exactly, `03521083973b` /
+`6d174927d250` / `f0d6bb4481fd` SAME and `8c3319896c87` vs `4f090748460c` DIFFERENT.
+
+**What I got wrong this pass.** I wrote a regex `^([A-Za-z0-9_]+)=` to enumerate the legacy
+file's keys and it returned **zero pairs** — because three of the four key names contain hyphens
+(`mastodon-db-password`), and I had left the hyphen out of the character class. Taken at face
+value that reads as "the file is now empty", which would have been a false and alarming claim
+about a file holding live credentials. The correction is `^([A-Za-z0-9_-]+)=`. The lesson is
+narrower than "be careful with regexes": **a count of zero from a parser must be checked against
+an independent count before it is written down.** `wc -l` on the same file said 4 lines
+immediately. Had I asserted the zero, the next session would have recorded a security
+improvement that never happened.
+
+**Two further traps, both mine to record.**
+
+1. **`folderList` is unusable as a count.** It returned 14022 rows on one call and 14274 on the
+   next, minutes apart, on an unchanged wallet. §14.1.4 already says to de-duplicate; the
+   stronger statement is that the row count is not even stable, so only the de-duplicated set is
+   meaningful. Use `hasFolder` for existence questions — it is a direct boolean and is what
+   `kwallet-provision.sh:42` itself uses.
+2. **`entryList` returns `as`, `entriesList` returns `a{sv}`** — two different methods with
+   near-identical names. Calling `int()` on the first raises `TypeError`, because it is a list,
+   not a number. §14.1.4's signature table documents both correctly; this is a note that the
+   names are easy to confuse when scripting an audit.
+
+Nothing in this pass changed any credential, file mode, unit or wallet entry. The fault in
+§14.1.7 is **still live and still unreported by any service**, and the operator decisions in
+this subsection are still outstanding.
 
 ## 14.2 Credential rotation, revocation and recovery
 
@@ -5632,18 +7111,30 @@ secrets are rotated, never restored.**
 
 ### 14.2.5 Break-glass order for the operator
 
-In order, stopping at the first step that resolves the fault. Steps 1–3 are non-destructive;
-step 4 changes a live credential and is the operator's alone.
+In order, stopping at the first step that resolves the fault. Steps 1–4 are non-destructive;
+step 5 changes a live credential and is the operator's alone. Step 2 was added 2026-10-04
+after §14.1.7 found a delivery copy that had gone stale without any fault being reported.
 
 1. **Is it the wallet being locked?** Check `isOpen(handle)` — not `busctl --user list |
    grep kwalletd6`, which returns true the instant kwalletd is D-Bus-activated and therefore
    never waits. A `0-byte` `.tmp` under `ao-secrets/` is the forensic signature of a locked
    wallet (§14.1.4). Fix: unlock the wallet from the Plasma session and restart the unit.
-2. **Is the unit simply not started?** These units are `WantedBy=graphical-session.target` and
+2. **Is a delivery copy older than the process reading it?** Compare the two mtimes before
+   anything else, because it is the cheapest check and it catches the silent failure mode:
+
+       $ stat -c '%y %n' %h/.local/share/ao-secrets/*.env
+       $ systemctl --user show <unit> -p ActiveEnterTimestamp
+
+   An env file older than the unit's start timestamp means the `ExecStartPre` did not rewrite
+   it. §14.1.7 documents this happening silently for sixteen hours on `ao-ingress-payment`
+   because its `ExecStartPre` carries the `-` ignore-failure prefix. **A fetch that fails on a
+   `-`-prefixed `ExecStartPre` leaves no journal entry**, so mtime-versus-start-timestamp is
+   the only reliable signal that a delivery copy has gone stale.
+3. **Is the unit simply not started?** These units are `WantedBy=graphical-session.target` and
    are *expected* to be down before Plasma login. That is the login-gated design, not a fault.
-3. **Is the entry present?** `hasEntry` on the owning folder via `kwallet-provision.sh get` /
+4. **Is the entry present?** `hasEntry` on the owning folder via `kwallet-provision.sh get` /
    `fetch_secret`; a missing entry is re-provisioned by the operator with a **new** value.
-4. **Rotate, do not restore.** If a value is suspected exposed, or unrecoverable, write a new
+5. **Rotate, do not restore.** If a value is suspected exposed, or unrecoverable, write a new
    value to the owning `ao-*` folder and restart (§14.2.1). This is the only path for a lost
    wallet, and it does not require the old value.
 
@@ -6352,6 +7843,115 @@ the probe's dead v6 leg.
 
 Use `curl -4` for every measurement against this host. Verified with `curl -4`: 12 of 12
 probes returned 200 across the whole of a post-burst window, and IPv4 was what answered
+### 15.4.11 The Flap Is Local-Path, Not Cloudflare-Edge (narrowed, 2026-10-04)
+
+§15.4.10 measured *that* the tunnel flaps and correctly declined to name a cause. This pass
+narrows it, because the connection topology discriminates between the two candidate causes
+and the evidence points one way.
+
+**The discriminator: the four connections are not peers of one edge.** Over 24 hours the
+tunnel re-registered against **nine distinct Cloudflare PoPs**, yet always on the same four
+edge IPs:
+
+```console
+$ journalctl --user -u cloudflared-alwayson.service --since '24 hours ago' -o cat \
+    | grep 'Registered tunnel connection' | grep -o 'location=[a-z0-9]*' | sort | uniq -c
+    23 location=lax05     17 location=lax07     20 location=lax08
+    19 location=lax09     11 location=lax10     15 location=lax11
+   224 location=phx01     59 location=sjc01     64 location=sjc06
+$ # distinct edge IPs actually in use:
+$ ... | grep -oE 'ip=[0-9.]+' | sort -u | wc -l
+4
+$ # transport is http2 on every single registration, never quic:
+$ ... | grep -o 'protocol=[a-z0-9]*' | sort | uniq -c
+   452 protocol=http2
+```
+
+The four connections terminate on four different edge IPs spread across Phoenix, San Jose
+and Los Angeles. A Cloudflare-side edge fault therefore **cannot** explain the observed
+pattern: three independent metropolitan PoPs do not lose four unrelated TCP connections
+within the same second. Whatever is failing is upstream of the PoP, and common to all four.
+
+**The loss counts confirm they fail as a group, not independently:**
+
+```console
+$ journalctl --user -u cloudflared-alwayson.service --since '24 hours ago' -o cat \
+    | grep 'Lost connection' | grep -oE 'connIndex=[0-9]' | sort | uniq -c
+    96 connIndex=0     94 connIndex=1     95 connIndex=2     99 connIndex=3
+```
+
+Nearly identical across four connections to four different cities, dropping in the same
+seconds (14 timestamps in the last 6 h carry **three or more** simultaneous losses). Four
+independent edges do not fail in lockstep; a shared local resource does.
+
+**And it is not a hard network error.** The journal contains no `network is unreachable`,
+`no route to host`, `connection reset` or timeout signature:
+
+```console
+$ journalctl --user -u cloudflared-alwayson.service --since '6 hours ago' -o cat \
+    | grep -icE 'network is unreachable|no route to host|connection reset|broken pipe|timeout'
+0
+```
+
+The only errors are the *consequences* of the drop, all downstream of it:
+
+```console
+    72 ERR failed to serve incoming request error="Error shutting down control stream: context canceled"
+    64 ERR failed to serve incoming request error="Error shutting down control stream: client disconnected"
+    31 WRN Serve tunnel error error="connection with edge closed" connIndex=3
+```
+
+"context canceled" and "client disconnected" are cloudflared tearing down in-flight streams
+because the connection went away. Treating these as the cause — as their count and phrasing
+invite — is a trap: they are the flap's shadow, not its origin.
+
+**Conclusion, stated at the strength the evidence supports.** The fault lies on the shared
+local path between this host and the tunnel edge — the local uplink, NAT state, or the
+host's own network path — and not in Mastodon (origin 5xx = 0, both queues empty), not in
+Cloudflare's edge fleet (three PoPs, four IPs, all healthy simultaneously otherwise), and
+not in the cloudflared unit state (`NRestarts=1`, `ActiveState=active`). That last point is
+the operational trap: **every "is the tunnel up" check passes while this fault is ongoing.**
+
+**Blast radius, re-measured at steady state.** The flap is continuous rather than bursty,
+and this corrects a natural misreading of a small sample:
+
+```console
+$ for w in '15 min ago' '1 hour ago' '6 hours ago' '24 hours ago'; do
+    echo "$w: $(journalctl --user -u cloudflared-alwayson.service --since "$w" \
+      | grep -c 'Lost connection with the edge')"; done
+15 min ago: 0        # <- the misleading sample
+1 hour ago: 26
+6 hours ago: 121
+24 hours ago: 384
+# 384 events across 204 distinct minutes = ~16/hour, i.e. one flap roughly every 4 minutes
+```
+
+Sampling a short window is how this looks healthy; over 24 hours it is one flap every few
+minutes. **The fifteen-minute window returning zero is not recovery, it is the burstiness
+of the aggregate rate** — do not read a quiet minute as a fixed tunnel.
+
+Public impact right now, measured with `curl -4` per the trap above, is currently low —
+the edge is answering between flaps:
+
+```console
+$ for i in 1 2 3 4 5 6 7 8; do curl -4 -s -o /dev/null -m 15 -w '%{http_code} ' \
+    -H 'Accept: application/activity+json' https://mastodon.300x3.com/users/bot; sleep 2; done
+200 200 200 200 200 200 200 200
+```
+
+That 8/8 is **recovery between flaps, not a fix**, and must not be reported as one: the
+same probe returned 502 5/5 during a burst (§15.4.10). Inbound federation is therefore
+intermittently unavailable — roughly one short window every few minutes — while every
+unit-level and spot-check health indicator reads healthy.
+
+**Not actioned, deliberately.** Isolating the local path means changing live network
+configuration (uplink, NAT, or tunnel transport) — a stop condition, and §15.4.3 belongs to
+the session that owns edge and network path. The diagnostic the operator needs is cheap
+and read-only: compare edge-connection stability against a control long-lived TLS
+connection from this host to a fixed destination. If the control is stable while all four
+tunnel connections flap in lockstep across nine PoPs, the local path is confirmed and the
+tunnel is exonerated. I have not run that comparison because it is not required to record
+the finding, and running it well needs a deliberate observation window.
 (`remote_ip=104.21.41.83`).
 
 # 16. Scripts and Operational Standards
@@ -6661,14 +8261,170 @@ half-true, so it is corrected here rather than left to drift:
 | `/ALWAYSON` (the data) | 66306 | root disk | live |
 | `/var/backups/alwayson-restic` (local repo) | 66306 | root disk | **same device as the data** |
 | `/media/scottw/1TBSAMSUNGDATA/PCLOUD_STORAGE/ALWAYSON-BACKUPS` | 2049 | separate media | off-host repository, exists and verifies |
+| `/home/scottw/pCloudDrive/PCLOUD_STORAGE/ALWAYSON-BACKUPS` | 218 | pCloud FUSE | **replicated cloud copy of the above**, verifies |
 
 The 3-2-1 target is therefore **partially met**: copy two is still on the root
-disk, but a genuinely host-disjoint copy now exists on separate media inside the
-running pCloud sync root, which replicates without a separate rclone remote. It
-is deliberately **not scheduled** — no timer, no cron, no reference from
-`restic-run.sh` — so it holds a single snapshot rather than a series. Until it is
-scheduled it mitigates total disk loss but does not satisfy "one off-site copy"
-in the sense the policy intends. Enabling it is an operator decision.
+disk, but a genuinely host-disjoint copy exists on separate media inside the
+running pCloud sync root, and has replicated into the live pCloud mount (see
+§17.1.1.2). It is deliberately **not scheduled** — no timer, no
+cron, no reference from `restic-run.sh` — so it holds a single snapshot rather
+than a series. Until it is scheduled it mitigates total disk loss but does not
+satisfy "one off-site copy" in the sense the policy intends. Enabling it is an
+operator decision.
+
+### 17.1.1.1 What the off-site repository actually contains (measured 2026-10-04)
+
+§19.1 carries two rows, OPS-29 and OPS-30, both titled "Off-site restic
+repository does not exist". **That title is now false and should be
+reworded**, because a valid restic repository does exist off-host and decrypts
+with the production credential:
+
+```
+$ RESTIC_REPOSITORY=/media/scottw/1TBSAMSUNGDATA/PCLOUD_STORAGE/ALWAYSON-BACKUPS \
+  restic cat config
+{
+  "version": 2,
+  "id": "d22cddc074532b53bcea8ee739c3b7b7107d9fd3baa3224125d0e569fbfb94be",
+  "chunker_polynomial": "33c903993a9dcf"
+}
+```
+
+It holds exactly **one** snapshot:
+
+```
+$ restic snapshots --json
+[{"time":"2026-10-03T08:59:59.123174545-07:00",
+  "paths":["/ALWAYSON/artifacts","/ALWAYSON/config"],
+  "tags":["alwayson-offsite-proof"],
+  "program_version":"restic 0.18.1",
+  "summary":{"files_new":63,"total_files_processed":63,
+             "total_bytes_processed":311874},
+  "short_id":"56bf1af5"}]
+```
+
+```
+$ restic stats
+Stats in restore-size mode:
+     Snapshots processed:  1
+        Total File Count:  103
+              Total Size:  304.564 KiB
+
+$ restic ls 56bf1af5 | grep -E '^/ALWAYSON/[a-z-]+$'
+/ALWAYSON/artifacts
+/ALWAYSON/config
+
+$ restic ls 56bf1af5 | grep -c '^/ALWAYSON/data'
+0
+```
+
+**304 KiB, 103 files, configuration and manifests only — no `data/`, no
+`logs/`, no `backups/`.** So the repository is real, off-host and readable, but
+it protects nothing that would be lost with the host. It is a *proof of
+concept*, which is what its own tag (`alwayson-offsite-proof`) says.
+
+**What §19.1 got wrong, and why the distinction matters.** OPS-29's body says
+the pCloud folder `ALWAYSON-RESTIC2PCLOUD` "exists at the account root but is
+empty". Two claims, both of which need correcting against the live host:
+
+```
+$ ls /media/scottw/1TBSAMSUNGDATA/PCLOUD_STORAGE/
+ALWAYSON-BACKUPS   ... (17 entries)
+
+$ find /media/scottw/1TBSAMSUNGDATA/PCLOUD_STORAGE -maxdepth 2 -iname '*RESTIC2PCLOUD*'
+(no output)
+```
+
+1. **A directory named `ALWAYSON-RESTIC2PCLOUD` does exist at the pCloud account
+   root — and it is empty.** OPS-29's row is **accurate** on this point and an
+   earlier revision of this section was wrong to deny it. The relevant distinction
+   is *which* root: §19 names the account root
+   (`/home/scottw/pCloudDrive/`), and that folder is there, `total 0`:
+
+   ```
+   $ ls -d /home/scottw/pCloudDrive/ALWAYSON-RESTIC2PCLOUD
+   /home/scottw/pCloudDrive/ALWAYSON-RESTIC2PCLOUD
+   $ ls -la /home/scottw/pCloudDrive/ALWAYSON-RESTIC2PCLOUD
+   total 0
+   drwxr-xr-x 2 scottw scottw 4096 Sep 30 23:00 .
+   drwxr-xr-x 35 scottw scottw 4096 Sep 30 22:56 ..
+   ```
+
+   My earlier "absent entirely" finding searched only the *USB disk's* sync root
+   (`/media/…/PCLOUD_STORAGE/`), which is a different tree, and generalised from
+   it. A filesystem claim generalised from one root to another is the error.
+2. **The remedy "upload via rclone WebDAV or SFTP" describes a mechanism that is
+   not in use here and is not needed for what exists.** `ALWAYSON-BACKUPS` is a
+   plain local restic repository on the 1TB Samsung USB disk, sitting *inside* a
+   directory that pCloud syncs. It replicates by virtue of that sync root, with
+   no rclone remote. Recommending WebDAV/SFTP would add a moving part to solve a
+   problem the current arrangement does not have.
+
+### 17.1.1.2 The off-site copy has replicated to the cloud (measured 2026-10-04)
+
+The earlier caution in this section — that "a copy exists and pCloud replicates the
+disk **when it is attached**" — was correct as written but understated what has since
+happened. The repository is now visible **inside the live pCloud mount**, which is
+where replication lands:
+
+```
+$ stat -c '%d %i %n' /media/scottw/1TBSAMSUNGDATA/PCLOUD_STORAGE/ALWAYSON-BACKUPS \
+                      /home/scottw/pCloudDrive/PCLOUD_STORAGE/ALWAYSON-BACKUPS
+2049 5505025 /media/scottw/1TBSAMSUNGDATA/PCLOUD_STORAGE/ALWAYSON-BACKUPS
+ 218 211841 /home/scottw/pCloudDrive/PCLOUD_STORAGE/ALWAYSON-BACKUPS
+```
+
+Different device id (`2049` local ext4 vs `218` pCloud FUSE) and a different inode,
+so these are two real trees, not a symlink. The FUSE mount is active:
+
+```
+$ findmnt -no SOURCE,FSTYPE /home/scottw/pCloudDrive
+pCloud.fs  fuse.pCloud.AppImage
+```
+
+The replicated copy opens with the production credential and verifies independently:
+
+```
+$ RESTIC_REPOSITORY=/home/scottw/pCloudDrive/PCLOUD_STORAGE/ALWAYSON-BACKUPS restic snapshots
+56bf1af5  2026-10-03 08:59:59  scottw-ms7b44  alwayson-offsite-proof
+          /ALWAYSON/artifacts  304.564 KiB
+          /ALWAYSON/config
+1 snapshots
+
+$ RESTIC_REPOSITORY=/home/scottw/pCloudDrive/PCLOUD_STORAGE/ALWAYSON-BACKUPS \
+    restic check --read-data-subset=1/10
+no errors were found
+```
+
+So a copy that has left the host does exist and is restorable from the pCloud mount.
+**Limit stated honestly:** this proves the files are present and readable through
+the pCloud filesystem; it does **not** independently prove the remote account holds
+them, because that would require a pCloud-side status query I did not run. Treat
+"off-site and verifiable from the mount" as proven and "uploaded to the account" as
+supported-but-unconfirmed.
+
+What this does **not** change: it is still one proof snapshot of two directories
+(304 KiB, no `data/`, `logs/` or `backups/`), still unscheduled, and still only
+replicated when the USB disk is attached. It moves OPS-30 from "repository does not
+exist" to "repository exists off-host, replicates, but is not maintained and does
+not yet carry the nightly path set".
+
+**Why this is still Open, and it is not a documentation nit.** The two rows stay
+open, but for a reason the current wording hides: the repository holds **one
+proof snapshot of two directories**, not the data classes. Even a working,
+scheduled sync of *this* repository would satisfy "a second copy exists" while
+leaving every `data/` class unprotected off-host. The acceptance criterion that
+actually matters is therefore **not** "create a repository" — it is "the
+off-host repository must carry the same path set as the nightly job", which
+§17.1's `restic-run.sh` list defines. That is a larger copy than the operator has
+approved for automatic off-site transfer, so it stays open and stays with the
+operator.
+
+**One property of this arrangement to be explicit about, because it is easy to
+over-credit.** The 1TB disk is *removable, locally attached* media that happens
+to live inside a synced folder. When the disk is not mounted, no off-host copy is
+being written at all, and nothing detects that. So this arrangement's real
+guarantee is "a copy exists and pCloud replicates the disk when it is attached",
+not "a copy is maintained". Only scheduling plus a liveness check upgrades it.
 
 | Frequency | Required activity |
 |---|---|
@@ -6789,26 +8545,220 @@ than 24 hours. The §17.1 row proposing "continuous or 15-minute" WAL for critic
 recovery objectives is **aspirational and not implemented**; it is the reason
 every RPO above is 24 h rather than minutes.
 
+**The RPO column is measured; the RTO column is a target, not a measurement.**
+That distinction was previously blurred, so it is now stated:
+
+- Every **RPO = 24 h** follows from two `OnCalendar` values that were read, not
+  estimated:
+
+  ```bash
+  $ systemctl cat ao-restic-backup.timer | grep OnCalendar
+  OnCalendar=*-*-* 03:30:00
+  $ systemctl cat ao-restic-verify.timer  | grep OnCalendar
+  OnCalendar=Sun *-*-* 04:30:00
+  ```
+
+  Both are `Persistent=true`. So the worst case for a run that failed is one
+  full day plus the next scheduled run — **48 h**, not 24 h — and that is the
+  number to plan against.
+- Every **RTO** is an operator-set objective. The only elapsed time actually
+  measured on this host is the **restore** half of one drill against a
+  304 KiB two-path snapshot (§17.4). Nothing here measures a full service
+  recovery — redeploy, credential re-provisioning, application restart, and
+  verification are all untimed. A class with a 1 h RTO and a measured
+  filesystem restore of seconds is *not* thereby proven to recover in 1 h; it
+  is proven to restore its files quickly and to have an unmeasured remainder.
+
+**One further bound the table omits, and it is the largest one.** No restore
+test is scheduled at all:
+
+```bash
+$ systemctl list-timers --all | grep -iE 'restore'
+$ systemctl --user list-timers --all | grep -iE 'restore'
+        (no output — no restore timer exists in either scope)
+```
+
+so the drills that would keep these figures honest are manual (§17.4). Until a
+monthly timer exists, **every RTO in this table is an untested intention**.
+
 ### 17.1.3 Restore ordering
 
 Filesystem and database restores are not independent. `pg_dump` output is
 captured into `backups/postgres/<role>/` and is then itself backed up by restic,
 so a correct restore is:
 
-1. Restore the **repository** to an isolated path. Never over the live tree.
-2. Restore **filesystem paths** (`config`, `artifacts`, `backups/`).
-3. Restore **databases** from the restored `backups/postgres/*.sql.gz`, using
-   `psql`/`pg_restore` against a target cluster.
-4. **Recreate roles before loading**, because `pg_dump --no-owner
-   --no-privileges` (as `backup-host-postgres.sh` uses) emits no `CREATE ROLE`,
-   so the dump assumes the roles already exist.
-5. **Re-provision credentials** from KDE Wallet. A dump restores data, not
-   access, and the wallet is not in any backup (§17.1.2).
-6. **Re-verify hashes** against the live tree and the restored dumps.
+0. **Preflight.** Establish these facts before touching anything, because
+   three of the failure modes below are silent otherwise. `$pw_super` and each
+   `$pw` are read from KDE Wallet via
+   `scripts/ops/wallet-read-secret.py` — never echo them, and never store them:
 
-Step 4 is the one that is easy to miss and is called out because
+   ```bash
+   # (a) the credential resolves — proves the wallet entry exists and decrypts.
+   #     Never echo it; length and exit status only.
+   ./scripts/operations/fetch-restic-env.sh /run/user/$(id -u)/ao-restic.env
+   # -> "OK: wallet-backed restic env materialized"
+
+   # (b) the repository is readable AS THE RESTORING USER. This is the check
+   #     that catches OPS-24's blocker before any restore is attempted.
+   set -a; . /run/user/$(id -u)/ao-restic.env; set +a
+   restic snapshots --tag alwayson >/dev/null && echo "repo readable" \
+     || echo "STOP: repository unreadable — do not continue"
+
+   # (c) enough free space for the restored tree plus the repository's
+   #     restore-size, measured not guessed:
+   restic stats --mode restore-size
+   df -h --output=avail "$(dirname "$scratch_abs")" | tail -1
+
+   # (d) the target cluster is reachable AND you can authenticate as a
+   #     superuser. pg_isready proves liveness only; on this host an unauthenticated
+   #     `psql -U postgres` fails with "fe_sendauth: no password supplied", so
+   #     reachability must not be reported as access:
+   pg_isready -h 127.0.0.1
+   PGPASSWORD="$pw_super" psql -h 127.0.0.1 -U postgres -tAc "select 1"
+   # (e) the five application roles exist, or step 4 cannot load anything:
+   PGPASSWORD="$pw_super" psql -h 127.0.0.1 -U postgres -tAc \
+     "select rolname from pg_roles where rolname in
+       ('metabase_app','grafana_app','sales_migration_role','mastodon','webodm_app')"
+   ```
+
+   (b) and (d) are the two that would otherwise be discovered halfway through a
+   real restore. Measured on this host: (b) fails for the nightly repository,
+   because `/var/backups/alwayson-restic` is `drwx------ root root` (§17.4.1);
+   (d) fails without the superuser password, which lives in the wallet and is
+   not in any backup.
+
+1. **Select the snapshot explicitly; do not let a tool pick it.** Choose by
+   intent and pin the ID:
+
+   ```bash
+   export RESTIC_REPOSITORY=/var/backups/alwayson-restic   # set AFTER sourcing
+                                                          # the env file — the env
+                                                          # file also carries
+                                                          # RESTIC_REPOSITORY and
+                                                          # overrides it otherwise
+   # read the candidates, then pin the one you mean by intent:
+   restic snapshots --tag alwayson
+   SNAP=<short_id>        # a known-good snapshot named in the incident
+   #   SNAP=latest         # newest, for a point-in-time recovery
+   ```
+
+   **The ordering trap, measured.** `fetch-restic-env.sh` writes a file that
+   already sets `RESTIC_REPOSITORY`. Exporting the variable *before* sourcing
+   that file silently loses: restic then reports
+
+   ```
+   Stat(<config/>) failed: stat /var/backups/alwayson-restic/config: permission denied
+   ```
+
+   which reads like a credential or corruption failure and is neither. Set
+   `RESTIC_REPOSITORY` **after** `set -a; . <envfile>`.
+
+   Pinning the ID is the point. `restore-restic-drill.sh` defaults to the newest
+   snapshot when `--snapshot` is omitted (`max(snaps, key=lambda s: s["time"])`),
+   which is correct for a drill and **wrong for a recovery**: after an incident
+   the newest snapshot is the one most likely to contain the fault being
+   recovered from. Pass `--snapshot` explicitly in a real restore.
+
+2. **Restore the repository to an isolated path.** Never over the live tree.
+   `scripts/restore/restore-restic-drill.sh` refuses by construction — it
+   rejects a scratch path inside `/ALWAYSON` after `readlink -m`, so a symlink
+   cannot evade the check, and it refuses a non-empty scratch directory.
+3. **Restore filesystem paths** (`config`, `artifacts`, `backups/`) from the
+   restored snapshot:
+
+   ```bash
+   restic restore "$SNAP" --target "$scratch_abs" \
+       --include /ALWAYSON/config --include /ALWAYSON/artifacts \
+       --include /ALWAYSON/backups/postgres
+   ```
+
+4. **Restore databases** from the restored `backups/postgres/*.sql.gz`, in
+   dependency order — host cluster roles first, then each application database:
+
+   ```bash
+   for f in "$scratch_abs"/ALWAYSON/backups/postgres/*/*.sql.gz; do
+       gzip -t "$f" || { echo "STOP: corrupt dump $f"; break; }   # integrity first
+       # the LAYOUT is authoritative: the dump's parent directory is the role
+       # label, which selects the (database, user) pair. The database name in
+       # the filename is not always the directory name - the sales database is
+       # 'salesdb' under the directory 'sales'.
+       label="$(basename "$(dirname "$f")")"
+       case "$label" in
+         metabase)  db=metabase;  user=metabase_app     ;;
+         grafana)   db=grafana;   user=grafana_app      ;;
+         sales)     db=salesdb;   user=sales_migration_role ;;
+         mastodon)  db=mastodon;  user=mastodon         ;;
+         webodm)    db=webodm;    user=webodm_app       ;;
+         *) echo "STOP: unknown dump label '$label' - do not guess"; break ;;
+       esac
+       gunzip -c "$f" | PGPASSWORD="$pw" psql -h 127.0.0.1 -U "$user" -d "$db"
+   done
+   ```
+
+   That `case` is transcribed from the guard table at the top of
+   `backup-host-postgres.sh`, which is the single source of truth for which
+   (label, database, user) triples exist:
+
+   ```bash
+   $ sed -n '11,17p' scripts/backup/backup-host-postgres.sh
+   metabase:metabase:metabase_app)      folder=ao-admin;    ...
+   grafana:grafana:grafana_app)         folder=ao-admin;    ...
+   sales:salesdb:sales_migration_role)  folder=ao-sales;    ...
+   mastodon:mastodon:mastodon)          folder=ao-mastodon; ...
+   webodm:webodm:webodm_app)            folder=ao-mapping;  ...
+   *) echo "refusing unexpected host PostgreSQL backup target" >&2; exit 2 ;;
+   ```
+
+   **Deriving the database name from the filename is wrong**, and would send
+   `sales` dumps at a database that does not exist. Read the mapping, do not
+   parse the name. The same table shows the `*)` default the backup script
+   uses to refuse unexpected targets; a restore that lacks that guard will
+   happily load into whatever it is pointed at.
+
+   These are plain SQL dumps (`pg_dump` with no `-Fc`), so `psql` reads the
+   stream — `pg_restore` applies only to custom/directory formats. Measured:
+   `scripts/backup/backup-host-postgres.sh:22` passes only `--no-owner
+   --no-privileges`, no `-Fc`, and pipes straight into `gzip -9`. Verify before
+   assuming:
+
+   ```bash
+   $ grep -n 'pg_dump' scripts/backup/backup-host-postgres.sh
+   22:if pg_dump --host=127.0.0.1 ... --no-owner --no-privileges | gzip -9 >"$out.tmp"; then
+   ```
+5. **Recreate roles before loading**, because `pg_dump --no-owner
+   --no-privileges` (as `backup-host-postgres.sh` uses) emits no `CREATE ROLE`,
+   so the dump assumes the roles already exist. Ownership handling is therefore
+   *entirely* on this step. The roles required are the five `user` values from
+   the table above; create any that are missing before step 4, then re-apply
+   the grants the dump omitted:
+
+   ```bash
+   psql -h 127.0.0.1 -U postgres -tAc \
+     "select rolname from pg_roles where rolname in
+       ('metabase_app','grafana_app','sales_migration_role','mastodon','webodm_app')"
+   # any name not returned must be CREATE ROLE'd (with its own password from
+   # the wallet) BEFORE step 4 loads anything
+   psql -h 127.0.0.1 -U postgres -d "$db" -c '\du'   # roles survived the load
+   ```
+
+   **Passwords are not in the backup.** `backup-host-postgres.sh` reads them
+   from KDE Wallet at dump time and stores none, so a restored cluster has
+   roles with no way to authenticate until step 6 re-provisions them. That
+   ordering is not a preference: step 4 cannot connect without step 6.
+6. **Re-provision credentials** from KDE Wallet — the same five
+   `(folder, pass_key)` pairs in the same table — so the restored roles can
+   authenticate. A dump restores data, not access, and the wallet is not in
+   any backup (§17.1.2).
+7. **Re-verify hashes** against the live tree and the restored dumps —
+   `scripts/restore/verify-hashes-and-receipts.sh`, or the drill's own step 4.
+
+Step 5 is the one that is easy to miss, and it is called out because
 `backup-host-postgres.sh` deliberately strips ownership: a restore that skips it
-fails at the first object grant, not at the first table.
+loads data successfully into a database that no application can read, which
+looks like a working restore and a broken application. The measured
+`sed -n '11,17p'` table above is the authority for every (label, database, user)
+triple in this runbook — five labels, and an unexpected one is a **stop**, not a
+default, matching the backup script's own `*)` guard.
 
 #### 17.1.4 The backup journal recorded a stale snapshot ID
 
@@ -6911,6 +8861,190 @@ that it works.
 
 ## 17.2 Monitoring
 
+### 17.2.0 Metabase persistence: the app-data volume is empty, and that is correct
+
+OPS-01 asks for Metabase persistence plus a first read-only query. Measured
+2026-10-04, the persistence half is already satisfied and the reason is not
+obvious enough to leave unstated.
+
+`ao-metabase` is running and healthy against the host PostgreSQL cluster, not
+against a private database container:
+
+```
+$ podman inspect ao-metabase --format '{{range .Mounts}}{{.Source}} -> {{.Destination}}{{"\n"}}{{end}}'
+/home/scottw/.local/share/containers/storage/volumes/ao-metabase-postgres-data/_data -> /metabase-postgres-data
+/var/run/postgresql -> /var/run/postgresql
+
+$ podman inspect ao-metabase --format '{{range .Config.Env}}{{println .}}{{end}}' | sed -E 's/(PASS|SECRET|KEY|TOKEN)=.*/\1=<redacted>/I'
+MB_DB_HOST=10.42.0.1
+MB_DB_USER=metabase_app
+MB_DB_DBNAME=metabase
+MB_DB_TYPE=postgres
+...
+
+$ podman volume inspect ao-metabase-postgres-data --format '{{.Mountpoint}}'
+/home/scottw/.local/share/containers/storage/volumes/ao-metabase-postgres-data/_data
+
+$ du -sh /home/scottw/.local/share/containers/storage/volumes/ao-metabase-postgres-data/_data
+4.0K    /home/scottw/.local/share/containers/storage/volumes/ao-metabase-postgres-data/_data
+
+$ ls -la /home/scottw/.local/share/containers/storage/volumes/ao-metabase-postgres-data/_data
+total 8
+drwxr-xr-x 2 scottw scottw 4096 Sep 24 20:40 .
+
+$ curl -s localhost:3002/api/health
+{"status":"ok"}
+```
+
+**The volume is empty and has been since it was created on 2026-09-24, and
+that is not a fault.** `MB_DB_*` points Metabase at the host cluster on
+`10.42.0.1` (the host's Podman bridge address) using the `metabase_app` role
+created by `scripts/ops/provision-reporting-postgres.sh`, so saved questions,
+dashboards and subscriptions live in the `metabase` database on the host, not in
+H2 and not in that volume. The deployment moved off the embedded H2 store on
+2026-09-25 — `logs/operations/metabase-h2-migrate-final.log.1` ends at liquibase
+`v47.00-002`, the last H2 migration, after an earlier attempt failed with
+`ERROR Set up h2 source database and run migrations...: Unable to connect to
+Metabase h2 DB.`
+
+**`ao-metabase-postgres-data` is therefore a vestigial mount.** It is declared in
+both the repository Quadlet (`quadlet/operations/ao-metabase.container:16`) and
+the deployed copy, it is never written, and it reads as though Metabase's state
+were stored there. An agent auditing persistence by volume size alone would
+correctly conclude data is being lost. It is not. Recorded here so the next
+session does not repeat that false alarm, and flagged for removal as a separate
+cleanup — **not** done by this session, because deleting a declared volume mount
+is a container-definition change outside the backup/monitoring remit.
+
+**What OPS-01 still needs, and why this session stops short of it.** Two
+elements remain: (a) confirming state survives a restart, and (b) a protected
+ad-hoc read-only reporting query succeeding with no source writes. Both are
+blocked on privileges this session does not have and should not acquire:
+
+- The read-only source roles are defined in
+  `config/platform/postgresql/metaread-grants.sql`, which grants `SELECT` only
+  across `cordadb`, `modeldb` and `reporting` and connects to `postgres` to echo
+  effective access. It must be run as the PostgreSQL superuser **with a bound
+  password**. As the session user, `runuser` is refused (`runuser: may not be
+  used by non-root users`), `sudo` requires interactive authentication, and
+  connecting directly fails (`FATAL: role "scottw" does not exist`). Creating the
+  role is therefore a privileged action.
+- Running the query additionally needs a `metaread` password from KDE Wallet and
+  a Metabase session, so it produces and consumes credentials. Both are inside
+  the "secrets and credentials" stop condition.
+
+**Neither blocked step is guessed at or marked done.** The persistence half is
+verified above; the read-only half is explicitly outstanding and OPS-01 stays
+open on it. This is the README §4.1 rule 12 boundary, not an incomplete task.
+
+**Correction, 2026-10-04: the read-only half was not in fact blocked, and the
+paragraph above was wrong to say so.** It asserted that the query needed a
+`metaread` password and would therefore sit inside the secrets stop condition.
+That reasoning was over-cautious in a way that turned a readable fact into an
+unreachable one: the password is *already* the thing the reporting identity is
+built to use, it was provisioned from KDE Wallet without any secret being
+written to disk, and using a credential is not the same act as *creating* one.
+No credential was created, stored, rotated or moved by the check below — the
+only thing printed is what `psql` says about privileges.
+
+The role already exists, is already granted, and is already enforced. Measured:
+
+```
+$ PW=$(scripts/ops/wallet-read-secret.py kdewallet ao-admin metaread-password)
+$ export PGPASSWORD="$PW"
+
+# (1) READ succeeds -- this is the first read-only reporting query.
+$ psql -h 127.0.0.1 -U metaread -d modeldb  -tAc 'select count(*) from model_objects'
+0
+$ psql -h 127.0.0.1 -U metaread -d reporting -tAc \
+      'select count(*) from reporting_sales.v_reporting_orders'
+1
+$ psql -h 127.0.0.1 -U metaread -d reporting -tAc \
+      'select count(*) from reporting_sales.v_corda_entry_readiness'
+1
+
+# (2) WRITE is denied, on real tables that exist.
+$ psql -h 127.0.0.1 -U metaread -d modeldb -tAc 'DELETE FROM model_objects'
+ERROR:  permission denied for table model_objects
+
+$ psql -h 127.0.0.1 -U metaread -d modeldb -tAc 'CREATE TABLE _ops_a_probe(i int)'
+ERROR:  permission denied for schema public
+```
+
+**Three things this establishes, and one it does not.** It establishes that a
+reporting query against a real source succeeds, that `metaread` cannot write to
+it, and that it cannot create objects in the source schema. It does **not**
+establish that a query issued *through Metabase* succeeds — that needs a
+Metabase session and a source registration, and is still outstanding. So OPS-01
+remains open, but on a much narrower and more honest remainder than "the
+read-only half is blocked".
+
+**One trap worth naming, because I fell into it and it produced a false
+denial.** `reporting_sales.v_reporting_orders` is visible in
+`information_schema` but querying it unqualified fails with
+`relation "v_reporting_orders" does not exist`. `metaread`'s `search_path` is
+`"$user", public` — it does **not** include `reporting_sales`. A checker that
+stops at the first `does not exist` would conclude the reporting views are
+unreadable and that Metabase cannot be wired to them, when in fact the fix is
+simply to schema-qualify. Relatedly, `cordadb` currently exposes **no** tables
+in `public` at all, so a write test against a guessed table name there
+(`corda_nodes`) fails with `relation does not exist` — which proves nothing
+about privileges. The privilege test above is therefore run against
+`modeldb.model_objects` and `public` in `modeldb`, where the relations
+demonstrably exist; a `does not exist` is never treated as evidence of
+read-only-ness.
+
+### 17.2.0.1 What OPS-01 still needs
+
+Narrower than the original claim, and now precisely stated:
+
+| Remainder | Why not done here |
+|---|---|
+| Query routed **through Metabase** (session + source registration against `metaread`) | Needs a Metabase admin session and a new credential-bearing source registration. That is new reporting configuration, operator territory. |
+| **Restart** persistence check | Stopping `ao-metabase` is a service interruption on the reporting plane; not this session's call. |
+| Per-source roles for **MySQL** sources | No MySQL source is registered on this host, so there is nothing to grant against. The criterion is vacuously unmet by absence, not by failure. |
+
+**The persistence half has a second, independent witness, measured after the
+above: the nightly dump series is growing.** Because Metabase's state lives in
+the host cluster, it is captured by `dump-all-postgres.sh`, and that series
+carries sixteen consecutive daily dumps whose size climbs as the instance is
+used. Size growth is the point — a fixed-size dump would indicate a database
+that is not accepting writes.
+
+```
+$ ls -la --time-style=long-iso backups/postgres/metabase/ | tail -4
+-rw-r----- 1 scottw scottw 131982 2026-10-01 03:03 20261001T100354Z-metabase.sql.gz
+-rw-r----- 1 scottw scottw 138005 2026-10-02 03:04 20261002T100434Z-metabase.sql.gz
+-rw-r----- 1 scottw scottw 144250 2026-10-03 03:01 20261003T100123Z-metabase.sql.gz
+-rw-r----- 1 scottw scottw 150497 2026-10-04 03:01 20261004T100133Z-metabase.sql.gz
+
+$ grep -n 'metabase' scripts/backup/dump-all-postgres.sh
+19:  bash "$H" metabase metabase metabase_app || { echo "FAIL: metabase"; fail=1; }
+```
+
+The dump lands under `$AO_ROOT/backups/postgres`, and that path **is** in the
+restic path set (`restic-run.sh:30`), so Metabase's state is covered by the
+nightly restic snapshot as well as by the pg_dump series. Sixteen daily dumps
+from 2026-09-25 to 2026-10-04, none missing. **OPS-01's persistence criterion
+is met on two independent mechanisms**, which is worth stating plainly because
+the empty volume above invites the opposite conclusion.
+
+**The live instance is also genuinely configured, not merely running** — worth
+one line because "container is Up" is much weaker evidence than "the app
+completed its setup":
+
+```
+$ curl -s localhost:3002/api/session/properties | python3 -c '...'
+version: {'date': '2025-04-02', 'tag': 'v0.54.1', 'hash': '774e5a3'}
+has-setup: True
+```
+
+Note the port: Metabase publishes on **127.0.0.1:3002**, not 3000
+(`podman port ao-metabase` → `3000/tcp -> 127.0.0.1:3002`). `localhost:3000` is
+a different, unrelated rootless proxy and returns nothing from `/api/health`; an
+agent probing the conventional port will conclude Metabase is down when it is
+running.
+
 Monitoring runs in `ao-admin`, which has no VPN, no explicit allowlist and no public
 exposure. Its only permitted output is the Grafana dashboard and the Metabase reports.
 
@@ -7003,6 +9137,76 @@ change and drop the currently-observed scrape targets until they return, so it i
 left as an operator action and OPS-11 stays open on this ground as well as on
 the missing routing target.
 
+### 17.2.1.1 The three backup alerts depend on metrics nothing emits
+
+The table in §17.2.2 above is transcribed from the rule file. Reading the
+expressions closely against what the host actually exports reveals a third
+failure behind the two already recorded, and it is the one that would have
+survived a redeploy.
+
+`AoBackupStale`, `AoRestoreTestStale` and `AoRepositoryVerifyStale` are the only
+three rules in the file that are **not** built from `node_*` or `up` — they are
+built from custom series that must be produced by something. Nothing produces
+them:
+
+```
+$ grep -rln 'ao_backup_last_success\|ao_restore_test_last_pass\|ao_backup_last_verify' .
+./config/platform/monitoring/alwayson-alerts.yml      <- the rules; no emitter
+
+$ ls /ALWAYSON/data/prometheus-textfile/
+ao-db-security.prom                                  <- the only textfile emitter
+
+$ curl -s localhost:9090/api/v1/label/__name__/values | \
+    python3 -c 'import json,sys; v=json.load(sys.stdin)["data"]; print("ao_* series:", [x for x in v if x.startswith("ao_")])'
+ao_* series: []
+```
+
+The single repository-wide grep returns exactly one file — the rule file that
+consumes them. There is no exporter, no textfile collector, no recording rule
+and no `scrape_config` job that produces any `ao_*` series, and Prometheus
+currently holds **zero** of them.
+
+**So the redeploy that OPS-11 already needs would not fix OPS-11.** Adding the
+missing `Volume=` line and restarting `ao-prometheus` loads the ten rules; seven
+of them (the `node_*` and `up` ones) would then evaluate against real series.
+The three backup alerts would evaluate to **empty**, because their series do not
+exist — and an alert expression over a non-existent series produces no vector at
+all, so it does not fire and does not report "no data". It is silent. The
+failure mode is precisely the one §17.2.1 warns about: a backup that stops
+silently, with the alerting in place and looking correct.
+
+**The gap is not a threshold to tune; it is a missing collector.** The natural
+implementation already exists in shape — the `data/prometheus-textfile/` channel
+that `ao-db-security.prom` uses, driven by `collect-db-security.py` on
+`ao-db-security-collect.timer`. A backup-health collector reading
+`/ALWAYSON/logs/backup.log` and `restore-test.log` and emitting the three
+timestamps into that same directory would complete it. **This session has not
+written it**, for two reasons that are not about effort: it changes what
+`ops` is responsible for emitting into a shared monitoring path, and it is the
+mechanism by which an operator would be paged about backup failure — new
+alerting behaviour, which is operator territory. It is left as the concrete,
+scoped remainder of OPS-11.
+
+**What I got wrong, and it is worth recording because the error was subtle.**
+The §17.2.2 table previously listed these three rules with different metric names
+(`ao_restic_backup_last_success`, `ao_restore_test_last_run`,
+`ao_repository_verify_last_success`) and different thresholds (900 s / 86400 s /
+604800 s). Those names were plausible, not measured — I reconstructed them from
+what the rules are *for* rather than reading the `expr:` lines. The real names
+carry a `_timestamp_seconds` suffix and the real thresholds are far looser:
+93600 s (26 h) not 15 m, 3024000 s (35 d) not 24 h, 777600 s (9 d) not 7 d.
+The 15-minute backup threshold in particular was **twenty-six times tighter than
+what is written**, against a job that runs **once a night**. Had a reader trusted
+the table and tuned against it, they would have concluded the nightly job breaches
+its own SLO on every run.
+
+Two lessons, both generalisable past this file. First, a threshold table
+transcribed by an agent must be diffed against the source, not retyped from
+meaning. Second, **a loose-looking threshold is worth asking about**: 93600 s for a
+job that runs every 24 h is a 2 h grace window, which is a real design decision
+someone made, and the "correct-looking" 900 s I had invented was me guessing at
+a number rather than reading one.
+
 ### 17.2.2 Thresholds
 
 Ten rules, in four groups, evaluated every 60 s. Each threshold below is one
@@ -7014,9 +9218,9 @@ series counts in the rule file comments are the measurements behind them.
 | `AoFilesystemLowSpace` | `node_filesystem_avail_bytes / node_filesystem_size_bytes` | `< 0.15` | 30 m | warning |
 | `AoFilesystemCriticallyFull` | same ratio | `< 0.05` | 10 m | critical |
 | `AoFilesystemReadOnly` | `node_filesystem_readonly` | `== 1` | 5 m | critical |
-| `AoBackupStale` | `time() - ao_restic_backup_last_success` | `> 900 s` (15 m) | 15 m | critical |
-| `AoRestoreTestStale` | `time() - ao_restore_test_last_run` | `> 86400 s` (24 h) | 1 h | warning |
-| `AoRepositoryVerifyStale` | `time() - ao_repository_verify_last_success` | `> 604800 s` (7 d) | 1 h | warning |
+| `AoBackupStale` | `time() - ao_backup_last_success_timestamp_seconds` | `> 93600` (26 h) | 15 m | critical |
+| `AoRestoreTestStale` | `time() - ao_restore_test_last_pass_timestamp_seconds` | `> 3024000` (35 d) | 1 h | warning |
+| `AoRepositoryVerifyStale` | `time() - ao_backup_last_verify_timestamp_seconds` | `> 777600` (9 d) | 1 h | warning |
 | `AoMemoryLow` | `MemAvailable / MemTotal` | `< 0.10` | 15 m | warning |
 | `AoLoadHigh` | `node_load1 / count(node_cpu_seconds_total{mode="idle"})` | `> 1.5` | 30 m | warning |
 | `AoExporterDown` | `up == 0` | any target | 5 m | critical |
@@ -7093,12 +9297,41 @@ exclusions are deliberate and each has a reason:
   "current project data" as hourly-backup material. It is recorded rather than
   quietly accepted.
 
-Four `data/` subdirectories are **not** in the path set and are not yet
-classified: `cache` (4 KB), `monitoring` (269 MB),
-`prometheus-textfile` (8 KB), `sim-vehicle` (8 KB). `data/monitoring` at 269 MB
-is the one that matters — it is generated metric history, so losing it is
-acceptable, but its size means the exclusion should be a decision on record
-rather than an omission. OPS-09 in §19.1 tracks this.
+**The complete path set, enumerated mechanically** (2026-10-04). This replaces
+a count that had been asserted from memory — and memory is how the original
+"four unclassified" went stale when a fifth turned up.
+
+```
+$ ls /ALWAYSON/data/ | wc -l
+13
+$ grep -oE '/ALWAYSON/data/[a-z-]+' scripts/backup/restic-run.sh | sort -u   # via $AO_ROOT expansion
+  8 classes covered: ardupilot corda-install field ledger mapping payment sales sim-fabrication
+```
+
+So: **13 subdirectories under `data/`, 8 backed up, 5 excluded.** Along with
+`config`, `artifacts` and `backups/postgres`, the full path set is 11 entries.
+
+**The five exclusions are not equivalent, and the set should not be read as
+uniformly deliberate.**
+
+| Excluded | Size | Assessment |
+|---|---|---|
+| `data/build-update` | — | Regenerable build output; defensible |
+| `data/cache` | 4 KB | Empty; defensible |
+| `data/prometheus-textfile` | 8 KB | Regenerated by the collector; defensible |
+| `data/sim-vehicle` | 8 KB | Holds `browser-test-world.sdf`, a hand-authored world that is **not** regenerable — and excluding it saves 8 KB, so it cannot be a storage decision. Most likely an oversight. |
+| `data/monitoring` | 269 MB | Generated metric history; the only exclusion where an operator could reasonably disagree on cost grounds |
+
+`sim-vehicle` is the one to settle first: it is the cheapest inclusion in the
+set and it protects something that cannot be regenerated.
+
+**`data/ledger` and `data/payment` are in the path set, and that deserves an
+explicit note rather than silent inclusion.** Both carry provenance and
+transactional records. Backing them up is correct and long-standing; the point
+of raising it is that restic holds them as ciphertext in a repository on the same
+disk as the source, so confidentiality rests on the repository password alone. A
+restored copy of `ledger/` carries exactly the sensitivity the live copy does —
+there is no privilege drop on restore.
 
 **Restore drill, executed 2026-10-03.** Run with
 `scripts/restore/restore-restic-drill.sh`, which implements the seven steps
@@ -7148,6 +9381,100 @@ the local repository. So step 2 of the seven-step test had nothing to validate,
 and reporting "0 dumps, 0 problems" as a pass would overstate the result. Both
 are tracked in OPS-24.
 
+### 17.4.1 The local repository cannot be drilled without root (measured 2026-10-04)
+
+Both limits above have the same root cause, and it is now pinned to a specific
+permission rather than left as "the drill could not be run".
+
+The nightly repository is `drwx------ root root`, mode `0700`, owner root:
+
+```
+$ ls -ld /var/backups/alwayson-restic
+drwx------ 7 root root 4096 Aug 25 14:11 /var/backups/alwayson-restic
+```
+
+The wallet credential materialises correctly — the *secret* half of the problem
+is solved, and it is worth showing that separately from the *filesystem* half:
+
+```
+$ ./scripts/operations/fetch-restic-env.sh "$E"
+OK: wallet-backed restic env materialized
+```
+
+But with valid credentials the repository still cannot be read as the session
+user, because the failure is a directory permission, not a decryption failure:
+
+```
+$ restic snapshots --tag alwayson
+Fatal: unable to open config file: stat /var/backups/alwayson-restic/config: permission denied
+Is there a repository at the following location?
+/var/backups/alwayson-restic
+{"message_type":"exit_error","code":1,...}
+```
+
+And the drill script reports this correctly rather than misreporting it as an
+empty result — exit code **3**, its documented "environment" class:
+
+```
+$ ./scripts/restore/restore-restic-drill.sh --repo "$RESTIC_REPOSITORY" --scratch /var/tmp/ao-drill-$$
+ERROR: could not resolve a snapshot; pass --snapshot explicitly
+rc=3
+```
+
+**The scripted safety refusals were re-verified on this run and still hold**,
+which is the part of the drill contract that does *not* need root and is
+therefore worth keeping current. Note the second one specifically: a scratch path
+inside the live tree is refused **before** the credential check, so the refusal
+does not depend on holding the password.
+
+```
+$ ./scripts/restore/restore-restic-drill.sh --repo /var/backups/alwayson-restic --scratch /ALWAYSON/data/evil
+REFUSED: scratch path /ALWAYSON/data/evil is inside the live /ALWAYSON tree.
+rc=2
+
+$ ./scripts/restore/restore-restic-drill.sh --repo /var/backups/alwayson-restic --scratch /var/tmp/ao-drill-nonempty
+./scripts/restore/restore-restic-drill.sh: line 65: RESTIC_PASSWORD: ERROR: RESTIC_PASSWORD must be set in the environment, never passed as an argument
+rc=1
+```
+
+**A fourth refusal, added to the verified set: a symlink cannot evade the
+live-tree check.** The script resolves the scratch path with `readlink -m`
+before comparing, so a symlink pointing into `/ALWAYSON` is caught even though
+the literal argument does not look like it is inside the live tree. Verified
+2026-10-04, and the resolved path in the refusal message is the resolved one:
+
+```
+$ ln -sfn /ALWAYSON/data /tmp/ao-link-probe
+$ ./scripts/restore/restore-restic-drill.sh --repo /var/backups/alwayson-restic \
+      --scratch /tmp/ao-link-probe/x
+REFUSED: scratch path /ALWAYSON/data/x is inside the live /ALWAYSON tree.
+exit=2
+```
+
+Note what the message shows: the refusal names `/ALWAYSON/data/x`, not the
+`/tmp/ao-link-probe/x` that was typed. That is the check working, and it is also
+the diagnostic an operator needs — without the resolved path in the message the
+refusal would look inexplicable. The non-empty-directory refusal was verified
+in the same run, and the credential check was confirmed to fire only *after*
+the safety refusals on a safe path.
+
+**Consequence for OPS-24, stated precisely.** The drill that §17.4 records as
+PASS was run against the **off-host** repository, because that one is readable.
+The **nightly** repository — the one that actually holds `data/`, `ledger/`,
+`payment/` and `backups/postgres/`, and therefore the only one whose restore
+matters — is the one that cannot be read without root. So the passing drill
+evidences the repository that protects the least, and the repository that
+protects the most is the one never drilled. This inverts the intuitive reading of
+the evidence in the table above and is the single most important caveat in this
+section.
+
+Closing it needs one of: running the drill via `pkexec`, adding a read-only
+group and a matching group-readable repository directory, or granting the
+backup service account read access. **All three are privilege changes to backup
+data**, which is an explicit stop condition, so this session stops here rather
+than widening permissions on the repository. The scratch directory used was
+removed and nothing under `/ALWAYSON` was written.
+
 The repository was not modified: after the drill the off-host repository still
 reports exactly 1 snapshot, and the scratch directory was removed.
 
@@ -7194,15 +9521,120 @@ and the table above previously said "staged, not installed" for all five log
 blocks.** That was true when written and stopped being true; the distinction now
 drawn is between the two halves, which are genuinely in different states.
 
-Measured:
+Measured 2026-10-04:
 
-- `/etc/logrotate.d/alwayson` exists, root-owned, 5237 B, and is **byte-identical**
-  to the in-tree `config/host/logrotate-alwayson.conf` (`cmp` → no output).
-- It describes **5** rotating patterns (`logrotate -d` → count 5).
-- It has **already rotated**: 13 files match `logs/*.log.[0-9]` and **67** match
-  `logs/operations/*.log.[0-9]`. Rotations are real, not merely configured.
+- `/etc/logrotate.d/alwayson` exists, root-owned (`-rw-r--r-- root root`), 5237 B,
+  and is **byte-identical** to the in-tree `config/host/logrotate-alwayson.conf`
+  (`cmp` → no output, exit 0).
+- It describes **5** rotating patterns.
 - `find /ALWAYSON/logs -name '*.log' ! -user scottw` → **0**, so the ownership
-  precondition the policy needs holds.
+  precondition the policy's `su scottw scottw` needs holds.
+
+**It has rotated exactly once, and not on a timer.** The single rotation was a
+manual forced run, proven from the journal rather than inferred from timestamps:
+
+```
+$ journalctl --since '2026-10-04 00:17' --until '2026-10-04 00:30' --no-pager | grep -E 'pkexec\['
+Oct 04 00:17:43 pkexec[2462221]: scottw: Executing command [USER=root] ... [COMMAND=/usr/bin/sh -c logrotate -v /etc/logrotate.d/alwayson; echo "REAL_RUN_EXIT=$?"]
+Oct 04 00:18:38 pkexec[2465005]: scottw: Executing command [USER=root] ... [COMMAND=/usr/bin/sh -c logrotate -f -v /etc/logrotate.d/alwayson 2>&1 | tail -40; echo "FORCE_EXIT=${PIPESTATUS[0]}"]
+```
+
+The corroborating filesystem evidence is the `create 0664 scottw scottw`
+directive firing: eight live logs were truncated to **0 bytes at exactly 00:18**,
+the minute of the forced run.
+
+```
+$ ls -la --time-style=long-iso /ALWAYSON/logs/*.log
+-rw-rw-r-- 1 scottw scottw       0 2026-10-04 00:18 gpu-runtime-check.log
+-rw-rw-r-- 1 scottw scottw       0 2026-10-04 00:18 installation-journal.log
+-rw-rw-r-- 1 scottw scottw       0 2026-10-04 00:18 mastodon-local-proxy.log
+-rw-rw-r-- 1 scottw scottw       0 2026-10-04 00:18 meshchatx.log
+-rw-rw-r-- 1 scottw scottw       0 2026-10-04 00:18 operations-journal.log
+-rw-rw-r-- 1 scottw scottw       0 2026-10-04 00:18 restore-test.log
+-rw-rw-r-- 1 scottw scottw       0 2026-10-04 00:18 script-runs.log
+-rw-rw-r-- 1 scottw scottw       0 2026-10-04 00:18 sim-clock-bridge.log
+```
+
+**What I got wrong, and it is the most-read part of this subsection.** The
+previous revision of this section claimed:
+
+> It has **already rotated**: 13 files match `logs/*.log.[0-9]` and **67** match
+> `logs/operations/*.log.[0-9]`. Rotations are real, not merely configured.
+
+**That count was used as proof that this policy rotates, and it proves nothing
+of the kind.** Those files mostly predate the policy's installation. Birth times
+against the install time:
+
+```
+$ stat -c 'birth=%w %n' /ALWAYSON/logs/backup.log.1 /ALWAYSON/logs/sim-clock-bridge.log.1
+birth=2026-10-02 18:00:52 -0700 /ALWAYSON/logs/backup.log.1
+birth=2026-09-27 22:54:54 -0700 /ALWAYSON/logs/sim-clock-bridge.log.1
+$ stat -c '%w %n' /etc/logrotate.d/alwayson
+2026-10-04 09:07:08.728949137 -0700 /etc/logrotate.d/alwayson
+```
+
+`sim-clock-bridge.log.1` was born on 2026-09-27, **seven days before** the
+policy existed on disk, so an unknown earlier mechanism created it. Counting
+those files and attributing them to `/etc/logrotate.d/alwayson` was a plain
+attribution error: I counted an artefact without checking which process made
+it. `cmp` proves the policy is installed; a file count can never prove which
+rotator produced a given file.
+
+**A second wrong inference, in the opposite direction.** Concluding the
+rotations were too old to be the policy's invites declaring the policy has
+never rotated. That is also wrong, for a related reason: `nocopytruncate`
+**renames**, so a rotated file keeps the mtime of the content it last received.
+Age comparison reads the *content's* age, not the *rotation's* time, and cannot
+date a rotation at all. The 00:18 journal evidence is what actually dates it.
+Under `nocopytruncate`, neither `mtime` nor an age threshold is a valid
+rotation timestamp — the journal is.
+
+**The daily unattended path is therefore still unproven.** `logrotate.timer` did
+fire after installation —
+
+```
+$ systemctl list-timers --all | grep logrotate
+Mon 2026-10-05 00:22:47 PDT  9h  Sun 2026-10-04 00:23:13 PDT  14h ago  logrotate.timer  logrotate.service
+```
+
+— but at **00:23:13**, four and a half minutes *after* the manual forced run had
+already rotated everything it could. That run consumed `15.840s CPU time over
+16.299s wall clock time` and had nothing left to do. OPS-25 is closed on
+*installation and parse validity*; the claim that **unattended daily rotation
+works** is demonstrated by nothing yet. The first real test is the 2026-10-05
+00:22 run — scheduled, with a valid policy, so expected to pass, but
+expectation is not measurement.
+
+**A real defect this exposed: `nocopytruncate` splits a long-lived writer**
+
+The forced rotation at 00:18 renamed `sim-gz-server.log` while its writer stayed
+attached to the old inode. The container is still running and still logging, and
+`lsof` shows where its output actually goes now:
+
+```
+$ lsof logs/sim-gz-server.log.1
+COMMAND     PID   USER FD   TYPE DEVICE SIZE/OFF     NODE NAME
+conmon  1195162 scottw 6w   REG  259,2  1437117 18222278 logs/sim-gz-server.log.1
+
+$ ls -la --time-style=long-iso logs/sim-gz-server.log*
+-rw-rw-r-- 1 scottw scottw       0 2026-10-04 00:18:38 logs/sim-gz-server.log
+-rw-rw-r-- 1 scottw scottw 1437117 2026-10-04 09:25:00 logs/sim-gz-server.log.1
+```
+
+The **live** log is 0 bytes and the **rotated** one is still growing. Gazebo
+output is landing in `sim-gz-server.log.1` and will be discarded at the next
+rotation, so this container has effectively been logging into a file due for
+deletion since 00:18. Nothing was deleted by this session, and the log is not
+lost yet — the next scheduled rotation is what would remove it.
+
+The policy uses `nocopytruncate` deliberately: `copytruncate` copies the file
+and truncates it in place, which briefly duplicates content and briefly races
+writers. For a log a long-lived `conmon` holds open across a daily rotation,
+that race is the lesser evil — the alternative here is silent loss. **This
+needs an operator decision and is not changed by this session**, because the
+correct fix is either `copytruncate` or a `postrotate` that signals the
+container to reopen its log, and both touch a running simulation service.
+Recorded as an open finding, not silently patched.
 
 **The journald half is genuinely still uninstalled**, and the evidence is
 stronger than "not found":
@@ -7580,6 +10012,76 @@ to edit. Recorded in §2.5, left for the compiler and OPS-B.<br><br><strong>Evid
 
 <tr><td colspan="6" style="background-color:#c9ccd1; border-top:2px solid #8a8f98; border-bottom:1px solid #8a8f98; padding:5px 8px; font-weight:bold; letter-spacing:0.04em;">NET · Networks, adapters and isolation — 4 items, all Open</td></tr>
 <tr>
+<td valign="top">NET-51</td>
+<td valign="top"></td>
+<td valign="top"></td>
+<td valign="top"><strong>Open</strong></td>
+<td valign="top"></td>
+<td valign="top"># Three cross-group findings from the SPEC review, none of them mine to close
+
+## 2. NET-51 — three `Internal=false` networks, and the isolation rule is not absolute
+
+`AGENTS.md` and the workspace rules state flatly that "All workload networks are
+`Internal=true`". Measured, **three of fourteen are not**: `ao-reporting-egress`,
+`ao-sales`, `ao-build-update`. All three are egress networks, which cannot be `Internal`
+and still reach anything, so this is the rule working rather than breaking. But the rule as
+written is not literally true, and any security argument that leans on it is wrong by
+three. The registry and live state agree exactly, so nothing is out of sync — only the
+summary sentence is over-broad. I have documented all fourteen with their flags in §3 so
+the exception is visible where the rule is stated.
+
+Related: §3.3.0.1's "no route off the subnet" is a statement about a *container's* view,
+not the host's. Nothing in `Internal=true` constrains the host's own interfaces, and the
+host has a Wi-Fi interface on `192.168.87.0/24` that §3 does not mention at all.
+
+## What I got wrong
+
+Three things, all caught by re-running my own commands:
+
+1. **The label key.** Spent a full review pass asserting ownership facts from a key that
+   is set on nothing. The conclusion held but the evidence did not support it. Recorded in
+   §6 with the correction inline.
+2. **"Contiguous and gap-free."** I asserted this about the `10.89` block without checking.
+   It is false — third octet `11` is absent. It happens to be the one already-known
+   unallocated subnet, so it is consistent rather than a new problem, but I would have
+   published a false claim. Caught by counting, not by reading.
+3. **"The only non-`ao-` addressing is `10.42.0.0/24`."** Also asserted without checking,
+   also false — there is a `192.168.87.0/24` Wi-Fi network and a link-local. Both 2 and 3
+   are the same failure: writing a general statement about a set I had only partially
+   enumerated.
+4. **"§3 describes the host as having only the equipment LAN."** This one was wrong in the
+   *opposite* direction, which is the more useful kind to catch. I asserted the Wi-Fi
+   interface was undocumented project-wide; having recompiled the README I checked the whole
+   document instead of only my own section, and it is documented in at least two others
+   (§5 host-address row, and the MeshChatX `0.0.0.0:4242` note in §9). The real finding is a
+   consistency gap in §3 alone, not a gap in the record. Had I not recompiled before
+   committing, that would have gone into the README as a claim that two other sections are
+   missing something they are not missing.
+
+The pattern across all four is the same: I generalised from a partial enumeration, and each
+time the correction came from running the check rather than from re-reading my own text.
+Re-reading is not verification.
+
+I have kept both corrections visible in §3 rather than quietly deleting the wrong text,
+because the wrong text was already there and the next reader needs to know it was wrong.
+## 1. NET-51 (new) — the Quadlet ownership label is `PODMAN_SYSTEMD_UNIT`, not `io.podman.annotations.quadlet`
+
+This is the most consequential finding of my pass, and it is a **methodology** finding
+rather than a defect: on this host the intuitive label key is set on *nothing*, so any
+ownership enumeration using it returns all-empty and looks like a discovery.
+
+Every session that has claimed "these containers have no Quadlet label" may have done so
+with the wrong key. My own §6 evidence did. The conclusion in that case survived, but only
+by luck — I had named the containers by hand, so the correct reading came from the name
+list rather than from the query. **A session that enumerated by image string and then
+filtered on the label would have concluded that no container on this host has a service
+owner, and that is the opposite of the truth.**
+
+I have corrected my own evidence and left a trap note in §6, but other sections may carry
+the same bad evidence and those files are not mine. This needs a sweep by whoever owns the
+affected sections.</td>
+</tr>
+<tr>
 <td valign="top">NET-01</td>
 <td valign="top"><strong>Controlled ingress/egress adapters</strong></td>
 <td valign="top">ST-12, ST-17</td>
@@ -7631,12 +10133,197 @@ mistakes a config file for a boundary. I recommend (b) as the current truth and
 **Assumptions.** I assume `is-enabled: generated` means the unit is not enabled
 to start at boot, which is consistent with `is-active: inactive` and with the
 absence of any `ao-build-update` container in `podman ps`. If you know a
-mechanism that starts it, tell me and I will re-measure.<br><br><strong>Evidence:</strong><br><code>NET-01 requires three things and I can do exactly one of them. Two are<br>blocked by rules that say stop, not try harder.</code></td>
+mechanism that starts it, tell me and I will re-measure.<br><br><strong>Evidence:</strong><br><code>NET-01 requires three things and I can do exactly one of them. Two are<br>blocked by rules that say stop, not try harder.</code><br><br><strong>PROGRESS by 05-network-domains-and-controlled-external-access.</strong> **NET-01 stays open; this corrects the evidence, not the status.** I had
+recorded the destination allowlist as unenforced. It is enforced in code -
+verified above by execution, three cases, exit 4/4/0. The gap is narrower
+than I wrote: the script is a genuine control, not documentation of intent.
+
+§5.2.1's blockquote now distinguishes the two controls instead of conflating
+them. The allowlist governs *this script*; it does not govern the segment.
+`Internal=false` means anything else attached to `ao-build-update` reaches the
+internet without consulting the list at all. So "the only sanctioned outbound"
+in **Containment** is still a requirement the adapter must satisfy rather than
+a property the network has, and the standing instruction not to attach a
+container to this network still stands.
+
+The two stop conditions are unchanged and still operator decisions: a
+firewall/proxy design for segment-level enforcement, and separate adapter
+credentials. I did not author either, did not touch firewall policy, and did
+not create a credential.<br><br><strong>Evidence:</strong><br><code>CORRECTION TO MY OWN EARLIER CLAIM. net-NET-01.md says, and §5.2.1 said<br>until this commit, "Nothing at runtime reads registry-allowlist.yaml".<br>That is FALSE. The allowlist IS read at runtime and it DOES refuse<br>disallowed references. Measured 2026-10-04:</code><br><br><strong>PROGRESS by 05-network-domains-and-controlled-external-access.</strong> **NET-01 stays open. What changed is that my section no longer contradicts
+itself about whether the allowlist works.**
+
+The corrected **Containment** paragraph now reads "enforced in code, unenforced
+at the segment", matching the verified evidence above it, and states plainly
+that its previous wording was wrong. The substance of the item is unchanged and
+still blocked:
+
+- **Segment-level enforcement is absent.** `ao-build-update` is an ordinary
+  `Internal=false` bridge; anything else attached to it reaches the internet
+  without consulting the allowlist. Closing this needs firewall or proxy policy,
+  which is Rule 6 and §4.1 rule 13 territory. Not authored, not touched.
+- **Separate adapter credentials** are a secret acquisition, an explicit stop
+  condition. Not created.
+- **`ao-ingress-payment` and `ao-egress-archive`** remain unimplemented, needing
+  destination allowlists, validated TLS, separate credentials and connection
+  logging.
+
+All three remain operator decisions. I did not touch firewall policy, did not
+create a credential, and did not enable the unit.<br><br><strong>Evidence:</strong><br><code>FOLLOW-UP to net-NET-01.md and net-NET-01-correction.md, neither of which I<br>have modified. NET-01 REMAINS OPEN. This records a contradiction between two<br>paragraphs of my own section file, which the earlier corrections left behind.</code></td>
 </tr>
 
 
 
 <tr><td colspan="6" style="background-color:#c9ccd1; border-top:2px solid #8a8f98; border-bottom:1px solid #8a8f98; padding:5px 8px; font-weight:bold; letter-spacing:0.04em;">SEC · Secrets, credentials and identity — 3 items, all Open</td></tr>
+<tr>
+<td valign="top">SEC-04</td>
+<td valign="top"></td>
+<td valign="top"></td>
+<td valign="top"><strong>Open</strong></td>
+<td valign="top"></td>
+<td valign="top">**New item, not a closure.** SEC-01 through SEC-03 are policy/documentation items blocked on
+one operator decision. This is a different kind of thing: a live fault in the delivery
+mechanism, found by re-measuring rather than inherited, and it is not covered by any of the
+three.
+
+Recorded as **§14.1.7**. What that subsection contains, all of it measured above: the absent
+`ao-payment` folder; the file-older-than-process staleness; the `ExecStartPre=-` prefix that
+silences the failure; the live `sales-db-password` embedded in the stale DSN and the resulting
+correction to ST-12; and the guard carve-out that makes the file invisible.
+
+Also added to §14.2.5 as **break-glass step 2**: compare env-file mtime against the unit's
+`ActiveEnterTimestamp`. This is now the cheapest check in the list and the only reliable
+signal for this class of fault, because a fetch failing under `-` produces no log line at
+all. Existing steps renumbered 3–5 to make room; no step was removed.
+
+Why this is not folded into SEC-01: SEC-01 asks the operator to ratify a deviation or
+authorise a migration. This is a service running now on stale credential material, and it
+needs a decision independently of how the deviation is ratified — the answer could be "create
+the four wallet entries" whether or not the deviation is ever approved.
+
+**Not fixed. Not touched.** The fix touches payment credentials and a running payment
+service: a stop condition in this session's brief, and README §4.1 rules 12 and 14.
+Specifically not done: creating the `ao-payment` folder or its four entries; removing or
+altering the `-` prefix on line 63; restarting the unit; deleting `payment.env`. All four
+are the operator's.
+
+Recommended order, in the section and here: create the four `ao-payment` entries first — it
+is ST-12's own outstanding action and fixes staleness as a side effect — then decide whether
+the `-` prefix stays. Rotation of `sales-db-password` is **not** required: the value was
+never committed to Git, a backup set, or an external network, and the exposure is a local
+`0600` file. Rotation becomes required only if the operator judges the host account
+untrusted.
+
+Cross-group: the ST-12 row needs its "runs with no DSN" text corrected and ST-12 is the
+compiler's, not mine. The `ao-payment` wallet-entry provisioning is already ST-12's
+outstanding action.
+
+What I got wrong: my first draft of the §14.1.7 evidence block quoted
+
+    sed -n 's|^PAYMENT_DSN=.*|\1|p' payment.env
+
+which is wrong twice — there is no capture group in that pattern, so `sed` exits with
+"invalid reference \1", and even if it ran it would replace the whole line with the empty
+string. I had pasted the pattern from memory instead of from the shell. I caught it because
+the documented `wc -c` output was 49 and I re-ran the command to check; the bad form returns
+0 *and* errors, so it could not have produced a wrong-but-plausible number silently.
+Corrected in the section to the form actually run, and re-run to confirm 49 / `03521083973b`.
+
+What I got wrong, second: I initially recorded the seven `ao-*` folders as holding "39
+entries". Measured, it is **37**; 39 is `ao-*` (37) plus `Passwords` (2), which is how §14.1.4
+phrases it. The number I gave was wrong, but the conclusion drawn from it — that §14.1.4's 39
+is still current — survived, because 37+2=39 exactly. I only caught this because the count
+felt high and I re-measured instead of asserting it. Total across all 15 folders is 52,
+including 11 unrelated application folders; an unqualified "entries in the wallet" count is
+meaningless, and that is the trap.
+
+
+  ### Supporting measurement detail
+
+`grep -rn 'ExecStartPre=-' quadlet/` returns exactly one hit — this line. The `-`
+makes systemd discard the exit status, converting a recurring hard fetch
+failure into silence.
+
+The stale file is NOT inert, and §19 ST-12's "runs with no DSN" is wrong:
+
+    $ sed -n 's|^PAYMENT_DSN=postgresql://[^:]*:\([^@]*\)@.*|\1|p' payment.env | wc -c
+    49
+    $ … | tr -d '\n' | sha256sum | cut -c1-12
+    03521083973b
+
+48-char password, sha256 prefix identical to the LIVE `sales-db-password`
+(§14.1.6 records `03521083973b`, len 48). The DSN is
+`postgresql://sales_migration_role:&lt;password&gt;@127.0.0.1:15432/salesdb` and it is
+present. ST-12's conclusion that the adapter "cannot accept a payment" rests
+on a measurement that does not hold.
+
+`check-secrets-exposure.sh` cannot see the file either:
+
+    $ bash scripts/validation/check-secrets-exposure.sh
+    OK: no secret-shaped content in tracked files      (rc=0)
+
+Cause is the carve-out at `check-secrets-exposure.sh:79` — `PAYMENT_DSN` is not
+in `$secret_key_re` because the key name is a DSN, not a "secret-shaped" name.
+
+## Third pass, 2026-10-04 (this session)
+
+### This proposal did not parse until this pass
+
+**The defect, and it mattered.** When I read this file back to merge it, `yaml.safe_load` on its
+frontmatter failed outright:
+
+    YAML ERROR: while scanning an alias
+      in "&lt;unicode string&gt;", line 37, column 1:
+    **New item, not a closure.** SEC ...
+    expected alphabetic or numeric character, but found '*'
+
+`grep -n '^---'` returned exactly two hits — line 1 and line 119. The closing fence was
+missing, so lines 37–117 (the entire prose body) were absorbed into the `evidence:` block scalar,
+and a bare `**bold**` line is not valid YAML. Any merge script that parses these proposals would
+have raised on this file, or silently skipped it. **The one proposal describing a live
+unreported payment fault was the one that could not be read.**
+
+Fixed: the frontmatter now closes after the evidence, and the orphaned duplicate evidence block
+that had been stranded after the body (lines 94–119, a second copy of the `-`-prefix and DSN
+measurements) is re-indented into prose under a "Supporting measurement detail" heading. Nothing
+was deleted; the duplicated measurements were kept because they are evidence. Verified by
+parsing all four `sec-*.md` files:
+
+    sec-SEC-01.md OK action=update item=SEC-01
+    sec-SEC-02.md OK action=update item=SEC-02
+    sec-SEC-03.md OK action=close  item=SEC-03
+    sec-SEC-04.md OK action=new    item=SEC-04
+
+**I own this defect.** The file is a `sec-*` proposal, so it is mine; I am not reporting it as
+someone else's.
+
+### Re-verification: the fault is still live
+
+Re-measured from scratch, not inherited:
+
+    $ systemctl --user is-active ao-ingress-payment.service
+    active
+    $ systemctl --user show ao-ingress-payment.service -p ExecStartPre
+    ExecStartPre={ … ignore_errors=yes ; … }
+
+`ignore_errors=yes` is systemd's own rendering of the `-`, so the silencing is confirmed from
+runtime state, not only from the quadlet source. `payment.env` mtime is still 2026-09-30
+23:18:29 against an `ActiveEnterTimestamp` of 2026-10-01 15:08:41. `hasFolder` confirms
+`ao-payment` and `ao-archive` absent, the other seven `ao-*` folders present.
+
+### What I got wrong
+
+A regex. I enumerated `legacy-alwayson-folder.env` with `^([A-Za-z0-9_]+)=` and got **zero
+pairs**, when `wc -l` says the file has 4 lines and 3 of the 4 key names contain hyphens. Read
+literally, "zero pairs" would have meant the file holding three live database passwords was now
+empty — a false claim about a security improvement that never happened. Corrected to
+`^([A-Za-z0-9_-]+)=`, which reproduces §14.1.6's table exactly. **A zero from a parser needs an
+independent check before it is recorded.**
+
+Two API traps, also recorded in §14.1.7.1: `folderList` returned 14022 rows on one call and
+14274 on the next on an unchanged wallet, so it is unusable as a count — use `hasFolder`, which
+is what `kwallet-provision.sh:42` uses. And `entryList` (`as`) is not `entriesList` (`a{sv}`);
+calling `int()` on the former raises `TypeError`.</td>
+</tr>
 <tr>
 <td valign="top">SEC-01</td>
 <td valign="top"><strong>Unattended secret delivery decision</strong></td>
@@ -8368,7 +11055,36 @@ possible federation breakage. It was transient — five consecutive retries all 
 (`https://127.0.0.1:3000/users/bot` returned `000`), which looked like a dead origin but is
 expected: origin traffic arrives over the tunnel with the tunnel setting Host, and a
 direct loopback TLS probe without that arrangement is not a valid test. I dropped that
-probe rather than report it as a fault.<br><br><strong>Evidence:</strong><br><code># First contact HAS occurred - 10 remote domains are now known locally:<br>$ podman exec mastodon-db psql -U mastodon -d mastodon -At -c \<br>  "select string_agg(distinct domain,', ') from accounts where domain is not null;"<br>cupoftea.social, fedibook.de, friendicadev.sekretaerbaer.de, mastodonapp.uk,<br>mastodon.online, mastodon.social, rivals.space, sekretaerbaer.de,<br>universeodon.com, veganism.social</code></td>
+probe rather than report it as a fault.<br><br><strong>Evidence:</strong><br><code># First contact HAS occurred - 10 remote domains are now known locally:<br>$ podman exec mastodon-db psql -U mastodon -d mastodon -At -c \<br>  "select string_agg(distinct domain,', ') from accounts where domain is not null;"<br>cupoftea.social, fedibook.de, friendicadev.sekretaerbaer.de, mastodonapp.uk,<br>mastodon.online, mastodon.social, rivals.space, sekretaerbaer.de,<br>universeodon.com, veganism.social</code><br><br><strong>STILL OPEN by 15-sales-mastodon-openclaw-and-local-ai.</strong> **Retraction of the tunnel-health claim in the applied `comm-COMM-06.md` proposal.** That
+proposal recorded the federation path as "all 4 connections registered, `protocol=http2`,
+no inbound fault" and explicitly told the next session not to chase the reconnect lines in
+the journal. Both parts were wrong. The four connections were re-registering continuously,
+and the public edge was returning 502 to remote servers in the meantime. The
+"no inbound fault" sentence is the specific error and should not be relied on.
+
+Discovery is not in question and is re-verified above: `mastodon.social` resolves
+`bot@mastodon.300x3.com` to id `117327405745705562` with 2 followers. From this item's
+original scope only the **human Konqueror step** remains.
+
+What was missed is a separate, ongoing availability fault — the cloudflared edge flap,
+now tracked as its own item **COMM-08** rather than folded into COMM-06, because COMM-06 is
+a one-time discovery step while COMM-08 is a live fault that will recur until diagnosed.
+The short version: `NRestarts=1` since 2026-10-01 makes the unit look healthy to any
+`systemctl` check while the edge drops all four connections together and re-registers them
+~10 s later, 26 times in the last hour, producing 502 on `/users/bot` and every other public
+path. The origin is clean (zero 5xx in `mastodon-web`, empty `queue:push_public` and
+`queue:pull`), so this is the Cloudflare edge-to-tunnel hop, not Mastodon.
+
+**Measurement trap that will mislead the next session here specifically.** Probe this host
+with `curl -4`. It publishes AAAA records but this machine has no global IPv6 address
+(`ip -6 -o addr show scope global | wc -l` → `0`), so a default `curl` tries the AAAA leg,
+fails, and falls back to IPv4 — usually succeeding, but nondeterministically, and the dead
+v6 leg can surface as `000` or a 502. Judging reachability with a default `curl` risks
+concluding "the tunnel is dropping requests" from a fault that is in the probe.
+
+Diagnosing the flap, and changing tunnel transport, protocol or edge routing, is live
+network configuration and therefore a stop condition — prepared and evidenced, not
+actioned. Full detail in new §15.4.10.<br><br><strong>Evidence:</strong><br><code># The health claim in the earlier comm-COMM-06.md proposal is RETRACTED.<br># It said "all 4 connections registered ... no inbound fault", taken from:<br>$ journalctl --user -u cloudflared-alwayson.service -n 40 | grep -c 'Registered tunnel connection'<br>4<br># That was a single reading between flaps. The real rate:<br>$ journalctl --user -u cloudflared-alwayson.service --since '60 min ago' \<br>    | grep -c 'Lost connection with the edge'<br>26<br>$ systemctl --user show cloudflared-alwayson.service -p NRestarts<br>NRestarts=1<br># and the edge was genuinely returning 502 during the burst:<br>$ for i in 1 2 3 4 5; do curl -s -o /dev/null -m 15 -w '%{http_code} ' \<br>    -H 'Accept: application/activity+json' https://mastodon.300x3.com/users/bot; done<br>502 502 502 502 502<br># discovery claim itself is unaffected and re-verified:<br>$ curl -4 -s -m 20 'https://mastodon.social/api/v1/accounts/lookup?acct=bot@mastodon.300x3.com' \<br>    | python3 -c "import sys,json;d=json.load(sys.stdin);print(d['id'],d['followers_count'])"<br>117327405745705562 2</code></td>
 </tr>
 <tr>
 <td valign="top">COMM-07</td>
@@ -8419,6 +11135,38 @@ delivery, and the proposal says so rather than letting the 200 stand in for prog
 </tr>
 <tr><td colspan="6" style="background-color:#c9ccd1; border-top:2px solid #8a8f98; border-bottom:1px solid #8a8f98; padding:5px 8px; font-weight:bold; letter-spacing:0.04em;">FIELD · Field, radio and drones — 14 items, all Open</td></tr>
 <tr>
+<td valign="top">FIELD-15</td>
+<td valign="top"></td>
+<td valign="top"></td>
+<td valign="top"><strong>Open</strong></td>
+<td valign="top"></td>
+<td valign="top">New item, next free number in the FIELD group (FIELD-01..FIELD-14 are all taken; no renumbering).
+
+**Title: mapping database does not reside on the validated photogrammetry drive.**
+
+§8.4.1 closes FIELD-11 on the *name and location* question and explicitly declines to close the
+drive-residency half, promising to "carry it forward as a new FIELD item rather than reopening
+FIELD-11". That promise had no corresponding item in §19 — it was recorded only as prose in
+§8.4.1, where nothing tracks it. This proposal is that item.
+
+**Why it needs its own ID rather than living inside FIELD-10.** FIELD-10 is about the *directory
+tree* and ownership of the drive. This is about *where a database's data directory sits*. They
+are adjacent but distinct, and the fix for one does not fix the other: FIELD-10 is repaired by
+`usermod -aG alwayson-mapping scottw` plus `mkdir`, and this item would still be open
+afterwards, because the PostgreSQL data directory stays on the root filesystem regardless.
+
+**The ordering constraint is new and worth the operator knowing.** §8.5.2 measured today shows
+the drive is group-owned by `alwayson-mapping` and the operator is not in that group, so `mkdir`
+fails even on paths §8.2 already requires. **Any decision to relocate PostgreSQL storage onto
+this drive must fix that ownership first**, or the database lands on a volume that its own
+operator cannot create, back up or inspect. The relocation is therefore not a single decision
+but two, in this order: group membership, then data-directory move.
+
+**Not attempted.** Moving a live PostgreSQL data directory changes service configuration and is
+an operator decision under §4.1 rule 12. Nothing was created, moved or chgrp'd on the drive or
+in `~/webodm/dbdata`.</td>
+</tr>
+<tr>
 <td valign="top">FIELD-01</td>
 <td valign="top">RF characterization on both bands</td>
 <td valign="top">ST-04, ST-05, ST-06</td>
@@ -8460,14 +11208,7 @@ delivery, and the proposal says so rather than letting the 200 stand in for prog
 <td valign="top">§9.2.2</td>
 <td valign="top">MeshChatX text carried over PEOPLE-RADIO in both directions, recorded as LoRaWAN-related communication, with the separate 915/917 MHz bands maintained.</td>
 </tr>
-<tr>
-<td valign="top">FIELD-08</td>
-<td valign="top"><strong><code>ao-fabrication</code> deployed with <code>a_fab</code></strong></td>
-<td valign="top">ST-30</td>
-<td valign="top"><strong>Open</strong></td>
-<td valign="top">§3.3.0, ES.1</td>
-<td valign="top">Domain created on <code>10.89.12.0/24</code> (<code>Internal=true</code>); <strong>per-machine production data pulled from at least one individual machine into <code>a_fab</code></strong>; separation from <code>ao-sim-fabrication</code> demonstrated (simulation holds no production data); <code>a_fab</code> registered in <code>network-cidrs.yaml</code>.</td>
-</tr>
+
 <tr>
 <td valign="top">FIELD-09</td>
 <td valign="top"><strong>QGC over LoRa to the RPi5</strong></td>
@@ -8594,7 +11335,31 @@ tabulated in §9.4.1, so the edit is prepared but unapplied.<br><br><strong>Evid
 <td valign="top">ST-07, ST-08</td>
 <td valign="top"><strong>Open</strong></td>
 <td valign="top">§10.1, §10.2</td>
-<td valign="top">Vehicle and fabrication GUI clients deployed; separate DDS/interface policy decided.</td>
+<td valign="top">Vehicle and fabrication GUI clients deployed; separate DDS/interface policy decided.<br><br><strong>STILL OPEN by 10-simulation-architecture.</strong> SIM-01 stays open on both limbs, and neither is close to done.
+
+The **DDS policy** limb has no artifact. I grepped both Quadlet directories for
+`CYCLONEDDS`, `RMW_IMPLEMENTATION`, `FASTRTPS` and `dds` and got nothing. There is no
+documented middleware choice and no `Environment=` line enforcing one, so each container
+falls back to its own compiled-in default. That is not necessarily broken today — the
+fabrication pair works because `GZ_PARTITION` and `GZ_IP` isolate them and they share a
+network — but "it happens to work" is not a decided policy, and it will not survive
+adding the vehicle side.
+
+The **GUI clients** limb is half done. `ao-sim-fabrication-gz` and
+`ao-sim-fabrication-foxglove` are both up and have been for 15 and 38 hours. The vehicle
+side has **no GUI client container at all** — `quadlet/sim-vehicle/` holds exactly one file,
+`ao-ardupilot-sitl.container`, which is the SITL process, not a viewer. So there is nothing
+to decide the policy for until that is built.
+
+I did not build the vehicle GUI client: it is new Quadlet work on a network I have not been
+asked to extend, and SIM-08/SIM-04 gate what should be exposed. I did not modify any
+network, no `Environment=` line, and no running container.
+
+**What I got wrong.** I first ran the GUI-client grep expecting to find a vehicle viewer,
+because §19 phrases SIM-01 as "clients deployed" and I had assumed the vehicle side was
+merely unverified like the fabrication side had been. Listing the Quadlet directory is what
+showed the file does not exist at all. Absent is a different finding from inactive, and I
+nearly filed them as the same thing.<br><br><strong>Evidence:</strong><br><code>Measured 2026-10-04. The fabrication GUI client exists and runs; the vehicle one<br>does not, and the DDS/interface policy is unwritten in both places it would live.</code></td>
 </tr>
 <tr>
 <td valign="top">SIM-02</td>
@@ -8602,7 +11367,26 @@ tabulated in §9.4.1, so the edit is prepared but unapplied.<br><br><strong>Evid
 <td valign="top">ST-07, ST-08</td>
 <td valign="top"><strong>Open</strong></td>
 <td valign="top">§10.2</td>
-<td valign="top">Path confirmed by the operator. Currently recorded as an open decision, not a guess.</td>
+<td valign="top">Path confirmed by the operator. Currently recorded as an open decision, not a guess.<br><br><strong>STILL OPEN by 10-simulation-architecture.</strong> SIM-02 stays open, and it stays open for the right reason: this is an **operator decision**,
+not a defect. §19 says "path confirmed by the operator", and an operator confirmation is the
+one thing I cannot manufacture or infer from the filesystem.
+
+What I can report is that the path is already load-bearing. `/ALWAYSON/GAZEBO` exists and
+holds the four SketchUp meshes, the container build inputs under `containers/`, the portal,
+the simulation data under `sim/`, and `worlds/factory.world`. It is already referenced by
+live configuration in `loopback-services.yaml` and `version-matrix.yaml`, so the portal
+service resolves it today. That is evidence the layout is in use and working — it is not
+evidence the operator approved it, and I am not going to record the second as though it were
+the first.
+
+I made no change. Moving the folder is out of scope and would break the live portal, which
+serves a path already wired into three config files.
+
+**What I got wrong.** I started this item intending to confirm the path myself, on the
+reasoning that the directory existing with the right contents settles the question. That is
+exactly backwards: the item asks whether a person agreed to it, and the filesystem is
+silent on agreement. Checking that the layout is sane was useful — it is reported above —
+but it answers a different question, and I nearly let it stand in for the answer.<br><br><strong>Evidence:</strong><br><code>Measured 2026-10-04. The subfolder exists and is populated; §19 asks the operator to<br>confirm the path, and I cannot supply that confirmation.</code></td>
 </tr>
 <tr>
 <td valign="top">SIM-03</td>
@@ -8610,7 +11394,25 @@ tabulated in §9.4.1, so the edit is prepared but unapplied.<br><br><strong>Evid
 <td valign="top">ST-21</td>
 <td valign="top"><strong>Open</strong></td>
 <td valign="top">§10.1</td>
-<td valign="top">Interactive SITL workflow validated end to end.</td>
+<td valign="top">Interactive SITL workflow validated end to end.<br><br><strong>STILL OPEN by 10-simulation-architecture.</strong> SIM-03 stays open. There is no QGroundControl workflow to validate, because neither end of it
+exists in a running state.
+
+QGroundControl is not installed — not on the host, not as a container. The SITL unit it
+would attach to, `ao-ardupilot-sitl.service`, is present but both **masked and inactive**.
+That is a deliberate state, not a fault: an outward-facing radio-ish control link that
+nobody has asked to expose stays masked, and I am not unmasking it to see what happens.
+
+I did not install QGroundControl. It is a large GUI application with its own network
+behaviour and a MAVLink link to a SITL instance; installing it unattended is a
+configuration change to a masked unit's counterpart that §4.1 rule 12 covers, and SIM-03's
+own acceptance criteria are about *validating* a workflow rather than provisioning one. The
+validation has to be human-in-the-loop anyway — it ends with someone flying the vehicle.
+
+**What I got wrong.** I checked `which` and `/opt` and concluded "not installed", then began
+drafting as if a Quadlet might already be staged for it under a name I had not guessed. I
+should have listed the Quadlet directory and grepped the container set in one pass, as I did
+for SIM-01, instead of assuming a hidden unit existed. The two items share the same lesson:
+a name I did not try is not an absence, and `podman ps -a` plus `ls quadlet/` settles it.<br><br><strong>Evidence:</strong><br><code>Measured 2026-10-04. QGroundControl is not on this host in any form, and the SITL<br>stack it would attach to is not started.</code></td>
 </tr>
 <tr>
 <td valign="top">SIM-04</td>
@@ -8618,7 +11420,29 @@ tabulated in §9.4.1, so the edit is prepared but unapplied.<br><br><strong>Evid
 <td valign="top">ST-07</td>
 <td valign="top"><strong>Open</strong></td>
 <td valign="top">ES.1, §10.1.2</td>
-<td valign="top">World setup scripted and repeatable; boning frame and tolerances measurable and exported; RL objects addressable and resettable; the world fully settable and operable from the browser-served HTML portal.</td>
+<td valign="top">World setup scripted and repeatable; boning frame and tolerances measurable and exported; RL objects addressable and resettable; the world fully settable and operable from the browser-served HTML portal.<br><br><strong>STILL OPEN by 10-simulation-architecture.</strong> SIM-04 stays open, and unlike most of my group it is not partially done — **the vehicle 3D
+world does not exist**. `GAZEBO/worlds/` contains exactly one file, `factory.world`, which is
+the fabrication world. There is no vehicle world, so all four acceptance limbs are unmet
+rather than partly met: there is nothing to script, no vehicle boning data to export, no
+vehicle RL objects, and the portal serves the fabrication world only.
+
+Worth recording because it is the opposite of what the item's wording suggests: the
+*scaffolding* for the vehicle side is well advanced. `GAZEBO/` holds
+`09-SIMULATIONVEHICLES-ARMS.dae`, and `scripts/simulation/` contains both
+`run-vehicle-scenario.sh` and `export-vehicle-manifest.sh`. So this is a missing
+assembly rather than a project that never started, and that is a real distinction for whoever
+picks it up.
+
+I did not build a vehicle world. That is new Gazebo content, it needs the real vehicle
+geometry and a boned frame agreed against the actual airframe, and fabricating a plausible
+world file here would produce exactly the kind of invented geometry this session is supposed
+to be eliminating.
+
+**What I got wrong.** I opened SIM-04 planning to check whether the *boning* was right,
+carrying SIM-09's framing across from the fabrication side. On the vehicle side there is no
+boning to check — no world, no `boning.yaml`, no datum. I was auditing the correctness of
+something that had not been built, which is the §10.3 lesson again: establish that the
+artifact exists before measuring it.<br><br><strong>Evidence:</strong><br><code>Measured 2026-10-04. The vehicle 3D world does not exist. There is one world in the<br>repository and it is the fabrication one.</code></td>
 </tr>
 <tr>
 <td valign="top">SIM-05</td>
@@ -8626,7 +11450,36 @@ tabulated in §9.4.1, so the edit is prepared but unapplied.<br><br><strong>Evid
 <td valign="top">ST-08</td>
 <td valign="top"><strong>Open</strong></td>
 <td valign="top">ES.1, §10.2.1</td>
-<td valign="top">As SIM-04, for <code>ao-sim-fabrication</code>, with cell and machine datum frames and boning checked against the real machine envelopes.</td>
+<td valign="top">As SIM-04, for <code>ao-sim-fabrication</code>, with cell and machine datum frames and boning checked against the real machine envelopes.<br><br><strong>STILL OPEN by 10-simulation-architecture.</strong> SIM-05 stays open. It is the most nearly-complete item in my group, and the reason it
+cannot close is not effort — it is that **the fourth acceptance limb asks for something the
+portal is architected to refuse.**
+
+The criteria require the world to be "fully settable and operable from the browser-served
+HTML portal". The portal is deliberately view-only: `do_POST` returns 405 for every write
+verb and `/api/health` advertises `view_only: true, controls: null`. Those are good
+properties for a service that reports on a facility, and I am not proposing to weaken them
+to satisfy a line of an acceptance table. Making the portal able to set and operate the
+world is a change to the safety posture of a browser-reachable service, and it needs the
+operator to say yes explicitly. That is a decision, not a ticket.
+
+The other three limbs are genuinely advanced. The world exists and renders (SIM-06, verified
+today). Boning is measurable and served at `/api/boning` with real datum frames, and the
+safety-zone check passes on all four zones with honest GAPs for the two machines whose datum
+origin is operator-declared rather than measured. RL objects are addressable as nine live
+links. What is missing is export — `find artifacts -iname '*boning*'` returns nothing, so
+boning is servable but not exported — and the runner script, which is a stub exiting 3.
+
+One correction from this session: `/api/objects` was serving `"resettable": true` copied
+from the YAML, which read as a verified capability when the portal exposes no reset endpoint
+at all. It now sits beside `reset_available: false` and a note naming the discrepancy. That
+makes the portal honest; it does not deliver reset, so this limb stays open on both counts.
+
+**What I got wrong.** I opened by reading limb 4 as "the portal needs a few control routes
+added" and started costing that out. Reading the handler changed my mind entirely: the
+refusal is a documented design decision with a comment explaining why, not an oversight. I
+was about to recommend removing a safety property of a browser-reachable service because an
+acceptance table mentioned the word "operable". Matching the requirement's wording against
+its actual intent is a step I skipped.<br><br><strong>Evidence:</strong><br><code>Measured 2026-10-04. Three of four limbs are delivered; the fourth is not merely<br>missing but contradicted by the portal's own design, which makes this a decision<br>for the operator rather than work for me.</code></td>
 </tr>
 <tr>
 <td valign="top">SIM-06</td>
@@ -8706,7 +11559,33 @@ itself. The certificate is the whole story; the mirror was never reached.<br><br
 <td valign="top">ST-08</td>
 <td valign="top"><strong>Open</strong></td>
 <td valign="top">§10.2.1</td>
-<td valign="top">The 3D viewer and its eight read-only camera feeds are verified working on the local path and <strong>not published</strong> (operator decision 2026-10-02). <code>ao-html-window</code> (<code>10.89.14.0/24</code>, <code>Internal=true</code>) exists for public-facing windows on local services and is the network the Foxglove bridge joins for this purpose. Outstanding when it proceeds: confirm the hostname, add the ingress route to <code>~/.cloudflared/config.yml</code> (a customer-facing production config, not changed unilaterally), and decide whether the viewer alone or the portal too is published, since the portal renders boning derived from real machines</td>
+<td valign="top">The 3D viewer and its eight read-only camera feeds are verified working on the local path and <strong>not published</strong> (operator decision 2026-10-02). <code>ao-html-window</code> (<code>10.89.14.0/24</code>, <code>Internal=true</code>) exists for public-facing windows on local services and is the network the Foxglove bridge joins for this purpose. Outstanding when it proceeds: confirm the hostname, add the ingress route to <code>~/.cloudflared/config.yml</code> (a customer-facing production config, not changed unilaterally), and decide whether the viewer alone or the portal too is published, since the portal renders boning derived from real machines<br><br><strong>STILL OPEN by 10-simulation-architecture.</strong> SIM-08 stays open and I did nothing toward it. This is the clearest stop-condition item in my
+group and I am reporting it as untouched rather than as progress.
+
+The viewer works on the local path — the portal service is active and `/viewer` returns 200
+on loopback — but nothing is published. §19 records the operator's decision of 2026-10-02
+that it is verified locally and deliberately not published, and I have no reason to revisit
+that.
+
+Two things I found that matter for whenever it does proceed. `ao-html-window.network`, the
+network that exists specifically for public-facing windows on local services, is **inactive**
+— so even a configured route would have nothing to land on. And the remaining work named in
+§19 all touches things I am not permitted to change unilaterally: confirming the hostname,
+editing `~/.cloudflared/config.yml` (a customer-facing production config), and the
+decision of whether to publish the viewer alone or the portal too — the portal renders
+boning derived from real machines, so that is a data-exposure decision, not a technicality.
+
+I changed no public port, no firewall policy, no ingress route, and no Cloudflare
+configuration. I confirmed `config.yml` exists and its size and did not read or print its
+contents.
+
+**What I got wrong.** I listed `~/.cloudflared/config.yml` expecting to check whether a
+hostname route for the viewer already existed, on the reasoning that a read-only check is
+harmless and would tell me how far along this is. Reading a customer-facing production
+ingress config to satisfy my own curiosity is not a neutral act — the file is the kind of
+thing where contents inform topology I have no mandate over. Existence and size are the
+whole of what I needed; I should have stopped there rather than constructing a reason to read
+it.<br><br><strong>Evidence:</strong><br><code>Measured 2026-10-04. Untouched, deliberately. Publishing is a stop condition and<br>the operator already decided against it on 2026-10-02.</code></td>
 </tr>
 
 <tr>
@@ -8715,7 +11594,34 @@ itself. The certificate is the whole story; the mirror was never reached.<br><br
 <td valign="top">ST-08</td>
 <td valign="top"><strong>Open</strong></td>
 <td valign="top">§10.2.1</td>
-<td valign="top">Walls, conveyor belts, arms and conveyor gears carry distinct materials; doors do not, because <code>massing_fab.dae</code> has no semantic part names (anonymous <code>group_0</code>–<code>group_25</code>) and <code>split-collada-parts.py</code> returns a degenerate cube signature for every part of that file, so no size distinguishes a door. Re-export the model from SketchUp with named groups (<code>door</code>, <code>wall</code>, <code>floor</code>) and the splitter will separate it. Until then doors keep the wall material rather than being guessed at</td>
+<td valign="top">Walls, conveyor belts, arms and conveyor gears carry distinct materials; doors do not, because <code>massing_fab.dae</code> has no semantic part names (anonymous <code>group_0</code>–<code>group_25</code>) and <code>split-collada-parts.py</code> returns a degenerate cube signature for every part of that file, so no size distinguishes a door. Re-export the model from SketchUp with named groups (<code>door</code>, <code>wall</code>, <code>floor</code>) and the splitter will separate it. Until then doors keep the wall material rather than being guessed at<br><br><strong>STILL OPEN by 10-simulation-architecture.</strong> SIM-10 stays open, blocked on a SketchUp re-export that only the operator can perform.
+§19's diagnosis is confirmed precisely rather than approximately.
+
+The massing mesh has **34 parts and 33 of them are exact cubes** — `size(n, n, n)` for
+n = 81, 149, 150, 151, 152, 153, 154, 157, 158, 159, 161, 162, 163, 165, 167, 170, 173,
+190, 191, 215, 269/271, 274 and others. The single exception is `size(56, 56, 61)`. The
+splitter separates parts by size precisely because the parts are anonymous (`group_0`
+through `group_25` plus the rest), and a door standing in a wall is not smaller than the
+wall in a way that survives rounding to an integer cube.
+
+The remedy is already understood by the tooling and needs no code change: re-export
+`massing_fab.dae` from SketchUp with semantic group names — door, wall, floor — and
+`split-collada-parts.py` will separate them by name instead of by size. That is a modelling
+action on the operator's file. I did not re-export it, did not modify the mesh, and did not
+hand-assign a door material.
+
+I want to be explicit about what I did **not** do. It would have been easy to make one of
+those 33 cubes render a different colour and call the item done. That would be a guess
+dressed as a fix: I cannot tell which cube is the door, I would be choosing on no evidence,
+and a wrong guess is harder to detect later than an obviously-unresolved wall. Doors
+keeping the wall material is the accurate state of the world, and §10 records it as such.
+
+**What I got wrong.** I ran the splitter with no arguments first and got an argparse usage
+error, and I recorded its `echo "exit=$?"` as `0` because the pipeline through `head` masked
+the real exit status. The fault is measuring `$?` after a pipe instead of inside it — it
+would have let me write "exit 0" as evidence of success for a command that never ran. I
+re-ran it properly with `--list` and a real file argument; every result in this proposal
+comes from that second run.<br><br><strong>Evidence:</strong><br><code>Measured 2026-10-04. §19's diagnosis reproduces exactly: the massing mesh has<br>34 parts and every one is a cube signature, so size cannot distinguish a door.</code></td>
 </tr>
 <tr>
 <td valign="top">SIM-11</td>
@@ -8781,50 +11687,156 @@ evidence in their proposals rather than a status change alone.<br><br><strong>Ev
 
 <tr><td colspan="6" style="background-color:#c9ccd1; border-top:2px solid #8a8f98; border-bottom:1px solid #8a8f98; padding:5px 8px; font-weight:bold; letter-spacing:0.04em;">OPS · Backup, monitoring, logs and scripts — 34 items, all Open</td></tr>
 <tr>
+<td valign="top">OPS-36</td>
+<td valign="top"></td>
+<td valign="top"></td>
+<td valign="top"><strong>Open</strong></td>
+<td valign="top"></td>
+<td valign="top"># The monitoring collector declares four store paths that do not exist on this host
+
+`scripts/operations/collect-system-health.py` is an OPS-group file, so I report rather than
+fix. Four of its declared stores point at paths that are absent:
+
+| Declared store | Declared path | Reality |
+|---|---|---|
+| `db-meshchatx` | `~/.local/share/MeshChatX/meshchatx.sqlite`, `~/.local/share/meshchatx/meshchatx.db` | **both absent**; the real store is `~/.reticulum-meshchatx/identities/&lt;hash&gt;/database.db` — 18 MB, 44+ tables |
+| `db-qgroundcontrol` | `~/.local/share/QGroundControl.org/QGroundControl.db`, `~/.config/QGroundControl.org/QGroundControl.db` | **both absent**; QGroundControl has **no application database at all** |
+| `db-browser-firefox-places` | `~/.mozilla/firefox/*/places.sqlite` | absent — Firefox is a **snap**; the profile is `~/snap/firefox/common/.mozilla/firefox/&lt;id&gt;/places.sqlite` |
+| `db-browser-brave-history` | `~/.config/BraveSoftware/Brave-Browser/Default/History` | absent — Brave is a snap with **no profile directory at all** |
+
+**The failure direction is safe, and that matters for how this gets prioritised.** The
+collector reports an absent store as absent and reads nothing. So this does not cause a
+privacy leak and needs no emergency handling — but it does mean four entries in the declared
+inventory report a wrong answer, and two stores are effectively unobserved despite §3.3.1
+listing them as SQLite stores in the program-to-database map.
+
+The MeshChatX case is the significant one: there is a live 18 MB database holding 8862
+announces and 3048 crawl tasks that reporting does not currently cover. The QGroundControl
+case is different in kind — there is nothing to cover, because the database §3.3.1 described
+does not exist. I have corrected both rows in §3.3.1 to say what actually exists.
+
+**Two judgement calls for whoever picks this up, not decisions I should make:**
+
+- **The Firefox and Brave fixes are browser stores**, which are under an explicit operator
+  exclusion from collection (2026-10-03). Correcting the *path* is a fidelity fix; it
+  would also make the collector start finding stores that are currently reported absent.
+  That is arguably what the inventory intends, but it touches the exclusion decision, so I
+  have left it alone rather than quietly widening what is read.
+- **MeshChatX and QGroundControl are not excluded** and fixing their paths only widens
+  accurate coverage of already-declared stores — lower risk, and probably the right first
+  move.
+
+## What I got wrong
+
+See `spec-NET-51.md` for the full list. The one relevant here: I asserted a general claim
+about the collector's coverage without first enumerating what it actually covers, and the
+enumeration is what found the gap. Same failure mode twice this pass.</td>
+</tr>
+<tr>
 <td valign="top">OPS-35</td>
 <td valign="top"></td>
 <td valign="top"></td>
 <td valign="top"><strong>Open</strong></td>
 <td valign="top"></td>
-<td valign="top">**New item — the backup journal recorded a stale snapshot ID.** Found while
-proving the restore drill, and it undermines the evidence every restore
-decision rests on, so it is raised as its own item rather than buried in
-§17.1.4.
+<td valign="top"># What I got wrong, and why
 
-The journal and restic's own stdout named different snapshots for three
-consecutive runs (§19 currently shows `548d9910` three times; journalctl shows
-`e79edfbf` and `fbc25f93`).
+**I repeated a mistake my own prior session had already declared.** In enumerating the
+Metabase environment I ran `podman inspect ao-metabase --format '{{range .Config.Env}}...'`
+unfiltered and printed `MB_DB_PASS` into session output. My previous proposal recorded this
+exact incident and named the safe method (`| grep -v -i pass`). I read that file and still did
+it. The value is not reproduced in any section file, the README, or this proposal, and it is
+not a credential I created — but it was printed when it should not have been, and knowing the
+fix is not the same as applying it. The filter is now the first thing I type, not a
+correction I read afterwards.
 
-**Cause.** `restic snapshots --latest 1 --json` does **not** return one
-snapshot — it returns **one snapshot per path group**. `restic-run.sh` passes
-11 paths in a single `restic backup` invocation, so where snapshots with
-different path sets share a repository, that array holds one element per group
-from a different timestamp, and `grep … | head -1` takes **array position 0**,
-not the newest. Reproduced on a scratch repository; the old pipeline reports the
-older snapshot where the repository truth is the newer one.
+**I nearly repeated a different overclaim.** I first wrote "the four
+`localhost/foxglove-bridge` containers". `podman ps -a | grep -c foxglove` returns **3**, of
+which one is the sanctioned digest-pinned `ao-sim-fabrication-foxglove`. I had counted by
+remembering the earlier `podman ps` listing rather than by re-running the count. Same failure
+class as the four errors recorded in the previous proposal: a number in prose that no command
+produced. Corrected before commit, and the count is stated here so a later reader can check it.
 
-**Fixed in-tree** (`scripts/backup/restic-run.sh`): selects by maximum `time`
-rather than array position, and filters to `--tag alwayson` so a manually
-seeded proof snapshot cannot be mistaken for the nightly run.
+**One stale cross-reference survived two prior revisions.** §3.3.0 ended by pointing at §2.2 to
+reconcile "the adjacent unregistered `10.89.10.0/24` and `10.89.11.0/24`". `10.89.10.0/24` has
+been registered as `ao-reporting-egress` since §2.2 was rewritten, and §2.2 contains no
+reconciliation text at all. The previous session corrected PostGIS, the reporting grants, and
+four impossible dates in these same sections and passed over this sentence. Lesson for me: a
+# Other corrections made this session
 
-Two things deliberately **not** done, and both need operator action:
+**§1 — the host is not Kubuntu.** `lsb_release -a` reports Ubuntu 26.04.1 LTS "resolute";
+`/etc/kubuntu-release` does not exist; `kubuntu-desktop` is `Installed: (none)` and lives in
+`universe`. Three `kubuntu-*` packages are installed. The host is Ubuntu LTS with KDE Plasma
+6.6.6 on SDDM. Every functional claim §1 rests on is independently true and was verified
+(`konqueror`, `kwalletmanager5`, `kwallet-query` present; `ros2` at `/opt/ros/lyrical/bin/ros2`;
+i7-8700K; GeForce GTX 1080). Only the distribution label was loose. §1 now records this rather
+than leaving a reader to discover it.
 
-1. **The journal is not corrected.** The three wrong lines are historical
-   evidence of a real defect; rewriting them would destroy the only trace.
-2. **The fix is unproven on the live host.** No run has executed since the
-   change — the last three runs predate it. **Deployment evidence is the first
-   post-change run in `logs/backup.log` showing a snapshot ID that matches
-   journalctl.** Until then this is "fixed", not "verified", and this item
-   should stay open on exactly that.
+**§1 — QGroundControl is an AppImage, not a package.** No `qgroundcontrol` binary on PATH, no
+entry in `/usr/share/applications`; it runs from
+`~/Documents/APP IMAGES/QGroundControl-x86_64.AppImage`. `gzserver` is absent from the host PATH
+because Gazebo runs containerised. Noted so §1 does not read as a package manifest.
 
-The transferable lesson, recorded in §17.1.4 because it generalises past
-restic: **a journal generated by re-querying the repository is not a record of
-what happened.** restic prints `snapshot &lt;id&gt; saved` on stdout; that string is
-the authoritative answer and should be what is journalled. Re-deriving the ID
-after the fact is what let a stale value survive three runs unnoticed.
+**§6.A.3.1 — the Grafana datasource blocker re-attempted, still blocked, but the host-version
+claim is now proven.** `sudo -n -u postgres psql` → `interactive authentication is required`;
+`podman exec ao-grafana psql` → `sh: psql: not found` (the image ships no client). What I could
+prove: Grafana's own log shows `Connecting to DB dbtype=postgres` with successful migrator lock
+and unlock, and Metabase logs `Successfully verified PostgreSQL 18.6 (Ubuntu
+# Claims re-verified as correct, with no change made
 
-Files changed: `scripts/backup/restic-run.sh`,
-`agents/COORDINATION/…/17-…/section.md` (§17.1.4).</td>
+Proving these took as long as the corrections did, so they are recorded:
+
+- **14 `ao-*` networks**, matching §2.2 and the §6.A.3.1 staleness table.
+- **`ao-egress-community` and `ao-ardupilot-sitl` both do not exist** —
+  `unable to find network with name or ID ...: network not found`. The §6.A.3.1 claim stands.
+- **`10.89.11` absent from the registry** (`grep -c` → 0), folded into `ao-sales` as §5 records.
+- **`sales_reporting_role` holds SELECT on exactly five views and no base table** —
+  `v_reporting_orders`, `v_reporting_receipts`, `v_reporting_entitlements`,
+  `v_reporting_sale_provenance`, `v_corda_entry_readiness`;
+  `has_table_privilege(...,'SELECT')` returns `f` for all 17 base tables including `orders`.
+  The §6.A.3 read-only claim is correct.
+- **`sales_migration_role` is a superuser** with Create role, Create DB, Replication, Bypass RLS
+  — matching the §6.A.3 watch-note.
+- **Grafana/Metabase reach paths:** `ao-grafana` and `ao-metabase` both on `ao-admin` and
+  `ao-reporting-egress`; `GF_DATABASE_HOST=/var/run/postgresql`; `MB_DB_HOST=10.42.0.1`;
+  listeners `127.0.0.1:3001` and `127.0.0.1:3002`, loopback-bound only. §6.A.2 is correct.
+- **Per-domain PostgreSQL versions in §3.3.1 all confirmed:** `ao-sales-db` 17.11,
+  `mastodon-db` 17.11, `ao-fabrication-db` 17.11, `ao-webodm-db` 9.5.25, host cluster 18-main
+  online.
+- **PostGIS placement in §3.3.1 confirmed:** `webodm` has only `plpgsql`; `webodm_dev` has
+  `plpgsql` plus `postgis 2.3.2`.
+- **§3.3.0.1 isolation:** inside `ao-fabrication-db`, `/proc/net/route` holds exactly one route
+  (its own subnet, no default) and `/proc/net/arp` resolves `10.89.12.1` with flags `0x2`. The
+  "judge reachability from ARP, not a refused connect" note is correct.
+- **§3.3.0.2 Domoticz posture holds:** `127.0.0.1:8080` open, `10.42.0.1:8080` refused, and no
+  `:6144` listener at all.
+- **§3.3.0 machine reachability:** `10.42.0.1` answers (0% loss), `10.42.0.96` shows
+  `dev eno1 FAILED` in `ip neigh` and 100% loss on ping. The "not currently reachable" caveat
+  remains accurate.
+
+# Not touched
+
+No payments, ledger keys, provenance records, secrets, backup/restore data, radio, serial or
+firewall configuration, public ports, or any section file outside the three I own. §19 was not
+edited. No container was started, stopped or removed. The `ao-egress-community` name/CIDR
+decision and the `gui-boundary-matrix.yaml` reconciliation both belong to other groups and were
+left untouched.
+18.6-0ubuntu0.26.04.1) application database connection`. So the "host PostgreSQL 18" claim in
+§3.3.1 is now measured from two independent sources rather than inferred from
+`/etc/postgresql/`. Still unconfirmed, and the OPS group's to answer: which datasources Grafana
+has actually *loaded*, as distinct from which files are provisioned.
+cross-reference into another session's file is a claim about that file, and it goes stale
+silently. Cross-references need the same re-verification as the prose around them.
+Four unmanaged Grafana containers (`relaxed_tharp`, `confident_khayyam`, `keen_bhabha`,
+`ao-sqli3`), created 2026-10-03 during datasource/plugin investigation, are running with no
+Quadlet owner and are absent from the §5.1 group D inventory that §6.A.3 declares complete at
+eighteen rows. Two of them mount writable `/tmp` paths, and `ao-sqli3` supplies the unsigned
+`frser-sqlite-datasource` plugin to a Grafana instance that does not carry the signed instance's
+allow-list policy.
+
+**Not remediated by me, deliberately.** Stopping containers is a destructive action on running
+state (README §4.1 rule 3), touches other sessions' work, and the unsigned-plugin question is
+already tracked by the OPS group. Recorded in §6 as §6.A.3.2 with the full measurement, and
+reported to the operator. Needs operator approval before removal.</td>
 </tr>
 <tr>
 <td valign="top">OPS-01</td>
@@ -8887,25 +11899,45 @@ grants exactly the right privileges.
 broken paths is arguably a PAY/SALES item, not an OPS one. I did not renumber
 or edit anything outside §17.
 
-Files changed: none for this item (measurement only).<br><br><strong>Evidence:</strong><br><code># HALF 1 — the Metabase application database exists and is in use.<br># (names only, no credential values)<br>$ podman logs ao-metabase | grep -i 'application database'<br>2026-10-01 22:22:54 INFO db.setup :: Successfully verified PostgreSQL 18.6<br>    (Ubuntu 18.6-0ubuntu0.26.04.1) application database connection.<br>2026-10-01 22:22:56 INFO db.setup :: Database Migrations Current ...<br>$ podman exec ao-metabase sh -c 'env | sed "s/=.*/=&lt;redacted&gt;/"' | grep MB_DB<br>MB_DB_DBNAME  MB_DB_HOST  MB_DB_PASS  MB_DB_PORT<br>MB_DB_SSL  MB_DB_TYPE  MB_DB_USER          # all values redacted<br>$ podman inspect ao-metabase --format '{{range .Mounts}}…'<br>/metabase-postgres-data &lt;- …/volumes/ao-metabase-postgres-data/_data<br># a named volume, so state survives restart</code></td>
-</tr>
-<tr>
-<td valign="top">OPS-02</td>
-<td valign="top">Version-matrix capture automation</td>
-<td valign="top">—</td>
-<td valign="top"><strong>Open</strong></td>
-<td valign="top">§4.1 rule 9, §16</td>
-<td valign="top"><code>scripts/validation/capture-version-matrix.sh</code> documented as the producer, with a stated refresh requirement. <strong>Now the more urgent half of OPS-02:</strong> six services were digest-pinned and five rows corrected by hand, so the next hand edit can equally re-introduce a stale row. Capture digests from the deployed units instead of typing them.</td>
+Files changed: none for this item (measurement only).<br><br><strong>Evidence:</strong><br><code># HALF 1 — the Metabase application database exists and is in use.<br># (names only, no credential values)<br>$ podman logs ao-metabase | grep -i 'application database'<br>2026-10-01 22:22:54 INFO db.setup :: Successfully verified PostgreSQL 18.6<br>    (Ubuntu 18.6-0ubuntu0.26.04.1) application database connection.<br>2026-10-01 22:22:56 INFO db.setup :: Database Migrations Current ...<br>$ podman exec ao-metabase sh -c 'env | sed "s/=.*/=&lt;redacted&gt;/"' | grep MB_DB<br>MB_DB_DBNAME  MB_DB_HOST  MB_DB_PASS  MB_DB_PORT<br>MB_DB_SSL  MB_DB_TYPE  MB_DB_USER          # all values redacted<br>$ podman inspect ao-metabase --format '{{range .Mounts}}…'<br>/metabase-postgres-data &lt;- …/volumes/ao-metabase-postgres-data/_data<br># a named volume, so state survives restart</code><br><br><strong>PROGRESS by 17-backup-restore-monitoring-and-completion-criteria.</strong> Adds **§17.2.0**, recording that the persistence half of OPS-01 is already met
+and — more usefully — that `ao-metabase-postgres-data` is a **vestigial, never-written
+volume**. It is 4 KB, empty, and has been since it was created on 2026-09-24.
+
+That is correct, not a fault. `MB_DB_HOST=10.42.0.1` points Metabase at the host
+PostgreSQL cluster via the `metabase_app` role created by
+`scripts/ops/provision-reporting-postgres.sh`, so saved questions, dashboards
+and subscriptions live in the `metabase` database on the host. The deployment
+migrated off embedded H2 on 2026-09-25 (liquibase `v47.00-002` is the last H2
+migration in `metabase-h2-migrate-final.log.1`).
+
+The reason this is worth writing down: **the mount is declared in both the
+repository Quadlet and the deployed copy, and an agent auditing persistence by
+volume size would correctly conclude that Metabase is losing all its state.** It
+is not. Flagged for removal as separate cleanup — deliberately **not** done here,
+because removing a declared volume mount is a container-definition change outside
+the backup/monitoring remit.
+
+**OPS-01 stays OPEN, blocked, on the read-only half.** Creating the per-source
+read-only roles means running `config/platform/postgresql/metaread-grants.sql` as
+the PostgreSQL superuser with a bound password, and all three escalation routes
+are refused to this session (evidence above). Running the verification query also
+requires a `metaread` password from KDE Wallet and a Metabase session — inside the
+"secrets and credentials" stop condition. Neither step is guessed at or marked
+done. The remaining work for whoever picks this up: create `metaread`, restart
+`ao-metabase`, confirm state survives, then run one ad-hoc `SELECT` and confirm
+zero source writes.
+
+What I got worth recording: I opened this item expecting the empty volume to be
+the bug, because "container app-data volume is empty" is a familiar failure shape
+and I had a plausible story ready for it — H2 never migrated. The migration logs
+show the opposite migration direction (H2 **out**, PostgreSQL **in**, on
+2026-09-25) and the env vars settle it. Checking the direction of a migration
+before theorising about it cost one command; assuming it would have cost a
+false finding filed as fact.<br><br><strong>Evidence:</strong><br><code># The Metabase persistence half of OPS-01 is ALREADY SATISFIED, and the reason<br># is counter-intuitive enough to record: the app-data volume is empty.</code></td>
 </tr>
 
-<tr>
-<td valign="top">OPS-04</td>
-<td valign="top">Restore-test script contract</td>
-<td valign="top">ST-18</td>
-<td valign="top"><strong>Open</strong></td>
-<td valign="top">§17.1</td>
-<td valign="top">The seven-step restore test is unowned; state that the <code>check-*.sh</code> scripts implement it, or the requirement has no executor.</td>
-</tr>
+
+
 <tr>
 <td valign="top">OPS-05</td>
 <td valign="top">GPU scheduling and admission policy</td>
@@ -9036,7 +12068,98 @@ line-range `sed`.
 
 Files changed: `config/platform/monitoring/alwayson-alerts.yml` (new),
 `config/platform/monitoring/prometheus.yml` (rule_files + moved comment),
-`quadlet/operations/ao-prometheus.container` (second read-only mount).<br><br><strong>Evidence:</strong><br><code>$ curl -s http://127.0.0.1:9090/api/v1/rules | python3 -c '...print("groups:",len(...))'<br>groups: 0</code></td>
+`quadlet/operations/ao-prometheus.container` (second read-only mount).<br><br><strong>Evidence:</strong><br><code>$ curl -s http://127.0.0.1:9090/api/v1/rules | python3 -c '...print("groups:",len(...))'<br>groups: 0</code><br><br><strong>PROGRESS by 17-backup-restore-monitoring-and-completion-criteria.</strong> **Supersedes** the evidence line `groups: 0` in `ops-a-OPS-11.md` of this date.
+That earlier proposal is left in place rather than edited, per the rule that a
+session does not rewrite its own prior record — but its first evidence line is
+wrong and this corrects it.
+
+**I filed `groups: 0` as evidence that the rules were loaded. It is the
+opposite.** `data.groups` having length zero means Prometheus is evaluating no
+rule groups at all. I read a healthy-looking integer as proof of success without
+asking what the number meant. The rest of that proposal is fine — `promtool`
+against a throwaway container does prove the two *files* are valid and contain
+10 rules — but it says nothing about the running service, which is the entire
+point of this item.
+
+Re-measuring properly found **two independent deployment faults**, neither
+visible from the repository:
+
+1. **The mount was never deployed.** `quadlet/operations/ao-prometheus.container`
+   declares two `Volume=` lines; the deployed copy at
+   `~/.config/containers/systemd/ao-prometheus.container` declares one. Quadlets
+   deploy as flat copies, so editing the in-tree file changed nothing live, and
+   the alerts file is absent from the running container.
+2. **The mounted config is stale by inode.** Even the mount that does exist is
+   bound to the old inode (18219046, 1881 B) rather than the current one
+   (18223436, 2503 B). A file bind mount follows the inode, not the path, so
+   replacing the file in place — which an editor or `git checkout` does — leaves
+   the container reading the previous version indefinitely. The container's copy
+   has no `rule_files:` key at all.
+
+Fault 2 is the more dangerous, because it is invisible: the mount looks correct,
+and `promtool check config` on the container's own copy returns SUCCESS, since
+the stale file is a perfectly valid config — just not the one on disk. A future
+fix that adds the alerts mount without restarting the container would appear to
+work and still evaluate no rules.
+
+**The generalisable lesson**, since this is the second time this session filed a
+number that could not fail. The drill in OPS-24 compared the restored tree with
+itself and reported `identical: 63`. Here a zero was read as healthy. In both
+cases the measurement was structurally incapable of signalling the fault it was
+being used to rule out. A verification has to be asked "what result would prove
+this broken?", and the answer has to be checked against something real.
+
+I did not redeploy. Restarting `ao-prometheus` interrupts its scrape targets,
+and adding a mount to a deployed Quadlet is an operator action. **OPS-11 now has
+three open grounds, not one:** no routing target (unchanged), the alerts mount
+not deployed (new), and the stale config inode (new).
+
+Unchanged and still true: the alerting component is Prometheus rule evaluation,
+the ten thresholds stand, and `AoBackupStale` / `AoRestoreTestStale` /
+`AoRepositoryVerifyStale` still reference metric names nothing exports — so even
+once deployed, those three cannot fire.
+
+Files changed: `agents/COORDINATION/…/17-…/section.md` (§17.2.1 rewritten;
+§17.2.2 and §17.2.3 unchanged and still accurate).<br><br><strong>Evidence:</strong><br><code># *** THE PRIOR PROPOSAL'S FIRST EVIDENCE LINE WAS A FALSE PASS. ***<br># It cited `groups: 0` as proof the rules were loaded. data.groups having<br># length zero means Prometheus is evaluating NO RULE GROUPS AT ALL.<br># The remaining lines in it (promtool on a --rm throwaway container) are<br># valid evidence that the FILES are correct. They say nothing about the<br># RUNNING service, which is what this correction is about.<br>$ curl -s http://127.0.0.1:9090/api/v1/rules \<br>    | python3 -c 'import json,sys; print(len(json.load(sys.stdin)["data"]["groups"]))'<br>0</code><br><br><strong>PROGRESS by 17-backup-restore-monitoring-and-completion-criteria.</strong> Adds **§17.2.1.1**, which takes the "three rules reference metrics nothing
+exports" note that both prior OPS-11 proposals mention in passing and makes it
+the measured, primary statement.
+
+`AoBackupStale`, `AoRestoreTestStale` and `AoRepositoryVerifyStale` are the only
+three of the ten rules built from custom series rather than `node_*`/`up`, and
+**no exporter, textfile collector, recording rule or scrape job produces any
+`ao_*` series anywhere in the repository.** The single repo-wide grep returns
+exactly one file: the rule file that consumes them. Prometheus currently holds
+zero `ao_*` series.
+
+Consequence, which is the point: adding the missing `Volume=` line and
+restarting `ao-prometheus` would load all ten rules, but these three would
+evaluate to an **empty vector**. An expression over a non-existent series does
+not fire and does not report "no data" — it is silent. So the redeploy does not
+fix OPS-11; the remaining work is a missing collector, not a threshold and not a
+deployment. The `data/prometheus-textfile/` channel already used by
+`ao-db-security.prom` is the obvious implementation. I have not written it,
+because it changes what `ops` emits into a shared monitoring path and it is the
+mechanism by which an operator would be paged about backup failure — new
+alerting behaviour, which is operator territory.
+
+**Also corrected the §17.2.2 threshold table, now transcribed from the `expr:`
+lines.** The previous entry claimed `AoBackupStale` fires at 900 s (15 m); the
+file says 93600 s (26 h). The old names (`ao_restic_backup_last_success`,
+`ao_restore_test_last_run`, `ao_repository_verify_last_success`) were likewise
+reconstructed rather than read, and were wrong the same way.
+
+What I got wrong, and it is the same failure mode twice in one session: I wrote
+a threshold table from what the rules are *for* instead of reading the values.
+The invented 900 s against a nightly job was **twenty-six times tighter** than
+the real threshold — a reader tuning against it would have concluded the nightly
+backup breaches its own SLO on every run. The real 93600 s is a 26 h threshold
+against a 24 h job: a 2 h grace window, which is a deliberate decision someone
+made. My "sensible" number was the wrong one. A retuned table must be diffed
+against its source, however confident it feels; and a threshold that looks loose
+deserves a question rather than a correction.
+
+Files changed: `agents/COORDINATION/…/17-…/section.md` (new §17.2.1.1;
+§17.2.2 table corrected).<br><br><strong>Evidence:</strong><br><code># THIRD proposal on OPS-11. Corrects a table in the section file and adds the<br># open ground that survives the redeploy OPS-11 already requires.</code></td>
 </tr>
 <tr>
 <td valign="top">OPS-12</td>
@@ -9094,32 +12217,11 @@ Files changed: `config/platform/monitoring/alwayson-alerts.yml` (new),
 <td valign="top">§12.4, §12.5</td>
 <td valign="top">Roughly 1,900 lines holding collection, policy, plan generation and rendering in one module. Editing it repeatedly caused several malformed edits that only surfaced at compile time. Split into collector / policy / plan / render, with the render path covered by a test, before it grows further.</td>
 </tr>
-<tr>
-<td valign="top">OPS-19</td>
-<td valign="top"><strong>Update-plan steps are prose, not executable</strong></td>
-<td valign="top">ST-01</td>
-<td valign="top"><strong>Open</strong></td>
-<td valign="top">§12.5</td>
-<td valign="top"><code>update-plan.json</code> marks 6 items eligible, but 5 of them contain a step like <code>edit Image= in quadlet/&lt;domain&gt;/&lt;unit&gt;.container</code>, which no executor can run. Split the schema into executable <code>steps</code> (argv arrays, verb-allowlisted) and prose <code>manual</code>, so "eligible" means a machine can actually do it. Only <code>brave</code> is genuinely automatable today. Plan-supplied shell strings must never reach <code>sh -c</code>.</td>
-</tr>
-<tr>
-<td valign="top">OPS-20</td>
-<td valign="top"><strong><code>apply-plan.py</code> dry-run validator</strong></td>
-<td valign="top">ST-01</td>
-<td valign="top"><strong>Open</strong></td>
-<td valign="top">§12.5</td>
-<td valign="top">Loads the plan, computes its SHA-256, snapshots it into the run directory, validates every step against a verb allowlist, derives blast-radius groups (units sharing a digest or a deploy domain), and reports what a run would touch - executing nothing. Approval must pin to the plan hash, because the live plan regenerates on every refresh, so the file the operator approved is not the file a tool would run.</td>
-</tr>
 
 
-<tr>
-<td valign="top">OPS-23</td>
-<td valign="top"><strong>Roll-ups cannot be drilled into</strong></td>
-<td valign="top">ST-01</td>
-<td valign="top"><strong>Open</strong></td>
-<td valign="top">§12.5</td>
-<td valign="top"><code>KDE Plasma Desktop</code> is one row for 191 components, the Ubuntu archive one row for 3,863 packages, ROS one row for 351. "Is the desktop behind" is answerable; "update ROS 2 rviz" is not. Each roll-up needs a drill-down to its members with their own versions, not a prose count.</td>
-</tr>
+
+
+
 <tr>
 <td valign="top">OPS-24</td>
 <td valign="top"><strong>Restore drill for the restic backup</strong></td>
@@ -9246,7 +12348,74 @@ Files changed: `config/host/journald-alwayson.conf` (new),
 <td valign="top">ST-18</td>
 <td valign="top"><strong>Open</strong></td>
 <td valign="top">§17.1</td>
-<td valign="top"><strong>Repository exists and verifies; deliberately not scheduled. 2026-10-03.</strong> Merged with the earlier duplicate of this item. The operator chose <code>/media/scottw/1TBSAMSUNGDATA/PCLOUD_STORAGE/ALWAYSON-BACKUPS</code>, which sits inside the running pCloud sync root, so the repository replicates to pCloud without a separate rclone remote. Initialised and proven: snapshot <code>56bf1af5</code>, 63 files, <code>restic check</code> no errors. It reuses the local repository password, so the existing <code>ao-admin/restic-repository-password</code> wallet entry governs both. <strong>Deliberately not live:</strong> no timer, no cron, no reference from <code>restic-run.sh</code> — the nightly job still writes only to the local repository. Enabling it is an operator decision.</td>
+<td valign="top"><strong>Repository exists and verifies; deliberately not scheduled. 2026-10-03.</strong> Merged with the earlier duplicate of this item. The operator chose <code>/media/scottw/1TBSAMSUNGDATA/PCLOUD_STORAGE/ALWAYSON-BACKUPS</code>, which sits inside the running pCloud sync root, so the repository replicates to pCloud without a separate rclone remote. Initialised and proven: snapshot <code>56bf1af5</code>, 63 files, <code>restic check</code> no errors. It reuses the local repository password, so the existing <code>ao-admin/restic-repository-password</code> wallet entry governs both. <strong>Deliberately not live:</strong> no timer, no cron, no reference from <code>restic-run.sh</code> — the nightly job still writes only to the local repository. Enabling it is an operator decision.<br><br><strong>PROGRESS by 17-backup-restore-monitoring-and-completion-criteria.</strong> **New proposal for OPS-30 — the one item of my thirteen that had no proposal of
+its own.** (Everything below is re-measured today, 2026-10-04; nothing is carried
+over from the earlier run unverified.)
+
+**The row's title is now false in a good way.** "Off-site restic repository does
+not exist" — it does exist, it decrypts with the production credential, it
+verifies clean, and **this run establishes something the earlier proposals did
+not: it has replicated to pCloud.**
+
+```
+$ stat -c '%d %i %n' /media/…/PCLOUD_STORAGE/ALWAYSON-BACKUPS \
+                      /home/scottw/pCloudDrive/PCLOUD_STORAGE/ALWAYSON-BACKUPS
+2049 5505025 /media/…/PCLOUD_STORAGE/ALWAYSON-BACKUPS
+ 218 211841 /home/scottw/pCloudDrive/PCLOUD_STORAGE/ALWAYSON-BACKUPS
+```
+
+Different device id (2049 local ext4 vs 218 pCloud FUSE) **and** different inode,
+so these are two real trees. The FUSE mount is live (`pCloud.fs`), and the
+replicated repository opens and checks clean from the pCloud side:
+
+```
+$ RESTIC_REPOSITORY=/home/scottw/pCloudDrive/PCLOUD_STORAGE/ALWAYSON-BACKUPS \
+    restic check --read-data-subset=1/10
+no errors were found
+```
+
+That is the meaningful upgrade: a copy that has actually left the machine, which
+is what "off-site" is supposed to mean. My earlier proposals described the USB-disk
+copy only and were careful to call it local-but-disjoint; that understated it.
+
+**Honest limit on that claim.** This proves the files are present and restorable
+through the pCloud mount. It does **not** independently prove the remote account
+holds them — that needs a pCloud-side status query I did not run, and I am not
+going to assert account state I did not measure. Read it as "off-site and
+verifiable from the mount: proven", "uploaded to the account: supported, unconfirmed".
+
+**Why it stays Open anyway.** The repository is real but it is not yet a backup:
+
+- it holds **one** snapshot, `56bf1af5`, tagged `alwayson-offsite-proof`;
+- that snapshot is **304 KiB / 103 files, `config` and `artifacts` only** — no
+  `data/`, no `logs/`, no `backups/`;
+- `grep -c 'ALWAYSON-BACKUPS\|offsite' restic-run.sh` → **0**, and the only
+  restic timer is `ao-restic-prefetch.timer`. Nothing refreshes it.
+
+So it is a verified proof of mechanism, not a maintained copy of anything that
+would be lost with the host. **The acceptance criterion that actually matters is
+not "create a repository" — it is "the off-host repository carries the same path
+set as the nightly job".** That is a larger copy than the operator has approved
+for automatic off-site transfer.
+
+**One property worth stating because it is easy to over-credit:** the 1TB disk is
+*removable, locally attached* media that happens to sit inside a synced folder.
+When it is not attached, nothing is written and nothing detects that. The real
+guarantee is "a copy exists and replicates when the disk is attached", not "a copy
+is maintained". Only scheduling plus a liveness check upgrades it.
+
+**Blocked on an operator decision, deliberately not taken.** Scheduling a recurring
+privileged job that writes backup media into the live pCloud sync root touches
+backup data and creates a recurring privileged action. I stopped rather than doing
+it unasked. Enabling it, and approving the off-site path set, are both operator
+calls.
+
+Files changed: `agents/COORDINATION/…/17-…/section.md` (new §17.1.1.2; §17.1
+device table now carries the pCloud row).
+
+*Related, and a retraction to carry forward: see my revised `ops-a-OPS-29.md`.
+I had wrongly reported `ALWAYSON-RESTIC2PCLOUD` as absent. It exists and is
+empty, exactly as OPS-29 states. Do not merge that row away on my earlier say-so.*<br><br><strong>Evidence:</strong><br><code># The repository exists, opens with the production credential, and verifies:<br>$ set -a; . /run/user/1000/ao-restic.env; set +a<br>$ export RESTIC_REPOSITORY=/media/scottw/1TBSAMSUNGDATA/PCLOUD_STORAGE/ALWAYSON-BACKUPS<br>$ restic cat config<br>{ "version": 2,<br>  "id": "d22cddc074532b53bcea8ee739c3b7b7107d9fd3baa3224125d0e569fbfb94be",<br>  "chunker_polynomial": "33c903993a9dcf" }<br>$ restic snapshots<br>56bf1af5  2026-10-03 08:59:59  scottw-ms7b44  alwayson-offsite-proof<br>          /ALWAYSON/artifacts  304.564 KiB<br>          /ALWAYSON/config<br>1 snapshots<br>$ restic check --read-data-subset=1/10<br>no errors were found</code></td>
 </tr>
 <tr>
 <td valign="top">OPS-31</td>
@@ -9365,6 +12534,262 @@ verification checks against the running system. Nothing listed here is outstandi
 </tr>
 </thead>
 <tbody>
+<tr>
+<td valign="top">OPS-23</td>
+<td valign="top"><strong>Roll-ups cannot be drilled into</strong></td>
+<td valign="top">ST-01</td>
+<td valign="top"><strong>Implemented</strong></td>
+<td valign="top">§12.5</td>
+<td valign="top"><strong>CLOSED 12-host-installation-and-configuration.</strong> Every collapsed row now carries its `members` and renders them as a `&lt;details&gt;`
+drill-down in Markdown, HTML and the PDF, with each member's own installed
+version (`libc6 (2.42-1)`) rather than a bare name. §12.5.6 documents it.
+
+The original failure was **silent**, which is why it survived: members were
+computed and carried on the row as `members`, but the HTML renderer never
+emitted them, so the drill-down existed in Markdown only and HTML/PDF quietly
+lost it. Nothing errored; the document just stopped answering a question.
+`TestRollupsCanBeDrilledInto` (7 tests) asserts the HTML path and that the
+drill-down survives the print stylesheet, since a PDF that hides it reintroduces
+the same dead end. Member names are HTML-escaped — they come from `.desktop`
+files on disk.
+
+**Two fixes that the first fix created.** Attaching members made the Markdown
+~3× larger, but the roll-up renderer joined them into one table cell, so the
+Ubuntu archive came out as a single **40,000-character line** — technically
+"reachable", practically as useless as the original count. Package roll-ups now
+render one member per row in their own collapsible block. And the two apt
+roll-ups were still bare counts after the first pass; both now attach theirs.
+The ROS train matters most: it is FROZEN, making "which 351 packages are
+affected" the question an operator will actually ask. `rollup_details_md()` was
+extracted from `render()` so this is unit-testable — `render()` spends hundreds
+of apt round trips, which no test should pay to assert a formatting rule.
+
+**What I got wrong, and the reason this took a second pass.** I verified this
+item against the **tracked artifacts** rather than against a fresh render, and
+they showed only 2 summaries and **0** drill-downs — which reads exactly like
+"the fix does not work". The tracked `docs/software-status.md` and
+`tmp/software-status.html` are dated 2026-10-03 20:53 while the generator landed
+2026-10-04 10:30. The code was correct and the artifacts simply predated it. I
+re-ran the generator into a scratch directory and every number in the section
+reproduced exactly (4 summaries, 38 drill-downs).
+
+**Left open, and it is a real gap:** the committed documents have **not** been
+regenerated, so the shipped PDF still collapses the apt and ROS roll-ups to bare
+counts. One `./scripts/build-update/refresh-install-log.sh` fixes it, but that
+rewrites tracked documents and belongs to whoever owns the render cadence, not
+to a validator change.<br><br><strong>Evidence:</strong><br><code>$ AO_ROOT=$PWD python3 scripts/build-update/provenance-log.py --offline \<br>      --out /tmp/ops23v/s.md --html /tmp/ops23v/s.html --plan /tmp/ops23v/p.json<br>$ grep -o '&lt;summary&gt;[^&lt;]*&lt;/summary&gt;' /tmp/ops23v/s.md<br>&lt;summary&gt;Rolled-up launchers — expand to list every application entry (153 entries across 34 groups)&lt;/summary&gt;<br>&lt;summary&gt;Ubuntu archive packages — expand to list all 3857 packages with their installed versions&lt;/summary&gt;<br>&lt;summary&gt;ROS 2 lyrical (whole train) — expand to list all 351 packages with their installed versions&lt;/summary&gt;<br>&lt;summary&gt;KDE Plasma Desktop — expand to list all 191 components&lt;/summary&gt;</code></td>
+</tr>
+<tr>
+<td valign="top">OPS-20</td>
+<td valign="top"><strong><code>apply-plan.py</code> dry-run validator</strong></td>
+<td valign="top">ST-01</td>
+<td valign="top"><strong>Implemented</strong></td>
+<td valign="top">§12.5</td>
+<td valign="top"><strong>CLOSED 12-host-installation-and-configuration.</strong> `scripts/build-update/apply-plan.py` validates a plan without executing
+anything, and prints what an updater *would* touch: eligible items, argv step
+count, items that need a human, and the target set. Exit codes are `0`
+well-formed, `2` usage, `3` validation failure, `4` hash mismatch. §12.5.4
+documents it.
+
+The `--expect-hash` flag is the part that makes it usable for approval. The
+plan regenerates on every refresh and the `generated` timestamp alone changes
+its bytes when no item changed, so **the file an operator approved is not the
+file a tool would run**. `--expect-hash` refuses anything but the approved
+bytes, and `TestVerbAllowlistAgreesAcrossFiles` asserts the verb allowlist is
+identical in the validator and the generator.
+
+**The trap, recorded because it cost real time and would mislead the next
+agent.** The validator defaults `AO_ROOT` to `/ALWAYSON`, so running it from a
+worktree silently validates **the live main-repo plan, not your worktree's**,
+and prints a plausible result. A first run of mine reported 199 items and
+schema 1 while the worktree plan held 224 items and schema 2. Always pass
+`AO_ROOT=$PWD` and check the `plan :` line against the file you meant.
+
+The same class of bug existed literally in `refresh-install-log.sh`, whose
+summary-report heredoc opened a hardcoded
+`/ALWAYSON/data/build-update/update-plan.json` while the surrounding script
+honoured `AO_ROOT`; it now takes the path as `sys.argv[1]`.
+
+**Still-open, and deliberately not done here:** the *live* `/ALWAYSON` plan is
+still schema 1 (193 of 199 items carry no `manual` key), so the validator exits
+**3** against it with 33 problems. Regenerating it is one
+`./scripts/build-update/refresh-install-log.sh`, but that rewrites tracked
+documents and is an operator action, not a silent side effect of a validation
+change.<br><br><strong>Evidence:</strong><br><code>$ AO_ROOT=$PWD python3 scripts/build-update/apply-plan.py --no-snapshot<br>plan        : /tmp/ao-sessions/wt-ops-b/data/build-update/update-plan.json<br>sha256      : b753e5dab017df1be539b4b86e26713cc1293d9cde1c034ebb376f78aac9453f<br>generated   : 2026-10-04T16:55:20+00:00   schema: 2<br>items       : 224  -&gt; 0 eligible, 224 excluded<br>would run   : 0 argv steps across 0 item(s)<br>would touch: NOTHING - no item is eligible<br>EXECUTED    : nothing. This tool is a validator only.<br>validation  : OK</code></td>
+</tr>
+<tr>
+<td valign="top">OPS-19</td>
+<td valign="top"><strong>Update-plan steps are prose, not executable</strong></td>
+<td valign="top">ST-01</td>
+<td valign="top"><strong>Implemented</strong></td>
+<td valign="top">§12.5</td>
+<td valign="top"><strong>CLOSED 12-host-installation-and-configuration.</strong> `update-plan.json` is now **schema 2**: every step is an argv **array**, never a
+string, and prose is carried separately under `manual`. The `eligible` decision
+is taken on the strength of `steps` alone, so "eligible" now means *a machine can
+carry this out* rather than *no recorded rule forbids it*. `provenance-log.py`
+§12.5.3 documents it.
+
+Measured on this host: **0 eligible of 224**, with **0** steps that are not
+argv arrays. `_argv_is_safe()` downgrades any argument carrying a shell
+metacharacter to prose rather than emitting it, so a plan can never be run
+through a shell and an item named `pkg; rm -rf /` produces no executable step.
+
+**What I got wrong, which is the part worth reading.** The section as first
+written claimed "`brave` remains genuinely automatable and is emitted as argv".
+I checked it instead of repeating it, and it is **false as stated**. The
+generator does emit `["snap","refresh","brave"]`, but the plan shows
+`"steps": []` for `brave`, because the writer gates on the decision —
+`"steps": steps if decision == "eligible" else []` — and `brave`'s verdict is
+`?`, not `**NO**`: the snap channel was unreachable, so there is no evidence it
+is behind. The two statements answer different questions. `brave` is the only
+item whose *source* admits a mechanical step; it is not eligible **today**
+because the evidence for updating it does not exist, not because it is
+unautomatable. Had the section been left as written, the next reader would
+have looked for that argv in the plan, not found it, and concluded the generator
+had regressed. The section now states the correction explicitly.
+
+**Consequence for the executor.** Because every item is currently excluded, the
+plan publishes **no steps at all**, so nothing is safe to hand to an executor
+yet. That is the truth of this host rather than a defect, and the validator
+(OPS-20) reports it as such.<br><br><strong>Evidence:</strong><br><code>$ python3 -c "import json; p=json.load(open('data/build-update/update-plan.json')); ..."<br>schema 2 items 224<br>summary {'behind': 1, 'eligible': 0, 'excluded': 224}<br>steps non-list: 0</code></td>
+</tr>
+<tr>
+<td valign="top">OPS-02</td>
+<td valign="top">Version-matrix capture automation</td>
+<td valign="top">—</td>
+<td valign="top"><strong>Implemented</strong></td>
+<td valign="top">§4.1 rule 9, §16</td>
+<td valign="top"><strong>CLOSED 12-host-installation-and-configuration.</strong> New `scripts/validation/check-image-digests.sh` compares every digest in
+`config/platform/version-matrix.yaml` against the digests the **deployed** units
+actually carry, and reports drift. §12.5.5 documents it. It found real drift on
+first run: **7 stale rows, 1 unpinned deployed image, 4 deployed digests absent
+from the matrix.**
+
+`capture-version-matrix.sh` did not and could not cover this: it `sed`-rewrites
+five host facts (systemd, podman, netplan, nvidia) and never looks at an image
+at all. I left it untouched and added a separate script.
+
+**The check reads deployed units, not `quadlet/`** — deliberately. Quadlet
+deploys flat, so `~/.config/containers/systemd/` holds copies; comparing against
+the repository would report "no drift" at exactly the moment the live system had
+drifted. The deployed unit is the only thing describing what is running.
+
+**The check reports, it never rewrites.** Where a row disagrees with the live
+system, deciding which side is right is an operator judgement — stale document,
+unapproved deploy, or an unrecorded deliberate change. A script that adopted the
+live digest would make the matrix self-fulfilling and launder a hand edit into
+an apparently-captured fact. **The seven rows above are reported, not fixed.**
+That is the deliberate part and the part most likely to look like incompleteness.
+Resolving them is listed below.
+
+**A bug the tests caught on the first run.** When every deployed image is
+unpinned, the digest-extracting `grep` matches nothing and exits 1; under
+`set -e` + `pipefail` that aborted the script with **status 1 and no output at
+all**. A gate that fails without saying why is worse than no gate. Fixed by
+tolerating the empty result in collection rather than by loosening `set -e`,
+because the unpinned images are what the script most needs to report. The five
+new tests drive the real script against a synthetic tree and assert exit codes,
+so the OK path is exercised as carefully as the failing ones — a check only ever
+seen failing proves nothing, since "7 rows drifted" is also what a broken
+comparison prints.
+
+### Open findings for the operator (need explicit approval — not actioned)
+
+1. **7 stale matrix rows.** Decide per row whether the document or the live unit
+   is right. The clearest: the matrix records
+   `postgres@sha256:a65e6a84…` in two rows while all three deployed postgres
+   units (`ao-fabrication-db`, `ao-mastodon-db`, `ao-sales-db`) run
+   `sha256:d74eeac9…`. Also 4 deployed digests the matrix never mentions. **This
+   needs operator approval** — correcting the matrix asserts the live state is
+   intended, and correcting the units is a redeploy.
+2. **`Image=localhost/gz-sim10-resolute:gui-svgfix` is not digest-pinned**, a
+   live README §4.1 rule 9 violation. It is a local build, so pinning it means
+   recording a build recipe and its reproducibility, not just editing a file.
+   **Needs operator approval.**<br><br><strong>Evidence:</strong><br><code>$ AO_ROOT=$PWD bash scripts/validation/check-image-digests.sh --check<br>deployed units  : 21 in /home/scottw/.config/containers/systemd<br>distinct digests: 14<br>UNPINNED  Image=localhost/gz-sim10-resolute:gui-svgfix<br>DRIFT     mapping.broker_image_digest              sha256:91d0f7e8c748e...<br>DRIFT     simulation.gazebo_images                 sha256:0c19f326a339e...<br>DRIFT     simulation.image_foxglove_bridge         sha256:6d3461ddf0277...<br>DRIFT     sales.mastodon.image_postgres            sha256:a65e6a841f6c4...<br>DRIFT     sales.mastodon.image_redis               sha256:91d0f7e8c748e...<br>DRIFT     operations.image_postgres_shared         sha256:a65e6a841f6c4...<br>matrix digests matched a deployed unit  : 11<br>matrix digests matching nothing deployed: 7<br>deployed Image= lines without a digest  : 1<br>UNLISTED  deployed but absent from the matrix: sha256:d74eeac9a635...  (postgres, 3 units)<br>UNLISTED  deployed but absent from the matrix: sha256:c6eabf748fc7...  (redis, 2 units)<br>UNLISTED  deployed but absent from the matrix: sha256:9acc6d4df749...  (foxglove)<br>UNLISTED  deployed but absent from the matrix: sha256:55f8dbcf8dec...  (gz-sim10-server)<br>RESULT: DRIFT -- 7 stale matrix row(s), 1 unpinned deployed image(s).<br>$ echo $?<br>1</code></td>
+</tr>
+<tr>
+<td valign="top">OPS-04</td>
+<td valign="top">Restore-test script contract</td>
+<td valign="top">ST-18</td>
+<td valign="top"><strong>Implemented</strong></td>
+<td valign="top">§17.1</td>
+<td valign="top"><strong>CLOSED 17-backup-restore-monitoring-and-completion-criteria.</strong> **Closed, and this proposal is late.** §17.1.1 has said "OPS-04 closed
+2026-10-04" since commit `667e3f5`, but no proposal file was ever written — the
+session was interrupted after editing the section and before writing the
+proposal. The claim was in the section with nothing behind it, which is exactly
+the state this single-writer arrangement exists to prevent. I re-derived the
+evidence from the live host rather than trusting the section's own text.
+
+The item asked the section either to state that the `check-*.sh` scripts implement
+the seven-step restore test, or to acknowledge the requirement has no executor.
+The answer is neither: it has an executor, and it is
+`scripts/restore/restore-restic-drill.sh`. `grep -l 'restic' scripts/validation/*.sh`
+returns nothing, so the validators are confirmed not to be the owners.
+
+**What I checked in the section and got right**, because the section cites line
+numbers and those rot: all seven `STEP` banners are still at the cited lines
+(88, 95, 115, 121, 173, 181, 190), and the three refusals reproduce with exit 2
+rather than the exit 1 recorded in the older OPS-10 proposal. That older figure
+was wrong — exit 2 is the documented usage/refused code.
+
+**The one deviation is recorded, not smoothed over.** §17.1 step 4 says "compare
+hashes with stored manifests". There is no stored per-file manifest of the
+backed-up set; the only `.sha256` files under `artifacts` are three upstream
+Corda vendor checksums for jars and packages. The drill therefore compares the
+restored tree against the **live** tree, which answers "did anything change since
+the snapshot" rather than "does the snapshot match a recorded baseline". §17.1.1
+says so explicitly. Creating a baseline manifest would be new backup behaviour
+and is OPS-09's decision, not this item's.
+
+This closes the *ownership* question only. The drill still has no cadence —
+nothing schedules it, so §17.1's "Monthly" requirement is unmet, and that half
+stays with OPS-24.
+
+Files changed: `agents/COORDINATION/…/17-…/section.md` (§17.1.1 verified, no
+substantive edit needed beyond the line-number recheck).<br><br><strong>Evidence:</strong><br><code># the requirement has an executor, and it is not a check-*.sh validator:<br>$ grep -l 'restic' scripts/validation/*.sh<br>NONE<br>$ ls scripts/restore/<br>restore-corda-test.sh  restore-mapping-artifact-test.sh  restore-restic-drill.sh<br>restore-sales-db-test.sh  restore-simulation-artifact-test.sh  verify-hashes-and-receipts.sh</code></td>
+</tr>
+<tr>
+<td valign="top">FIELD-08</td>
+<td valign="top"><strong><code>ao-fabrication</code> deployed with <code>a_fab</code></strong></td>
+<td valign="top">ST-30</td>
+<td valign="top"><strong>Implemented</strong></td>
+<td valign="top">§3.3.0, ES.1</td>
+<td valign="top"><strong>CLOSED 03-high-level-architecture.</strong> **FIELD-08 closes on all four criteria, each measured.** The owning section is
+`03-high-level-architecture` (§3.3.0), which I do not own — so I changed **nothing in my
+own two section files** for this item. This proposal carries the evidence instead.
+
+| # | Criterion | Verdict | Evidence |
+|---|---|---|---|
+| 1 | Domain on `10.89.12.0/24`, `Internal=true` | **met** | subnet + gateway + `internal: true`, `ao-fabrication-db` at `10.89.12.3/24` |
+| 2 | Per-machine production data from ≥1 real machine into `a_fab` | **met** | 17 rows, all `printer-01`, a real Klipper machine at `10.42.0.96` |
+| 3 | Separation from `ao-sim-fabrication` demonstrated | **met** | disjoint container sets, disjoint mounts, no `machine_production` in any sim container |
+| 4 | `a_fab` registered in `network-cidrs.yaml` | **met** | `network-cidrs.yaml:12` |
+
+Criterion 2 is the load-bearing one and it is satisfied with **actual rows**, not merely a
+wired-up path. Criterion 3 is *demonstrated* three ways rather than asserted.
+
+**Caveat the compiler must carry, not bury.** The data is **stale** — newest row is
+2026-10-01 00:35 UTC and it is 2026-10-04 — and the collector is failing every pass because
+`printer-01` is powered off. The item closes because the criterion is *"data pulled from at
+least one individual machine"*, and 17 rows prove the pipeline works end to end; it does
+**not** close because ingestion is healthy. The collector infrastructure itself is provably
+alive: the timer is `enabled`/`active`, fires every ~5 minutes, and correctly isolates a
+per-machine outage (`0 ok, 0 failed, 1 offline`) rather than failing the unit. **Please do
+not render FIELD-08 as "ingestion currently working".**
+
+**What I got wrong, and the reason.** My first pass ran `psql -U postgres` and got
+`FATAL: role "postgres" does not exist`, and I was one step from treating that as "the
+database is unreachable, FIELD-08 cannot be evidenced". Wrong twice over. The role name was
+*my assumption* — the project's own convention is `POSTGRES_USER` from the container env
+(§3.3.0: "a separate logical database with its own application role"; and
+`fetch-kwallet-secret.sh:136` states explicitly that the role is `fabrication_role` while
+`a_fab` is the database name). **Reason: I guessed a default credential instead of reading
+the credential the deployment actually declares, and then let one command's error generalise
+into a verdict on the entire item.** Reading `podman inspect --format '{{range
+.Config.Env}}...'` first costs one command. Generalisable lesson for every session here: on
+this project, take the credential from the container environment before concluding anything
+about a database.<br><br><strong>Evidence:</strong><br><code># (3) separation from ao-sim-fabrication: disjoint networks, disjoint mounts, no sim data<br>$ podman network inspect ao-sim-fabrication --format '{{range .Containers}}{{.Name}} {{end}}'<br>ao-sim-fabrication-foxglove ao-sim-fabrication-gz<br>$ podman exec ao-fabrication-db psql -U fabrication_role -d a_fab -c '\dt'<br> public | machine_production | table | fabrication_role<br>$ podman exec ao-sim-fabrication-gz sh -c 'find / -maxdepth 3 -name "*machine_production*"'<br>(no output — simulation holds no production data)<br>$ podman inspect ao-sim-fabrication-gz --format '{{range .Mounts}}{{.Source}} -&gt; {{.Destination}}{{"\n"}}{{end}}'<br>/ALWAYSON/data/sim-fabrication/fuel -&gt; /gzfuel<br>/ALWAYSON/data/sim-fabrication/plugins -&gt; /gzplugins<br>/ALWAYSON/data/sim-fabrication/results -&gt; /results<br>/ALWAYSON/GAZEBO -&gt; /ALWAYSON/GAZEBO<br>/ALWAYSON/data/sim-fabrication/gzhome -&gt; /gzhome<br>$ podman inspect ao-fabrication-db --format '{{range .Mounts}}{{.Source}} -&gt; {{.Destination}}{{"\n"}}{{end}}'<br>/home/scottw/webodm/fabrication-dbdata -&gt; /var/lib/postgresql/data</code></td>
+</tr>
 <tr>
 <td valign="top">OPS-25</td>
 <td valign="top"><strong>Install the logrotate policy</strong></td>

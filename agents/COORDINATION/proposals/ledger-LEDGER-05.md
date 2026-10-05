@@ -2,16 +2,24 @@
 item: LEDGER-05
 action: close
 evidence: |
+  # Independently re-run by the 2026-10-04 LEDGER session, not carried forward.
   $ bash /ALWAYSON/scripts/validation/check-ledger-ingest.sh
   PENDING: ledger-ingest gateway not deployed yet (Section 2.8 step 3 awaits Corda version approval)
   EXIT=3
 
-  $ podman ps -a --format '{{.Names}}' | grep -c 'ledger-ingest'
+  $ podman ps -a --format '{{.Names}}' | grep -c -E 'ledger|archive|egress'
   0
 
-  $ bash /ALWAYSON/scripts/ledger/verify-ledger-receipt.sh RCPT-FAKE-0001 <manifest>
-  FAIL: receipt mismatch
-  EXIT=50
+  $ systemctl --user show ao-ledger-core.service \
+      -p LoadState -p ActiveState -p SubState -p FragmentPath
+  LoadState=not-found
+  ActiveState=inactive
+  SubState=dead
+  FragmentPath=
+
+  # Correction to the 2026-10-03 evidence for this item: see "What I got wrong".
+  $ systemctl --user is-active ao-ledger-core.service
+  inactive                       # exit 4  -- MISLEADING, see prose
 section: 11-ledger-provenance-archive-and-ipfs
 ---
 `check-ledger-ingest.sh` is resolved and deterministic, and it runs
@@ -36,6 +44,22 @@ fault to diagnose — the item name implies one. There isn't. The honest output 
 "the probe works, the service does not exist yet." I also nearly claimed the
 client-side behaviour was verified after only *reading* the scripts; I then ran
 them, which is what surfaced the signature weakness recorded in §11.2.5.
+
+## Second pass, 2026-10-04 — the `is-active` trap
+
+Re-verifying this item, `systemctl --user is-active ao-ledger-core.service`
+printed **`inactive`**, which reads like "the unit exists and is merely stopped".
+That is wrong: the unit **does not exist at all**. `is-active` returns exit 4 for
+both "not found" and "found but inactive", so the word alone is not evidence.
+
+The disambiguating command is `systemctl --user show <unit> -p LoadState`, which
+printed `LoadState=not-found` and an empty `FragmentPath=`. **Use `LoadState`, not
+`is-active`, whenever the question is "does this unit exist?"** An agent that
+trusts the `inactive` string may conclude the ledger core is installed-but-stopped
+and try to start it, instead of concluding it was never built.
+
+This **confirms** rather than contradicts the 2026-10-03 LEDGER-07 proposal,
+which reported the unit "could not be found" — that claim was correct.
 
 ## Note for the compiler
 
