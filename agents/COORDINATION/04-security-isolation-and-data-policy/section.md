@@ -110,6 +110,16 @@ records where two entries were superseded and by what. Confirmation of the
 recovered list as the operator-approved original is the one item in this section
 that needs a human decision.
 
+**Independent verification 2026-10-05.** A later NET session re-checked the
+transcription mechanically, not by eye: it extracted the `## 4.3 Prohibited Paths`
+block from the archived v6 document and the `text` block in §4.3.1 with a Python
+regex, dropped blank lines, and diffed the two. Nine content lines in, nine out,
+zero differences — the list is a byte-exact copy, not a paraphrase. Both
+superseded-entry marks were checked in place: the *Fabrication simulation → live
+machinery* entry is stated absolutely in §4.3.2, and the *Field/Mapping → payment
+provider* entries remain in the list and are marked. Whatever the operator
+decides, the transcription itself is proven accurate.
+
 ## 4.4 Approved Internal Paths
 
 ```text
