@@ -364,3 +364,80 @@ acceptance criterion — designate the runtime and close or confirm the mixed-st
 deviation — is met: there is **no mixed store**, and the designation is rootless,
 single-store, under `scottw`.
 a single verified line.
+
+---
+
+# THIRD PASS 2026-10-04 17:05 — designation re-confirmed, one inherited figure corrected
+
+Every load-bearing measurement above was re-run from scratch rather than re-read. **The
+designation holds and the item stays `close`.**
+
+```
+$ podman info --format '{{.Host.Security.Rootless}}'
+true
+$ podman info --format '{{.Store.GraphRoot}} | {{.Store.RunRoot}}'
+/home/scottw/.local/share/containers/storage | /run/user/1000/containers
+$ systemctl list-unit-files 'ao-*' --no-legend | wc -l
+7                                   # bridge + six restic units; NONE is a container
+$ systemctl list-unit-files '*.container' '*.network' --no-legend | wc -l
+0                                   # no system-level Quadlet container or network unit
+$ systemctl cat ao-restic-backup.service ao-restic-verify.service | grep -Ec 'podman|containers/storage'
+0
+$ grep -rn '^User=\|^Group=' quadlet/ ; echo rc=$?
+rc=1                                # no quadlet reassigns to a service account
+$ podman ps --format '{{.Names}}' | grep webodm
+ao-webodm-webapp / ao-webodm-worker / ao-webodm-db / ao-webodm-broker
+$ systemctl list-unit-files 'ao-webodm*' --no-legend | grep -c '^ao-'          # system scope
+0
+$ systemctl --user list-unit-files 'ao-webodm*' --no-legend | grep -c '^ao-'  # user scope
+4
+```
+
+All twelve tables in the rootful `db.sql` were re-enumerated unprivileged and reproduce exactly:
+eleven at `0` rows, `DBConfig` at `1` (the store's own configuration, column names only — no values
+read). `stat -c '%A' /var/lib/containers/storage` is still `drwxr-xr-x`, so the earlier
+"inaccessible store" claim stays retracted.
+
+## Correction: "of which 50 are named" was wrong — it is 30
+
+This is an error in **§13.2.1**, inherited from the pass before and corrected there on this run.
+
+```
+$ podman images --all --quiet | sort -u | wc -l
+100                                     # this part was right
+$ podman images --all --format '{{.Repository}}:{{.Tag}}' | sort -u | wc -l
+31                                      # distinct Repository:Tag entries
+$ podman images --all --format '{{.Repository}}:{{.Tag}}' | sort -u | grep -vc '<none>:<none>'
+30                                      # the named ones -- NOT 50
+```
+
+`--quiet` prints bare image IDs, so the command behind the `100` **cannot answer a naming question
+at all**. The `50` was not a stale measurement — it was a number attached to a command that does not
+produce it. This is the third retracted figure on this item (`102` records, then `50` named), and all
+three have the same shape: a count attached to a nearby command without running the command that
+would produce it.
+
+**Rule for the next pass:** if the claim and the command disagree about what is being counted, the
+command is wrong, not the claim. `--quiet` counts IDs, `--format` counts names.
+
+## Residual image question — still open, and now known to need exactly one privileged command
+
+```
+$ sudo -n true ; echo "rc=$?"
+sudo: interactive authentication is required
+rc=1
+$ ls /var/lib/containers/storage/overlay-images/
+ls: cannot open directory ...: Permission denied
+$ du -sh /var/lib/containers/storage/overlay-images/
+du: cannot read directory ...: Permission denied
+4.0K   .../overlay-images/          # the dir entry itself; contents unreadable
+$ podman --root /var/lib/containers/storage images
+Error: faccessat /var/lib/containers/storage/libpod/bolt_state.db: permission denied
+```
+
+`sudo -n` cannot authenticate on this host, so the one command that would settle this
+(`podman --root /var/lib/containers/storage images`) is **not available to me non-interactively**.
+This is a privilege boundary, not an oversight, and it is **not** a reason to keep the item open —
+it does not affect the designation, because the residual blobs would be *images*, and the rootful
+store provably holds no container, pod, volume or namespace records. **No deletion is proposed and
+no operator approval is assumed.** Reported for the operator's awareness only.

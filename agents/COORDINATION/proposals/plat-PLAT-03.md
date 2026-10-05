@@ -141,3 +141,69 @@ Together these mean installing `apparmor-utils` makes the verify block *look* li
 AppArmor when it inspects nothing. Anyone hardening §12.3 should fix the assertion shape first,
 or the new package buys nothing verifiable.
 assuming drift rather than checking the actual package arrays with `sed -n`.
+
+---
+
+# FOURTH PASS 2026-10-04 17:05 — independently re-measured; `close` still withdrawn
+
+I did not read the passes above as settled. This item has been closed once and un-closed once, and
+one of those cycles was caused by a human installing a package by hand. So I re-ran everything
+from scratch rather than re-reading my own text.
+
+## Evidence (all freshly measured)
+
+```
+$ dpkg-query -W -f='${Package} ${Version}\n' apparmor-utils
+apparmor-utils 5.0.2-0ubuntu1~26.04.1
+
+$ for b in aa-status aa-enforce aa-complain aa-decode aa-logprof aa-genprof; do \
+    p=$(command -v $b || echo MISSING); \
+    printf '%-11s %-22s %s\n' "$b" "$p" "$(dpkg -S "$p" | cut -d: -f1)"; done
+aa-status   /usr/sbin/aa-status      apparmor
+aa-enforce  /usr/sbin/aa-enforce     apparmor-utils
+aa-complain /usr/sbin/aa-complain    apparmor-utils
+aa-decode   /usr/sbin/aa-decode      apparmor-utils
+aa-logprof  /usr/sbin/aa-logprof     apparmor-utils
+aa-genprof  /usr/sbin/aa-genprof     apparmor-utils
+
+$ aa-status >/tmp/aas.out 2>/tmp/aas.err ; echo "rc=$?"
+rc=4
+# stdout: apparmor module is loaded.
+# stderr: You do not have enough privilege to read the profile set.
+
+$ grep -n 'apparmor' scripts/bootstrap/*.sh scripts/provision/*.sh
+(no output, rc=1)
+$ grep -c apparmor scripts/provision/provision.sh
+0
+$ sed -n '6p' scripts/bootstrap/02-install-host-dependencies.sh
+pkgs=(podman uidmap slirp4netns fuse-overlayfs containernetworking-plugins nftables ufw git curl jq ca-certificates gnupg openssl restic smartmontools lm-sensors acl python3 python3-venv python3-pip)
+```
+
+## Action: `update`, not `close` — and the referral is unchanged
+
+The host has the package; the **repository does not specify it**. The acceptance criterion is
+*"reconcile the install list with the verification steps"*, and an install list is a repository
+artefact. The two files that need the change are documented in **§12.3** and are the OPS-B
+session's to edit:
+
+- `scripts/bootstrap/02-install-host-dependencies.sh` (line 6, the `pkgs=(...)` array)
+- `scripts/bootstrap/ao-bootstrap-privileged.sh` (the `apt install -y` list)
+
+**For the compiler: PLAT-03 should be recorded as OPEN and referred to OPS-B**, with the host-side
+half already done and the provisioning-side half outstanding. A `close` would again read as
+"handled" on the strength of one machine's package list — the specific mistake the second pass
+recorded.
+
+## What I got wrong on this pass
+
+I nearly repeated the previous cycle in a smaller way. My first instinct was to treat "the package
+is installed and all five tools resolve" as the deliverable, which is precisely the
+host-vs-repository confusion that caused the retraction. The distinguishing test is cheap and I
+should have applied it up front: *would a freshly provisioned host from this repository have the
+package?* Run `grep -n apparmor scripts/bootstrap/*.sh` and the answer is no. **Ask what a
+rebuild would produce, not what this machine has.**
+
+Second, smaller: I reached for `dpkg -S` on two paths in one call and got two output lines, which
+I nearly summarised as one. That is the same summarising error as the "50 named images" figure I
+corrected in §13.2.1 on this same pass — I wrote up that error and then made a smaller version of
+it. The evidence above shows the real two-line output rather than a tidied version of it.

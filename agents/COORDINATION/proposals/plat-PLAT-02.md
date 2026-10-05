@@ -120,3 +120,62 @@ unit files that implement it are dated **2026-10-02**. I make no claim about whi
 right — that needs §17's own evidence and it is not mine to adjudicate. No secret is
 named here; only the environment variable's name and path.
 to edit. Recorded in §2.5, left for the compiler and OPS-B.
+
+---
+
+# THIRD PASS 2026-10-04 17:05 — re-measured; still not closable from this session
+
+Every figure in the audit above was re-run. **All reproduce unchanged**, so this pass adds no new
+drift — it corrects the *count* of the drift, which the earlier passes understated.
+
+```
+$ uname -r
+7.0.0-38-generic                                  # matrix line 3 says 7.0.0-34-generic
+$ dpkg-query -W -f='${Package} ${Version}\n' nvidia-container-toolkit
+nvidia-container-toolkit 1.20.1-1                 # matrix line 14 says 1.20.0
+$ podman ps --format '{{.Image}}' | grep postgres | sort -u
+docker.io/library/postgres@sha256:d74eeac9a635390a49bc21bd49fccd973de707e2a53a76ac49b552b8712ec46f
+$ grep -n 'a65e6a84\|91d0f7e8' config/platform/version-matrix.yaml | sed 's/: *"docker.*//'
+21:  broker_image_digest
+47:    image_postgres
+48:    image_redis
+61:  image_postgres_shared
+# ^^ the stale digests live in FOUR keys across FOUR lines
+$ podman ps --format '{{.Image}}' | grep redis | sort -u
+docker.io/library/redis@sha256:c6eabf748fc7a61dbb5a705c78bcf3d6377b1127a97d0ce965c11c44ba46896f
+$ grep -rh '^Image=' quadlet/ | grep -vc '@sha256:'
+2
+$ grep -rn '^Image=' quadlet/ | grep -v '@sha256:'
+quadlet/sim-vehicle/ao-ardupilot-sitl.container:12:Image=ghcr.io/ardupilot/ardupilot-sitl:latest
+quadlet/sim-fabrication/ao-sim-fabrication-gui-gz.container:47:Image=localhost/gz-sim10-resolute:gui-svgfix
+$ podman ps --format '{{.Names}}\t{{.Image}}' | grep -v '@sha256:' | wc -l
+6
+$ podman ps --format '{{.Names}}' | wc -l
+25
+```
+
+## Correction: the drift is four keys across four lines, not "three rows"
+
+Earlier passes reported three stale rows. The redis digest appears in **two** matrix keys
+(`broker_image_digest` line 21, `image_redis` line 48) and postgres in **two more**
+(`image_postgres` line 47, `image_postgres_shared` line 61). Counting *rows* rather than *keys* is
+how "three" survived two re-verification passes. Corrected in §2.5.
+
+**Still not closable here.** Two independent reasons, both unchanged:
+
+1. The corrections belong in `config/platform/version-matrix.yaml`, which this session does not own.
+   Recording the drift in §2.5 does not fix the matrix, and a version matrix that names a digest
+   nothing runs cannot verify the deployment — so the item must stay open until someone with
+   ownership edits the file.
+2. The capture automation the item asks for is `OPS-02`, assigned to OPS-B.
+
+The six tag-only running containers remain **unowned strays** (§19 `OPS-16`). Not removed here —
+container deletion requires operator approval under README §4.1 rule 3.
+
+## What I got wrong on this pass
+
+I nearly reported "four stale rows" as a new correction without checking how many *lines* each
+one occupies, which is the exact error I am correcting in the paragraph above. I caught it because
+I ran `grep -n` for the digest prefixes instead of assuming one line each. **Count the thing you
+are claiming to count** — a "row" claim needs the row numbers, and a digest appears wherever it
+appears.

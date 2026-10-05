@@ -149,10 +149,29 @@ is what the design actually prohibits. Those restic units belong to §17 and are
 and both `ls` and `du` return `Permission denied` as uid 1000, so **whether any image blobs remain is
 still unverified**. This is consistent with the last write being `2026-09-30` (images were pulled
 before the rootless migration) but does not prove it. For contrast the rootless store holds **100**
-image records and is fully enumerable by the operator — measured this run as
-`podman images --all --quiet | sort -u | wc -l` → `100`, of which 50 are named and the remainder are
-intermediate or unreferenced layers. **An earlier revision of this section claimed "102 image
-records"; that number is retracted, because it was written without running the count.**
+distinct image IDs and is fully enumerable by the operator — measured 2026-10-04 17:05 as
+`podman images --all --quiet | sort -u | wc -l` → `100`.
+
+**Correction, 2026-10-04 17:05: "of which 50 are named" was wrong — the figure is 30.** The `100`
+count is right and reproduces exactly, but the breakdown attached to it was written without being
+measured. `--quiet` emits bare image IDs, so it cannot answer the naming question at all; I had
+to ask it with `--format`:
+
+```
+$ podman images --all --quiet | sort -u | wc -l
+100
+$ podman images --all --format '{{.Repository}}:{{.Tag}}' | sort -u | wc -l
+31                                  # distinct Repository:Tag entries
+$ podman images --all --format '{{.Repository}}:{{.Tag}}' | sort -u | grep -vc '<none>:<none>'
+30                                  # the actually-named ones
+```
+
+So **30 images carry a repository:tag name and 70 are intermediate or unreferenced layers** —
+not 50/50. Note the two counting questions are different and neither substitutes for the other:
+`--quiet | sort -u` counts image *IDs* (100), while `--format | sort -u` counts *name* entries (31).
+The retracted "102 image records" figure was wrong for the same reason — it was written without
+running the count.
+
 Enumerating the rootful remainder needs
 one `sudo` command and operator approval — recommended action, **no automatic action taken**, and
 no deletion is proposed.

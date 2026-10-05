@@ -95,3 +95,64 @@ message. The corrected trap is recorded in §2.3: `aa-status` **does** return no
 privilege, and §12.3 throws that away. Lesson worth carrying: when writing a note about *why* a
 command is or is not trustworthy, measure that command's exit status rather than inferring it
 from its output.
+
+---
+
+# THIRD PASS 2026-10-04 17:05 — reproduced from scratch; §12.3 still defective
+
+I did not reuse the transcript above. I copied §12.3's verify block **verbatim** into a script and
+ran it, `sudo` untouched, because this item is specifically about a block that reports success
+while checking nothing — inheriting somebody's transcript would be the same error in a new place.
+
+```
+$ bash /tmp/plat-verify-asis.sh
+podman version rc=0
+podman info rc=0
+systemctl --user status rc=0
+Linger=yes
+cgroups v2 active
+OVERALL EXIT=0
+SCRIPT EXIT=0
+
+[stderr]
+sudo: A terminal is required to authenticate
+```
+
+**All three defects reproduce.** The block exits **0**; `sudo` could not authenticate;
+`aa-status` never ran; the AppArmor line produced no output at all and the block still shows six
+green lines. The sixth check is the dangerous one — it is *actively misleading on success*, not
+merely silent on failure, and it is invisible to anyone reading stdout.
+
+The cgroup line is confirmed silent-on-failure by construction: `test … && echo …` prints nothing
+when the test fails, and nothing reads its status.
+
+```
+$ stat -fc %T /sys/fs/cgroup
+cgroup2fs                              # the check passes today, so the defect is latent
+```
+
+That distinction matters for the compiler. The cgroup defect is **latent** — it would surface only
+on a host that is not cgroup v2. The `aa-status` defect is **live right now** on this host.
+
+## Cross-check with PLAT-03
+
+`apparmor-utils 5.0.2-0ubuntu1~26.04.1` is installed and all five profile tools resolve. That makes
+the broken sixth line look *more* trustworthy than before — the tool now exists, yet it still
+reads nothing. **Installing the package without fixing the assertion shape buys nothing
+verifiable.** These two items must be fixed together, not in sequence.
+
+## Action unchanged: `update`, referred to OPS-B
+
+§12.3 is the OPS-B session's file. The requirement is recorded in §2.4 of my section. I have not
+patched §12.3, because a correct patch sitting in a proposal changes no document the operator
+reads while looking like a fix.
+
+## What I got wrong on this pass
+
+While running the verbatim block I wrote the echo for the cgroup line as `cgroups v2 active` and the
+surrounding harness as if all six checks reported a status. It does not: `podman version`,
+`podman info` and `systemctl --user status` print **nothing** in the real block — only my harness
+added the `rc=` labels, because I redirected their output to `/dev/null` to make the block's own
+behaviour visible. The evidence above separates the two honestly: the `rc=` lines are mine, the
+stderr is the block's. Anyone reproducing this should expect five silent lines, not six labelled
+ones.
