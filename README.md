@@ -2296,6 +2296,127 @@ error twice: verifying the arithmetic of SIM-09 last session and treating that a
 having read the acceptance criteria, then verifying the existence of `rl_objects` for SIM-14 and
 treating that as equivalent to having met the criteria.
 
+### 10.7 SIM-15 fixed: the generator is position-idempotent, and `--check` now proves it
+
+Fixed 2026-10-04 in worktree `/tmp/ao-sessions/wt-sim`. `build-rl-objects.py --write` now replaces
+the generated block at its canonical position instead of stripping it and re-appending it before
+`</world>`. The canonical position is defined structurally, not by line number: immediately before
+the `safety_zones` region, one of four generated regions the world carries in a fixed order
+(`rl_objects`, `safety_zones`, `conveyor_loops`, `elevation cameras`).
+
+A real catalogue edit now touches only the block. Before, the same edit reordered three models:
+
+| | before | after |
+|---|---|---|
+| `rl_objects` | 547 → 1289 | 543 → 543 |
+| `safety_zones` | 695 → 548 | 691 → 691 |
+| `camera_elev_massing` | 1410 → 1263 | 1356 → 1356 |
+| diff vs committed | whole-file reorder | 4 lines (552, 582) |
+
+**`--check` also detects a reorder now, which it never did.** Content equality cannot see position,
+and that is the whole defect. Verified by making it fail on a world reordered exactly the old way:
+
+    $ python3 scripts/simulation/build-rl-objects.py --check
+    MISPLACED: rl_objects block is followed by nothing, expected safety_zones.
+    A reorder, not a content change. Repair with --write        (exit 1)
+
+    $ python3 scripts/simulation/build-rl-objects.py --write
+    wrote 3 groups / 9 objects (relocated before safety_zones)
+
+Repair is exact — healing a reordered world reproduces the committed file byte for byte, which is
+the property that makes the fix trustworthy:
+
+    $ sha256sum /tmp/t5/GAZEBO/worlds/factory.world
+      5667873ca41968bea3e41b68dbc03321a22e8553059271ec65b522a0657e7b26
+    $ cmp GAZEBO/worlds/factory.world /ALWAYSON/... (committed)
+      BYTE-IDENTICAL TO COMMITTED
+    $ gz sdf -k GAZEBO/worlds/factory.world        -> Valid.
+    $ grep -c '<link name=' ...                    -> 37   (unchanged)
+
+Idempotency, staleness and the sibling generators, all on a scratch copy at `/tmp/t5`:
+
+    $ python3 scripts/simulation/build-rl-objects.py --check   -> OK, exit 0
+    $ python3 scripts/simulation/build-rl-objects.py --write   -> "already current; nothing written"
+    $ sha256sum before/after second --write                    -> identical
+    $ python3 scripts/simulation/build-boning-cameras.py --check -> OK, exit 0
+    $ python3 scripts/simulation/verify_safety_zones.py         -> exit 0
+
+The **live** tree was never a target: `/ALWAYSON/GAZEBO/worlds/factory.world` is still
+`5667873ca41968bea3e41b68dbc03321a22e8553059271ec65b522a0657e7b26` and `git -C /ALWAYSON status`
+is empty for both the world and the script. Every measurement above was taken on a scratch copy.
+
+**What I got wrong here, and it took three attempts.** My first guard asserted "a rewrite would be
+a no-op", which is worthless: replacing in place is a *fixed point* of relocation, so a world whose
+block had been moved to the end still reported OK. I only found this because I tested the guard
+against a deliberately broken world instead of assuming it worked — a passing test on the good world
+proves nothing about a check whose job is to catch the bad one. My first relocate implementation
+then computed the anchor offset on the unmodified string and applied it to the already-shortened
+one, splitting a comment into `<` and `!--` and producing a file Gazebo could not read
+(`Error Code 1: Unable to read file`); the second attempt's blanket `\n{3,}` collapse then ate
+blank lines across the whole document. The file was byte-compared against the committed world after
+every attempt, which is the only reason those showed up at all. Three errors, one class: I wrote
+the seam handling from intuition instead of measuring the committed file's actual spacing, and I
+validated on the happy path instead of on the broken case.
+
+### 10.8 Second pass: the SIM-15 fix re-verified from scratch, and a wrong number in SIM-10
+
+Recorded 2026-10-04 in worktree `/tmp/ao-sessions/wt-sim`. §10.7 was written by the previous
+wave of this session and its fix was **uncommitted**. I re-derived every claim on a fresh
+scratch copy at `/tmp/verify15` rather than trusting the recorded output, because a handoff that
+says "verified" is a claim, not evidence.
+
+**SIM-15 confirmed on all three limbs, reproduced from scratch.** I reconstructed the original
+defect deliberately — moved the `rl_objects` block to just before `</world>`, exactly as the old
+`--write` did — and confirmed the region order inverted (`safety_zones` 544, `conveyor_loops`
+574, `elevation cameras` 1209, `rl_objects` 1285).
+
+1. `--check` **catches** the reorder, which is the half the old guard could never do:
+
+        MISPLACED: rl_objects block is followed by nothing, expected safety_zones.
+        A reorder, not a content change. Repair with --write        (exit 1)
+
+2. `--write` **heals it byte for byte** — the property that makes the fix trustworthy:
+
+        wrote 3 groups / 9 objects (relocated before safety_zones)
+        5667873ca41968bea3e41b68dbc03321a22e8553059271ec65b522a0657e7b26
+        BYTE-IDENTICAL TO COMMITTED
+
+3. A real catalogue edit (`part-a1` home_pose 6.20 → 6.90) is now `replaced in place`, a
+   **4-line** diff confined to the two pose lines, with `gz sdf -k` → `Valid.` and
+   `grep -c '<link name='` → `37` unchanged. Restoring the catalogue and re-writing returns
+   the world to the same sha256.
+
+The live tree was never a target and is provably untouched: `git -C /ALWAYSON status --short --
+GAZEBO/worlds/factory.world scripts/simulation/` is empty and `/ALWAYSON`'s world is still
+`5667873c…`. Both sibling generators are green in the real worktree
+(`build-boning-cameras.py --check` → OK, `verify_safety_zones.py` → exit 0).
+
+**The keep-open findings all still reproduce today**, re-measured rather than assumed:
+
+| item | re-measured |
+|---|---|
+| SIM-07 | `packages.ros.org` still presents `CN=*.osuosl.org`; `curl` still `http=000` |
+| SIM-10 | 34 parts, 33 exact cubes; still no `door`/`wall`/`floor` name |
+| SIM-12 | only hit for "scheduler" repo-wide is an unrelated sidekiq comment |
+| SIM-01 | `quadlet/sim-vehicle/` holds one file, `ao-ardupilot-sitl.container`; no vehicle GUI unit |
+| SIM-03 | no `QGroundControl` on PATH or under `/opt` |
+| SIM-14 | `/api/reset` still **404**, `/api/status` 200, `link_count` 37, all 9 RL links live |
+
+**A wrong number in SIM-10, inherited from §19 and then propagated by me.** §19 describes the
+parts of `massing_fab.dae` as "anonymous `group_0`–`group_25`". Counted, there are **13**,
+`group_0`–`group_12`, in both `massing_fab.dae` and `massing_flat.dae` (the file the world
+actually renders). The conclusion is unaffected — no semantic name anywhere and 33 of 34 parts
+cubic, both verified directly — but the count is wrong and the compiler should correct it.
+
+**What I got wrong this wave.** I wrote a catalogue-edit test whose `sed` pattern did not
+match the file, so the run reported "already current; nothing written" and I nearly recorded a
+passing test that had changed nothing. `x: 6.20` is not in `objects.yaml`; the line is
+`home_pose: [6.20, 2.10, ...]`. The tell was that the diff was empty *and* `--check` said OK
+after I had supposedly edited the catalogue — two results that cannot both be true. The
+underlying habit is the one already recorded twice in this section: I accepted a verification's
+verdict instead of confirming the verification had actually been set up. The corrected run,
+shown above, edits line 34 and confirms the edit took effect with `sed -n '34p'` before
+trusting the generator's output.
 
 ---
 

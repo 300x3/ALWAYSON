@@ -187,14 +187,39 @@ BLOCK_RE = re.compile(re.escape(BEGIN) + r".*?" + re.escape(END) + r"\n?", re.S)
 
 
 def strip_existing(s: str) -> str:
-    """Remove a previously generated block so regeneration is idempotent."""
-    return BLOCK_RE.sub("", s)
+    """Remove a previously generated block so regeneration is idempotent.
+
+    Normalises only the seam the removal creates -- and, separately, the gap
+    before </world>, which is the second seam when a drifted block sat at the end
+    of the file. Both are anchored; a blanket \\n{3,} collapse is not, and
+    applying one globally corrupted the XML.
+    """
+    out = BLOCK_RE.sub("", s)
+    out = re.sub(r"\n{3,}(?=\s*</world>)", "\n\n", out)
+    return out
 
 
 def successor_after(world: str, frm: int):
     """Name of the next generated region after offset `frm`, or None."""
     nxt = re.search(r"<!--\s*BEGIN GENERATED:\s*([A-Za-z_]+)", world[frm:])
     return nxt.group(1) if nxt else None
+
+
+def rejoin(prefix: str, block: str, suffix: str) -> str:
+    """Splice `block` between two halves with the world's own spacing.
+
+    The committed world separates each generated region from its neighbours by
+    exactly two newlines (one blank line) on the leading side and two on the
+    trailing side -- measured, not assumed:
+
+        '    </model>\\n\\n\\n    <!-- BEGIN GENERATED: rl_objects'   leading
+        '    <!-- END GENERATED: rl_objects -->\\n\\n    <!-- BEGIN GENERATED: safety_zones'
+
+    BLOCK_RE already consumes one trailing newline, so the seam is normalised
+    here rather than by rewriting whole regions.
+    """
+    return prefix.rstrip("\n") + "\n\n\n" + block.rstrip("\n") + "\n\n" + \
+        suffix.lstrip("\n")
 
 
 def splice(world: str, block: str) -> tuple:
@@ -215,31 +240,32 @@ def splice(world: str, block: str) -> tuple:
 
     m = BLOCK_RE.search(world)
     if m and successor_after(world, m.end()) == SUCCESSOR:
-        # Already canonical: replace where it lies, preserving the surrounding
-        # line breaks exactly.
-        return world[:m.start()] + block + "\n" + world[m.end():], "replaced in place"
+        # Already canonical: replace where it lies.
+        return rejoin(world[:m.start()], block, world[m.end():]), "replaced in place"
 
     if m:
         # The block has drifted. Lift it out, then re-insert before the
-        # successor region. The junction is normalised to exactly one blank line
-        # so the result matches the layout an in-place write produces.
+        # successor region.
         #
-        # Both details here were wrong in my first attempt and corrupted the XML:
-        # the anchor offset was taken from `world` but applied to the already
-        # shortened `stripped` text, and a blanket \n{3,} collapse ate blank
-        # lines elsewhere in the file. Caught by gz sdf failing to parse.
-        stripped = world[:m.start()].rstrip("\n") + "\n\n" + world[m.end():].lstrip("\n")
-        at = before_successor(stripped)
+        # Getting the blank lines right took two attempts. The first rstripped
+        # the entire prefix rather than the junction, so the normalisation
+        # landed at the end of the document instead of at the seam. The second
+        # used a blanket \n{3,} collapse, which ate blank lines elsewhere and
+        # corrupted the XML (gz sdf: Unable to read file). Both were caught by
+        # diffing the healed world against the committed one and by parsing it.
+        # BEFORE/AFTER are measured from the committed world, not chosen.
+        at = before_successor(strip_existing(world))
         if at is None:
             raise SystemExit(
                 f"cannot place rl_objects: no '{SUCCESSOR}' region in {WORLD} to "
                 "anchor to, and the existing block is misplaced. Refusing to guess.")
-        return stripped[:at] + block + "\n\n" + stripped[at:], \
+        rest = strip_existing(world)
+        return rejoin(rest[:at], block, rest[at:]), \
             f"relocated before {SUCCESSOR}"
 
     at = before_successor(world)
     if at is not None:
-        return world[:at] + block + "\n\n" + world[at:], f"inserted before {SUCCESSOR}"
+        return rejoin(world[:at], block, world[at:]), f"inserted before {SUCCESSOR}"
     # First run against a world with no generated regions at all. The block must
     # stay INSIDE <world>; appending past </sdf> is junk after the document
     # element and fails to parse.
