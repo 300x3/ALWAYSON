@@ -34,7 +34,7 @@ their output are in `agents/COORDINATION/proposals/plat-PLAT-01.md`.
 | Is the operator Podman rootless? | `podman info --format '{{.Host.Security.Rootless}}'` → `true` |
 | Which store backs it? | `podman info --format '{{.Store.GraphRoot}}'` → `/home/scottw/.local/share/containers/storage` |
 | Do any Quadlet units name a `User=` or `Group=`? | none — `grep -rn '^User=\|^Group=' quadlet/` returns nothing |
-| Are there system-level `.container` units? | `systemctl list-unit-files 'ao-webodm*' \| grep -c '^ao-'` → `0`; every mapping unit is `systemctl --user`, state `generated` (Quadlet generator output) |
+| Are there system-level `.container` or `.network` units? | **No — measured 2026-10-04 16:40.** `systemctl list-unit-files '*.container' --no-legend \| wc -l` → `0`, and `systemctl list-unit-files 'ao-*' --no-legend \| grep -Ec '\.(container\|network)$'` → `0`. Every mapping unit is `systemctl --user`, state `generated` (Quadlet generator output) |
 | Are the WebODM containers in the operator store? | `podman ps` lists `ao-webodm-{webapp,worker,db,broker}` and `ao-nodeodm` from the rootless store above |
 | Are the declared extra connections real? | `podman system connection list` → header only; `~/.config/containers/podman-connections.json` is `{"Connection":{},"Farm":{}}` |
 | Does `/run/ao-podman/` exist? | `ls /run/ao-podman` → `No such file or directory` |
@@ -123,11 +123,37 @@ any image table: NONE
 records whatsoever**, and the earlier claim that this could only be resolved with operator
 approval was wrong on both counts: the mode was misread, and no approval was ever needed.
 
+**Seven `ao-*` unit files exist at system level — none of them is a container.** Re-measured
+2026-10-04 16:40 with a deliberately broad pattern, because the row above originally cited only
+`ao-webodm*`, which returns `0` even when unrelated system units exist:
+
+```
+$ systemctl list-unit-files 'ao-*' | grep '^ao-'
+ao-podman-bridge.service   disabled enabled
+ao-restic-backup.service   static   -
+ao-restic-prefetch.service static   -
+ao-restic-verify.service   static   -
+ao-restic-backup.timer     enabled  enabled
+ao-restic-prefetch.timer   disabled enabled
+ao-restic-verify.timer     enabled  enabled
+```
+
+The six `ao-restic-*` units are host backup timers, not Quadlet containers, and
+`systemctl cat ao-restic-backup.service ao-restic-verify.service | grep -Ec 'podman|containers/storage'`
+returns **`0`** — they never touch a container store. The seventh is the rejected bridge unit already
+recorded in §13.2.1. The single-store designation is unaffected, but **"no system-level `ao-*`
+units" would have been false**; only "no system-level `ao-*` *container* units" is true, and that
+is what the design actually prohibits. Those restic units belong to §17 and are another session's.
+
 **Still open, and narrower than stated: residual image data.** `overlay-images/` is mode `0700`
-and `ls` on it returns `Permission denied` as uid 1000, so **whether any image blobs remain is
+and both `ls` and `du` return `Permission denied` as uid 1000, so **whether any image blobs remain is
 still unverified**. This is consistent with the last write being `2026-09-30` (images were pulled
-before the rootless migration) but does not prove it. For contrast the rootless store has 102
-image records and is fully enumerable by the operator. Enumerating the rootful remainder needs
+before the rootless migration) but does not prove it. For contrast the rootless store holds **100**
+image records and is fully enumerable by the operator — measured this run as
+`podman images --all --quiet | sort -u | wc -l` → `100`, of which 50 are named and the remainder are
+intermediate or unreferenced layers. **An earlier revision of this section claimed "102 image
+records"; that number is retracted, because it was written without running the count.**
+Enumerating the rootful remainder needs
 one `sudo` command and operator approval — recommended action, **no automatic action taken**, and
 no deletion is proposed.
 
