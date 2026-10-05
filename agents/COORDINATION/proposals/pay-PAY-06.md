@@ -2,7 +2,91 @@
 item: PAY-06
 action: update
 evidence: |
-  # ---------- generation half: PROVEN, run today ----------
+  $ for b in msmtp sendmail mail mailx mutt swaks s-nail postfix; do command -v $b; done
+  msmtp: ABSENT   sendmail: ABSENT   mail: ABSENT   mailx: ABSENT
+  mutt: ABSENT    swaks: ABSENT      s-nail: ABSENT postfix: ABSENT
+
+  $ ls -la /etc/msmtprc /etc/s-nail /etc/postfix /etc/exim4
+  ls: cannot access '/etc/msmtprc': No such file or directory
+  ls: cannot access '/etc/s-nail': No such file or directory
+  ls: cannot access '/etc/postfix': No such file or directory
+  ls: cannot access '/etc/exim4': No such file or directory
+
+  $ grep -rEl 'smtplib|sendmail|msmtp|SMTPServer|--mail-from' \
+      --include='*.py' --include='*.sh' --include='*.container' --include='*.service' .
+  (no output)
+
+  # the near-miss:
+  $ grep -rniE 'smtp|mailx|sendmail|msmtp|email-relay' quadlet/ config/
+  config/mastodon/mastodon.env.example:34:  # --- smtp: Cloudflare Email Routing (pending ...)
+  config/mastodon/patches/production.rb:107,115,116,121,129,132,133,134,135  (config.action_mailer.smtp_settings)
+
+  $ podman exec ao-mastodon-web env | cut -d= -f1 | grep -iE 'smtp|mail'
+  (no output)
+  $ hasEntry ao-mastodon mastodon-smtp-login    -> (false,)
+  $ hasEntry ao-mastodon mastodon-smtp-password -> (false,)
+  $ hasEntry ao-mastodon mastodon-smtp-server   -> (false,)
+section: 07-public-storefront-and-payment-policy
+---
+
+**Revision 2, 2026-10-05. Supersedes the revision of 2026-10-04. Re-measurement
+only; no mail path was configured and nothing was sent.**
+
+**PAY-06 stays OPEN on the same single missing piece: delivery.** The generation
+half remains proven (`scripts/sales/intake-to-pdf.sh`, exit 0, intake record +
+work order + 10-field AcroForm overlay). The delivery half remains absent, now
+confirmed three ways: no MTA binary, no SMTP config at any of the four standard
+paths, and a repo-wide search for `smtplib|sendmail|msmtp|SMTPServer|--mail-from`
+across `*.py`, `*.sh`, `*.container`, `*.service` returning **nothing**.
+
+**The new thing this revision adds is a near-miss I want recorded so the next agent
+does not lose an hour to it.** Grepping `quadlet/` and `config/` for
+`smtp|mailx|sendmail|msmtp|email-relay` returns **15 hits**, which looks at first
+glance like a mail path already exists. Every one of them is Mastodon's own
+`config.action_mailer.smtp_settings` block in
+`config/mastodon/patches/production.rb`, plus one commented-out placeholder in
+`config/mastodon/mastodon.env.example` reading "Cloudflare Email Routing (pending
+dashboard enablement 2026-10-22)". It is an unrelated component's unconfigured
+switch, not a delivery path for `ao-sales`.
+
+I checked rather than assumed:
+
+```text
+$ podman exec ao-mastodon-web env | cut -d= -f1 | grep -iE 'smtp|mail'
+(no output)
+$ hasEntry ao-mastodon mastodon-smtp-login    -> (false,)
+$ hasEntry ao-mastodon mastodon-smtp-password -> (false,)
+$ hasEntry ao-mastodon mastodon-smtp-server   -> (false,)
+```
+
+Not one Mastodon SMTP variable is provisioned and no wallet entry exists, so
+Mastodon's mailer has nothing to send through either. Someone proposing to "reuse
+the Mastodon mailer" would find it unconfigured.
+
+**What I got wrong:**
+
+1. **My first search was scoped to `scripts/` and `quadlet/` and returned nothing,
+   which felt conclusive — and would have been the wrong conclusion.** I widened it
+   to `config/` and found 15 `smtp` hits. The honest reading is the opposite of
+   "no mail anywhere": there is mail *configuration surface* for Mastodon that is
+   inert. Reporting only the narrow search would have understated the tree and
+   invited a later agent to "discover" the same hits and treat them as progress.
+   **A null result is only as good as the scope you searched.**
+2. I did not, at any point, attempt to send mail or install an MTA. Doing so means
+   acquiring relay credentials and opening mail egress — §4.1 rule 14 (production
+   credentials) and rule 6 (egress). That is the operator's decision.
+
+Not done, deliberately: no MTA installed, no SMTP relay configured, no credential
+created, no message sent. The operator's decision remains one of: an SMTP relay
+credential plus a sending script, or an API-based transactional mail provider.
+Either way the recipient addresses are customer PII and must be checked against
+§4.2/§4.3 before anything is sent, which is why the item cannot self-close.
+
+---
+
+## SUPERSEDED — revision 1 (2026-10-04), retained for audit
+
+
   $ cd /ALWAYSON && bash scripts/sales/intake-to-pdf.sh \
       /tmp/pay06proof/request.txt /tmp/pay06proof/out
   OK: /tmp/pay06proof/out/request-record.json

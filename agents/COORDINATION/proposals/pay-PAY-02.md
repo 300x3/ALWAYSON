@@ -2,70 +2,105 @@
 item: PAY-02
 action: update
 evidence: |
-  # The correction is now WRITTEN and PROVEN, and deliberately NOT APPLIED.
-
-  # 1. Live file untouched - sha256 identical to the pre-work measurement.
   $ sha256sum scripts/payment/ao-payment-adapter.py
-  71a74988b0731695f61a7d56d9580a3c8364a3371906fa333c1784638d399f58  scripts/payment/ao-payment-adapter.py
-  $ git --no-pager status --short scripts/payment/
-  (no output - scripts/payment/ is clean; the only M under scripts/ is
-   scripts/simulation/build-rl-objects.py, another session's uncommitted work)
-  $ curl -s -m5 http://127.0.0.1:8899/health
-  {"ok": true, "enabled": true}
-  $ ss -ltn | grep 18899 || echo "18899 not listening - test server stopped"
+  71a74988b0731695f61a7d56d9580a3c8364a3371906fa333c1784638d399f58  (unchanged from 2026-10-03)
 
-  # 2. Unit harness 18/18. Throwaway RSA keypair generated in-process; cert
-  # fetch stubbed so the REAL host allowlist and cert->key extraction still run.
-  $ python3 /tmp/pay02/test-verifier.py
-  [PASS] current verify_paypal rejects PayPal-documented sig
-  [PASS] candidate accepts correct PayPal sig
-  [PASS] tampered body rejected
-  [PASS] wrong webhookId rejected
-  [PASS] stale timestamp rejected
-  [PASS] current-scheme HMAC forgery rejected by candidate
-  [PASS] cert host not permitted: https://evil.example.com/c.pem
-  [PASS] cert host not permitted: http://api.paypal.com/c.pem
-  [PASS] candidate verify_coinbase accepts real Coinbase event
-  [PASS] candidate verify_coinbase rejects PayPal-shaped event
-  [PASS] current verify_paypal REJECTS the real Coinbase event (the bug)
-  [PASS] current verify_paypal ACCEPTS a PayPal-shaped event (coinbase-path bug)
-  [PASS] current normalize amount_cents (None == lost)
-  [PASS] current normalize coinbase returns EVENT id, not charge.id
-  [PASS] candidate normalize paypal amount_cents: 50000
-  [PASS] candidate normalize paypal currency: USD
-  [PASS] candidate normalize coinbase provider_ref: chr_123
-  [PASS] candidate normalize coinbase amount_cents: 1234
-  === SUMMARY === 18/18 checks passed   EXIT=0
-
-  # 3. ACCEPTANCE CRITERION end to end over HTTP. Candidate on spare loopback
-  #    port 18899 in --dry-run, so no salesdb row could be written.
-  $ python3 /tmp/pay02/e2e-proof.py
-  GET /health -> 200 {"ok": true, "enabled": false}
-  1. genuine PayPal event, PayPal-documented signature
-     POST /webhook/paypal   -> 200 {"accepted": true, "provider": "paypal"}
-  2. same event, one byte of body tampered
-     POST /webhook/paypal   -> 401 {"error": "signature verification failed"}
-  3. genuine Coinbase event, HMAC over the raw body
-     POST /webhook/coinbase -> 200 {"accepted": true, "provider": "coinbase"}
-  4. PayPal-shaped event posted to the Coinbase path
-     POST /webhook/coinbase -> 401 {"error": "signature verification failed"}
-  5. Zelle remains manual-only
-     POST /webhook/Zelle    -> 501 {"error": "Zelle is manual-reconciliation only (Section 18.4)"}
-
-  # the adapter's own log - the normalized record, with the amount and currency
-  # the live code drops:
-  DRY-RUN (no DSN): event provider=paypal type=PAYMENT.CAPTURE.COMPLETED
-    ref=paypal:3b97c70f1e963687d2da6dbd62f7d7bd amount_cents=50000 currency=USD verified=True
-  DRY-RUN (no DSN): event provider=coinbase type=charge:confirmed
-    ref=coinbase:9871540c485e614b22a7e30fda45d736 amount_cents=1234 currency=USD verified=True
-
-  # 4. Coinbase is still verified with the PayPal verifier in the LIVE file.
-  $ grep -n 'AUTOMATED =' scripts/payment/ao-payment-adapter.py
-  AUTOMATED = ("paypal", "coinbase")
-  $ grep -c 'COINBASE_WEBHOOK_SECRET' scripts/payment/ao-payment-adapter.py
+  $ grep -c 'def verify_coinbase' scripts/payment/ao-payment-adapter.py
   0
+  $ grep -n 'AUTOMATED' scripts/payment/ao-payment-adapter.py
+  43:AUTOMATED = ("paypal", "coinbase")
+  208:        if provider in AUTOMATED:
+  $ grep -rn 'COINBASE_WEBHOOK_SECRET' --include='*.py' --include='*.sh' \
+        --include='*.container' --include='*.service' .
+  ./scripts/operations/fetch-kwallet-secret.sh:165:   (writes it; never reads it)
+
+  # normalize() called in-process on realistic payloads; no sink, no row written:
+  paypal   -> {'provider':'paypal','provider_ref':'',        'amount_cents':None,'currency':'USD'}
+  coinbase -> {'provider':'coinbase','provider_ref':'evt-1', 'amount_cents':None,'currency':'USD'}
+
+  $ sed -n '230,232p' scripts/payment/ao-payment-adapter.py
+          n = normalize(provider, event)
+          if not n["provider_ref"]:
+              self._reply(400, {"error": "missing provider reference"})
+
+  $ curl -sS -X POST http://127.0.0.1:8899/webhook/coinbase \
+      -H "x-cc-webhook-signature: <hmac over a throwaway secret>" --data-binary '<charge:confirmed>'
+  http=401
+  {"error": "signature verification failed"}
+
+  $ podman exec ao-sales-db psql -U sales_migration_role -d salesdb -tAc \
+      "select 'rows='||count(*) from payment_provider_events;"
+  rows=0
 section: 07-public-storefront-and-payment-policy
 ---
+
+**Revision 2, 2026-10-05. Supersedes the revision of 2026-10-04. Adds a fourth
+defect.**
+
+**PAY-02 stays OPEN.** The adapter file is byte-identical
+(`sha256:71a74988…f58`), so this is a re-measurement, not a re-fix. All three
+previously recorded defects still reproduce, and I have added a fourth that is
+worse than the three.
+
+**Defect 4 (new): for PayPal the normalized `provider_ref` is the empty string,
+so a genuine PayPal payment is rejected with 400 and no record is created at all.**
+Earlier revisions described PayPal as losing only `amount_cents`. That understates
+it. A real `PAYMENT.CAPTURE.COMPLETED` carries its id at `resource.id`, which
+`normalize()` never reads, so `ref` falls through every branch to `""`; the gate at
+line 230 (`if not n["provider_ref"]`) then returns 400. The two providers fail
+differently and only one of them is visible: **Coinbase** has a wrong-but-present
+ref, so it passes the gate and is *written wrongly*; **PayPal** has no ref, so it
+is *dropped*. A wrong value looks like data; a rejection looks like an outage.
+Cause is structural: `normalize()` (lines 97–121) reads only top-level
+`id`/`txn_id`/`payment_id`/`transaction_id` and top-level `amount`/`currency`, and
+neither provider puts either field at the top level.
+
+Defects 1–3 re-confirmed unchanged: no `verify_coinbase` exists (`grep -c` → 0),
+`AUTOMATED` still contains `coinbase` and both paths gate through `verify_paypal()`
+at line 208, and `COINBASE_WEBHOOK_SECRET` is written by the wallet bridge but read
+by nothing.
+
+**What I got wrong:**
+
+1. **I initially planned to re-run the previous session's 18/18 harness and cite
+   it.** I did not, because `/tmp` is session-local and the harness is gone — the
+   same trap the 2026-10-04 revision already documented. I cited the file hash
+   instead to show the candidate is not being re-claimed. I have **not**
+   re-verified the prepared correction, and §7.2.1 says so.
+2. **My first live probe design would have been ambiguous and I changed it.** I
+   originally planned to POST a PayPal-shaped event to `/webhook/coinbase` to
+   demonstrate defect 2's "200 accepted". That was a bad idea twice over: a 200
+   would mean a row was written into `salesdb`, and re-demonstrating a defect is
+   not worth creating business state. I used a deliberately unverifiable
+   signature instead, so the probe can only return 401 and provably wrote nothing.
+   Confirmed: `payment_provider_events` = 0 rows afterwards. **Choose probes that
+   cannot succeed when you are only trying to prove a rejection.**
+3. The 401 result is easy to misread as "signature verification works". It does
+   not. The Coinbase path is gated by `verify_paypal()`, so it rejects a bad
+   signature *and* would reject a genuine Coinbase signature. Right answer, wrong
+   reason — I have said so explicitly in §7.2 rather than let the 401 stand as
+   evidence of a working control.
+
+Not done, deliberately: **no fix applied to the live adapter.** Correcting the
+verifier changes which money-bearing events are accepted — §4.1 rule 14 and the
+first stop condition of this brief. Acceptance criterion "a test payment event
+produces a verified normalized record" is not met and cannot be met without
+operator approval. The prepared correction in §7.2.1 stands, unverified since
+2026-10-04.
+
+Cross-item, and new since the last revision: the wallet now holds
+`PAYPAL_WEBHOOK_ID`, `PAYPAL_WEBHOOK_SECRET` and `COINBASE_WEBHOOK_SECRET` (see
+`pay-PAY-01.md`), so the configuration the correction needs **now exists** — but
+none of the three is loaded into the running container, which predates
+`payment.env`. So even a corrected adapter would find no secret at runtime until
+`ao-ingress-payment` is restarted. See `pay-PAY-01.md`; restarting it is the
+operator's call.
+
+---
+
+## SUPERSEDED — revision 1 (2026-10-04), retained for audit
+
+
 **SUPERSEDES the evidence block above, 2026-10-04.** The `/tmp/pay02/` harness and
 candidate verifier referenced above **no longer exist on disk**:
 
