@@ -74,6 +74,58 @@ this tree go stale on every new script.
 generators (`provenance-log.py`, `inventory-full.py`, `refresh-install-log.sh`,
 `apt_history.py`, `test_generators.py`); it predates this section and is
 described in §12.5.
+
+### 16.1.1 `build-update/provenance/` — the generator package (OPS-18)
+
+`provenance-log.py` was a single ~2,300-line module holding evidence gathering,
+policy, plan generation and rendering in one file. It is now a thin entrypoint
+over a package, split by concern:
+
+| Module | Holds | Why it is separate |
+|---|---|---|
+| `provenance/common.py` | constants, `run()`, `now_utc()`, `norm()`, `is_complete_digest()`, `load_yaml()` | The three primitives everything else needs. No knowledge of provenance, policy or rendering. |
+| `provenance/collector.py` | every function that reads local state, spawns a subprocess or queries upstream | The only module with mutable module-level state (`COLLECTED`, `_CACHE_HITS`, `_CAND_VER`, `_CAND_ID`, `OFFLINE`). Those caches exist because the un-cached form spawned ~230 apt subprocesses per run and stopped completing. |
+| `provenance/policy.py` | `EXCLUSIONS`, `NEEDS_APPROVAL`, `PIN_POLICY`, `PLAN_VERBS`, `_argv_is_safe()`, `pin_policy()`, `update_risk()` | The updater allowlist and the **recorded reason** for each entry. Stdlib-only, so the safety property can be read and audited without following an import graph. |
+| `provenance/plan.py` | `update_steps()`, `write_update_plan()` | Machine-readable plans: each item is either `eligible` with exact ordered argv steps or `excluded` with the rule that excludes it. No third state, no implicit default. |
+| `provenance/render.py` | `HEADERS`, `CSS`, `rows_to_html()`, `rollup_details_md()`, `to_html()` | Presentation. Holds no policy and makes no network call, so a column-order change cannot reach back into collection. |
+
+Dependency direction is strictly one way, asserted from the import statements in
+`TestProvenancePackageBoundaries`:
+
+```
+plan     -> policy, render, common
+render   -> collector, policy, common
+collector-> common
+policy   -> (stdlib only)
+```
+
+Two properties of the split are load-bearing and are pinned by tests rather than
+left to convention:
+
+**Re-export is a snapshot, not an alias.** `provenance/__init__.py` binds every
+top-level name of every submodule so the entrypoint keeps its historical surface,
+but those bindings are taken at import time. If the owning module later
+*rebinds* its own name with a `global` statement, the copy keeps the old value.
+Measured: after `_load_apt_history()` cached the module in `collector`,
+`provenance._APT_HISTORY_MODULE` still read `'unset'`. Therefore any state that
+crosses a module boundary goes through an accessor owned by the writer —
+`cache_ttl()` / `set_cache_ttl()` for the TTL, and `set_offline()` in the
+entrypoint for `--offline`. A bare imported `CACHE_TTL` or `OFFLINE` global would
+have printed the default 6h TTL on a forced refresh.
+
+**The re-export is built from an explicit namespace walk, not `import *`.**
+`from .collector import *` skips underscore-prefixed names, and existing
+regression tests reach `_load_apt_history` and `_argv_is_safe` through the
+entrypoint; a plain star import turns those into `AttributeError` at the call
+site rather than at import. `__all__` is computed after the loop variables are
+deleted, because publishing them into the entrypoint's `from provenance import *`
+made the star import fail.
+
+`provenance-log.py` remains the executable entrypoint and the documented usage
+string, and holds argument parsing and flag wiring only. Measured line counts of
+the package (`wc -l`): `collector.py` 1,633, `render.py` 446, `plan.py` 211,
+`policy.py` 139, `common.py` 93, `__init__.py` 70; the entrypoint is 133 lines
+against the original 2,328.
 ### 16.1.2 Backup, restore and receipt executors (measured 2026-10-04)
 
 Measured with `ls -1` against the tree, not read off this document. This mapping

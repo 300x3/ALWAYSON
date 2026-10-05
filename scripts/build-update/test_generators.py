@@ -758,6 +758,222 @@ class TestImageDigestChecker(unittest.TestCase):
         self.assertIn("RESULT: DRIFT", r.stdout)
 
 
+class TestProvenancePackageBoundaries(unittest.TestCase):
+    """OPS-18: the split into the `provenance` package must hold.
+
+    The refactor moved ~2,300 lines across five modules. A split can compile,
+    import, and pass every behavioural test while still being wrong in ways no
+    behavioural test sees -- a silently swallowed import, a stale re-export, a
+    function that now looks for its sibling one directory too low. Each of
+    those produced a document that LOOKED correct and carried the wrong data,
+    which is the failure mode this file exists to catch, so the boundaries are
+    pinned here rather than trusted.
+    """
+
+    HERE = Path(__file__).resolve().parent
+    PROV = HERE / "provenance"
+
+    def test_all_five_modules_exist_and_are_not_empty(self):
+        for mod in ("common", "policy", "plan", "render", "collector"):
+            p = self.PROV / f"{mod}.py"
+            self.assertTrue(p.is_file(), f"missing module: {p}")
+            self.assertGreater(len(p.read_text().splitlines()), 20,
+                               f"{mod}.py is too small to be the real module")
+
+    def test_entrypoint_holds_no_collector_logic(self):
+        """The file that was one large module must stay an entrypoint.
+
+        Not a line count -- a specific check. If collection logic creeps back
+        into provenance-log.py the split is undone in substance while every
+        other test here still passes.
+        """
+        src = (self.HERE / "provenance-log.py").read_text()
+        # COLLECTED[...] is allowed: main() reads the collector's summary to
+        # print the counts line. What must NOT come back is the machinery that
+        # fills it -- a definition, or a network call, in the entrypoint.
+        # json.loads IS allowed: main() reads the inventory file. What must
+        # not come back is the machinery that gathers or renders anything.
+        for leaked in ("def apt_date", "def containers", "def _load_apt_history",
+                       "urllib.request", "subprocess.", "def rows_to_html",
+                       "def render("):
+            self.assertNotIn(leaked, src,
+                             f"collection logic leaked back into the entrypoint: {leaked}")
+        # It must still be an orchestrator, not a shim that does nothing.
+        self.assertIn("def main()", src, "entrypoint lost main()")
+
+    def test_dependency_direction_is_acyclic(self):
+        """common <- collector <- render, and policy depends on nothing local.
+
+        A cycle would import only by accident of statement order. Asserted from
+        the import statements themselves, so the graph is checked as written
+        rather than as intended.
+        """
+        import re as _re
+        allowed = {
+            "common":    set(),
+            "policy":    set(),
+            "collector": {"common"},
+            "render":    {"collector", "common", "policy"},
+            "plan":      {"common", "policy", "render"},
+        }
+        for mod, legal in allowed.items():
+            src = (self.PROV / f"{mod}.py").read_text()
+            for dep in _re.findall(r"^from \.(\w+) import", src, _re.M):
+                self.assertIn(dep, legal,
+                              f"{mod}.py imports .{dep}, which is not one of {sorted(legal)}")
+
+    def test_policy_module_is_auditable_without_the_import_graph(self):
+        """The allowlist is the safety property; it must be readable alone."""
+        src = (self.PROV / "policy.py").read_text()
+        for guard in ("EXCLUSIONS", "NEEDS_APPROVAL", "PIN_POLICY", "PLAN_VERBS"):
+            self.assertIn(guard, src, f"policy.py lost {guard}")
+        self.assertNotIn("from .common", src,
+                         "policy.py must not depend on the rest of the tree")
+
+    def test_apt_history_sibling_is_found_after_the_split(self):
+        """The refactor moved the loader one directory away from its data.
+
+        `Path(__file__).parent / "apt_history.py"` pointed INSIDE the package
+        once the function moved, raised FileNotFoundError, and the except
+        clause swallowed it into None -- silently reverting every install date
+        to the dpkg mtime. No behavioural test caught it; this asserts the
+        lookup resolves, and specifically that the module is not None.
+        """
+        mod = load_module("pl_pkg_apt", self.HERE / "provenance-log.py")
+        self.assertIsNotNone(
+            mod._load_apt_history(),
+            "apt_history.py did not resolve from the package; install dates "
+            "would silently fall back to the dpkg mtime")
+
+    def test_underscore_names_survive_the_reexport(self):
+        """`from module import *` skips underscore names.
+
+        Two existing regressions reach `_load_apt_history` and `_argv_is_safe`
+        through the entrypoint, so the re-export must be built from an explicit
+        namespace walk rather than a star import. Pinned because the failure is
+        a silent AttributeError at the call site, not an import error.
+        """
+        mod = load_module("pl_pkg_star", self.HERE / "provenance-log.py")
+        for name in ("_load_apt_history", "_argv_is_safe", "_best_tag",
+                     "_cache_path", "_digest_of"):
+            self.assertTrue(hasattr(mod, name),
+                            f"{name} missing from the entrypoint: a star import "
+                            f"drops underscore-prefixed names")
+
+    def test_cache_ttl_is_read_through_one_accessor(self):
+        """`--refresh` rebinds the TTL at runtime and the banner reads it.
+
+        A plain imported global binds a copy at import time, so a forced refresh
+        would print the default 6h TTL. Asserted through the accessor, which is
+        the fix: one owner, read on every call.
+        """
+        mod = load_module("pl_pkg_ttl", self.HERE / "provenance-log.py")
+        import provenance.collector as coll
+        before = coll.cache_ttl()
+        try:
+            mod.set_cache_ttl(0)
+            self.assertEqual(coll.cache_ttl(), 0)
+        finally:
+            coll.set_cache_ttl(before)
+        self.assertEqual(coll.cache_ttl(), before, "TTL was not restored")
+
+    def test_set_offline_reaches_the_module_that_makes_the_calls(self):
+        """--offline is a hard no-network guarantee; the owner must see it."""
+        mod = load_module("pl_pkg_off", self.HERE / "provenance-log.py")
+        import provenance.collector as coll
+        before = coll.OFFLINE
+        try:
+            mod.set_offline(True)
+            self.assertTrue(coll.OFFLINE, "set_offline did not reach the collector")
+        finally:
+            coll.OFFLINE = before
+
+
+class TestRenderProducesBothOutputs(unittest.TestCase):
+    """OPS-18 acceptance: the render path must still be exercised end to end.
+
+    Every other test in this file probes one function in isolation. The split
+    moved the Markdown and HTML writers into render.py with a new import edge to
+    collector.py, and a missing name on that edge only fails when a row is
+    actually formatted -- which no unit test of the collectors does. This
+    builds a minimal row set and renders both outputs, so the edge is covered by
+    a real call rather than by an import check.
+    """
+
+    def setUp(self):
+        self.mod = load_module("pl_render_out", Path(__file__).resolve().parent
+                               / "provenance-log.py")
+
+    @staticmethod
+    def _rows():
+        """Rows in the shape the collectors actually emit.
+
+        Keyed to the literals in collector.py (item/via/publisher/repo/
+        pinned/released/pin_hash/rel_hash/download). Guessing these produced a
+        KeyError on 'released' the first time round, which is the point: the
+        renderer indexes rows directly, so a fixture must match the real
+        schema rather than a plausible-looking one.
+        """
+        return [
+            {"item": "rclone", "via": "apt", "publisher": "Ubuntu",
+             "repo": "jammy/main", "pinned": "1.60.1-1ubuntu1",
+             "released": "1.60.1-1ubuntu1.1", "tag": None,
+             "pin_hash": "1.60.1-1ubuntu1", "rel_hash": "1.60.1-1ubuntu1.1",
+             "download": "https://example.invalid/rclone", "is_pinned": True,
+             "local": False, "date": "2026-10-03 (apt history, Install)"},
+            {"item": "ao-nodeodm", "via": "container/build-update",
+             "publisher": "Docker Hub", "repo": "docker.io/opendronemap/nodeodm",
+             "pinned": "no version tag", "released": "2.6.0",
+             "tag": "latest",
+             "pin_hash": "floating tag, no digest pinned", "rel_hash": "sha256:abc123",
+             "download": "https://example.invalid/nodeodm", "is_pinned": False,
+             "local": False, "date": "-"},
+        ]
+
+    def test_rows_to_html_emits_a_table_containing_every_row(self):
+        html = self.mod.rows_to_html(self._rows(), "2 items.",
+                                     "ALWAYS ON - Software Status", [])
+        self.assertIn("<table", html)
+        for token in ("rclone", "ao-nodeodm", "1.60.1-1ubuntu1",
+                      "sha256:abc123"):
+            self.assertIn(token, html, f"{token} missing from the rendered HTML")
+
+    def test_html_escapes_instead_of_emitting_raw_markup(self):
+        """A package or repo name carrying markup must not reach the page raw."""
+        rows = self._rows()
+        rows[0]["item"] = "<script>alert(1)</script>"
+        rows[0]["repo"] = "<b>bold</b>"
+        html = self.mod.rows_to_html(rows, "2 items.", "t", [])
+        self.assertNotIn("<script>alert(1)</script>", html)
+        self.assertIn("&lt;script&gt;", html)
+        self.assertNotIn("<b>bold</b>", html)
+
+    def test_rollup_details_render_for_a_populated_group(self):
+        """The drill-down (OPS-23) must survive the move into render.py.
+
+        `rollup_details_md(rows, kde_members)` -- the second argument is the KDE
+        component list as (name, owning_package) PAIRS. Passing roll-up names
+        there raised "too many values to unpack", so the pairs are pinned here
+        rather than left to the next reader to infer.
+        """
+        rows = self._rows()
+        rows[0]["members"] = ["plasma-workspace", "systemsettings"]
+        md = self.mod.rollup_details_md(
+            rows, [("plasma-desktop", "plasma-desktop"), ("kwin", "")])
+        self.assertIsInstance(md, str)
+        for token in ("plasma-workspace", "systemsettings", "plasma-desktop"):
+            self.assertIn(token, md,
+                          f"{token} missing from the roll-up details: the "
+                          f"drill-down (OPS-23) must survive the move into render.py")
+
+    def test_rollup_details_tolerate_an_empty_member_list(self):
+        """A group with no launchers must not emit an empty details block."""
+        rows = self._rows()
+        rows[0]["members"] = []
+        md = self.mod.rollup_details_md(rows, None)
+        self.assertNotIn("Rolled-up launchers", md)
+
+
 def load_module(name, path):
     """Import a module from an explicit path, independent of sys.path/CWD."""
     spec = importlib.util.spec_from_file_location(name, path)
