@@ -31,12 +31,20 @@ STUCK_MIN = 12
 MAX_NUDGES = 3
 TIMEOUT = 5400  # hard ceiling per session
 
-# Explicit model for every spawned session. Not the provider default:
-# globalState has actModeClineModelId = poolside/laguna-s-2.1:free, which is a
-# free-tier model with a DAILY quota - it killed seven sessions on 2026-10-03
-# with "You've reached today's free usage limit for this model". Setting the
-# model here means the choice is deliberate and recorded, not inherited.
-MODEL = os.environ.get("AO_MODEL", "stealth/space-bunny-alpha")
+# Explicit model for every spawned session. Not the provider default, and NOT a
+# paid model. History of getting this wrong:
+#   1. The first default inherited the global state model
+#      (poolside/laguna-s-2.1:free), a free tier with a DAILY quota that killed
+#      seven sessions on 2026-10-03.
+#   2. It was then overridden to stealth/space-bunny-alpha, which 404s on
+#      OpenRouter ("No endpoints found") -- every spawned agent died at
+#      iteration 1. Measured 2026-10-05.
+# The operator's instruction is to run ONE agent at a time in 2-hour periods
+# on the free model, so quota exhaustion is the pacing constraint, not a
+# surprise. Single-agent operation halves the token burn versus pairs, and the
+# rotation spreads quota use across groups instead of spending it all in one
+# place. AO_MODEL still overrides this for deliberate experiments.
+MODEL = os.environ.get("AO_MODEL", "poolside/laguna-s-2.1:free")
 PROVIDER = "cline"
 REASONING = os.environ.get("AO_REASONING", "medium")
 
@@ -217,6 +225,42 @@ def nudge(g, reason):
     n = int(open(os.path.join(d, "nudges")).read()) if os.path.exists(os.path.join(d, "nudges")) else 0
     if n >= MAX_NUDGES:
         print("%-6s nudge limit (%d) reached - needs a human" % (g, MAX_NUDGES)); return
+    # A nudge REPLACES the session it supersedes. The old pid may still be
+    # alive: `state()` returns "error" for a LIVE session whose latest event is
+    # a non-fatal provider error and whose output went idle past STUCK_MIN, and
+    # "stuck" for a live one with no new event. Spawning without retiring the
+    # old process puts two agents in the same worktree editing the same files.
+    # Measured 2026-10-05: a guard pass nudged 8 live groups and doubled the
+    # team. So terminate the old process GROUP first (SIGTERM, then SIGKILL
+    # after 5s), verified dead, before the new invocation is started.
+    pf = os.path.join(d, "pid")
+    if os.path.exists(pf):
+        try:
+            oldpid = int(open(pf).read())
+        except (ValueError, OSError):
+            oldpid = None
+        if oldpid is not None and pid_alive(oldpid):
+            try:
+                pgid = os.getpgid(oldpid)
+            except OSError:
+                pgid = None
+            if pgid is not None:
+                try:
+                    os.killpg(pgid, signal.SIGTERM)
+                except OSError:
+                    pass
+                deadline = time.time() + 5
+                while time.time() < deadline and pid_alive(oldpid):
+                    time.sleep(0.2)
+                if pid_alive(oldpid):
+                    try:
+                        os.killpg(pgid, signal.SIGKILL)
+                    except OSError:
+                        pass
+                    time.sleep(0.5)
+                if pid_alive(oldpid):
+                    print("%-6s old pid %d refused to die - NOT spawning a duplicate" % (g, oldpid)); return
+                print("%-6s retired old pid %d" % (g, oldpid))
     n += 1
     open(os.path.join(d, "nudges"), "w").write(str(n))
     msg = (
@@ -294,6 +338,68 @@ def cmd_stop():
             os.remove(pf)
 
 
+def cmd_guard():
+    """One recovery pass, then EXIT. Designed to be run every 5 minutes.
+
+    Why not just use `watch` on a timer: `watch` LOOPS until every session
+    settles, and a systemd timer would then overlap the next run. Worse, the
+    operator's team died unattended on 2026-10-04 and the guard that was
+    supposed to notice was a Cline cron job whose store had been emptied --
+    ~/.cline/cron/ contained only reports/, no jobs. So recovery now lives in
+    a systemd USER timer with Linger=yes, which survives logout and reboot and
+    does not depend on any session being alive to run it.
+
+    The pass is deliberately conservative:
+      * a group that is running or stuck is LEFT ALONE. Never start a second
+        agent in a worktree that already has a live one -- that is how you get
+        two sessions colliding on the same files.
+      * a group that is dead or errored gets `nudge`, which resumes in the
+        SAME worktree, and is capped by MAX_NUDGES so a permanently broken
+        group cannot be respawned forever every 5 minutes.
+      * when NOTHING at all is running, the whole team is respawned and the
+        per-group nudge counters are reset, because they are spent and would
+        otherwise block recovery indefinitely.
+    """
+    states = {g: state(g) for g in GROUPS}
+    cmd_status()
+
+    live = [g for g in GROUPS if states[g][0] in ("running", "stuck")]
+    broken = [g for g in GROUPS if states[g][0] in ("error", "dead", "never")]
+
+    if not live:
+        # Whole team is down. Reset the nudge budget or every group would be
+        # permanently un-nudgeable after MAX_NUDGES uses.
+        for g in GROUPS:
+            open(os.path.join(run_dir(g), "nudges"), "w").write("0")
+        print("\nno live sessions: respawning all %d" % len(GROUPS))
+        for g in GROUPS:
+            spawn(g)
+        return
+
+    if broken:
+        print("\nrecovering: %s" % ", ".join("%s(%s)" % (g, states[g][0]) for g in broken))
+        for g in broken:
+            # Recover ONLY groups whose process is verifiably GONE.
+            # nudge() retires a live pid first, but the automated guard must
+            # not be the thing that decides a live (if idle) agent is finished:
+            # on 2026-10-05 a guard pass nudged 8 live groups on the strength
+            # of non-fatal provider errors. Live agents are left to `watch`
+            # and the operator; the guard's job is the dead, not the slow.
+            pf = os.path.join(run_dir(g), "pid")
+            gone = True
+            try:
+                oldpid = int(open(pf).read())
+                gone = not pid_alive(oldpid)
+            except (ValueError, OSError):
+                gone = True
+            if gone:
+                nudge(g, "5-minute guard: process gone (%s)" % states[g][0])
+            else:
+                print("%-6s live pid kept; needs a manual nudge if it stays %s" % (g, states[g][0]))
+    else:
+        print("\nall %d sessions healthy; nothing to do" % len(live))
+
+
 if __name__ == "__main__":
     cmd = sys.argv[1] if len(sys.argv) > 1 else "status"
     args = sys.argv[2:]
@@ -303,6 +409,10 @@ if __name__ == "__main__":
     elif cmd == "status": cmd_status()
     elif cmd == "watch":  cmd_watch(int(args[0]) if args else 60)
     elif cmd == "nudge":  nudge(args[0], args[1] if len(args) > 1 else "manual")
+    elif cmd == "state1":
+        s, d = state(args[0])
+        print("%s %s" % (s, d))
+    elif cmd == "guard":  cmd_guard()
     elif cmd == "report": cmd_report()
     elif cmd == "stop":   cmd_stop()
     else: raise SystemExit(__doc__)

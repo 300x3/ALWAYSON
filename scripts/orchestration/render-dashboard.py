@@ -326,7 +326,7 @@ button.ghost{background:#fff;color:#7a5c15}
 </style><div class=wrap>
 <h1>ALWAYS ON &mdash; section 19 work items</h1>
 <div class=ctl>
- <button id=ctlspawn>Spawn the 11 sessions</button>
+ <button id=ctlspawn>Next shift / revive agent</button>
  <button class=ghost id=ctlstop>Stop everything</button>
  <span class=status id=ctlst>checking&hellip;</span>
 </div>
@@ -412,9 +412,9 @@ button.ghost{background:#fff;color:#7a5c15}
       .then(function(r){ return r.json().then(function(j){ return {ok:r.ok, j:j}; }); })
       .then(function(x){
         if(!x.ok){ ctl.textContent = label+' FAILED: '+(x.j.error||'http error'); ctl.className='status bad'; return; }
-        var n = (path==='/spawn') ? x.j.live : x.j.live;
+        var n = x.j.live;
         ctl.textContent = path==='/spawn'
-          ? ('spawned — '+x.j.live+' live processes' + (x.j.returncode?' (rc '+x.j.returncode+')':''))
+          ? ('rotation — '+(x.j.rotation||'unknown')+', '+x.j.live+' live processes' + (x.j.returncode?' (rc '+x.j.returncode+')':''))
           : ('stopped — '+x.j.signalled+' processes signalled, '+x.j.live+' live now');
         ctl.className = (n>0?'status ok':'status');
         setTimeout(refreshCtl, 15000);

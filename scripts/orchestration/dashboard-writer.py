@@ -27,6 +27,7 @@ ANS = os.path.join(DIR, "answers.json")
 SESS = "/tmp/ao-sessions"
 ORCH = os.path.join(ROOT, "scripts/orchestration")
 SUPERVISE = os.path.join(ORCH, "supervise.py")
+ROTATE = os.path.join(ORCH, "rotate-agents.py")
 PORT = int(os.environ.get("AO_DASH_PORT", "8766"))
 ITEM_RE = re.compile(r"^[A-Z]{2,6}-\d{1,3}$")
 GROUPS = ["plat", "net", "sec", "ledger", "pay", "comm",
@@ -39,22 +40,24 @@ def _count_sessions():
 
 
 def do_spawn():
-    """Clear per-group markers, then hand off to supervise.py.
+    """Advance the single-agent rotation, or report the current shift.
 
-    supervise.py owns the actual launch so the dashboard and the CLI cannot
-    drift apart on how a session is started.
+    2026-10-05: the operator runs ONE agent at a time in 2-hour shifts, not
+    11 parallel sessions. The old behaviour here -- clearing every pid marker
+    and spawning all 11 -- would fight the rotation timer by launching 11
+    agents the timer would then stop. So this button now runs
+    `rotate-agents.py rotate`: hands off to the next group if the shift is
+    over, revives the current agent if it died mid-shift, does nothing if
+    the shift is healthy. rotate-agents.py owns the actual launch so the
+    dashboard and the CLI cannot drift apart on how a session is started.
     """
-    for g in GROUPS:
-        d = os.path.join(SESS, g)
-        for f in ("nudges", "pid"):
-            try:
-                os.remove(os.path.join(d, f))
-            except FileNotFoundError:
-                pass
-    r = subprocess.run([sys.executable, SUPERVISE, "spawn"],
-                       cwd=ROOT, capture_output=True, text=True, timeout=240)
+    r = subprocess.run([sys.executable, ROTATE, "rotate"],
+                       cwd=ROOT, capture_output=True, text=True, timeout=300)
     time.sleep(6)
-    return {"spawned": r.stdout.strip().splitlines()[-11:],
+    s = subprocess.run([sys.executable, ROTATE, "status"],
+                       cwd=ROOT, capture_output=True, text=True, timeout=30)
+    return {"spawned": (r.stdout or "").strip().splitlines()[-8:],
+            "rotation": (s.stdout or "").strip(),
             "returncode": r.returncode,
             "live": _count_sessions(),
             "stderr": (r.stderr or "")[-300:]}
