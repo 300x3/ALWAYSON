@@ -1066,3 +1066,165 @@ that is self-refuting: the runbook tells you to enable a unit it also says is
 "not started", while `list-unit-files` shows no such unit. **A document that
 states completed state must be verified field by field; grepping it for the
 token you already know is wrong tells you nothing new.**
+---
+
+## 11.11 Fourth-Pass Verification, 2026-10-04 (LEDGER session)
+
+Three prior passes re-verified the *same* inherited claims and found the same
+blockers. This pass deliberately changed method: instead of re-running the
+recorded checks, I **executed the ledger scripts against a throwaway key in
+`/tmp`** and read what the tooling actually does, rather than what it says it
+does. That surfaced **four new defects**, none of which is credential work and
+none of which any prior pass found.
+
+The inherited claims all still reproduce — see
+`agents/COORDINATION/proposals/ledger-LEDGER-0*.md`. What was missing is that
+**"the ingest path has no signature verification" (§11.8/§11.9) undersells the
+problem.** The signature that exists is not verifiable by its intended recipient,
+the staging queue can silently destroy records, and the manifest carries none of
+the correlation identity §11.2.1 declares mandatory.
+
+### Finding A — the signature does not cover the signed file (NEW, most serious)
+
+`sign-manifest.sh:33` hashes the manifest, and `:36` signs the **digest**, then
+`:41-42` **rewrites the same file** to embed `producer_key_id` and `signature`.
+So the artifact that is signed and the artifact that is delivered are different
+bytes:
+
+```text
+$ B=$(sha256sum m.json | awk '{print $1}')   # before signing
+0c7ac6ba098c736c601112a352eb9a5e2b3dddb9c4d034316b7bc7364e7c9600
+$ bash scripts/ledger/sign-manifest.sh m.json /tmp/.../k.pem   # ephemeral throwaway key
+OK: detached signature at m.sig and embedded in manifest (digest 0c7ac6ba...)
+$ A=$(sha256sum m.json | awk '{print $1}')   # after signing
+d240030093a1acfd82e3b2908a4911b0beb271dbc9b8815c06326e2d1a76b76b
+DIFFERENT -- signature does not cover the delivered file
+```
+
+The signature is valid, but only over the *pre-signature* digest:
+
+```text
+$ openssl pkeyutl -verify -pubin -inkey <(openssl pkey -in k.pem -pubout) \
+    -rawin -in d.txt -sigfile sig.bin
+Signature Verified Successfully
+EXIT=0
+```
+
+**And the recipient cannot reproduce that digest.** Stripping the two injected
+fields does not round-trip, because `jq` re-serialises and the original came
+from `jq -n` with different key order/indentation:
+
+```text
+$ jq 'del(.producer_key_id,.signature)' m.json > re.json
+$ sha256sum re.json
+6efd1830b0957a7a9eb1ffcbb787cfc91900a84faf65f231694b578a2165e2b9
+DOES NOT ROUND-TRIP -- recipient cannot reproduce the signed digest
+```
+
+The digest is printed to stdout and stored **nowhere in the manifest**. So a
+gateway given only `manifest.json` has no way to verify it. Concretely, a field
+tampered after signing is undetectable from the file alone:
+
+```text
+$ jq '.local_storage_reference="refA_TAMPERED"' m.json > t.json
+signature UNCHANGED after content tamper
+```
+
+**Recommendation, for the operator.** Canonicalise: hash a fixed byte sequence
+of the *fields to be signed*, sign that, and store the signed digest **inside**
+the manifest as e.g. `signed_payload_sha256`. Verification then re-canonicalises
+and compares. This is `scripts/` — **not my file, report only, no fix applied.**
+
+### Finding B — the staging queue is keyed on filename and silently loses records
+
+§11.2 requires **idempotency and replay defence**. `submit-ledger-event.sh:10-11`
+stages by `$(date -u +%Y%m%d)/<basename of input>`, so the de-duplication key is
+whatever the caller happened to name the file. Two *different* signed manifests
+with the same filename collide:
+
+```text
+# 1st: telemetry_batch / field  -> staged
+after 1st: telemetry_batch/field
+# 2nd: map_product / mapping, same filename, submitted
+after 2nd, DIFFERENT manifest, SAME filename: map_product/mapping
+>>> first manifest is GONE. Silent data loss in the staging queue.
+```
+
+Also: `install` is used with no mode, so staged manifests land **`0755`** —
+world-readable — rather than the `0600` a ledger artifact should carry:
+
+```text
+$ stat -c '%a %U %n' .../20260824/manifest.json
+755 scottw /ALWAYSON/artifacts/pending-ledger-submissions/20260824/manifest.json
+```
+
+This also refines §11.9 Finding 4: the pre-existing `20260824` manifest is
+world-readable, which matters more once a replay tool exists. Recommend keying
+on `object_id` and `install -m 0600`.
+
+### Finding C — no idempotency key exists even in principle
+
+Two submissions of the *same* `object_id` both succeed and both stage (the file
+is overwritten in place, so the count stays at 1 — but nothing rejects the
+duplicate, and nothing records that it was seen). There is no replay ledger, no
+`correlation_id` uniqueness constraint, and no audit record of a submission
+attempt. §11.2 row 5–6 ("Idempotency", "Audit logging") is **entirely
+unimplemented**; the staged file is the only trace.
+
+### Finding D — the manifest carries none of the mandatory correlation tuple
+
+§11.2.1 names `serial_number + receipt_number + event_timestamp_utc` as *the*
+primary correlation tuple, and §11.3 lists `correlation_id`, `serial_number`,
+`receipt_number` in required Corda state. But `build-manifest.sh` emits:
+
+```text
+$ jq -r 'keys_unsorted|join(" ")' m.json
+object_id object_type origin_domain created_at_utc schema_version
+content_hash_sha256 content_size_bytes local_storage_reference ipfs_cid
+pcloud_archive_reference transaction_id authorization_policy_id
+producer_key_id signature
+
+correlation_id           false
+serial_number            false
+receipt_number           false
+event_timestamp_utc      false
+event_type               false
+```
+
+None of the §11.2.1 fields are present, and `transaction_id` is `null` unless
+the object type is `sales_receipt`. **§11.5's manifest format is missing them
+too** — so this is a specification gap, not just a script gap. A ledger built on
+today's manifest cannot be joined by the correlation tuple that §11.2.1 defines
+as the join key for reporting and reconciliation. Recommend adding the five
+fields to both §11.5 and `build-manifest.sh`, with the domain-appropriate ones
+required (not nullable).
+
+### What this means for LEDGER-03
+
+LEDGER-03 asks that ingest "accept only approved signed data, with
+authorization, idempotency, replay defence, and audit". Measured against the
+current tooling, **all five are absent**: authorization is a non-empty-string
+test (§11.8), signature verification is absent *and* the signature is
+unverifiable by the recipient (Finding A), idempotency is absent (Findings B,
+C), replay defence is absent, and audit is a directory listing. LEDGER-03
+cannot be closed by writing gateway code on top of this manifest format —
+**Findings A and D must be fixed in the format first.**
+
+### Housekeeping
+
+The ephemeral Ed25519 key and all test manifests were created under `mktemp -d`
+and have been removed. Three manifests I staged today
+(`m.json`, `manifest.json`, `collide.json`) were deleted;
+`artifacts/pending-ledger-submissions/` again contains **only** the pre-existing
+`20260824` directory. Nothing was signed with, or read from, any project or
+ledger key; no file outside my own section was modified; nothing was transmitted.
+
+### What I got wrong in this pass
+
+My first instinct was to re-run the recorded checks a fourth time, because that
+is what the previous three passes did and they all reproduced. That produces
+completeness, not information. The three findings that mattered came only from
+*running* the scripts with an input no prior pass had tried — a throwaway key, a
+filename collision, and a `keys_unsorted` dump. **Verifying that a recorded
+claim still holds is worth doing once; doing it again is how three passes in a
+row all concluded "nothing new".**
