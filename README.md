@@ -490,6 +490,94 @@ Note on evidence: a TCP connect test to the bridge fails, because nothing listen
 (`ss -ltn` shows no `10.89.12.*` listener). Reachability must be judged from the ARP table,
 not from a refused connect.
 
+**Correction 2026-10-05 — the `ao-postgres-reporting-bridge` does not bind a Podman gateway,
+and it is not why the reporting containers reach PostgreSQL.** The paragraph above calls this
+"the same shape" as the collector path, and §3.3.1 says the host cluster is "Loopback-only;
+containers reach it over the reporting bridge (§3.3.0.1)". Both are true only in a narrower
+sense than they read, and the specifics matter because they describe an inbound listener.
+
+The bridge is a `socat` on the host, and it binds **`10.42.0.1`** — which is not an ao-admin
+gateway at all:
+
+```
+$ ss -ltnp | grep 5432
+LISTEN 0 5  10.42.0.1:5432  0.0.0.0:*  users:(("socat",pid=5124,fd=5))
+$ tr '\0' ' ' < /proc/5124/cmdline
+/usr/bin/socat TCP4-LISTEN:5432,bind=10.42.0.1,reuseaddr,fork TCP4:127.0.0.1:5432
+$ podman network inspect ao-admin --format '{{range .Subnets}}{{.Gateway}}{{end}}'
+10.89.9.1
+```
+
+`10.42.0.1` is the host's own address on the **equipment LAN** (`eno1`, §3.3.0), and the
+ao-admin gateway is `10.89.9.1`. The unit and script both *say* otherwise, which is how the
+error survived:
+
+```
+$ head -4 /ALWAYSON/quadlet/operations/ao-postgres-reporting-bridge
+# ALWAYS ON - expose the host PostgreSQL loopback listener only on the internal
+# ao-admin Podman gateway. PostgreSQL itself remains bound to localhost.
+GATEWAY=10.42.0.1
+$ systemctl --user cat ao-postgres-reporting-bridge.service | grep -i 'Starts at'
+# Starts at login with the reporting containers it serves (ao-admin gateway
+# address only exists once those containers' networks are created).
+```
+
+The script's own comment and the unit description both name the ao-admin gateway; the code
+binds the equipment LAN. **The comment is wrong, not the address.** This is the same class of
+error as the mount-flag and label-key traps in §6: a comment asserted a property that was never
+measured, and the property was false.
+
+Three consequences, all measured:
+
+1. **It is not an internal-only listener.** `10.42.0.1:5432` is bound to the wired equipment
+   LAN, so the host PostgreSQL cluster is reachable by anything that can route to `10.42.0.1`
+   — including the real machines on `10.42.0.0/24`. The Wi-Fi address refuses
+   (`192.168.87.135:5432` → connection refused), because `socat` binds `10.42.0.1` explicitly
+   and not `0.0.0.0`. PostgreSQL itself *is* still loopback-only
+   (`listen_addresses = 'localhost'`, `/etc/postgresql/18/main/postgresql.conf:60`), so the
+   claim that stops at "PostgreSQL remains bound to localhost" is accurate — but the net
+   effect is that the loopback-only cluster is republished onto the equipment LAN, which is a
+   security-boundary question belonging to the SEC/NET groups, not one this section can settle.
+   **Reported, not remediated** — changing it touches network configuration (stop condition).
+2. **`ao-admin` membership is not what makes it reachable.** A container attached only to
+   `ao-admin` gets `Network is unreachable`, because that network is `Internal=true` and has no
+   default route:
+
+   ```
+   $ podman run --rm --network ao-admin … -c '… >/dev/tcp/10.42.0.1/5432 …'
+   AO-ADMIN-ONLY-CLOSED      (bash: /dev/tcp/10.42.0.1/5432: Network is unreachable)
+   ```
+
+   Both reporting containers reach it because of their *second* attachment,
+   `ao-reporting-egress` (`Internal=false`), whose default route NATs out to the host:
+
+   ```
+   $ podman inspect ao-grafana --format '{{range $k,$v := .NetworkSettings.Networks}}{{$k}}={{$v.IPAddress}} gw={{$v.Gateway}}{{"\n"}}{{end}}'
+   ao-admin=10.89.9.61 gw=10.89.9.1
+   ao-reporting-egress=10.89.10.58 gw=10.89.10.1
+   $ podman exec ao-grafana ip route
+   default via 10.89.10.1 dev eth1  metric 100
+   10.89.9.0/24 dev eth0 scope link  src 10.89.9.61
+   10.89.10.0/24 dev eth1 scope link  src 10.89.10.58
+   ```
+
+   This is consistent with §3.3.1's own network table: `ao-admin` is `Internal=true`,
+   `ao-reporting-egress` is `Internal=false`. The unit description's stated reason for the
+   service ("ao-admin gateway address only exists once those containers' networks are
+   created") therefore explains a dependency that does not exist.
+3. **This is the `10.42.0.1:5432 unreachable` line above, restated.** The §3.3.0.1 code block
+   shows `connect 10.42.0.1:5432 unreachable` for a container on `ao-fabrication`, which
+   remains correct — `ao-fabrication` is `Internal=true` with no egress network, so nothing
+   routes out. The reachability that does exist is specific to the two containers that also
+   hold `ao-reporting-egress`, and it is an egress-NAT fact, not an `ao-admin` fact.
+
+**What I got wrong earlier, and why.** This section previously described the reporting bridge
+as the container-to-host-PostgreSQL mechanism and cited §3.3.0.1 for it without checking what
+address it bound. The error class is assuming a mechanism from a name: "reporting bridge" +
+"ao-admin" implied the Podman gateway, and I never ran `ss -ltnp` to see the actual bind
+address. The gateway it claims to expose and the address it exposes differ by two subnets and
+an entire security boundary.
+
 **Decision (operator, 2026-09-30): the collector runs on the HOST and pushes into
 `a_fab`.** The host already reaches the equipment LAN. A host-side collector polls each
 machine's Moonraker API, signs the per-machine record, and pushes it into `a_fab` over
@@ -689,7 +777,7 @@ installed package or desktop settings module.
 
 | Database software | Software/program | Database name or store | Current role and reporting value |
 |---|---|---|---|
-| **PostgreSQL 18** | Host PostgreSQL service | Host cluster `18-main`; `postgres` | Shared relational platform and administrative/maintenance cluster. Also carries the Grafana and Metabase application databases. Loopback-only; containers reach it over the reporting bridge (§3.3.0.1) |
+| **PostgreSQL 18** | Host PostgreSQL service | Host cluster `18-main`; `postgres` | Shared relational platform and administrative/maintenance cluster. Also carries the Grafana and Metabase application databases. PostgreSQL itself is loopback-only (`listen_addresses = 'localhost'`), but the host runs `ao-postgres-reporting-bridge`, a `socat` that republishes it on **`10.42.0.1`** — the equipment LAN, not a Podman gateway (§3.3.0.1) |
 | **PostgreSQL 17** | Sales database service | Container `ao-sales-db` on `ao-sales`, database `salesdb` | Authoritative source for customers, orders, products, payments, receipts, entitlements, and audit history |
 | **PostgreSQL 17** | Mastodon web/background workers | Container `mastodon-db` on `ao-sales`, database `mastodon` | Accounts, posts, media metadata, federation state, and background-job application data |
 | **PostgreSQL 17** | Fabrication database service | Container `ao-fabrication-db` on `ao-fabrication`, database `a_fab`, role `fabrication_role` | Per-machine production data pulled from each individual machine (§3.3.0). Separate from `ao-sim-fabrication`, which holds none |
@@ -1262,6 +1350,35 @@ containers are also on `ao-admin`. Both are loopback-and-socket scoped, which is
 needs a public port. Measured listeners: Grafana `127.0.0.1:3001` and Metabase
 `127.0.0.1:3002`, loopback-bound only (`ss -ltn`).
 
+**Re-verified 2026-10-05, with one correction that belongs in §3.** Every claim above holds —
+both containers are on `ao-admin` *and* `ao-reporting-egress`, and `3001`/`3002` are
+loopback-only:
+
+```
+$ for c in ao-grafana ao-metabase; do podman inspect $c \
+    --format '{{.Name}} {{range $k,$v := .NetworkSettings.Networks}}{{$k}} {{end}}'; done
+ao-grafana  ao-admin ao-reporting-egress
+ao-metabase ao-admin ao-reporting-egress
+$ ss -ltn | grep -E ':(3001|3002)\s'
+LISTEN 0 4096  127.0.0.1:3001  0.0.0.0:*
+LISTEN 0 4096  127.0.0.1:3002  0.0.0.0:*
+$ podman inspect ao-metabase --format '{{range .Config.Env}}{{println .}}{{end}}' | grep MB_DB_HOST
+MB_DB_HOST=10.42.0.1
+```
+
+Metabase's `MB_DB_HOST` is `10.42.0.1` — **the equipment LAN address**, reached through
+`ao-postgres-reporting-bridge`, not a Podman gateway. §3.3.0.1 records the correction: the
+bridge's own comment and unit description both claim it exposes the ao-admin gateway, and it
+does not. The consequence for this subsection is that Metabase's reachability depends on
+`ao-reporting-egress` being `Internal=false`; `ao-admin` alone cannot reach it. Both networks
+are present, so the access path works as designed — but the *stated* reason for it does not,
+and a reader trying to tighten `ao-admin` should know that removing `ao-reporting-egress`
+would break Metabase's database connection, not `ao-admin` being insufficient.
+
+The Grafana path is unaffected by any of this: it uses a bind-mounted Unix socket
+(`/var/run/postgresql -> /var/run/postgresql rw=false`), so it does not traverse the bridge at
+all.
+
 **Metabase and Corda.** Metabase may report on approved Corda-derived business and
 provenance data only through a deliberate read-only reporting projection, approved views, a
 supported status interface, or ledger-ingestion audit and status records. It must not become
@@ -1484,6 +1601,72 @@ correct key is `PODMAN_SYSTEMD_UNIT`, and the self-check is to run it over the w
 container list and confirm that the containers you believe are managed actually come back
 with a service name. If every row is empty, the key is wrong, not the fleet.
 
+### 6.A.3.2 An unmanaged host listener serving the pCloud Public Folder (measured 2026-10-05)
+
+**Found while enumerating listeners rather than containers.** §6.A.3 requires every GUI to have
+a documented listener policy, and the container inventory above is complete — but an
+`ss -ltnp` sweep of the host shows a listener that no container, unit or section accounts for.
+
+```
+$ ss -ltnp | grep -vE '127\.0\.0\.1|\[::1\]|Local'
+LISTEN 0 5    10.42.0.1:5432     0.0.0.0:*  users:(("socat",pid=5124,fd=5))
+LISTEN 0 5    0.0.0.0:8731       0.0.0.0:*  users:(("python3",pid=1010842,fd=3))
+LISTEN 0 32   169.254.248.253:53 0.0.0.0:*
+LISTEN 0 32   10.42.0.1:53       0.0.0.0:*
+LISTEN 0 4096 127.0.0.54:53      0.0.0.0:*
+LISTEN 0 1    0.0.0.0:4242       0.0.0.0:*  users:(("ReticulumMeshCh",pid=840861,fd=46))
+```
+
+Of the six, `10.42.0.1:5432` is the reporting bridge and `0.0.0.0:4242` is MeshChatX (both
+already documented elsewhere); `53` is `systemd-resolved`. **`0.0.0.0:8731` is neither, and it
+is not named in any section of this document.**
+
+It is a bare `python3 -m http.server` with its working directory set to the pCloud Public
+Folder:
+
+```
+$ ps -o pid,lstart,etime,args -p 1010842
+    PID   STARTED    ELAPSED COMMAND
+1010842  Thu Oct  1 20:09:45 2026  3-11:48:07 python3 -m http.server 8731
+$ ls -l /proc/1010842/cwd
+… -> /media/scottw/1TBSAMSUNGDATA/PCLOUD-PUBLIC/***CURRENT***
+$ ls -A '/media/scottw/1TBSAMSUNGDATA/PCLOUD-PUBLIC/***CURRENT***' | wc -l
+5
+```
+
+Two facts make this a conformance finding rather than a curiosity. First, `python3 -m
+http.server` binds `0.0.0.0` by default and **has no authentication of any kind**, so
+`--bind 127.0.0.1` is the only thing standing between this and a LAN-wide read. Second, the
+path it serves is the one path README §4.1 rule 5 and §4.2 name as *Public* — "Anything in the
+pCloud Public Folder, or linked in from it". Serving it over plain HTTP on every interface
+makes locally-served public material reachable by anything that can route to this host, which
+includes the Wi-Fi segment `192.168.87.0/24` that §3 notes is absent from that section's own
+address table. It answers:
+
+```
+$ curl -sI http://192.168.87.135:8731/ | head -2
+HTTP/1.0 200 OK
+Server: SimpleHTTP/0.6 Python/3.14.4
+```
+
+**This is a deliberate operator action most likely, and it is not mine to undo.** The elapsed
+time shows it has been running since 2026-10-01, so it is not a stray process from this
+session's work. It is also **not** a container, so it is absent from §5.1 group D and from every
+container inventory in this subsection — a useful reminder that the group-D row set does not
+cover host processes.
+
+**Not remediated, deliberately.** Stopping it is destructive to whatever the operator is
+serving, and re-binding it is a firewall/public-port decision requiring explicit operator
+approval (README §4.1 rules 6 and 13). Recorded here and reported; no action taken. If the
+intent was a local preview, the fix is `--bind 127.0.0.1`; if the intent was genuine LAN
+sharing, it should be a Quadlet with a declared listener policy per this subsection. **The
+SEC/NET groups own the boundary question.**
+
+**Trap worth naming.** `ss -ltnp` shows process names but only for processes this user owns, so
+the port→purpose mapping is *incomplete by construction* for system services — `53` and the
+socat's own `5432` appear inconsistently for the same reason. Never conclude a listener is
+unattributed because its `users:(…)` field is empty; match on the port and address instead.
+The converse also held here: `podman ps` would never have surfaced this listener at all.
 ---
 
 # 7. Public Storefront and Payment Policy
