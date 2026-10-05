@@ -22,8 +22,30 @@ evidence: |
   $ curl -sI http://192.168.87.135:8731/ | head -2
   HTTP/1.0 200 OK
   Server: SimpleHTTP/0.6 Python/3.14.4
+$ podman ps -q | wc -l
+  25
+  $ podman inspect ao-grafana ao-sim-fabrication-foxglove \
+      vigorous_shannon dreamy_rosalind relaxed_tharp confident_khayyam \
+      keen_bhabha ao-sqli3 --format '{{.Name}} {{.ImageName}}'
+  ao-grafana docker.io/grafana/grafana-oss@sha256:b739cda4b61ba3b90707578b643a22cd851fecf4498e6c6ec2d8f9d622a5d0b2
+  ao-sim-fabrication-foxglove localhost/foxglove-bridge@sha256:9acc6d4df749ea10f3e97b4b6676a14d864dcb06781ffe7ad551736af0052c87
+  vigorous_shannon localhost/foxglove-bridge:latest
+  dreamy_rosalind localhost/foxglove-bridge:latest
+  relaxed_tharp docker.io/grafana/grafana:11.6.0
+  confident_khayyam docker.io/grafana/grafana:11.6.0
+  keen_bhabha docker.io/grafana/grafana-oss:11.6.0
+  ao-sqli3 docker.io/grafana/grafana-oss:11.6.0
+
+  $ podman inspect ao-grafana ao-metabase --format '{{.Name}} {{range $k,$v := .NetworkSettings.Networks}}{{$k}} {{end}}'
+  ao-grafana  ao-admin ao-reporting-egress
+  ao-metabase ao-admin ao-reporting-egress
 section: 06-component-boundaries-gui-reporting-tools-and-operator-access
 ---
+
+# Review pass, 2026-10-05 — corrected a completeness claim I made in the same section
+
+**Supersedes:** the earlier revision of this proposal. Same path, same findings 1 and 2 below,
+plus a self-correction in finding 3 that changes an evidence block in §6.
 
 # Two measured findings from the SPEC review pass, 2026-10-05
 
@@ -75,20 +97,69 @@ GATEWAY=10.42.0.1
 **SEC/NET own this too** — it is a network-boundary question and re-binding is a stop
 condition.
 
+## 3. My own §6 enumeration was 11 of 25 containers, described as complete
+
+Found on re-measurement, same day, and it is the most important item in this document because
+it is a defect in my own committed evidence rather than in someone else's.
+
+Commit `9b76a22` added a correction block to §6.A.3.2 stating that the ownership conclusion
+"rests on a key that returns a value, and on the whole-container enumeration rather than on a
+hand-picked subset." The block showed **eleven** containers. The host runs **twenty-five**.
+The other fourteen were simply absent from the transcription.
+
+The conclusion survived — 6 unmanaged, 19 managed — and the six are the same six. But the
+completeness claim was false when written, and it was the specific claim a reviewer would most
+reasonably have relied on, since the whole point of that paragraph was to fix an earlier
+truncated enumeration.
+
+**Why the omission was dangerous rather than merely sloppy.** The fourteen missing containers
+included `ao-ingress-payment`, `ao-sales-db`, `ao-webodm-db`, `mastodon-db` and
+`ao-fabrication-db` — the containers holding authoritative payment, sales, mapping, social and
+fabrication data. If any one of those had been unowned, the finding would have been far more
+serious than "six duplicate GUIs". A truncated enumeration structurally cannot tell "six
+leftovers" apart from "six leftovers plus an unowned database", because it never looks.
+
+**Root cause, named as a rule.** The loop *was* fleet-wide — it iterated `podman ps` output. I
+then pasted a filtered subset of its output and attached the word "complete" to the paste. So
+the failure was not in the command; it was in the transcription between running a complete
+command and recording it. Pasted evidence must be raw, and the denominator must appear next to
+it (`podman ps -q | wc -l`) so the ratio is visible rather than asserted.
+
+This is the **third** instance of the same class in this one subsection, after the wrong label
+key and the mount-`RW` misread. Naming the pattern: a comment, a name, or a plausible
+narrative asserting a property nobody measured — and the variant where I am the one writing the
+assertion.
+
+**Also fixed while there:** the file carried **two subsections numbered `6.A.3.2`**. The later
+one is now `6.A.3.3`; no cross-reference pointed at it, so nothing else moves. Duplicate
+numbering in a compiled document silently breaks anchors and makes "see 6.A.3.2" ambiguous,
+which is how two corrections end up contradicting each other in a reader's head.
+
+## New measurement, not previously recorded: the unowned set is also the unpinned set
+
+Worth reporting because it changes the severity of the cleanup. Every **managed** container
+inspected is digest-pinned (`ao-grafana` → `grafana-oss@sha256:b739cda4…`,
+`ao-sim-fabrication-foxglove` → `foxglove-bridge@sha256:9acc6d4d…`). **All six unowned
+containers are unpinned** — four on `grafana:11.6.0` / `grafana-oss:11.6.0` and two on
+`foxglove-bridge:latest`. So these are the only containers on the host whose image content can
+change underneath them without a service restart. Still OPS/SIM hygiene, not exposure, and
+still not mine to remediate.
+
 ## What I got wrong, and why
 
-Both findings share one root cause worth naming for the next reviewer: **I asserted mechanism
-from names and comments instead of measuring them.** The bridge was described as the
-container-to-PostgreSQL path on the strength of being called a "reporting bridge" on "ao-admin";
-I never ran `ss -ltnp` to see what it actually bound. The `8731` listener was invisible because
-I enumerated *containers* (`podman ps`) and assumed that inventory was complete. The §6 trap I
-had already written about label keys not applying to a hand-picked subset applies here too —
-completeness of an inventory is only established by enumerating the whole namespace, and the
-listener namespace is not the container namespace.
+**Three things.**
 
-A third, smaller lesson: the existing §6 correction about mount `RW` flags and the existing
-`PODMAN_SYSTEMD_UNIT` trap were both instances of *a comment or a plausible story asserting a
-property nobody measured*. This pass found the same class twice more, in files I did not write.
+1. I asserted mechanism from names and comments instead of measuring them. The bridge was
+   described as the container-to-PostgreSQL path on the strength of being called a "reporting
+   bridge" on "ao-admin"; I never ran `ss -ltnp` to see what it actually bound. The `8731`
+   listener was invisible because I enumerated *containers* and assumed that inventory was
+   complete — the listener namespace is not the container namespace.
+2. I transcribed a subset of a fleet-wide command and called it the whole fleet (finding 3).
+   The command was right; the record was not.
+3. The pre-existing `PODMAN_SYSTEMD_UNIT` trap was written as though the label-key question
+   were now settled. It was settled for *ownership* and I never re-checked it against *image
+   pinning*, which is a different question with a different key — and the answer inverted
+   (all managed pinned, all unowned unpinned).
 
 ## Verified-unchanged (re-measured, all still accurate)
 

@@ -1525,24 +1525,97 @@ is **`PODMAN_SYSTEMD_UNIT`** — measured:
 $ for c in $(podman ps --format '{{.Names}}'); do u=$(podman inspect $c \
     --format '{{index .Config.Labels "PODMAN_SYSTEMD_UNIT"}}'); \
     printf '%-30s -> %s\n' "$c" "${u:-<none>}"; done
-ao-prometheus              -> ao-prometheus.service
-ao-grafana                 -> ao-grafana.service
-ao-metabase                -> ao-metabase.service
-ao-sim-fabrication-gz      -> ao-sim-fabrication-gz.service
-ao-sim-fabrication-foxglove -> ao-sim-fabrication-foxglove.service
-vigorous_shannon           -> <none>
-dreamy_rosalind            -> <none>
-relaxed_tharp              -> <none>
-confident_khayyam          -> <none>
-keen_bhabha                -> <none>
-ao-sqli3                   -> <none>
+ao-prometheus                  -> ao-prometheus.service
+ao-nodeodm                     -> ao-nodeodm.service
+ao-webodm-webapp               -> ao-webodm-web.service
+ao-webodm-worker               -> ao-webodm-worker.service
+ao-webodm-db                   -> ao-webodm-db.service
+mastodon-streaming             -> ao-mastodon-streaming.service
+ao-ingress-payment             -> ao-ingress-payment.service
+mastodon-web                   -> ao-mastodon-web.service
+mastodon-sidekiq               -> ao-mastodon-sidekiq.service
+ao-metabase                    -> ao-metabase.service
+vigorous_shannon               -> <none>
+dreamy_rosalind                -> <none>
+ao-sales-db                    -> ao-sales-db.service
+mastodon-db                    -> ao-mastodon-db.service
+ao-fabrication-db              -> ao-fabrication-db.service
+mastodon-redis                 -> ao-mastodon-redis.service
+ao-webodm-broker               -> ao-webodm-broker.service
+ao-sim-fabrication-foxglove    -> ao-sim-fabrication-foxglove.service
+relaxed_tharp                  -> <none>
+confident_khayyam              -> <none>
+ao-node-exporter               -> ao-node-exporter.service
+keen_bhabha                    -> <none>
+ao-sqli3                       -> <none>
+ao-grafana                     -> ao-grafana.service
+ao-sim-fabrication-gz          -> ao-sim-fabrication-gz.service
 ```
 
+**Correction 2026-10-05 — an earlier revision of this block showed only eleven of the
+twenty-five running containers while describing itself as the whole-container enumeration.**
+The eleven were the ones I had a reason to look at, not the ones the command returned, so the
+claim "rests on … the whole-container enumeration rather than on a hand-picked subset" was
+false at the moment I wrote it. The full output is the block above: **25 running, 19 managed,
+6 unmanaged**. The *conclusion* survives and is now stronger, because the fourteen containers
+the earlier block omitted are all accounted for and all managed:
+
+```
+$ podman ps -q | wc -l
+25
+$ for c in $(podman ps --format '{{.Names}}'); do u=$(podman inspect $c \
+    --format '{{index .Config.Labels "PODMAN_SYSTEMD_UNIT"}}'); \
+    [ -z "$u" ] && echo "$c"; done
+ao-sqli3
+confident_khayyam
+dreamy_rosalind
+keen_bhabha
+relaxed_tharp
+vigorous_shannon
+```
+
+**Why this matters beyond tidiness.** The omitted fourteen were not neutral filler — they
+include `ao-ingress-payment`, `ao-sales-db`, `ao-webodm-db`, `mastodon-db` and
+`ao-fabrication-db`, every one of which carries authoritative data. Had any of them *also*
+been unowned, the finding would have been materially worse than "six duplicate GUIs", and my
+truncated block could not have shown that. A partial enumeration cannot distinguish "six
+leftovers" from "six leftovers and an unowned database", because it never looks.
+
+This is the third instance of the same error class in this one subsection, and it is worth
+stating as a rule rather than a footnote: **a claim of completeness is itself a claim, and it
+is the one claim an enumeration cannot check for you.** The loop ran over `podman ps` output,
+so the command *was* fleet-wide — I then transcribed a filtered subset of its output into the
+section and attached the completeness claim to the transcription. Always paste the raw output
+and state the denominator (`podman ps -q | wc -l`) next to it, so a reader can see the ratio
+rather than trust it. Where a subset is genuinely intended, say so and give both counts.
+
 The **conclusion is unchanged** — exactly six running containers have no service owner,
-and they are the four Grafana duplicates and the two Foxglove duplicates. But it now
-rests on a key that returns a value, and on the whole-container enumeration rather than
-on a hand-picked subset. A reader should treat any ownership claim anywhere in this
-section that does not show `PODMAN_SYSTEMD_UNIT` as unproven.
+and they are the four Grafana duplicates and the two Foxglove duplicates. It now rests on a
+key that returns a value, and on an enumeration whose output matches its denominator. A
+reader should treat any ownership claim anywhere in this section that does not show
+`PODMAN_SYSTEMD_UNIT` as unproven.
+
+**Image pinning, measured the same way.** The managed/unmanaged split is not the same as the
+pinned/unpinned split, and §4.1 rule 9 is about the second:
+
+```
+$ podman inspect ao-grafana ao-sim-fabrication-foxglove \
+    vigorous_shannon dreamy_rosalind relaxed_tharp confident_khayyam \
+    keen_bhabha ao-sqli3 --format '{{.Name}} {{.ImageName}}'
+ao-grafana docker.io/grafana/grafana-oss@sha256:b739cda4b61ba3b90707578b643a22cd851fecf4498e6c6ec2d8f9d622a5d0b2
+ao-sim-fabrication-foxglove localhost/foxglove-bridge@sha256:9acc6d4df749ea10f3e97b4b6676a14d864dcb06781ffe7ad551736af0052c87
+vigorous_shannon localhost/foxglove-bridge:latest
+dreamy_rosalind localhost/foxglove-bridge:latest
+relaxed_tharp docker.io/grafana/grafana:11.6.0
+confident_khayyam docker.io/grafana/grafana:11.6.0
+keen_bhabha docker.io/grafana/grafana-oss:11.6.0
+ao-sqli3 docker.io/grafana/grafana-oss:11.6.0
+```
+
+Every managed container here is digest-pinned. **Every one of the six unowned ones is not** —
+four on a mutable version tag and two on `:latest`. So the unowned set is simultaneously the
+unpinned set, which raises the stakes on cleanup: these are the only containers on the host
+whose image content can change underneath them without a service restart.
 
 Beyond the YAML's staleness, `podman ps` shows **four Grafana containers that no Quadlet
 unit owns**, alongside the one sanctioned `ao-grafana`. All four are leftovers from
@@ -1601,7 +1674,12 @@ correct key is `PODMAN_SYSTEMD_UNIT`, and the self-check is to run it over the w
 container list and confirm that the containers you believe are managed actually come back
 with a service name. If every row is empty, the key is wrong, not the fleet.
 
-### 6.A.3.2 An unmanaged host listener serving the pCloud Public Folder (measured 2026-10-05)
+### 6.A.3.3 An unmanaged host listener serving the pCloud Public Folder (measured 2026-10-05)
+
+*Numbering note: an earlier revision of this file carried two subsections numbered
+`6.A.3.2`. This is the later of them and is renumbered `6.A.3.3` so the two do not collide —
+the first remains `6.A.3.2` (the unowned containers above), and no existing cross-reference
+points at this one.*
 
 **Found while enumerating listeners rather than containers.** §6.A.3 requires every GUI to have
 a documented listener policy, and the container inventory above is complete — but an
