@@ -42,3 +42,19 @@ architecture, the network table, and the approved-path table.
 was run.** Presence-only handling applies when this is unblocked: prove an entry
 exists by name and non-zero length, never its value. A non-destructive
 encrypted replication test is a stop condition requiring operator approval.
+---
+
+## Fifth pass, 2026-10-05 — unchanged, not re-measured
+
+Four prior passes established there is no `ao-egress-archive` unit to hold credentials;
+a fifth measurement would reproduce that. No credential was read, printed, copied or
+exported this pass, and no replication test was run.
+
+One thing that is new and belongs to nobody else: the **naming discrepancy is still
+unresolved in §19's own acceptance text**, which says `ao-archive` while §11.1 and
+§4.4 say `ao-egress-archive`. I have recorded `ao-egress-archive` as correct in §11.6.1.
+Whoever builds the adapter should use that name, and §19's wording should be corrected
+to match.
+
+**Stays open.** Blocked earlier than §19 implies — there is no service to provision
+into. `quadlet/` is not my file.

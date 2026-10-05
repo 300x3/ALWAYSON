@@ -126,3 +126,31 @@ nothing new was there. Reading the runbook's state block field by field instead
 is what surfaced both new assertions. A document that asserts completed state
 has to be verified field by field — searching it for the error you already know
 about cannot find the errors you do not.
+---
+
+## Fifth pass, 2026-10-05 — still open, and one blocker is now demonstrable
+
+Not re-measured; four prior passes reproduced identically.
+
+The new material this pass is §11.12, and it is **not** a credential blocker, so it can
+be worked without operator approval and without touching `cordadb`. Validating against
+the real manifest schema shows the ledger format has **no representation of an accounting
+posting** and **no representation of a correction**:
+
+```text
+--- 11.3.1 posting leg (DR CASH_EU 10000 EUR): REJECTED
+     Additional properties are not allowed ('account_code', 'amount',
+     'correlation_id', 'currency', 'side' were unexpected)
+
+--- 11.3.1 reversing transaction (object_type=reversal): REJECTED
+     'reversal' is not one of ['sales_receipt', 'telemetry_batch', 'map_product',
+      'vehicle_simulation', 'fabrication_simulation']
+```
+
+A node built on today's manifest could not record a posting at all. So the node build
+depends on a format change that has not been made, in a file that is **not mine**
+(`config/ledger/manifest-schema.json`). That should be sequenced *before* the operator
+ceremony, not after, or the ceremony will be spent building a node onto a format that
+cannot carry the ledger's own accounting model.
+
+**Stays open.** Operator-only; no key material generated, exported or activated.

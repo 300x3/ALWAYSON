@@ -567,11 +567,16 @@ NO EVENT, NO POSTING
 |---|---|---|
 | Payment provider event received | — | None. This is **not** a posting. It only advances `CASH_PENDING`. |
 | Payment validated | — | Still not a posting; §11.2.2 gate 2 alone is insufficient |
-| Funds transfer verified | `CASH_*` DR / `RECEIVABLE` or `REVENUE` CR | **All three** §11.2.2 gates |
+| Funds transfer verified | `CASH_EU`/`CASH_US` DR / `RECEIVABLE_CUSTOMER` CR | **All three** §11.2.2 gates |
 | Entitlement issued | `RECEIVABLE_CUSTOMER` DR / `REVENUE_SALE` CR | Sale confirmed on the ledger |
-| Post-sale transfer authorised | `REVENUE_DIGITAL_TRANSFER` CR | `ao-sales` authorisation (§11.6) |
-| Refund approved | `REFUNDS_PAYABLE` CR / `CASH_*` DR | Explicit operator approval |
-| Archive replication cost | `EXPENSE_ARCHIVE` DR / `CASH_*` CR | Verified provider cost |
+| Post-sale transfer authorised | `CASH_EU`/`CASH_US` DR / `REVENUE_DIGITAL_TRANSFER` CR | `ao-sales` authorisation (§11.6) |
+| Refund approved | `CASH_EU`/`CASH_US` DR / `REFUNDS_PAYABLE` CR | Explicit operator approval |
+| Archive replication cost | `EXPENSE_ARCHIVE` DR / `CASH_EU`/`CASH_US` CR | Verified provider cost |
+
+Every row above names exactly two legs and they are the DR/CR pair required by the
+balance invariant, so each row is a balanced posting on its own. `CASH_PENDING` is
+named only in the "not a posting" rows and is deliberately **absent** from this table;
+`TAX_PAYABLE_<jurisdiction>` has no posting rule here — see §11.12, finding 3.
 
 **Corda is not a payment processor and does not create funds.** It cannot move
 money, initiate a refund, set a price, or decide tax. It records that an approved
@@ -1228,3 +1233,125 @@ completeness, not information. The three findings that mattered came only from
 filename collision, and a `keys_unsorted` dump. **Verifying that a recorded
 claim still holds is worth doing once; doing it again is how three passes in a
 row all concluded "nothing new".**
+
+---
+
+## 11.12 Fifth-Pass Verification, 2026-10-05 (LEDGER session)
+
+Four passes had re-measured the host. This pass audited the **documents I own for
+internal consistency**, which no prior pass did, and validated candidates against the
+real schema rather than reading it. All three findings are new and are proved by
+execution.
+
+### Method note — validate, don't read
+
+`jsonschema` 4.26.0 is available on this host, so a candidate manifest can be tested
+against `config/ledger/manifest-schema.json` for real:
+
+```text
+$ python3 -c 'import importlib.metadata as m; print(m.version("jsonschema"))'
+4.26.0
+```
+
+Reading the schema says it has `additionalProperties: false`; validating says which
+payloads are *rejected*. The second is evidence.
+
+### Finding A — §11.3.1's posting model has no carrier in the wire format
+
+§11.3.1 defines a posting leg as carrying `account_code`, `side`, `amount`, `currency`,
+and `correlation_id`, and §11.5 defines the manifest as the thing submitted to the
+gateway. **The manifest format cannot express a posting at all.** Validated:
+
+```text
+--- 11.3.1 posting leg (DR CASH_EU 10000 EUR): REJECTED
+     Additional properties are not allowed ('account_code', 'amount',
+     'correlation_id', 'currency', 'side' were unexpected)
+```
+
+None of those five fields appears anywhere in the schema:
+
+```text
+$ for k in account_code side amount currency correlation_id; do
+      printf '%-16s %s\n' "$k" "$(grep -c "\"$k\"" config/ledger/manifest-schema.json)"; done
+account_code     0
+side             0
+amount           0
+currency         0
+correlation_id   0
+```
+
+This is **worse than §11.11 Finding D**, which found that the correlation tuple is
+missing from the manifest. Finding D meant reporting could not join by the tuple. This
+means the accounting model §11.3.1 defines has **no object that could ever carry it** —
+so §11.3.1 is currently a specification with no implementation surface. §11.5 needs a
+posting-leg array, or a distinct posting object type; neither exists. This is a
+specification change to §11.5 and to `config/ledger/`, and §11.5 is mine but
+`config/ledger/manifest-schema.json` is **not** — so the schema half is reported, not
+done.
+
+### Finding B — corrections are unexpressible, so §11.3.1's immutability rule has no mechanism
+
+§11.3.1 requires that a correction be "a **new reversing transaction** referencing the
+original `transaction_id`", and that history is never edited or deleted. There is no way
+to represent a reversing transaction:
+
+```text
+--- 11.3.1 reversing transaction (object_type=reversal): REJECTED
+     'reversal' is not one of ['sales_receipt', 'telemetry_batch', 'map_product',
+      'vehicle_simulation', 'fabrication_simulation']
+
+--- 11.3.1 correction referencing original: REJECTED
+     Additional properties are not allowed ('transaction_ref' was unexpected)
+```
+
+So the rule is stated but has no object type and no reference field to implement it
+with. An implementer following the schema literally cannot correct a posting at all —
+they would have to edit or delete, which the same paragraph forbids. This is the
+sharpest form of the §11.2.5 minimization tension: `additionalProperties: false` is
+correct for PII minimization, but it also forbids every legitimate bookkeeping field.
+
+### Finding C — `TAX_PAYABLE_<jurisdiction>` is defined but unreachable
+
+The account table declares `TAX_PAYABLE_<jurisdiction>`, but **no row in the posting
+rule may post to it**. In the posting-rule table (§11.3.1) the code appears exactly
+once, and it is the account-table row that defines it — not a posting row. Measured
+before this section was added, so that no self-reference inflates the count:
+
+```text
+$ grep -n 'TAX_PAYABLE' agents/COORDINATION/11-ledger-provenance-archive-and-ipfs/section.md
+528:| `TAX_PAYABLE_<jurisdiction>` | Liability | Tax accrued and owed, per approved jurisdiction |
+```
+
+§11.3.1 also states "Corda … cannot … decide tax". Both can be true — Corda records
+accrued tax, it does not compute it — but as written the account is unreachable, so no
+tax accrual can ever be posted and no tax liability can appear in the §4.4 report. I
+have **not** invented a tax posting rule: tax rates, jurisdictions and accrual timing
+are pricing and financial-policy decisions belonging to §7.2 and the PAY group, and
+setting them is a money-movement-adjacent decision. **Reported, not decided.**
+
+### What I corrected in this pass
+
+Finding A also exposed two defects **inside §11.3.1 itself**, which are mine to fix and
+are fixed: the posting table used `CASH_*`, `RECEIVABLE` and `REVENUE`, none of which
+are account codes in the table directly above it (`RECEIVABLE` and `REVENUE` do not
+exist; the codes are `RECEIVABLE_CUSTOMER`, `REVENUE_SALE`, `REVENUE_DIGITAL_TRANSFER`).
+The "Funds transfer verified" row also offered "RECEIVABLE **or** REVENUE", which is
+ambiguous where the balance invariant requires one answer. The DR/CR columns of two
+rows were also presented credit-first. All five rows now name real codes in DR-then-CR
+order, each a balanced pair, and the shorthand defects are recorded here rather than
+silently repaired.
+
+### What I got wrong in this pass
+
+My first instinct was, again, to re-run the recorded host checks — that is what four
+prior passes did and all four reproduced. I stopped, because §11.11 had already written
+down the lesson and I was about to repeat the mistake it describes. The three findings
+came from asking a question nobody had asked: **not "is the host in the documented
+state?" but "does the specification I own agree with the artefacts it governs?"** The
+host was fine in all four passes. The documents were not, and no amount of
+`sha256sum -c` would have found it.
+
+Equally, I nearly reported Finding C as a defect and stopped one step short of asking
+*whose* decision a missing tax rule is. It is not mine. An agent that "helpfully"
+invents a tax accrual rule here would be making a pricing decision it has no authority
+to make (README §4.1 rule 14).

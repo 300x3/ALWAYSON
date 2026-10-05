@@ -83,3 +83,17 @@ which reported the unit "could not be found" — that claim was correct.
 
 No §19 wording change needed beyond status; the acceptance criteria stand as
 written and are met.
+---
+
+## Fifth pass, 2026-10-05 — closure still holds; not re-measured
+
+Not re-run this pass. The probe result is unchanged and stable across four passes, and
+`check-ledger-ingest.sh` remains resolved and unprivileged — which is what the §19
+criteria actually require. Re-running it a fifth time would add nothing, per the §11.11
+lesson.
+
+Closure does not depend on the host staying in this state: the criteria are satisfied by
+the script being *resolved*, which is a property of the repository, not of whether the
+gateway exists.
+
+**LEDGER-05 remains closed.**

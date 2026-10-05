@@ -167,3 +167,55 @@ system was modified.
 No status change. Recommend §19's LEDGER-03 criteria note the producer-key gap,
 since "authorization, idempotency, replay defence, and audit" is currently
 unreachable for four of the six authoritative domains.
+---
+
+## Fifth pass, 2026-10-05 — the manifest format is a harder blocker than the gateway
+
+Changed method: validated candidate manifests against the real schema with
+`jsonschema` 4.26.0 instead of reading it, and audited §11.3.1 against it.
+
+```text
+--- 11.3.1 posting leg (DR CASH_EU 10000 EUR): REJECTED
+     Additional properties are not allowed ('account_code', 'amount',
+     'correlation_id', 'currency', 'side' were unexpected)
+
+--- 11.3.1 reversing transaction (object_type=reversal): REJECTED
+     'reversal' is not one of ['sales_receipt', 'telemetry_batch', 'map_product',
+      'vehicle_simulation', 'fabrication_simulation']
+
+--- 11.3.1 correction referencing original: REJECTED
+     Additional properties are not allowed ('transaction_ref' was unexpected)
+```
+
+**Stays open, and the ordering matters for whoever builds the gateway.** §11.11
+Finding D said the correlation tuple is missing from the manifest. Validating shows the
+gap is wider: **the schema has no representation of an accounting posting at all**, and
+no representation of a correction. So even a fully built, fully authorizing gateway
+would reject every posting §11.3.1 defines, and could not accept a reversal.
+
+This sharpens the earlier recommendation rather than replacing it. Before the gateway
+is written, the manifest format needs, at minimum:
+
+1. The five posting fields (`account_code`, `side`, `amount`, `currency`,
+   `correlation_id`) — a `posting_legs` array or a distinct posting object type.
+2. The five §11.2.1 correlation fields (Finding D, still open).
+3. A correction/reversal representation: an object type plus a reference field.
+
+Note the tension the operator must resolve, because `additionalProperties: false` is
+doing two incompatible jobs at once. It is **correct** for PII minimisation — it is why a
+payload carrying card data is rejected rather than discouraged (§11.2.5). But the same
+switch is what forbids every legitimate bookkeeping field. The fix is to make the
+allow-list complete, not to weaken the switch.
+
+**`config/ledger/manifest-schema.json` is not my file, so I have not edited it.**
+`config/ledger/authorization-policy.yaml` is likewise not mine. §11.5 in my own section
+is mine, and I have documented the gap there rather than unilaterally redefining the
+manifest format, because §11.5 and the schema must change together and the schema half
+is not mine to land.
+
+### What I got wrong
+
+I reached for `is-active`-style verification reflexively and nearly re-ran the four
+recorded host checks a fifth time. §11.11 had already written down why that is
+worthless. Everything new this pass came from asking whether the documents agree with
+each other, which no prior pass had asked.

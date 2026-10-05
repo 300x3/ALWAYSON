@@ -91,3 +91,88 @@ heading that was about to be duplicated is fragile.
 This item closes on documentation, not on running code. The model is now
 defined; **no Corda node exists to enforce it**. If the operator intends the
 weaker reading ("references only"), this is the section to revisit.
+---
+
+## Fifth pass, 2026-10-05 — closure survives, but the model has no carrier
+
+Method changed again. Four prior passes re-measured the host and all four reproduced;
+I instead audited **§11 against the artefacts it governs**, validating candidates
+against `config/ledger/manifest-schema.json` with the real `jsonschema` library rather
+than reading the schema.
+
+```text
+$ python3 -c 'import importlib.metadata as m; print(m.version("jsonschema"))'
+4.26.0
+
+$ for k in account_code side amount currency correlation_id; do
+      printf '%-16s %s\n' "$k" "$(grep -c "\"$k\"" config/ledger/manifest-schema.json)"; done
+account_code     0
+side             0
+amount           0
+currency         0
+correlation_id   0
+
+--- 11.3.1 posting leg (DR CASH_EU 10000 EUR): REJECTED
+     Additional properties are not allowed ('account_code', 'amount',
+     'correlation_id', 'currency', 'side' were unexpected)
+
+--- 11.3.1 reversing transaction (object_type=reversal): REJECTED
+     'reversal' is not one of ['sales_receipt', 'telemetry_batch', 'map_product',
+      'vehicle_simulation', 'fabrication_simulation']
+
+--- 11.3.1 correction referencing original: REJECTED
+     Additional properties are not allowed ('transaction_ref' was unexpected)
+```
+
+**Closure stands** — the §19 criteria are "define the model **or** state references
+only", and the model is defined and now internally consistent. But the operator should
+know the honest caveat, which is stronger than the earlier "no node enforces it":
+
+- **The model has no implementation surface at all.** Not one of the five fields a
+  posting leg is defined to carry exists in the manifest schema. §11.3.1 describes
+  something the current wire format cannot express. This is worse than §11.11's
+  Finding D (missing correlation tuple) — Finding D broke the *join*; this breaks the
+  *posting*.
+- **The immutability rule has no mechanism.** Corrections are required to be reversing
+  transactions, but `object_type: "reversal"` is not in the enum and `transaction_ref`
+  is rejected. An implementer following the schema literally cannot correct a posting
+  without doing the thing the rule forbids.
+- **`TAX_PAYABLE_<jurisdiction>` is unreachable.** Declared as an account, but no
+  posting rule may post to it, and it appears nowhere else in §11.
+
+### Two defects I did fix, inside my own section
+
+Both were in §11.3.1 and both were mine, so both are corrected in this commit:
+
+1. The posting table used `CASH_*`, `RECEIVABLE` and `REVENUE` — **none of which are
+   account codes** in the table immediately above it. `RECEIVABLE` and `REVENUE` do
+   not exist; the codes are `RECEIVABLE_CUSTOMER`, `REVENUE_SALE`,
+   `REVENUE_DIGITAL_TRANSFER`. "Funds transfer verified" also offered "`RECEIVABLE`
+   **or** `REVENUE`", which is ambiguous where the balance invariant demands one
+   answer.
+2. Two rows presented their legs credit-first (`REFUNDS_PAYABLE` CR / `CASH_*` DR),
+   which reads as reversed double-entry.
+
+All five posting rows now name real account codes in DR-then-CR order, each a balanced
+pair, and §11.3.1 states that explicitly.
+
+### What I got wrong
+
+My first instinct was, again, to re-run the recorded host checks — that is exactly what
+four prior passes did. I caught myself because §11.11 had already written the lesson
+down: *re-verifying a recorded claim is worth doing once; doing it again is how four
+passes in a row all concluded "nothing new"*. The findings came from a question nobody
+had asked — **not "is the host in the documented state?" but "does the spec I own
+agree with the artefacts it governs?"**
+
+I also nearly invented a tax posting rule to close Finding C. I stopped: tax rates,
+jurisdictions and accrual timing are §7.2 / PAY-group decisions and money-adjacent
+(README §4.1 rule 14). **Reported, not decided.** Recommend the operator route Finding
+C to PAY; it is not a LEDGER item to fix.
+
+### Note for the compiler
+
+Keep LEDGER-06 closed. Recommend §19's note for LEDGER-03 gain: the manifest schema
+has **no posting representation**, which blocks the §4.4 accounting report
+independently of the gateway being absent. `config/ledger/manifest-schema.json` is not
+my file, so I did not edit it.

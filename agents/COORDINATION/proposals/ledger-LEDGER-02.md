@@ -70,3 +70,17 @@ session, agent sessions are **not** authorised to write ledger secrets at all.
 This is prerequisite to LEDGER-07's node build, and both sit behind LEDGER-01's
 key ceremony. Nothing here can be advanced by an agent without operator
 approval.
+---
+
+## Fifth pass, 2026-10-05 — unchanged, and one ordering note
+
+Not re-measured; four prior passes reproduced identically and a fifth adds nothing.
+
+Ordering note worth carrying to the operator, learned this pass from §11.12: the
+`cordadb` role password is **not** the next thing needed. Even with a working role, the
+gateway format itself cannot express an accounting posting (§11.12 Finding A) and
+cannot accept a correction (Finding B). Those are specification defects, fixable
+without credentials, and they sit *downstream* of nothing — they can be worked now,
+whereas the password and the key ceremony need approval.
+
+**Stays open.** No `ALTER ROLE`, no credential read, no privilege broadening.

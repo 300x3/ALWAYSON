@@ -62,3 +62,19 @@ recorded in §11.7 of my own section.
 
 Artifacts verified present: Corda 5.2.2 worker JAR, CLI installer, notary
 plugin, all with checksum sidecars, `sha256sum -c` OK.
+---
+
+## Fifth pass, 2026-10-05 — unchanged, and deliberately not re-measured
+
+I did **not** re-run the ceremony checks this pass. Four prior passes re-measured them
+and all four reproduced; §11.11 records why a fifth adds no information. Nothing about
+the key ceremony can be advanced by an agent: it is a hard stop condition (README §4.1
+rule 14).
+
+The one thing that *is* new this pass is not about keys — it is that **LEDGER-01 is
+not the only blocker on this path and is not even the first**. §11.12 records three
+defects in the specification itself (§11.3.1 ↔ manifest schema) that an agent can fix
+without touching key material, and §11.10 records the linger/unit-file blocker that
+needs no credential either. Of the five blockers, only two are credential work.
+
+**Stays open. Operator-only.**
