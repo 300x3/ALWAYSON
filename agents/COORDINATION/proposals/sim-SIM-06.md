@@ -67,6 +67,15 @@ right to. That is now done. I am superseding my own group's file rather than edi
 session's document; if the compiler prefers the cautious reading, only this row's status
 changes, because the evidence above stands either way.
 
+**RETACTION ADDENDUM, 2026-10-05 — see `sim-SIM-16.md`.** The visual evidence above is sound for
+what it claims about the GUI *client*, but on later investigation it was captured against a server
+that had been running since 2026-10-03 18:19:21 with a world file two commits behind the
+repository (`massing_fab.dae` + emissive, not `massing_flat.dae`). The capture therefore shows the
+GUI rendering *a* world, not *the committed* world. **SIM-06 remains closed** — every acceptance
+criterion is about the client building and running, and all of them still hold — but the operator
+should re-shoot the visual after restarting `ao-sim-fabrication-gz`. That restart is a live
+service restart and needs operator approval; I did not perform it.
+
 **What I got wrong, and it is the same trap twice.** My first pass at this item reported the
 GUI as verified on the strength of `ActiveState=active` plus a clean error grep. That is
 precisely the inference both the earlier proposal and §10.3 warned against, and I made it

@@ -673,4 +673,196 @@ verdict instead of confirming the verification had actually been set up. The cor
 shown above, edits line 34 and confirms the edit took effect with `sed -n '34p'` before
 trusting the generator's output.
 
+### 10.9 SIM-16: the running simulation is executing a world two commits out of date
+
+Recorded 2026-10-05 in worktree `/tmp/ao-sessions/wt-sim`. Found while re-measuring SIM-06's
+evidence, not while looking for it. **This is a new fault, not a restatement of SIM-06.**
+
+The `ao-sim-fabrication-gz` container has been up, un-restarted, since **2026-10-03 18:19:21
+PDT**. `factory.world` was modified on **2026-10-04 15:45:38**. The live simulation is therefore
+running a **different world file** from the one in the repository — and from the one the portal
+reports on.
+
+**The timeline is unambiguous.**
+
+    $ podman inspect ao-sim-fabrication-gz --format '{{.State.StartedAt}} {{.RestartCount}}'
+    2026-10-03 18:19:21.186619129 -0700 PDT 0
+    $ podman exec ao-sim-fabrication-gz ps -o etimes= -p 1
+    136322                                   # 37.9 h, one continuous process
+    $ stat -c '%y' /ALWAYSON/GAZEBO/worlds/factory.world
+    2026-10-04 15:45:38.213485858 -0700
+
+**The server logged exactly one load, and has not reloaded since.**
+
+    $ grep 'Loading SDF world file' /ALWAYSON/logs/sim-gz-server.log.1 | tail -1
+    2026-10-03T18:19:21.216 [info] [ServerPrivate.cc:697] Loading SDF world
+    file[/ALWAYSON/GAZEBO/worlds/factory.world].
+    # same grep filtered to later than that timestamp -> EMPTY (no reload)
+    # rotated-in /ALWAYSON/logs/sim-gz-server.log -> 0 matches
+
+**What is actually running versus what is committed.** The container's `/proc/1/cmdline` is
+`gz-sim-server /ALWAYSON/GAZEBO/worlds/factory.world`, and `/ALWAYSON/GAZEBO` is a **bind mount**
+into it — so the server reads the file once, at startup, and never again. Comparing that startup
+commit against HEAD:
+
+| | loaded (`c24f673`, at 18:19:21) | committed (`78b4e60`) |
+|---|---|---|
+| massing mesh | `massing_fab.dae` | `massing_flat.dae` |
+| `<emissive>` tags | `0.72 0.72 0.74 1` | *none* |
+| massing diffuse | `0 0 0 1` | `0.58 0.58 0.60 1` |
+| models / links / poses | 61 entries | 61 entries — **identical** |
+
+The last row is the useful part, and it is why this went unnoticed: `model/link+pose` inventory
+compares **byte-identical**, so every structural check anyone ran against the file — link counts,
+boned poses, RL object presence — passes on the running server too. **Only the rendering differs.**
+The building you see live is drawn with the old emissive material and the old mesh, which is
+exactly the appearance the commits `dc72f5c` → `c24f673` → `ec34c71` were iterating away from.
+
+**This retracts the visual half of my SIM-06 closure.** The `import` capture in the SIM-06
+proposal proves the GUI client renders *a* world; it cannot prove it renders *this* world, and it
+demonstrably did not. The GUI is running against the server above, so the screenshot shows
+`massing_fab.dae`. SIM-06 stays **closed on the client-build criteria** (unit starts, 18 plugins,
+ogre2 engine, 6762 distinct colours, no render errors) and the operator should re-shoot the
+visual after a restart. The restart itself is **not** mine to perform: it is a live service
+restart, so it needs the operator.
+
+**A second, smaller instance of the same class: the portal cannot detect this.** `world_summary()`
+in `scripts/simulation/ao-sim-portal.py` parses the **file on disk** (line 209-223), and
+`objects_summary()` likewise. Neither asks the server what it loaded. So `/api/status` returns
+`link_count: 37` from the file while the server holds a different document — the portal will
+report "consistent" across a restart-induced divergence. The fix is to have the portal read
+`/world/factory/dynamic_pose/info` (which I confirmed is published and reachable from
+`ao-sim-fabrication-foxglove` via `gz topic -e -t /world/factory/dynamic_pose/info -n 1`, returning
+`rl_objects` plus per-link poses) and report loaded-vs-committed separately.
+
+**What I got wrong.** I had been reading the live world *file* and calling it "the simulation".
+Every previous wave of this section — including the §10.7/§10.8 generator verification — verified
+the repository, which was correct for those questions, but it created a habit of treating
+repository state as simulation state. They are different objects with a load boundary between
+them, and I never looked for that boundary. Contributing cause: `/world/factory/scene/info`
+returns 0 bytes to a plain subscriber and `/world/factory/generate_world_sdf` timed out at 20 s,
+so the obvious direct probes both failed and I fell back on the log. The log answer was sitting
+in the rotated file, one `grep` away.
+
+**Traps for the next session.** `logs/sim-gz-server.log` is **empty**; the useful history is in
+`logs/sim-gz-server.log.1`. `gz topic -l` on the host returns nothing — the server advertises
+`GZ_IP=10.89.5.10` on an internal bridge, so probes must run from
+`ao-sim-fabrication-foxglove`, which shares the L2 segment, and `/opt/ros/lyrical/opt/gz_tools_vendor/bin/gz`
+must be called by full path (it is not on `PATH`). `gz service -s /world/factory/generate_world_sdf`
+times out; do not build a plan on it.
+
+> **Superseded in part by §10.10.** SIM-16 re-confirmed still open, the restart proven safe to
+> perform, and one claim here corrected: `camera_elev_arms` **is** present in the loaded world —
+> the 80-line diff hunk is a block relocation, not a deletion.
+
+### 10.10 SIM-16 re-measured, and the restart is now proven safe to perform
+
+Recorded 2026-10-05, second pass in worktree `/tmp/ao-sessions/wt-sim`. SIM-16 **still holds** —
+it is not a transient and it does not self-heal. What is new is that the operator's decision can
+now be made on evidence rather than on trust, and one of §10.9's claims is corrected.
+
+**SIM-16 re-confirmed, unchanged.** Same numbers as §10.9, re-measured rather than quoted:
+
+    $ podman inspect ao-sim-fabrication-gz --format '{{.State.StartedAt}} restarts={{.RestartCount}}'
+    2026-10-03 18:19:21.186619129 -0700 PDT restarts=0
+    $ podman exec ao-sim-fabrication-gz ps -o etimes= -p 1
+    137327                                   # +1005 s since the §10.9 reading
+    $ stat -c '%y %s' /ALWAYSON/GAZEBO/worlds/factory.world
+    2026-10-04 15:45:38.213485858 -0700 62883
+
+`podman ps` renders this as `Up 38 hours`, which reads like a recent start and is the reason a
+casual glance misses it. The uptime counter keeps counting; the world file does not get re-read.
+
+**The restart is safe, and I proved it without touching the live server.** A restart of a
+digest-pinned unit holding a `ro` bind mount is not destructive by construction — the container
+has no write access to the world — but "safe by construction" is an argument, not a measurement.
+So I loaded the *current* committed world in a throwaway container from the **same pinned digest**,
+on a **separate `GZ_PARTITION`**, with a bounded iteration count and `--rm` so it cleaned itself up:
+
+    $ podman run --rm --name ao-sim-worldcheck \
+        -e GZ_PARTITION=ao_sim_worldcheck_$$ -e GZ_SIM_RESOURCE_PATH=/ALWAYSON/GAZEBO/models \
+        -e HOME=/tmp -v /ALWAYSON/GAZEBO:/ALWAYSON/GAZEBO:ro \
+        --entrypoint /usr/libexec/gz/sim10/gz-sim-server \
+        localhost/gz-sim10-server@sha256:55f8dbcf8decb0b97c6be7cf2fde8859b0fd05735c7a759df09a12e091933581 \
+        /ALWAYSON/GAZEBO/worlds/factory.world -r -s -v 4 --iterations 400
+    exit=0
+    $ grep -c '\[err\]' /tmp/worldcheck.log
+    0
+
+Clean exit, 400 iterations, zero errors. The world that is committed **is** loadable by the
+pinned image; a restart will not fail and will not leave the simulation down. The two warning
+classes it does emit (`<gui><camera> can't be converted yet`, and `Ogre2Camera::SetVisibilityMask`
+reserved-bit notices from the eight cameras) are pre-existing and are not errors.
+
+Two safety properties I deliberately preserved, because getting either wrong would have violated a
+stop condition rather than merely been untidy:
+
+- **A separate `GZ_PARTITION`.** The live server advertises `alwayson_fabrication_sim` at
+  `GZ_IP=10.89.5.10`. A second server on the same partition would have injected a duplicate
+  publisher for every topic and every GUI client on the network would have attached to whichever
+  answered first. A distinct partition makes the check invisible to the running system.
+- **No `--network` join to `ao-sim-fabrication`, and no control of the live unit.** The check ran
+  on the default network with no route to the domain. I did not restart, stop, signal or exec
+  into `ao-sim-fabrication-gz` beyond read-only `inspect`/`ps`/`cat` of `/proc/1`.
+
+**Correction to §10.9: `camera_elev_arms` is NOT missing from the loaded world.** A naive
+read of the diff suggests the loaded world lacks the SIM-09 elevation camera, because the diff
+shows an 80-line block (`542,621d541`) removed. It does not. The camera is present in both, at
+an identical pose, and the block is a *relocation* — the comment and model moved position in the
+file, which `diff` renders as a delete plus an insert elsewhere:
+
+    $ git show c24f673:GAZEBO/worlds/factory.world | grep -c '<model name="camera_elev_arms"'
+    1
+    $ git show HEAD:GAZEBO/worlds/factory.world | grep -c '<model name="camera_elev_arms"'
+    1
+    $ # pose in both, identical:
+    <pose>6.401 4.056 1.151 0 0.0000 -1.5708</pose>
+
+I nearly recorded SIM-09's fix as un-rendered on the live server. It is rendered. I had inferred
+a missing camera from a relocation hunk, which is the diff-shaped version of the same mistake
+§10.9 describes: reading a *representation* of the world and calling it the world. The correct
+check is presence-and-value counts per named entity, not hunk headers.
+
+**What actually differs between loaded and committed, measured.** 167 changed lines total, and
+they are confined to three things: the massing mesh URI, the massing material block, and the
+`camera_elev_arms` block position. The entity inventory is identical, confirmed by hashing the
+sorted entity names rather than reading them:
+
+    $ for c in c24f673 78b4e60; do git show $c:GAZEBO/worlds/factory.world \
+        | grep -oE '<(model|link) name="[^"]*"' | sort | sha256sum; done
+    a95679bcc654bb2a7a5ff97817bfab19bca3918ce56165154343a83f1f066a57   # c24f673 (loaded)
+    a95679bcc654bb2a7a5ff97817bfab19bca3918ce56165154343a83f1f066a57   # 78b4e60 (committed)
+    # sizes: 63190 vs 62883
+
+Identical hashes. So the blast radius of SIM-16 is **exactly the massing mesh and its material**,
+and nothing else. The boned datums, the RL objects, the safety zones, the link poses and all
+eight cameras are correct on the live server. That is why the divergence survived a fortnight of
+structural checks, and it is also why the restart is low-risk: nothing structural is at stake.
+
+**The portal blind spot is confirmed by reading the code, and the fix belongs to whoever owns
+`scripts/simulation/ao-sim-portal.py`.** `world_summary()` parses `WORLD` off disk;
+`unit_state()` `os.stat`s the same path and reports `modified_epoch`. Neither has any notion of
+a load event, so the portal will report the file as authoritative and stay silent across exactly
+the divergence it exists to reveal. The minimal fix, for the portal's owner: stat the world and
+compare its mtime against the server's start time, and surface a `stale_since_restart` flag when
+`world.mtime > server.started`. That needs no gz-transport probe — the two values are both
+already reachable, `os.stat` for one and a read-only `podman inspect` for the other — which keeps
+the portal's view-only guarantee intact. The richer version, reading
+`/world/factory/dynamic_pose/info` as §10.9 proposed, needs a second hop and is not worth the
+complexity for a flag that a timestamp comparison gives directly.
+
+**Still the operator's call, and still not mine.** `systemctl --user restart
+ao-sim-fabrication-gz` is a live service restart. I have prepared and proved it; I have not run
+it. The exact command, once approved, is that one — no Quadlet edit is needed, because the world
+file is a bind mount and the restart picks up the committed file as-is.
+
+**What I got wrong this pass.** I read a unified-diff hunk header as a semantic deletion and
+nearly filed a false regression against my own SIM-09 closure. Contributing cause: I reached for
+`diff` output, which is optimised for humans skimming changes, when the question was "does entity
+X exist with value Y in both versions" — a question a counted grep answers directly. The deeper
+habit is the one already recorded in §10.5, §10.8 and §10.9: accepting a representation's shape
+as evidence about the thing. Three passes in a row have hit it in three different disguises,
+which is enough to call it this section's characteristic failure. **Check the value, not the
+hunk.**
+
 ---
