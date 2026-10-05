@@ -46,6 +46,77 @@ evidence: |
   rc=0
 section: 17-backup-restore-monitoring-and-completion-criteria
 ---
+**Revision 2026-10-05: the "has genuinely rotated" claim above was resting on the
+wrong evidence, and is now resting on the right one.**
+
+Both earlier revisions of OPS-25 inferred rotation from rotated *files* being
+present. Those files were created by the install-time **`logrotate -f`** forced
+run, which §17.5.2 now shows is a different event from the one OPS-25's
+acceptance criterion asks for ("confirm one rotation actually occurs"). A forced
+run proves the policy parses and the permissions work; it does not prove the
+unprivileged daily timer path works on a `su scottw scottw` policy.
+
+The unattended run has now happened, and is attested by inode change-time rather
+than content-time:
+
+```
+$ stat -c '%n  mtime=%y  ctime=%z' /ALWAYSON/logs/audit.log.1 /ALWAYSON/logs/backup.log.1
+/ALWAYSON/logs/audit.log.1  mtime=2026-10-04 18:43:10   ctime=2026-10-05 00:22:50
+/ALWAYSON/logs/backup.log.1 mtime=2026-10-04 10:35:39   ctime=2026-10-05 00:22:50
+```
+
+A rename updates ctime but not mtime, so `ctime=2026-10-05 00:22:50` is the
+rotation instant. The live file was recreated empty at the same instant
+(`operations-journal.log` mtime=ctime=00:22:50, size=0), which is the `create`
+directive firing. One pass renamed all five blocks across two different rotate
+budgets (14 and 400), which only a full timer-driven run produces:
+
+```
+$ find /ALWAYSON/logs -maxdepth 2 -newerct '2026-10-05 00:20' ! -newerct '2026-10-05 00:30' -printf '%p\n' | sort
+/ALWAYSON/logs/audit.log.1
+/ALWAYSON/logs/audit.log.2
+/ALWAYSON/logs/backup
+/ALWAYSON/logs/backup/db-dump.log.1
+/ALWAYSON/logs/backup/db-dump.log.2
+/ALWAYSON/logs/backup.log.1
+/ALWAYSON/logs/backup.log.2
+/ALWAYSON/logs/operations-journal.log.1
+/ALWAYSON/logs/operations-journal.log.2
+/ALWAYSON/logs/operations-journal.log
+```
+
+No `*.log.N` file has a ctime between the install (2026-10-04 09:07) and the
+timer (2026-10-05 00:22), so no human ran a rotation in that window and the
+timer is the only candidate cause. Full write-up in §17.5.2.
+
+**The logrotate half of OPS-25 is now met on the correct evidence and I am
+recommending the compiler mark that half CLOSED.** The journald half of the same
+installer remains untouched and is unchanged from the revision above:
+`/etc/systemd/journald.conf.d/` still does not exist.
+
+**New finding, filed separately as OPS-36 (superseding my own earlier
+OPS-36 proposal):** the policy's own comment justifying `nocopytruncate` is
+false, and now that rotation runs unattended the consequence is real rather than
+latent. Two Podman `conmon` processes hold descriptors on the *rotated* inode:
+
+```
+$ lsof /ALWAYSON/logs/sim-gz-server.log.1
+COMMAND     PID   USER FD   TYPE DEVICE SIZE/OFF     NODE NAME
+conmon   1195162 scottw 6w   REG  259,2  1437117 18222278 /ALWAYSON/logs/sim-gz-server.log.1
+
+$ stat -c '%n ino=%i links=%h size=%s' /ALWAYSON/logs/sim-gz-server.log*
+/ALWAYSON/logs/sim-gz-server.log    ino=18223611 links=1 size=0
+/ALWAYSON/logs/sim-gz-server.log.1  ino=18222278 links=1 size=1437117
+```
+
+Nothing has been lost yet and I want that stated precisely rather than
+overclaimed — the detached inode is still linked and **not currently growing**
+(two samples 20 s apart both 1437117 bytes; Gazebo has written nothing since
+2026-10-04 09:25). The fault is that *when* Gazebo next writes it writes to an
+inode the policy no longer tracks, and after `rotate 14` shifts that inode is
+unlinked while still being written. Fixing it means `copytruncate` or moving
+those containers off this path — a container-logging change, not a comment edit.
+
 **Still OPEN as a whole, but the logrotate half is now done, and this supersedes
 the earlier "neither half is done" statement.** That was true when written;
 someone installed the policy in the interim. The file is root-owned, 5237 B,

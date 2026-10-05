@@ -49,25 +49,83 @@ evidence: |
   $ tr '\0' ' ' < /proc/1195162/cmdline | grep -o '\-l k8s-file:[^ ]*'
   -l k8s-file:/ALWAYSON/logs/sim-gz-server.log
 section: 17-backup-restore-monitoring-and-completion-criteria
+supersedes: |
+  Revision 2026-10-05T~08:00 — corrects the scale of this item. The original
+  framing ("the forced rotation at 00:18:38") is superseded on two points:
+  (1) there has now been a second, UNATTENDED rotation at 2026-10-05 00:22:50,
+  so this is no longer latent; (2) the original overstated imminent loss by
+  implying the .1 files are "the real, current logs". They are not currently
+  growing. See §17.5.3.
 ---
 **New work item raised by this session, not a closure.**
 
-`/etc/logrotate.d/alwayson` contains a justification for `nocopytruncate` that
-is factually wrong, and the policy is currently misdirecting the output of two
-running simulation containers. Gazebo (`ao-sim-fabrication-gz`, up 22 hours) and
-Foxglove (`ao-sim-fabrication-foxglove`, up 44 hours) have been writing into
-`sim-gz-server.log.1` and `sim-foxglove-bridge.log.1` since the forced rotation
-at 00:18:38, while the live logs those files are supposed to feed are 0 bytes.
-The logrotate policy carries `rotate 14` + `daily`, so those files become
-deletion candidates and, when removed, the logs end silently.
+**Correction, 2026-10-05 — two things in my original framing of this item were
+wrong, and the second one matters.**
 
-The worse half is that `check-logs-journals.sh` reports `OK (0d)` and overall
-`PASS`. It checks the live file's mtime, and the rotation recreated that file
-fresh and empty — so a validator that can be satisfied by an empty file cannot
-detect a detached writer.
+1. It attributed the phenomenon to "the forced rotation at 00:18:38". That was
+   the only rotation I had evidence for. A second rotation has since run
+   **unattended** at 2026-10-05 00:22:50, which promotes this from a latent
+   hazard to an active one. Evidence in §17.5.2 and in `ops-a-OPS-25.md`.
+2. It said the `.1` files "are the real, current logs" and implied output is
+   actively diverging. **They are not currently growing.** Measured twice, 20 s
+   apart:
 
-**Why this is not fixed here.** Two reasons, both hard. Fixing the mechanism
-means `copytruncate` or a `postrotate` that signals a running simulation
+```
+$ stat -c '%s %y' /ALWAYSON/logs/sim-gz-server.log.1; sleep 20; stat -c '%s %y' /ALWAYSON/logs/sim-gz-server.log.1
+1437117 2026-10-04 09:25:00.508796406 -0700
+1437117 2026-10-04 09:25:00.508796406 -0700
+```
+
+Gazebo has written **nothing** since 2026-10-04 09:25, and `sim-gz-server.log`
+being 0 bytes is as much a consequence of that silence as of the detached
+descriptor. I overclaimed. The honest statement is that the fault is dormant
+*right now* and becomes live *on the next write*, which lands in an inode the
+policy has already stopped tracking. `ao-sim-fabrication-gz` has been up 38 h and
+`ao-sim-fabrication-foxglove` 2 d 12 h — both quiet, consistent with an idle
+simulation rather than a crashed one.
+
+The mechanism, unchanged and still correct: `conmon` opened
+`-l k8s-file:/ALWAYSON/logs/sim-gz-server.log` once at container start and never
+re-resolves the name. `nocopytruncate` renames the path without touching the
+inode, so the writer follows the inode while the policy tracks the name. After
+`rotate 14` shifts the name onward the inode is unlinked **while still open**,
+and output continues into space no `ls` or `du` can see, reclaimed only at
+process exit.
+
+```
+$ lsof /ALWAYSON/logs/sim-gz-server.log.1
+COMMAND     PID   USER FD   TYPE DEVICE SIZE/OFF     NODE NAME
+conmon   1195162 scottw 6w   REG  259,2  1437117 18222278 /ALWAYSON/logs/sim-gz-server.log.1
+
+$ stat -c '%n ino=%i links=%h size=%s' /ALWAYSON/logs/sim-gz-server.log*
+/ALWAYSON/logs/sim-gz-server.log    ino=18223611 links=1 size=0   <- policy manages this
+/ALWAYSON/logs/sim-gz-server.log.1  ino=18222278 links=1 size=1437117  <- conmon writes this
+```
+
+`links=1` on the detached inode is the number to watch: it drops to 0 the moment
+the last `.N` rotation removes the name, and that is the point of no return.
+
+**The validator blindness still stands and is the more useful half of this
+item** — `check-logs-journals.sh` reads the *live* file's mtime, which rotation
+recreated fresh, so an empty file satisfies it and a detached writer is
+undetectable:
+
+```
+$ bash scripts/validation/check-logs-journals.sh | grep -E 'sim-gz|foxglove|PASS'
+sim-gz-server.log                  OK (1d)          2026-10-04T07:18:38Z
+sim-foxglove-bridge.log            OK (1d)          2026-10-04T07:18:38Z
+PASS: every Section 16.3 log exists and is within its staleness budget
+```
+
+Re-measured 2026-10-05; an earlier run of the same command on 2026-10-04 showed
+`OK (0d)`. The drift from 0d to 1d is the staleness counter working correctly
+against a live file that nobody is writing to — which is precisely the point:
+the validator is watching a file that no writer holds open, and will keep
+reporting PASS as long as its staleness budget is not exceeded, entirely
+regardless of whether Gazebo is actually logging.
+
+**Why this is not fixed here.** Fixing the mechanism means `copytruncate` or a
+`postrotate` that signals a running simulation
 container — an operator decision touching a live service. Correcting the false
 comment means editing `config/host/logrotate-alwayson.conf`, which this session
 does not own, and it would break the `cmp` byte-identity that OPS-25's evidence
