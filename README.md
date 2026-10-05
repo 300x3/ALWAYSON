@@ -2809,6 +2809,9 @@ $ getent passwd alwayson-ledger ; echo $?
 ```
 
 `alwayson-ledger` is the **home directory**; `ao-ledger` is the **username**.
+Two further claims in that same runbook block are also false — "linger enabled"
+and "systemd user unit installed" — and the consequence is that its step 5 cannot
+succeed even after the name is corrected. See **§11.10**.
 `/home/alwayson-ledger` is not readable by the operator's own `scottw` account,
 so a direct `ls` returns `Permission denied`. That refusal is correct behaviour,
 not a missing account — do not "fix" it by loosening the mode or by running the
@@ -2827,6 +2830,9 @@ already used `alwayson-ledger` for uid 994, so this same error is present there.
 3. **The encrypted worker config.** Produced by `corda-cli.sh config encrypt`
    from operator-held secrets and installed `0600`. It cannot be generated
    without the operator's key material.
+4. **Linger is not enabled for `ao-ledger`, and no `ao-ledger-core.service`
+   unit file exists.** Not credential work, but the runbook's start command
+   cannot succeed without them. Measured and detailed in §11.10.
 
 Until step 1 completes, the node cannot be created, the ledger is **not
 production-ready**, and no receipt, entitlement, or provenance record can be
@@ -3002,6 +3008,116 @@ credentials are a stop condition:
 4. Treat everything in `pending-ledger-submissions/` as **untrusted replay input**;
    the 20260824 entry with `producer_key_id: "test"` must not be auto-submitted
    when the gateway comes up.
+
+---
+
+## 11.10 Third-Pass Verification, 2026-10-04 (LEDGER session)
+
+§11.7, §11.8 and §11.9 were re-measured from scratch rather than trusted. Every
+inherited claim **reproduced** — see the ledger in
+`agents/COORDINATION/proposals/ledger-LEDGER-0*.md` for the raw command output.
+This pass adds one thing the previous two missed: **§11.7 understates the
+blockers.** It lists three. There are at least five, and the two added here are
+not credential work.
+
+### The bootstrap runbook's "State after scaffold" is wrong in two places
+
+`docs/runbooks/ledger-bootstrap.md` opens with a block asserting completed state.
+Two of its four assertions are false, and both were carried forward unchallenged
+by the first two passes, which checked only the account **name**:
+
+```text
+# Runbook line 4:  "- Service account `alwayson-ledger` (linger enabled)"
+$ loginctl show-user ao-ledger -p Linger
+Failed to get user: User ID 994 is not logged in or lingering
+
+$ loginctl list-users
+ UID USER   LINGER STATE
+1000 scottw yes    active
+1 users listed.
+
+# Runbook line 9:  "- systemd user unit installed: `ao-ledger-core.service` (**not started**)"
+$ systemctl --user show ao-ledger-core.service -p LoadState -p FragmentPath
+LoadState=not-found
+FragmentPath=
+
+$ systemctl --user list-unit-files | grep -iE 'ledger|corda'   # no output, rc=1
+$ systemctl list-unit-files          | grep -iE 'ledger|corda' # no output, rc=1
+$ find /etc/systemd /usr/lib/systemd ~/.config/systemd \
+       -iname '*ledger*' -o -iname '*corda*'                     # no output
+```
+
+**Finding A — linger is not enabled.** The runbook says it is. `ao-ledger` does
+not appear in `loginctl list-users` at all, and there is no runtime directory for
+it:
+
+```text
+$ ls -d /run/user/994
+ls: cannot access '/run/user/994': No such file or directory
+```
+
+**Finding B — no unit file exists anywhere.** The runbook's parenthetical
+"(**not started**)" implies an installed-but-stopped unit. That is the same
+`is-active` misreading §11.8 warns about, committed to a document: a reader is
+told to run `systemctl --user enable --now`, which cannot work because there is
+nothing to enable. Only two `ao-ledger` files exist in `quadlet/`, and both are
+`.network` files — no `.service` and no `.container`:
+
+```text
+$ find quadlet -iname '*ledger*'
+quadlet/networks/ao-ledger-core.network
+quadlet/networks/ao-ledger-ingest.network
+```
+
+### Why this matters more than a naming typo
+
+§11.7 records the wrong-account finding as "an agent could build the node under
+the wrong identity". Measured, it is worse: **the runbook's step 5 cannot
+succeed even after the name is corrected.**
+
+```bash
+# Runbook lines 33-35, as written:
+sudo -u alwayson-ledger env HOME=/home/alwayson-ledger \
+  XDG_RUNTIME_DIR=/run/user/$(id -u alwayson-ledger) \
+  systemctl --user enable --now ao-ledger-core.service
+```
+
+`id -u alwayson-ledger` exits 1 and prints nothing, so the substitution collapses:
+
+```text
+$ id -u alwayson-ledger
+id: 'alwayson-ledger': no such user        # stdout empty
+$ echo "XDG_RUNTIME_DIR=/run/user/$(id -u alwayson-ledger 2>/dev/null)"
+XDG_RUNTIME_DIR=/run/user/                 # trailing slash, no uid
+```
+
+Fixing only the name is still not enough, because `XDG_RUNTIME_DIR=/run/user/994`
+does not exist either (§Finding A). Without linger there is no `systemd --user`
+instance for `ao-ledger` at all, so `systemctl --user` under `sudo -u ao-ledger`
+has no bus to talk to.
+
+**So LEDGER-07 has a fourth blocker that is not a key ceremony:** enable
+linger for `ao-ledger`, and write the `ao-ledger-core.service` unit file. Neither
+is credential work, but enabling linger for a service account **creates a
+persistent background session that survives logout**, which is an access-control
+change to a service identity — I am not making it, and it needs operator sign-off.
+It is also **outside my ownership**: `docs/runbooks/` is not my file.
+
+The `quadlet/networks/ao-ledger-{core,ingest}.network` files *are* real and
+`Internal=true`, matching `config/platform/network-cidrs.yaml:8-9`. §11.7 is
+correct on that point, and the networks are definitions with no container
+attached — consistent with "the node was never built".
+
+### What I got wrong in this pass
+
+I intended to re-verify the inherited claims and found nothing new, because I
+began by checking the account **name** — the one thing two prior sessions had
+already found. Re-reading the runbook line by line instead of grepping it for
+the known-wrong token surfaced two assertions nobody had checked, including one
+that is self-refuting: the runbook tells you to enable a unit it also says is
+"not started", while `list-unit-files` shows no such unit. **A document that
+states completed state must be verified field by field; grepping it for the
+token you already know is wrong tells you nothing new.**
 
 # 12. Host Installation and Configuration
 

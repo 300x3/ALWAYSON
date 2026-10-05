@@ -22,6 +22,24 @@ evidence: |
   inactive                       # exit 4  -- MISLEADING, see prose
 section: 11-ledger-provenance-archive-and-ipfs
 ---
+**Third independent run, 2026-10-04.** Reproduced again:
+
+```text
+$ bash /ALWAYSON/scripts/validation/check-ledger-ingest.sh
+PENDING: ledger-ingest gateway not deployed yet (Section 2.8 step 3 awaits Corda version approval)
+EXIT=3
+
+$ systemctl --user show ao-ledger-core.service -p LoadState -p FragmentPath
+LoadState=not-found
+FragmentPath=
+```
+
+The `LoadState` lesson in "What I got wrong" below cost me a re-check this
+session: I reached for `is-active` first, got `inactive` again, and had to
+re-run with `LoadState` to get an answer that means anything. Three sessions have
+now hit this same trap. **Closure still holds** — the script resolves, it runs
+unprivileged, and `EXIT=3` is a defined PENDING state.
+
 `check-ledger-ingest.sh` is resolved and deterministic, and it runs
 unprivileged — the acceptance criteria allowed either the script being resolved
 **or** a pending privileged command, and the script route is the one that

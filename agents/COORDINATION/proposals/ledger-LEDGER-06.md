@@ -14,6 +14,36 @@ evidence: |
   identical
 section: 11-ledger-provenance-archive-and-ipfs
 ---
+**Third pass, 2026-10-04 — no change to this item.** This is a documentation
+item and the model is unaffected by the ledger's build state. Confirmed still
+present and still correctly placed inside `## 11.3` (not after the `## 11.4`
+heading, which was the error in my first attempt):
+
+```text
+$ grep -n '^### 11.3.1\|^## 11.4' agents/COORDINATION/11-ledger-provenance-archive-and-ipfs/section.md
+505:### 11.3.1 Accounting Model for the Authoritative Ledger
+617:## 11.4 Corda Does Not Store
+```
+Ordering is correct — §11.3.1 sits between `## 11.3` and `## 11.4`, so the
+mis-nesting described below has not recurred. Closure still stands, with the
+same caveat recorded there: **no Corda node exists to enforce the model.**
+
+**Third pass, 2026-10-04 — no change to this item.** This is a documentation
+item and the model is unaffected by the ledger's build state. Confirmed still
+present and still correctly placed inside `## 11.3` (not after the `## 11.4`
+heading, which was the error in my first attempt):
+
+```text
+$ grep -n '^## 11.3 \|^### 11.3.1\|^## 11.4' agents/COORDINATION/11-ledger-provenance-archive-and-ipfs/section.md
+438:## 11.3 Corda Stores and Private Data
+505:### 11.3.1 Accounting Model for the Authoritative Ledger
+614:## 11.4 Corda Does Not Store
+```
+
+Ordering is correct — §11.3.1 sits between `## 11.3` and `## 11.4`, so the
+mis-nesting described below has not recurred. Closure still stands, with the
+same caveat recorded there: **no Corda node exists to enforce the model.**
+
 The §19 criteria offered a choice: "Define the model **or** state that the
 ledger records references only and accounting is computed in reporting." I took
 the first option, because §3.2 and §11.1 both already declare Corda the

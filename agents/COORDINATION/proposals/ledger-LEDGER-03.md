@@ -21,6 +21,37 @@ evidence: |
   0
 section: 11-ledger-provenance-archive-and-ipfs
 ---
+**Re-verified a third time, 2026-10-04, by execution not by reading.** All four
+findings reproduced with the same commands and exit codes:
+
+```text
+$ bash /ALWAYSON/scripts/ledger/build-manifest.sh map_product TOTALLY_MADE_UP_DOMAIN /tmp/p.txt ref://x | jq -r .origin_domain
+TOTALLY_MADE_UP_DOMAIN
+EXIT=0
+
+$ bash /ALWAYSON/scripts/ledger/build-manifest.sh not_a_type ao-mapping /tmp/p.txt ref://x
+ERROR: bad object_type
+EXIT=11                                  # contrast: object_type IS validated
+
+$ bash /ALWAYSON/scripts/ledger/sign-manifest.sh /tmp/p.json wallet:ao-sales
+ERROR: manifest or key missing (keys live in KDE Wallet ao-sim-*; file path accepted for migration/testing)
+EXIT=10                                 # misleading: the wallet key is unimplemented
+
+$ jq -r '{producer_key_id, authorization_policy_id, sig_len:(.signature|length)}' \
+    /ALWAYSON/artifacts/pending-ledger-submissions/20260824/manifest.json
+{ "producer_key_id": "test", "authorization_policy_id": "", "sig_len": 96 }
+```
+
+The `not_a_type` / `EXIT=11` case is new evidence not in the original report: it
+proves the asymmetry is real rather than an omission of validation generally —
+`object_type` is checked against a closed list and rejected, while
+`origin_domain` passes through untouched. Test files were written to `/tmp` and
+removed; `pending-ledger-submissions/` contains only the pre-existing
+`20260824` directory, and nothing was signed, staged, or transmitted.
+
+Still open. Items 1–4 above all require either credential work or script
+changes outside my file ownership, and item 1 is operator-only.
+
 **Stays open.** Added §11.2.5 with an 8-row table mapping every requirement to
 its enforcer and its current state, so the gap is explicit rather than implied.
 

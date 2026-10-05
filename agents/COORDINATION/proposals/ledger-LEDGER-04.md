@@ -12,6 +12,12 @@ evidence: |
   replication-policy.yaml
 section: 11-ledger-provenance-archive-and-ipfs
 ---
+**Re-verified a third time, 2026-10-04.** All three checks reproduce: no
+Quadlet matches `*archive*`, zero containers match `archive|egress`, and
+`config/pcloud/` contains only `replication-policy.yaml`. Still blocked earlier
+than §19's wording suggests — there is no `ao-egress-archive` service to hold
+credentials. No credential read, printed, or exported; no replication test run.
+
 **Stays open, and is blocked earlier than §19 suggests.** §19 frames this as
 "credentials provisioned into `ao-archive`". The acceptance criteria cannot be
 met as written, because **`ao-egress-archive` does not exist** — no Quadlet, no

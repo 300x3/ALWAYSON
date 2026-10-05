@@ -15,6 +15,26 @@ evidence: |
   corda-combined-worker-5.2.2.0.jar: OK
 section: 11-ledger-provenance-archive-and-ipfs
 ---
+**Re-verified a third time, 2026-10-04.** All three checks re-run and
+reproduced: both PostgreSQL paths still closed to the agent account, JAR
+checksum `OK`, `ao-ledger` = uid 994. Still open, still operator-only.
+
+Additionally recorded in §11.10: the `cordadb` blocker is not the *only*
+non-credential gap on the path to a running node. Linger is not enabled for
+`ao-ledger` and no `ao-ledger-core.service` unit file exists, so even after the
+role password is set the node could not be started by the runbook's own
+procedure. The operator should know there are **two** things to fix, not one.
+
+**Re-verified a third time, 2026-10-04.** All three checks re-run and
+reproduced: both PostgreSQL paths still closed to the agent account, JAR
+checksum `OK`, `ao-ledger` = uid 994. Still open, still operator-only.
+
+Additionally recorded in §11.10: the `cordadb` blocker is not the *only*
+non-credential gap on the path to a running node. Linger is not enabled for
+`ao-ledger` and no `ao-ledger-core.service` unit file exists, so even after the
+role password is set the node could not be started by the runbook's own
+procedure. There are **two** things to fix, not one.
+
 **Stays open. Stopped — credential change is a hard stop condition.**
 
 The acceptance criteria require the `cordadb` owner role to have a working

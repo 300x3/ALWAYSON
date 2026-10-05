@@ -12,6 +12,21 @@ evidence: |
   2
 section: 11-ledger-provenance-archive-and-ipfs
 ---
+**Re-verified a third time, 2026-10-04.** Every command above was re-run from
+scratch and reproduced identically, including all three `sha256sum -c` sidecars:
+
+```text
+$ cd /ALWAYSON/data/corda-install && sha256sum -c *.sha256sum
+corda-cli-installer-5.2.2.0.zip: OK
+corda-combined-worker-5.2.2.0.jar: OK
+notary-plugin-non-validating-server-5.2.2.0-package.cpb: OK
+```
+
+Still no key generated, exported, or activated. Also noted in §11.10: the same
+runbook block this proposal quotes has **two further false claims** ("linger
+enabled", "systemd user unit installed") which make its start command
+unrunnable. LEDGER-01 remains open and operator-only.
+
 **Stays open. Stopped deliberately — this is a hard stop condition.** The
 acceptance criteria permit closure only after an operator ceremony is performed
 and recorded, and explicitly forbid generating, replacing, exporting or
