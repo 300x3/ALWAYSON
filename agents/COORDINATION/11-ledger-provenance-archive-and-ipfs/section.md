@@ -1355,3 +1355,169 @@ Equally, I nearly reported Finding C as a defect and stopped one step short of a
 *whose* decision a missing tax rule is. It is not mine. An agent that "helpfully"
 invents a tax accrual rule here would be making a pricing decision it has no authority
 to make (README §4.1 rule 14).
+---
+
+## 11.13 Sixth-Pass Verification, 2026-10-05 (LEDGER session)
+
+Five passes audited the host (§11.8–§11.11) and then my own documents (§11.12). This
+pass did something none of them did: it looked at the **artefacts that §11 specifies
+rules for**, and asked whether the staging queue still matches what §11.11 recorded.
+
+It does not. **§11.11's housekeeping claim is now false, and the reason is worse than
+the defect it documented.**
+
+### Finding A — RETRACTION: §11.11's housekeeping statement is superseded
+
+§11.11 (2026-10-04) recorded, in its Housekeeping section:
+
+> `artifacts/pending-ledger-submissions/` again contains **only** the pre-existing
+> `20260824` directory.
+
+That was true when written and is **no longer true**. Measured this pass:
+
+```text
+$ ls -la /ALWAYSON/artifacts/pending-ledger-submissions/
+drwxrwxr-x 4 scottw scottw 4096 Oct  5 07:52 .
+drwxr-x--- 8 scottw scottw 4096 Oct  4 08:55 ..
+drwxrwxr-x 2 scottw scottw 4096 Aug 23 18:58 20260824
+drwxrwxr-x 2 scottw scottw 4096 Oct  4 17:52 20261005
+```
+
+A **second** manifest exists, dated today, and it is **not tracked by Git**:
+
+```text
+$ git ls-files artifacts/pending-ledger-submissions/
+artifacts/pending-ledger-submissions/20260824/manifest.json      # 20261005 absent
+$ git check-ignore -v artifacts/pending-ledger-submissions/20261005/manifest.json ; echo $?
+1                                                                    # not ignored either
+```
+
+So it is an **untracked, unignored** working-tree artefact. Per the coordination
+rules I have **not deleted, moved, or modified it**, and I have **not** touched the
+tracked `20260824` manifest. It is another session's or the operator's uncommitted
+work; removing it would be rule 3 and a §4.1 rule 12 violation. **Reported, not
+removed.**
+
+### Finding B — the new manifest would be REJECTED by the schema it claims to satisfy
+
+This is the serious part. `build-manifest.sh` does not validate `origin_domain`
+(§11.9 Finding 3), so the value in the file is whatever the caller passed. The
+staged value is **`storefront`** — a domain that appears in **no** §11.1 table and
+**no** §11.5 enumeration:
+
+```text
+$ jq -r '{object_type,origin_domain,producer_key_id}' \
+    artifacts/pending-ledger-submissions/20261005/manifest.json
+{ "object_type": "sales_receipt", "origin_domain": "storefront", "producer_key_id": "testkey" }
+
+$ python3 -c "...Draft202012Validator(manifest-schema.json).iter_errors(m)..."
+REJECTED: 'storefront' is not one of ['sales', 'field', 'mapping', 'sim_vehicle', 'sim_fabrication']
+```
+
+**A `sales_receipt` — the one object type that §11.2.2 gates exist to protect — is
+sitting in the replay queue attributed to a domain that is not an authoritative
+producer at all.** Combined with `producer_key_id: "testkey"`, this is the second
+entry (after `20260824`'s `producer_key_id: "test"`) of the same class §11.9
+Finding 4 described. **Two of two queued manifests carry unverified key material,
+and now one of them also carries an out-of-model origin domain.**
+
+`submit-ledger-event.sh` cannot catch this, because it performs **no schema
+validation at all**:
+
+```text
+$ grep -nE 'jsonschema|manifest-schema|validat' scripts/ledger/submit-ledger-event.sh
+NO schema validation in submit script
+```
+
+§11.2.5 row 3 says schema validation is enforced by the *gateway*. Correct — but
+nothing validates on the way **in**, so an invalid manifest is written to durable
+storage and only ever rejected later, if a gateway ever exists. The queue is
+**write-anything, validate-never**.
+
+### Finding C — the staging queue is inside the restic backup set
+
+The restore drill already treats staged manifests as receipts. That makes them
+**backed-up data**, which changes the consequences of Finding B from "a local
+loose file" to "a record that survives in the backup set and will be restored":
+
+```text
+$ grep -n 'artifacts' scripts/backup/restic-run.sh
+restic backup ... '$AO_ROOT/artifacts' ...
+
+$ grep -n 'pending-ledger-submissions' scripts/restore/restore-restic-drill.sh
+receipts="$(find "$scratch_abs" -path '*pending-ledger-submissions*' -name 'manifest.json' ...)"
+echo "  pending-ledger-submission manifests found: $receipts"
+```
+
+The drill **counts** staged manifests and reports them as "Corda
+receipt/manifests". It never validates them. So a schema-invalid, unverified-key
+manifest is counted as a **receipt** during a restore drill. This is a §17.1
+interaction, so it belongs to **OPS** as well as LEDGER — reported, not edited.
+
+### Finding D — §11.5 and §11.1 name a smaller domain set than the ledger needs
+
+Comparing the three artefacts by machine rather than by eye:
+
+```text
+$ python3  # schema enum vs §11.1 authority table
+schema enum : ['field', 'mapping', 'sales', 'sim_fabrication', 'sim_vehicle']
+in §11.1 table but NOT submittable: ['archive', 'ledger', 'payment', 'sim-fabrication', 'sim-vehicle']
+```
+
+`payment` is an authoritative domain in §11.1 and the **source of the funds-transfer
+evidence** that §11.3.1 makes the *only* posting trigger, yet it has no
+`origin_domain` and so **cannot submit a manifest at all**. §11.1 also writes the
+domains as `ao-sim-vehicle` / `ao-sim-fabrication` while §11.5 and the schema use
+`sim_vehicle` / `sim_fabrication` — the two spellings differ, and the producer-key
+gap in §11.9 Finding 1 lists them under the `ao-` form. A gateway built by matching
+§11.1 names against the schema enum would match nothing.
+
+Additionally, §11.5's example omits two schema fields: `transaction_id` (which the
+schema makes **required** for `sales_receipt`) and `content_hash_sha256` (required
+for every object). An implementer copying §11.5 would produce a manifest that its
+own schema rejects:
+
+```text
+schema-only  (undocumented in §11.5): ['content_hash_sha256', 'transaction_id']
+doc-only     (not in schema)         : []
+```
+
+### What this means for the open items
+
+None of these change a status. They make the **replay path** more dangerous than
+§11.9 recorded, and they add three items that are **not** mine to fix:
+
+1. `config/ledger/manifest-schema.json` — add `payment` (and decide `archive`/
+   `ledger`), and reconcile the `sim_*` vs `ao-sim_*` naming. **Not my file.**
+2. `scripts/ledger/submit-ledger-event.sh` — validate against the schema *before*
+   staging. Cheap, unblocked, **not my file** (`scripts/`).
+3. `scripts/restore/restore-restic-drill.sh` — a counted "receipt" that is never
+   validated. **OPS** group (§17.1), **not my file**.
+
+LEDGER-03 stays open, and its blocker list grows by one item: **the replay queue
+must be treated as untrusted input and the invalid 20261005 entry quarantined by
+the operator.** I have not quarantined it.
+
+### What I got wrong in this pass
+
+I planned to audit §11.4 and §11.6, the two subsections no prior pass had read. I
+did read them — and they are fine. The finding came from somewhere I had not
+planned: I ran `ls` on the staging directory as a **closing sanity check** before
+writing up, and the listing had a directory in it that §11.11 said was not there.
+**I had been treating §11.11's housekeeping paragraph as settled fact because it
+was in my own section file.** Two of my five passes were about trusting records
+that had gone stale; the sixth was about trusting a record I had written myself
+four hours earlier.
+
+The lesson generalises past staleness: **a claim in your own document is still a
+claim, not a measurement.** The §11.11 note was written to clear me of suspicion
+about my own test artefacts, and it did its job — so well that I stopped checking
+entirely. Write down what you cleaned up, then *still* check.
+
+I also nearly wrote Finding B as "an invalid manifest is staged, someone should fix
+the validator." That misses the point: the validator is not the defect, the
+**missing `payment` origin_domain plus the unvalidated call-through** is. Adding a
+check without closing the model gap would reject more manifests without accepting
+the one that matters.
+
+---

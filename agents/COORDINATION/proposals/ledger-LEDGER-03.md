@@ -19,6 +19,20 @@ evidence: |
 
   $ podman ps -a --format '{{.Names}}' | grep -c 'ledger-ingest'
   0
+
+  # --- sixth pass, 2026-10-05: staging queue re-measured ---
+  $ ls -la /ALWAYSON/artifacts/pending-ledger-submissions/
+  20260824   20261005     <-- second entry, untracked, retracts §11.11 housekeeping
+
+  $ jq -c '{object_type,origin_domain,producer_key_id}' \
+      artifacts/pending-ledger-submissions/20261005/manifest.json
+  {"object_type":"sales_receipt","origin_domain":"storefront","producer_key_id":"testkey"}
+
+  $ python3  # Draft202012Validator vs config/ledger/manifest-schema.json
+  REJECTED: 'storefront' is not one of ['sales','field','mapping','sim_vehicle','sim_fabrication']
+
+  $ grep -nE 'jsonschema|manifest-schema|validat' scripts/ledger/submit-ledger-event.sh
+  NO schema validation in submit script
 section: 11-ledger-provenance-archive-and-ipfs
 ---
 **Re-verified a third time, 2026-10-04, by execution not by reading.** All four
@@ -219,3 +233,58 @@ I reached for `is-active`-style verification reflexively and nearly re-ran the f
 recorded host checks a fifth time. §11.11 had already written down why that is
 worthless. Everything new this pass came from asking whether the documents agree with
 each other, which no prior pass had asked.
+
+---
+
+## Sixth pass, 2026-10-05 — the staging queue is the untrusted input, and it has grown
+
+**Stays open.** This pass added **§11.13** to
+`agents/COORDINATION/11-ledger-provenance-archive-and-ipfs/section.md`.
+
+**§11.11's housekeeping claim is RETRACTED as superseded.** §11.11 recorded that
+`pending-ledger-submissions/` contained *only* `20260824`. It now contains a
+second, untracked entry dated today:
+
+```text
+$ ls -la /ALWAYSON/artifacts/pending-ledger-submissions/
+drwxrwxr-x 2 scottw scottw 4096 Oct  4 17:52 20261005     <-- new, untracked
+
+$ git ls-files artifacts/pending-ledger-submissions/
+artifacts/pending-ledger-submissions/20260824/manifest.json    # 20261005 not tracked
+
+$ jq -c '{object_type,origin_domain,producer_key_id}' \
+    artifacts/pending-ledger-submissions/20261005/manifest.json
+{"object_type":"sales_receipt","origin_domain":"storefront","producer_key_id":"testkey"}
+
+$ python3  # Draft202012Validator against config/ledger/manifest-schema.json
+REJECTED: 'storefront' is not one of ['sales','field','mapping','sim_vehicle','sim_fabrication']
+```
+
+So **2 of 2 queued manifests carry unverified key material**, and one is a
+`sales_receipt` — the type §11.2.2's gates exist to protect — attributed to a
+domain that is in neither §11.1 nor §11.5. I did **not** delete or modify it: it is
+untracked, unignored working-tree content and removing another party's work is
+coordination rule 3.
+
+`submit-ledger-event.sh` performs no schema validation at all, so nothing rejects
+this on the way in:
+
+```text
+$ grep -nE 'jsonschema|manifest-schema|validat' scripts/ledger/submit-ledger-event.sh
+NO schema validation in submit script
+```
+
+Two further items this pass surfaced, both **not my files**:
+
+1. `payment` has no `origin_domain` in the schema, so the domain that supplies the
+   funds-transfer evidence — the *only* posting trigger in §11.3.1 — cannot submit a
+   manifest at all. §11.1 also spells the sim domains `ao-sim-*` where §11.5 and the
+   schema use `sim_*`.
+2. `scripts/restore/restore-restic-drill.sh:188` counts staged manifests and reports
+   them as "Corda receipt/manifests" without validating them, and
+   `scripts/backup/restic-run.sh:30` puts `$AO_ROOT/artifacts` inside the restic
+   backup set. **This is an OPS / §17.1 item**, reported not edited.
+
+**LEDGER-03 remains open.** Its blocker list gains: the replay queue must be treated
+as untrusted input, and the invalid `20261005` entry quarantined **by the operator** —
+I did not quarantine it.
