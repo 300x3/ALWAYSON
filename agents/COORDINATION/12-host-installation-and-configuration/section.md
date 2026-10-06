@@ -282,7 +282,7 @@ describes, in stages. It is **dry-run by default**; pass `--yes` to apply.
 | 20 | Host dependencies, layout, podman networks, inventory | **Delegates to `scripts/bootstrap/00`, `02`, `03`, `04`** rather than repeating them. Also **reports linger** before any unit starts (§12.3.1) |
 | 30 | 16 snaps, 1 flatpak | Enumerated from the installed set |
 | 40 | Host applications | Read from `unmanaged-software.yaml`, not hardcoded. Vendor blobs delegated to `install-vendor-binaries.sh` (§12.4.1) |
-| 50 | 9 Quadlet domains, 22 units | **Quadlet deploys flat** — `~/.config/containers/systemd/` holds copies, so the deploy script is mandatory, not optional |
+| 50 | 9 Quadlet domains, **36 Quadlet source units** | **Quadlet deploys flat** — `~/.config/containers/systemd/` holds copies, so the deploy script is mandatory, not optional |
 | 60 | Secret presence check | Derived from the units' own `EnvironmentFile=` lines |
 | 70 | Data check only | **Never restores.** Restoration is a human decision (rule 2/3) |
 | 90 | Verification | Regenerates the inventory for diffing against `docs/software-status.md` |
@@ -293,6 +293,175 @@ design) and the **persistent data** in `data/` (ardupilot 2.1G, corda-install
 282M). The **AppImages and vendor binaries** were long described here as a third
 category "that must be fetched by hand"; §12.4.1 replaces that with a manifest
 and an installer that verifies what is already on disk.
+
+### 12.4.2 Every stage has an undo, and the undo is non-destructive (OPS-12)
+
+`scripts/provision/rollback.sh` is the missing half of §12.4. Until now each stage of
+`provision.sh` described only what it *built*, and a rebuild that failed halfway left the
+operator with no documented way back. The script is **dry-run by default**, mirroring
+`provision.sh`, because undo is as dangerous as the action.
+
+```bash
+./scripts/provision/rollback.sh --list   # what each stage undoes, and whether it needs an operator
+./scripts/provision/rollback.sh         # dry run: prints every action
+./scripts/provision/rollback.sh --yes   # apply
+```
+
+It runs stages in **descending order (90 → 10)** so dependents go before their
+dependencies: units are withdrawn before the repositories that supplied them.
+
+**The rule that shapes it: stages differ in whether their undo is safe to automate.**
+
+| Stage | Undo | Safe to run unattended? |
+|---|---|---|
+| 90 | nothing — regenerated artefacts | yes, informational |
+| 70 | **nothing** — stage 70 never restores | yes, reports `data/` sizes only |
+| 60 | **nothing** — stage 60 only checked presence | yes, never touches secrets |
+| 55 | restic units: stop, disable, remove the 6 unit files | yes, with a warning that this stops backups |
+| 50 | Quadlet files per domain, via `deploy/rollback-domain.sh` | yes |
+| 40 | vendor blobs | **no** — prints manifest ids, removes nothing |
+| 30 | snaps and flatpak | **no** — prints `snap remove` commands, runs none |
+| 20 | apt repo files and keyrings | printed, not executed |
+| 10 | nothing — stage 10 only *adds* | n/a |
+
+Three things are deliberately **never** undone, because no script here can undo them
+safely: `data/` (rule 2/3), **secrets** (the values live in the wallet and in
+`~/.local/share/ao-secrets/`, and are not reproducible from this repository), and
+Podman networks (removing one strands whatever containers are attached). A rollback that
+"restores the host to bare Ubuntu" would be a data-loss event wearing a rollback's
+clothes.
+
+**Verified, dry run.** State is identical before and after, and the summary line is last:
+
+```text
+$ bash -n scripts/provision/rollback.sh && echo 'SYNTAX OK'
+SYNTAX OK
+$ bash scripts/provision/rollback.sh >/tmp/rb5.out 2>&1; echo "rc=$?"
+rc=0
+$ grep -n '^--- stage' /tmp/rb5.out
+5:--- stage 90: verification artefacts (nothing to undo)
+8:--- stage 70: persistent data (NEEDS OPERATOR - not undone)
+17:--- stage 60: secrets (NEEDS OPERATOR - not undone)
+22:--- stage 55: restic backup units
+37:--- stage 50: Quadlet unit files (per domain)
+51:--- stage 40: vendor blobs (NEEDS OPERATOR - not undone)
+56:--- stage 30: snaps and flatpak (NEEDS OPERATOR - commands printed only)
+67:--- stage 20: apt repositories added by stage 10
+81:--- stage 10: nothing to undo
+$ tail -1 /tmp/rb5.out
+dry run only. Nothing was changed. Re-run with --yes to apply.
+```
+
+```text
+# BEFORE: units=85 restic=6 nets=14 timer=enabled
+$ bash scripts/provision/rollback.sh >/dev/null 2>&1
+# AFTER : units=85 restic=6 nets=14 timer=enabled
+```
+
+The only `rm` the script can reach is `sudo rm -f /etc/systemd/system/<unit>`, named from
+`systemd/backup/`. Stage 50 delegates to `rollback-domain.sh`, which removes **only** the
+unit files named in `quadlet/<domain>/` and never `rm -r`s the flat unit directory — that
+directory holds every other domain, plus the networks and volumes they share.
+
+It closes with the provision ledger's own record of which stages actually ran, read from
+`logs/operations/provision-ledger.jsonl` rather than assumed:
+
+```text
+$ python3 -c "..." # counting stage keys in the ledger
+  stage 10: 62 step(s) recorded
+  stage 20: 15 step(s) recorded
+  stage 50: 78 step(s) recorded
+  stage 55: 7 step(s) recorded
+  stage 90: 16 step(s) recorded
+```
+
+**Still open on this item.** A clean-room rebuild has still never been executed, so the
+procedure remains unproven end to end; and `bootstrap/01` photogrammetry verification is
+still not gated on §17.3 evidence as §16.1 requires. The rollback half is written and
+proven; those two are not mine to close here.
+
+#### A number in the stage table above was wrong
+
+The stage-50 row read "9 Quadlet domains, 22 units". **22 is only the `.container` count.**
+Measured across all nine domains the Quadlet *source* units are **36**:
+
+```text
+$ find quadlet -type f \( -name '*.container' -o -name '*.network' -o -name '*.volume' -o -name '*.build' \) | wc -l
+36
+$ find quadlet -type f | grep -oE '\.[a-z]+$' | sort | uniq -c
+     22 .container
+     15 .network
+      1 .path
+     16 .service
+      1 .sh
+      5 .timer
+```
+
+An undercount here is not cosmetic: stage 50 deploys **every** source unit, so a reader
+trusting "22" would conclude seven network units and six `ao-*` service/timer units were
+never deployed.
+
+That comparison is also where the counting trap lies. Comparing *all* 81 deployed files
+against the repo's 61 distinct basenames yields **32 apparent orphans** — but they are not
+stale copies. Every one of the 32 is a `.service`, and each self-declares as generated:
+
+```text
+$ head -3 ~/.config/containers/systemd/ao-sales-db.service
+# Automatically generated by /usr/libexec/podman/quadlet
+#
+# /ALWAYSON/quadlet/sales/ao-sales-db.container
+```
+
+Note the generator is Podman's quadlet helper at `/usr/libexec/podman/quadlet`, **not**
+`systemd-container-generator` (that path does not exist on this host). Restricted to
+source-typed files the two sets agree almost exactly:
+
+```text
+$ find ~/.config/containers/systemd -maxdepth 1 -type f \
+    \( -name '*.container' -o -name '*.network' -o -name '*.volume' -o -name '*.build' \) \
+    -printf '%f\n' | wc -l
+30
+# deployed source-typed NOT in repo:  (none)
+# repo source-typed NOT deployed:
+ao-ardupilot-sitl.container
+ao-data.network
+ao-field.network
+ao-ledger-core.network
+ao-ledger-ingest.network
+ao-sim-vehicle.network
+```
+
+Those six are a real, separate finding and are **reported, not fixed**. Five are
+`quadlet/networks/*.network` and one is `quadlet/sim-vehicle/`, none is deployed, yet all
+five networks exist live under those exact names:
+
+```text
+$ podman network ls --format '{{.Name}}' | grep -E '^ao-(data|field|ledger-core|ledger-ingest|sim-vehicle)$'
+ao-data
+ao-field
+ao-ledger-core
+ao-ledger-ingest
+ao-sim-vehicle
+```
+
+They were therefore created by `bootstrap/04-create-operational-layout`'s sibling
+`04-create-podman-networks.sh`, which calls `podman network create` directly. **The same
+network is described by two owners** — a repo Quadlet file and an imperative bootstrap
+script. For `ao-data` the two currently agree, so nothing is broken today:
+
+```text
+$ grep -E 'NetworkName|Internal' quadlet/networks/ao-data.network
+NetworkName=ao-data
+Internal=true
+$ podman network inspect ao-data --format '{{.Name}} internal={{.Internal}} subnet={{(index .Subnets 0).Subnet}}'
+ao-data internal=true subnet=10.89.8.0/24
+```
+
+But a future edit to one file would not change the running network. Deciding the single
+owner of network creation is a design decision, it touches live network configuration, and
+it is **not mine to settle** — it needs an operator decision and, if adopted, a redeploy of
+the flat unit copies (§16.1.1). `ao-ardupilot-sitl.container` being undeployed is
+unremarkable: SITL is a simulation container, not an always-on service.
 
 ### 12.4.1 Vendor blobs are declared, pinned and verified (OPS-17)
 
