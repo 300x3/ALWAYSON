@@ -1,47 +1,74 @@
 ---
 item: FIELD-15
-action: new
+action: update
 evidence: |
-  # The deviation is real: the mapping database is NOT on the photogrammetry drive
+  # The deviation is unchanged: the mapping database is NOT on the photogrammetry drive.
   $ podman inspect ao-webodm-db --format '{{range .Mounts}}{{.Source}} -> {{.Destination}}{{end}}'
   /home/scottw/webodm/dbdata -> /var/lib/postgresql/data
                                  # root filesystem, not /media/scottw/500GBPHOTOGRAM
 
-  # ...and the drive is not writable by the operator in its intended ownership arrangement
-  $ stat -c '%n owner=%U group=%G mode=%a' /media/scottw/500GBPHOTOGRAM/tmp
-  /media/scottw/500GBPHOTOGRAM/tmp owner=ao-mapping group=alwayson-mapping mode=770
-  $ getent group alwayson-mapping
-  alwayson-mapping:x:975:          # no members
-  $ id -nG scottw | tr ' ' '\n' | grep -xE '1001|975'
-  1001                              # ao-mapping only; 975 absent
-  $ mkdir /media/scottw/500GBPHOTOGRAM/tmp/processing
-  mkdir: Permission denied
-  $ sg ao-mapping -c "mkdir -p /media/scottw/500GBPHOTOGRAM/tmp/processing"
-  mkdir: Permission denied
+  # What is NEW this pass: the precondition is now a MEASURED, QUANTIFIED gate rather
+  # than a caution. The drive is not a place the operator can manage.
+  $ getent group alwayson-mapping ao-mapping
+  alwayson-mapping:x:975:                       <-- NO MEMBERS
+  ao-mapping:x:1001:scottw,ao-mapping
+
+  # 8 of the 10 top-level directories are inaccessible to the operator:
+  $ M=/media/scottw/500GBPHOTOGRAM
+  $ for d in incoming validated rejected deliverables manifests exports backups tmp webodm retention; do
+      printf '%-14s ' $d; [ -r $M/$d ] && [ -x $M/$d ] && echo accessible || echo DENIED; done
+  incoming       DENIED
+  validated      DENIED
+  rejected       DENIED
+  deliverables   DENIED
+  manifests      DENIED
+  exports        DENIED
+  backups        DENIED
+  tmp            DENIED
+  webodm         accessible
+  retention      accessible
+
+  # Why: every DENIED parent is owned by a group the operator is not in, mode 770, other=---:
+  $ stat -c '%n owner=%U group=%G mode=%a' $M/incoming $M/tmp $M/webodm $M/retention
+  /media/.../incoming  owner=ao-mapping group=alwayson-mapping mode=770
+  /media/.../tmp       owner=ao-mapping group=alwayson-mapping mode=770
+  /media/.../webodm    owner=scottw     group=ao-mapping        mode=770
+  /media/.../retention owner=scottw     group=scottw            mode=770
+
+  # And the fix is privileged, which is why this session could not perform it:
+  $ sudo -n true
+  sudo: interactive authentication is required
 section: 08-mapping-and-photogrammetry
 ---
-New item, next free number in the FIELD group (FIELD-01..FIELD-14 are all taken; no renumbering).
 
-**Title: mapping database does not reside on the validated photogrammetry drive.**
+**Supersedes:** this file revises the FIELD session's own earlier proposal of this path,
+rewritten 2026-10-05 08:12 PDT. The earlier revision was never merged into §19.2, so the
+compiler should take this version as the only FIELD proposal for this item.
 
-§8.4.1 closes FIELD-11 on the *name and location* question and explicitly declines to close the
-drive-residency half, promising to "carry it forward as a new FIELD item rather than reopening
-FIELD-11". That promise had no corresponding item in §19 — it was recorded only as prose in
-§8.4.1, where nothing tracks it. This proposal is that item.
+**FIELD-15 stays OPEN, action `update`.** New subsection **§8.5.5** supplies the measured gate
+this item was waiting on.
 
-**Why it needs its own ID rather than living inside FIELD-10.** FIELD-10 is about the *directory
-tree* and ownership of the drive. This is about *where a database's data directory sits*. They
-are adjacent but distinct, and the fix for one does not fix the other: FIELD-10 is repaired by
-`usermod -aG alwayson-mapping scottw` plus `mkdir`, and this item would still be open
-afterwards, because the PostgreSQL data directory stays on the root filesystem regardless.
+The item's own proposal said the relocation "is therefore not a single decision but two, in this
+order: group membership, then data-directory move". That ordering claim is now **backed by
+enumeration rather than inference**: 8 of the 10 top-level directories on the drive are
+inaccessible to the operator, and all 8 sit under parents owned `ao-mapping:alwayson-mapping`
+mode `770` with `other=---`, while group `alwayson-mapping` has no members. Only `webodm/` and
+`retention/` — the two the operator owns directly — are reachable.
 
-**The ordering constraint is new and worth the operator knowing.** §8.5.2 measured today shows
-the drive is group-owned by `alwayson-mapping` and the operator is not in that group, so `mkdir`
-fails even on paths §8.2 already requires. **Any decision to relocate PostgreSQL storage onto
-this drive must fix that ownership first**, or the database lands on a volume that its own
-operator cannot create, back up or inspect. The relocation is therefore not a single decision
-but two, in this order: group membership, then data-directory move.
+**So the answer to FIELD-15's precondition question is measured, not argued: the drive cannot yet
+accept storage whose operator cannot inspect it.** Moving the PostgreSQL data directory onto this
+volume today would turn a documented, recoverable deviation into one where the database exists
+somewhere the operator can neither read, back up nor verify — and §8.4.1 already lists backup
+scope as part of what this database's location governs.
 
-**Not attempted.** Moving a live PostgreSQL data directory changes service configuration and is
-an operator decision under §4.1 rule 12. Nothing was created, moved or chgrp'd on the drive or
-in `~/webodm/dbdata`.
+**I did not move anything and did not attempt the group fix.** `sudo -n true` returns
+"interactive authentication is required", so `usermod -aG alwayson-mapping scottw` is not
+available to this session. I did not create, chgrp, move or delete any directory or file on the
+drive, and I did not stop, restart or reconfigure `ao-webodm-db`.
+
+**Housekeeping the operator must check, because I cannot prove it clean.** My write-denial probe
+used `touch` inside `incoming/`, which returned `setting times: Permission denied`. I can neither
+`stat` nor `rm` the resulting path, because the directory is unreadable to me. **Please check for
+and remove `/media/scottw/500GBPHOTOGRAM/incoming/.fieldprobe`** — it may be a zero-byte file
+left by my probe. I am flagging it rather than asserting it is gone. My `mkdir` probes elsewhere
+on the drive were all refused by the kernel and left nothing.

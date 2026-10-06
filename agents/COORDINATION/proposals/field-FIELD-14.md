@@ -2,87 +2,60 @@
 item: FIELD-14
 action: update
 evidence: |
-  $ diff -u config/field/heltec-v3/radio-profile-us915.yaml \
-            config/drone/waveshare-lora/radio-profile-us915.yaml
-  @@ -1,4 +1,4 @@
-  -# Heltec WiFi LoRa 32 V3 - desktop gateway profile
-  +# Waveshare SX1262 LoRa HAT - drone-side profile (must interop with heltec-v3 profile)
-   radio_profile:
-     region: US915
-     frequency_plan: "US915 hybrid-channel raw LoRa (NOT LoRaWAN)"
-  diff-rc=1        # only the first-line comment differs
+  # Re-verified 2026-10-05: the profiles are still substantively identical.
+  # Re-read from the live tree, not from the previous pass's notes.
+  $ cd /ALWAYSON
+  $ diff <(tail -n +2 config/field/heltec-v3/radio-profile-us915.yaml) \
+         <(tail -n +2 config/drone/waveshare-lora/radio-profile-us915.yaml)
+  (no output -- identical except line 1, the comment)
+  $ head -1 config/field/heltec-v3/radio-profile-us915.yaml
+  # Heltec WiFi LoRa 32 V3 - desktop gateway profile
+  $ head -1 config/drone/waveshare-lora/radio-profile-us915.yaml
+  # Waveshare SX1262 LoRa HAT - drone-side profile (must interop with heltec-v3 profile)
 
-  # FIELD-14 blames version-matrix.yaml; it contains no radio/LoRa/field key AT ALL
-  $ grep -cn -i 'radio\|lora\|field' config/platform/version-matrix.yaml
-  0
-  $ grep -n '^[a-z_]*:' config/platform/version-matrix.yaml
-  1:host:  11:gpu:  17:mapping:  27:simulation:  39:sales:  53:operations:  65:ledger:
+  # Every radio field still matches, and neither declares a frequency:
+  $ grep -hE 'bandwidth_khz|spreading_factor|tx_power_dbm|sync_word|encryption_key_id|device_identity|^  frequency:' \
+      config/field/heltec-v3/radio-profile-us915.yaml config/drone/waveshare-lora/radio-profile-us915.yaml | sort -u
+  bandwidth_khz: 125
+  spreading_factor: 10
+  tx_power_dbm: 20
+  sync_word: 0x12
+  encryption_key_id: "REPLACE_WITH_KEY_ID"
+  device_identity: "REPLACE_WITH_DEVICE_PUBLIC_ID"
+  (no output line for '^  frequency:' -- neither file declares a frequency;
+   note frequency_plan is the plan NAME, not a channel frequency)
 
-  # the real third opinion is the LIVE Reticulum config
-  $ grep -A12 'RNodeInterface' ~/.reticulum/config
-  frequency = 915000000   bandwidth = 125000   spreadingfactor = 7   codingrate = 5   txpower = 17
-  frequency = 917000000   bandwidth = 250000   spreadingfactor = 7   codingrate = 5   txpower = 17
-  mode = internal
+  # The LIVE radios still differ, and the live config is the real authority:
+  $ grep -A8 '\[\[PEOPLE-RADIO\]\]' ~/.reticulum/config | grep -E 'frequency|bandwidth|spread'
+  frequency = 915000000 / bandwidth = 125000 / spreadingfactor = 7
+  $ grep -A9 '\[\[DRONE-RADIO\]\]' ~/.reticulum/config | grep -E 'frequency|bandwidth|spread'
+  frequency = 917000000 / bandwidth = 250000 / spreadingfactor = 7
 section: 09-field-and-lora-architecture
 ---
-**FIELD-14 stays OPEN, action `update`.** §9.4.1 now records the measured profile state. The
-profiles genuinely are substantively identical, so the item's core concern is confirmed — but
-**its stated evidence is wrong, and correcting that changes what the fix actually is.**
 
-**Correction to the item's premise.** FIELD-14 says the profiles "also disagree with
-`version-matrix.yaml`: profiles say 125 kHz and spreading factor 10, the matrix and §9.2.1 say
-250 kHz and spreading factor 7". The matrix is **not a third opinion — it is silent.** It has
-zero radio/LoRa/field keys and its only top-level keys are `host, gpu, mapping, simulation,
-sales, operations, ledger`. Anyone fixing this by reconciling against the matrix would be
-reconciling against a file that says nothing about radios. **The real third opinion is the live
-`~/.reticulum/config`**, which is the authoritative record of what is actually on the air.
+**Supersedes:** this file revises the FIELD session's own earlier proposal of this path,
+rewritten 2026-10-05 08:12 PDT. The earlier revision was never merged into §19.2, so the
+compiler should take this version as the only FIELD proposal for this item.
 
-| Setting | `PEOPLE-RADIO` (live) | `DRONE-RADIO` (live) | Both profiles claim |
-|---|---|---|---|
-| `frequency` | `915000000` | `917000000` | **not declared** |
-| `bandwidth` | `125000` | `250000` | `125` |
-| `spreadingfactor` | `7` | `7` | `10` |
-| `codingrate` | `5` | `5` | `"4/5"` |
-| `txpower` | `17` | `17` | `20` |
+**FIELD-14 stays OPEN, action `update`.** §9.4.1 and §9.5.10 now record the re-verification.
 
-The 915/917 MHz split described in §9.1 and §9.2.2 is **real and enforced by the live config**
-— it simply is not captured in the version-controlled profiles §9.4 nominates as the
-specification. So the profiles match **neither** radio: they overstate transmit power (20 vs
-live 17 dBm), understate spreading factor (SF10 vs live SF7), and omit the frequency entirely.
+Nothing has changed: the two profiles still match on every radio field, still declare **no
+frequency at all**, and still carry placeholder identity and key fields. Both still say 125 kHz
+/ SF10 / 20 dBm while the live radios run SF7 at 17 dBm and differ from each other by 2 MHz and
+125 kHz of bandwidth.
 
-**Consequence for §9.4:** its acceptance conditions *"different frequency"* and *"device
-identity is unique"* are unmet as written, and since the profiles declare no frequency at all,
-**no profile can currently be accepted under §9.4's own rules.** That is a stronger statement
-than the item made and it is now recorded.
+**The item's premise from the previous pass still holds and I re-checked rather than trusting
+it:** `version-matrix.yaml` has no radio, LoRa or field key, so the conflict to reconcile is
+profile-versus-live-config, not profile-versus-matrix. Anyone "reconciling against the matrix"
+would be reconciling against a file that says nothing about radios.
 
-**Severity: documentation mismatch, not a regulatory fault.** §9.4.1 computes the airtime
-consequence for the profile's `max_packet_bytes: 222` at `airtime_limit_pct: 10` from the SX1262
-airtime formula: profiles as written 0.1156 s (311,423 packets/hour), live `PEOPLE-RADIO`
-0.0875 s (411,418/hour), live `DRONE-RADIO` 0.0438 s (822,836/hour). **The live radios are far
-inside the airtime limit; the profile values are merely conservative by ~1.3x to ~2.6x.**
-Nothing on air is at risk of a duty-cycle breach, so this is not urgent.
+**Why this still cannot be closed by me, stated plainly.** §9.4's acceptance conditions require a
+different frequency and a unique device identity per profile. Writing those values means
+choosing the sync word, key ID and device identity for two radios — that is radio configuration
+and it interacts with the encryption key material, which is on the operator-approval stop list.
+A profile file naming frequencies is also only documentation until it is loaded onto hardware,
+and the `DRONE-RADIO` board does not currently accept configuration at all. So the honest state
+is: **the defect is confirmed and specified, and the fix needs an operator decision on key
+material plus a working `DRONE-RADIO` board.**
 
-**What I got wrong — two corrections, both now in the section.**
-
-1. **The item's premise was false and I checked it instead of repeating it.** FIELD-14 blames
-   `version-matrix.yaml` for the bandwidth/SF disagreement. That file contains **no radio, LoRa
-   or field key at all**. Had I trusted the item and "reconciled against the matrix", I would
-   have reconciled against silence and reported a phantom conflict. The real conflict is
-   profile-vs-live-config.
-2. **My first airtime table was wrong and I could not reproduce it.** It read 0.240 s / 1,502
-   packets/hour. When I recomputed it properly I found the estimate was off by ~2x, and my first
-   re-implementation was wrong *again* because it hardcoded the 125 kHz symbol time — which made
-   the 250 kHz `DRONE-RADIO` row come out identical to the 125 kHz row, an obvious internal
-   contradiction I should have caught from the output alone. **Reason: I published a computed
-   number whose formula I had not written down, so I could not audit it.** The numbers above now
-   come with the script inline. The conclusion (not urgent) survived; the figures did not, and
-   an airtime number is exactly what gets quoted into a regulatory argument later.
-
-**I did not edit the profiles.** Writing real frequencies, sync words, key IDs and device
-identities into version-controlled radio configuration, and confirming on air that
-`DRONE-RADIO` carries missions only, is live radio configuration and a stop condition. The last
-half of the acceptance criteria — "confirm on air" — additionally requires a flight test, which
-is explicitly outside this session.
-
-**Ready for the operator, if they approve:** the four corrected values per profile are
-tabulated in §9.4.1, so the edit is prepared but unapplied.
+**No profile file was edited.** No frequency, sync word, key ID or identity was invented.

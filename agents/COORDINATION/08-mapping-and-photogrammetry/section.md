@@ -404,6 +404,92 @@ as consistently as it propagates the intent.
   locked out is the symptom of that policy working, not of it failing. The fix is to add the
   operator to the mapping group, **not** to relax the mode to `777`.
 
+### 8.5.3 Re-verification 2026-10-04 15:59 — both mapping blockers are still live
+
+§8.5.1 and §8.5.2 were measured earlier the same day. Every prerequisite was re-measured before
+relying on them. **Nothing has recovered and no claim is weakened.** One *new* finding is
+recorded below: the `title:` key the proposal compiler silently requires.
+
+**FIELD-10 — the validator is still green on a tree that still does not satisfy §8.2:**
+
+```bash
+$ bash scripts/validation/check-photogrammetry-mount.sh
+OK: photogrammetry mount valid: systemd-1
+/dev/sdb1; 434G free
+rc=0
+```
+
+The validator still exits 0. Per §8.5.1 this must **not** be cited as evidence that §8.2 holds.
+
+**FIELD-10 / FIELD-15 — the operator is still locked out, and the database is still off-drive:**
+
+```bash
+$ stat -c '%n owner=%U group=%G mode=%a' /media/scottw/500GBPHOTOGRAM/tmp \
+      /media/scottw/500GBPHOTOGRAM/webodm/media \
+      /media/scottw/500GBPHOTOGRAM/retention/pending-review
+.../tmp                      owner=ao-mapping group=alwayson-mapping mode=770
+.../webodm/media             owner=scottw       group=ao-mapping       mode=770
+.../retention/pending-review owner=scottw       group=scottw          mode=770
+
+$ getent group alwayson-mapping
+alwayson-mapping:x:975:            # still no members
+
+$ mkdir /media/scottw/500GBPHOTOGRAM/tmp/processing
+mkdir: Permission denied           # rc=1
+
+$ podman inspect ao-webodm-db --format '{{range .Mounts}}{{.Source}} -> {{.Destination}}{{end}}'
+/home/scottw/webodm/dbdata -> /var/lib/postgresql/data
+                               # still the root filesystem, not the photogrammetry drive
+```
+
+The three-way depth inconsistency (`alwayson-mapping` / `ao-mapping` / `scottw`) persists, and
+the repair remains `sudo usermod -aG alwayson-mapping scottw` — **not** a mode change. See §8.5.2
+for why loosening to `777` would be a regression against §8.2.
+
+**FIELD-15 — new: the proposal compiler silently requires a `title:` key on `action: new`, and
+omitting it produces an unlabelled row in §19.1.** My own FIELD-15 proposal rendered with an
+**empty Item cell** and the whole proposal body dumped into the criteria cell as raw markdown:
+
+```bash
+$ for f in agents/COORDINATION/proposals/*.md; do a=$(grep -m1 '^action:' "$f" | sed 's/action: *//'); \
+    [ "$a" = new ] && printf '%-22s title:%s\n' "$(basename $f)" "$(grep -cm1 '^title:' "$f")"; done
+field-FIELD-15.md   title:0        # <- mine
+ops-a-OPS-35.md     title:0
+sec-SEC-04.md       title:0
+spec-NET-51.md      title:0
+spec-OPS-35.md      title:0
+spec-OPS-36.md      title:0
+                                     # 6 of 6 omit it
+
+$ # every action:new row in 19.1 with an empty Item cell:
+EMPTY ITEM CELL: NET-51
+EMPTY ITEM CELL: FIELD-15
+EMPTY ITEM CELL: OPS-36
+EMPTY ITEM CELL: OPS-35
+```
+
+Cause, measured in `scripts/orchestration/compile-proposals.py` lines 133-136:
+
+```python
+row = (... % (item, esc(p.get("title", "")), esc(p.get("body"))))
+                         ^^^^^^^^^^^^^^^^^^^^^^ absent key -> empty cell, no warning
+```
+
+`p.get("title", "")` returns `""` for a missing key, and `proposals/README.md` never documents
+`title:` as a field (`grep -n 'title:' proposals/README.md` → no match). **So this is a
+documentation gap in a shared file, not a mistake unique to my proposal** — four other sessions
+hit it identically. **The `new` action cannot render a usable row without it.** I have added
+`title:` to my own proposal; the other five belong to their own sessions and I report rather
+than edit them. This is a **cross-session finding for the compiler session**, not a FIELD item,
+so no new FIELD ID is taken for it.
+
+**Also worth the compiler's attention:** §19.1's FIELD group header still reads *"14 items, all
+Open"* while the block now holds **9 open rows** (`FIELD-15, 01, 02, 03, 06, 07, 09, 10, 14`) plus
+6 closed in §19.2 (`04, 05, 08, 11, 12, 13`). The header is not recomputed on close or on `new`.
+
+**Not attempted.** No directory created, no group membership changed, no data directory moved,
+no profile edited. All remain operator decisions under §4.1 rule 12.
+
 ## 8.6 3D Model Identity and Database Cross-Referencing
 
 Every 3D model, model revision, component, assembly, and derived artifact must be
@@ -566,5 +652,169 @@ For a sold product, the 3D model metadata (`model_object_id`,
 `sale_contract_lines`, receipt/correlation projection, and signed Corda
 provenance reference. The receipt and model may each show a reference to the
 same correlation record. Neither file is the authoritative sale ledger.
+### 8.5.4 Re-verification 2026-10-04 17:52 — both mapping blockers unchanged
+
+§8.5.2 and §8.5.3 are dated earlier today. Re-measured at **17:52**. Nothing has changed.
+
+**The shipped validator still passes on a drive that fails its own specification.** This is
+the standing FIELD-10 finding and it is unchanged:
+
+```bash
+$ bash scripts/validation/check-photogrammetry-mount.sh
+OK: photogrammetry mount valid: systemd-1
+/dev/sdb1; 434G free
+rc=0
+```
+
+The mount is genuinely present and correct:
+
+```bash
+$ findmnt -no SOURCE,FSTYPE,LABEL /media/scottw/500GBPHOTOGRAM
+/dev/sdb1 ext4   500GBPHOTOGRAM
+```
+
+**The FIELD-15 ordering gate is still shut.** §8.5.2's finding was that any move of the
+mapping database onto this drive must fix group membership *first*. That has not happened —
+`alwayson-mapping` still has no members, the operator is still not in it, and the paths §8.2
+requires still cannot be created:
+
+```bash
+$ getent group alwayson-mapping
+alwayson-mapping:x:975:                 # no members
+$ id -nG scottw
+scottw adm tty dialout cdrom sudo dip plugdev input lpadmin sambashare ao-mapping
+                                            # 975 absent
+$ mkdir /media/scottw/500GBPHOTOGRAM/tmp/processing
+mkdir: Permission denied
+```
+
+**The mapping database is still off the drive**, which is FIELD-15's premise:
+
+```bash
+$ podman inspect ao-webodm-db --format '{{range .Mounts}}{{.Source}} -> {{.Destination}}{{"\n"}}{{end}}'
+/home/scottw/webodm/dbdata -> /var/lib/postgresql/data
+```
+
+The database is named `webodm` and the role is `postgres` (names only, no values read):
+
+```bash
+$ podman inspect ao-webodm-db --format '{{range .Config.Env}}{{println .}}{{end}}' \
+    | grep -vi 'password\|secret\|key' | grep -iE 'POSTGRES_DB|POSTGRES_USER|PGDATA'
+POSTGRES_HOST_AUTH_METHOD=trust
+POSTGRES_DB=webodm
+POSTGRES_USER=postgres
+PGDATA=/var/lib/postgresql/data
+```
+
+**§8.4.1's decision stands unexecuted.** The name and location are decided (`webodm` at
+`/home/scottw/webodm/dbdata`) but the database has not been moved to the photogrammetry
+drive, because doing so is an operator decision under §4.1 rule 12 *and* is gated behind the
+group-membership fix above.
+
+**Nothing was touched.** No `mkdir`, no `chgrp`, no `usermod`, no database stop, no mount
+change. Creating directories on the operator's validated drive without approval is exactly the
+rule 2/rule 12 case.
+
+**Second-level directories are missing, and they are exactly the ones the operator cannot create**
+
+### 8.5.5 Re-verification 2026-10-05 07:57
+
+**§8.5.1 and §8.5.3 are now partly stale: directories have appeared since 2026-10-03.**
+`incoming/`, `manifests/`, `exports/`, `backups/`, `tmp/`, `webodm/` and `retention/` were all
+modified `Oct 4 17:30`. The compiler should not render §8.2's "the tree does not match this
+specification" as meaning *nothing* was created — a substantial part now exists. **FIELD-10
+stays OPEN.** What changed is the size of the gap, not its existence.
+
+Current state against the §8.2 spec, measured by enumerating rather than assuming:
+
+| Spec directory | State |
+|---|---|
+| `incoming/`, `validated/`, `rejected/`, `deliverables/`, `manifests/`, `exports/`, `backups/`, `tmp/` | present (top level) |
+| `webodm/{media,projects,nodeodm,temp,logs}` | **all five present** — the only complete subtree |
+| `retention/{pending-review,eligible-for-archive}` | present |
+| `incoming/{drone,operator,quarantine}` | **MISSING** |
+| `manifests/{intake,processing,ledger-submissions}` | **MISSING** |
+| `exports/{pcloud-staging,ipfs-staging}` | **MISSING** |
+| `backups/mapping-db` | **MISSING** |
+| `tmp/processing` | **MISSING** |
+
+That is 10 of the 18 specified directories missing. Every one of the ten is a **second-level**
+directory, and second level is where the repair fails.
+
+**The precise mechanism, which §8.5.2 described but did not enumerate.** Every missing
+directory sits under a parent owned `ao-mapping:alwayson-mapping` with mode `770`. The operator
+`scottw` is in group `ao-mapping` (gid 1001) but **not** in `alwayson-mapping` (gid 975), and
+`alwayson-mapping` has **no members at all**:
+
+```text
+$ getent group alwayson-mapping ao-mapping
+alwayson-mapping:x:975:
+ao-mapping:x:1001:scottw,ao-mapping
+```
+
+So for those parents the operator is neither the owner nor in the owning group, and `other` is
+`---`. Measured, not inferred — creation was attempted and refused:
+
+```text
+$ M=/media/scottw/500GBPHOTOGRAM
+$ for d in incoming/drone incoming/operator incoming/quarantine manifests/intake \
+           manifests/processing manifests/ledger-submissions exports/pcloud-staging \
+           exports/ipfs-staging backups/mapping-db tmp/processing; do
+      printf '%-30s ' $d
+      if mkdir $M/$d 2>/dev/null; then echo MKDIR-OK; rmdir $M/$d; else echo MKDIR-DENIED; fi
+  done
+incoming/drone                   MKDIR-DENIED
+incoming/operator                MKDIR-DENIED
+incoming/quarantine               MKDIR-DENIED
+manifests/intake                 MKDIR-DENIED
+manifests/processing             MKDIR-DENIED
+manifests/ledger-submissions     MKDIR-DENIED
+exports/pcloud-staging           MKDIR-DENIED
+exports/ipfs-staging             MKDIR-DENIED
+backups/mapping-db               MKDIR-DENIED
+tmp/processing                   MKDIR-DENIED
+```
+
+The same command **succeeds** under the two parents the operator can write, which is the
+control that proves the cause is ownership and not a broken mount:
+
+```text
+$ mkdir $M/webodm/projects/__fieldtest && rmdir $M/webodm/projects/__fieldtest   # OK, cleaned up
+$ [ -r $M/webodm ] && [ -x $M/webodm ]   # accessible
+```
+
+**This confirms and sharpens §8.5.2's ordering claim with a number.** The repair is
+`usermod -aG alwayson-mapping scottw` followed by the ten `mkdir`s — two steps, in that order,
+and the first is privileged. `sudo -n true` returns "interactive authentication is required",
+so this session cannot perform either step. §8.2's tree cannot be satisfied by the operator's
+own account until that group membership exists.
+
+**Two findings the compiler should not lose.**
+
+1. **The mount validator passes while the tree it guards fails.** `check-photogrammetry-mount.sh`
+   returns `OK: photogrammetry mount valid: systemd-1 /dev/sdb1; 434G free`, `rc=0`. It
+   validates the *mount* and never inspects the §8.2 tree, so a green result from it is **not**
+   evidence for FIELD-10 and must not be quoted as such.
+2. **§8.2's "no directory may be world-writable" holds.** `find $M -maxdepth 2 -type d -perm -0002`
+   returns nothing. That clause of the spec is satisfied; only the directory *list* is not.
+
+**Why this matters for FIELD-15.** FIELD-15 asks whether the mapping database should move onto
+this drive. The measurement above is the answer to its precondition: **the drive is not yet a
+place the operator can manage.** Moving PostgreSQL storage onto a volume whose intended operator
+cannot create, read or inspect it would convert a documented deviation into an unmanageable one.
+The group fix must land first. This is now an ordering constraint with a measured gate, not a
+caution.
+
+**I could not confirm my own probe file is gone, and I am not going to claim it is.** A
+`touch` inside `incoming/` reported `setting times: Permission denied` and I cannot `stat`,
+`ls` or `rm` the path afterwards — the directory is unreadable to me. **Treat a possible
+zero-byte `/media/scottw/500GBPHOTOGRAM/incoming/.fieldprobe` as present until an operator
+checks and removes it.** See housekeeping in the proposals.
+
+**Nothing was changed.** Every probe was a create-then-delete attempt that either succeeded and
+was reversed, or was refused by the kernel. No directory on the drive was created, chgrp'd or
+removed. `usermod` was not run and no `sudo` was invoked.
+
+---
 
 ---

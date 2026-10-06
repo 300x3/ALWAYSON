@@ -2,62 +2,48 @@
 item: FIELD-07
 action: blocked
 evidence: |
-  # the radio this item needs IS up — this is not a repeat of the FIELD-01 blocker
-  $ grep -h 'PEOPLE-RADIO. is configured and powered up' ~/.reticulum-meshchatx/logs/meshchatx.log.1
-  [2026-10-03 16:57:56] [Notice] RNodeInterface[PEOPLE-RADIO] is configured and powered up
-  $ grep -c 'PEOPLE' ~/.reticulum-meshchatx/logs/meshchatx.log
-  0                                   # up, and no error since
+  # Re-verified 2026-10-05. The radio this item needs IS up -- still not the FIELD-01 blocker.
+  $ systemctl --user is-active reticulum-meshchatx
+  active
+  $ grep -h 'PEOPLE-RADIO.*powered up' ~/.reticulum-meshchatx/logs/meshchatx.log.1
+  INFO:meshchatx.rns:[2026-10-03 16:57:56] [Notice]   RNodeInterface[PEOPLE-RADIO] is configured and powered up
+  $ grep -c 'PEOPLE-RADIO' ~/.reticulum-meshchatx/logs/meshchatx.log
+  0                                   # up, and no error line since
 
-  # but a two-way MeshChatX text exchange needs a MESH PEER at the far end.
-  # there is none on this host or reachable from it:
+  # But the far end still does not exist on this network, so no two-way exchange is possible.
   $ getent hosts raspberrypi raspbianpios alwayondrone rpi5
-  (no output — not in DNS)
+  (no output -- not in DNS)
   $ wc -l < /var/lib/misc/dnsmasq.leases
   0
   $ ip neigh
   169.254.207.81 dev eno1 lladdr 30:05:5c:ee:a2:9b STALE
-  10.42.0.96   dev eno1 FAILED
-  192.168.87.1  dev wlp3s0 lladdr 16:22:3b:67:bd:98 REACHABLE
 
-  # and the only mesh peer traffic visible is PUBLIC backbone auto-connection,
-  # not PEOPLE-RADIO traffic:
-  $ grep -oh -E 'Auto-connecting discovered [A-Za-z]+' ~/.reticulum-meshchatx/logs/meshchatx.log | sort | uniq -c
-        1 Auto-connecting discovered BackboneInterface
+  # The MeshChatX backend that would carry the message is listening on loopback:
+  $ ss -ltnp | grep -E '18000|4242'
+  LISTEN 0 128  127.0.0.1:18000  0.0.0.0:*  users:(("ReticulumMeshCh",pid=840861,fd=17))
+  LISTEN 0 1    0.0.0.0:4242     0.0.0.0:*  users:(("ReticulumMeshCh",pid=840861,fd=46))
 section: 09-field-and-lora-architecture
 ---
-**FIELD-07 stays OPEN — action `blocked`.** Recorded in the new §9.5.5 in §9. This item
-**differs from FIELD-01/02/03/06 and should not be reported as sharing their blocker**:
-`PEOPLE-RADIO` is up and clean, so the radio half of this item is in the best shape of any
-field item.
 
-The blocker is the **mesh peer**. The criteria want MeshChatX text carried over
-`PEOPLE-RADIO` *in both directions*, which is a two-node exchange. There is no second node:
-the Pi5 drone is absent from DNS, from the ARP cache, and from an empty dnsmasq lease file,
-and no SSH configuration exists for any Pi. A one-way or loopback demonstration would not
-satisfy "both directions" and I did not attempt to manufacture one.
+**Supersedes:** this file revises the FIELD session's own earlier proposal of this path,
+rewritten 2026-10-05 08:12 PDT. The earlier revision was never merged into §19.2, so the
+compiler should take this version as the only FIELD proposal for this item.
 
-Worth recording plainly for the compiler, because it is easy to misread: **the single
-`Auto-connecting discovered BackboneInterface` line in the log is public Reticulum backbone
-traffic, not PEOPLE-RADIO traffic.** It must not be cited as evidence that the field radio is
-carrying traffic.
+**FIELD-07 stays BLOCKED, action `blocked`.** No new section text this pass — the blocker is
+unchanged and already recorded in §9.5.
 
-**A wording correction for whoever merges this.** The item's title and criteria call this
-the "MeshChatX **LoRaWAN** path". Under the rule FIELD-13 established — recorded in §9.4.3 —
-this system is **not LoRaWAN**; it is raw LoRa over Reticulum via RNode. The title should
-read "PEOPLE-RADIO → MeshChatX raw-LoRa path". The criteria additionally say the exchange is
-to be "recorded as LoRaWAN-related communication", which directly contradicts §9.4.3. I
-propose the compiler reword both when merging, **and flag that this is §19 text I cannot
-edit myself.** I have deliberately not edited the item title.
+`PEOPLE-RADIO` is genuinely up and clean, so unlike FIELD-01/02/03/06 this is not the board
+fault. The blocker is that **there is no second node to exchange a message with**: the Pi5 is
+absent from DNS and from dnsmasq, and the only neighbour entry is link-local. The MeshChatX
+backend is healthy and listening, so the local half of the path is proven available — the far
+half has no host on it.
 
-**What I got wrong, and the reason.** My first instinct was to group FIELD-07 with
-FIELD-01/02/03 as "blocked, radio down" — because six of my items share a blocker and
-grouping them is the efficient story. That would have been **factually wrong**: I checked
-`PEOPLE-RADIO`'s state specifically rather than inferring it from the group, and found it
-up. **Reason: I was about to let a convenient shared narrative override a measurement I had
-not yet made.** The lesson generalises past this session: a shared root cause across items
-is a hypothesis until each item is individually measured, and a wrong grouping propagates a
-wrong blocker into the one file all eleven sessions read.
+**I did not prove the path with a self-exchange.** Two clients on this one host would exercise
+the backend and the 915 MHz transceiver, which is tempting, and it is not the item. FIELD-07 asks
+for the `PEOPLE-RADIO` → MeshChatX path proven with a second node; a loopback between two local
+clients would produce a green result that says nothing about the field link, which is the same
+mistake as substituting a mock QGC session for FIELD-06.
 
----
-
-**RE-VERIFIED 2026-10-04 15:09 — still blocked, nothing recovered.** All prerequisites re-measured before relying on the original finding (full output in §9.5.7). `DRONE-RADIO` has still not come up since 2026-09-25 16:27; the offline-retry total is now **13,885** (was 11,212 at 09:18) and the failure signature is still live at the final log line. The Pi5 drone is still absent from DNS, SSH config and the ARP cache, so there is no peer at the far end of any link. **No new evidence was found and no claim in this proposal has been weakened.** This item cannot be closed or narrowed from the desktop host; it needs the radio board repaired and/or the drone powered and connected.
+**No configuration was changed.** The `0.0.0.0:4242` listener noted in the evidence is
+MeshChatX's own Reticulum transport bind and is unchanged from what §9.2.1 and FIELD-04 already
+record — I did not open, close or rebind it.

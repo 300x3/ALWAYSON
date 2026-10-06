@@ -2,53 +2,45 @@
 item: FIELD-03
 action: blocked
 evidence: |
-  # FIELD-03 wants 915/917 isolation MEASURED. One band has no transmitter on it.
-  # Live config, from ~/.reticulum/config:
-  #   [[PEOPLE-RADIO]] frequency = 915000000  bandwidth = 125000  spreadingfactor = 7
-  #   [[DRONE-RADIO]] frequency = 917000000  bandwidth = 250000  spreadingfactor = 7
+  # Cross-band isolation needs a transmitter on BOTH bands. One band is silent.
+  # Live config is still correct and unchanged -- this is a config pass, a link fail:
+  $ grep -A8 '\[\[PEOPLE-RADIO\]\]' ~/.reticulum/config | grep -E 'frequency|bandwidth|spread'
+  frequency = 915000000
+  bandwidth = 125000
+  spreadingfactor = 7
+  $ grep -A9 '\[\[DRONE-RADIO\]\]' ~/.reticulum/config | grep -E 'frequency|bandwidth|spread'
+  frequency = 917000000
+  bandwidth = 250000
+  spreadingfactor = 7
 
-  # 917 MHz transmitter: dead. Last successful detection 2026-09-25 16:27.
-  $ grep -ch 'unrecoverable error' ~/.reticulum-meshchatx/logs/meshchatx.log{,.1,.2,.3}
-  994 / 7800 / 2389 / 29
+  # 917 MHz transmitter: dead. Last successful detection 2026-09-25 17:22:28.
+  $ grep -h 'DRONE-RADIO.*powered up' ~/.reticulum-meshchatx/logs/meshchatx.log* | tail -1
+  INFO:meshchatx.rns:[2026-09-25 17:22:28] [Notice]   RNodeInterface[DRONE-RADIO] is configured and powered up
 
-  # so the 915 MHz receiver has nothing to isolate against — only ambient noise.
-  # no interference events were ever logged on the band that IS up:
-  $ grep -oh -E '(RSSI|rssi)[=: ]+[-0-9.]+' ~/.reticulum-meshchatx/logs/meshchatx.log* | wc -l
+  # No transmissions observed on either band, so nothing can be compared:
+  $ grep -ohE '(RSSI|SNR)[=: ]+-?[0-9.]+' ~/.reticulum-meshchatx/logs/meshchatx.log | wc -l
   0
-  $ grep -c -iE 'interfer|spurio|harmonic' ~/.reticulum-meshchatx/logs/meshchatx.log*
-  0 0 0 0
+  $ grep -cE 'Recieved (broadcast|proof)' ~/.reticulum-meshchatx/logs/meshchatx.log
+  0
 section: 09-field-and-lora-architecture
 ---
-**FIELD-03 stays OPEN — action `blocked`.** Recorded in the new §9.5.4 in §9.
 
-The criteria require 915/917 isolation to be **measured** and the interference classified as
-in-band, adjacent-band, harmonic or spurious. **Isolation is a two-source measurement, and
-there is currently only one source.** The 917 MHz transmitter (`DRONE-RADIO`) has not come
-up since 2026-09-25 16:27, so the healthy 915 MHz radio is only ever hearing ambient noise.
-An ambient noise floor is not an isolation figure, and calling it one would be the specific
-error this item exists to prevent.
+**Supersedes:** this file revises the FIELD session's own earlier proposal of this path,
+rewritten 2026-10-05 08:12 PDT. The earlier revision was never merged into §19.2, so the
+compiler should take this version as the only FIELD proposal for this item.
 
-I want to be explicit about the trap here, because it is an attractive one. It would have
-been easy to report "915 MHz shows no interference events in the logs, therefore
-cross-band isolation is good." That conclusion is **unsupported**: absence of interference
-events in a log is not evidence of isolation when the interfering transmitter is switched
-off. The correct reading is that the measurement is *impossible right now*, not that it
-returned a good result. The four-way classification the criteria ask for cannot be performed
-at all.
+**FIELD-03 stays BLOCKED, action `blocked`.** New subsection **§9.5.10**.
 
-The frequency split itself is real and correctly configured — `915000000` and `917000000`
-in the live `~/.reticulum/config`, which is what §9.1 and §9.2.2 describe. Configuration
-agreement is not measurement, and is not offered here as a substitute.
+Isolation is a comparison between two bands, and the configuration half of this item **passes
+today**: the live `~/.reticulum/config` still carries the 915 MHz / 125 kHz and 917 MHz / 250 kHz
+split with SF7 on both, so the two radios are still configured to be distinguishable. What is
+missing is the measurement half — `DRONE-RADIO` has not detected since 2026-09-25 17:22:28, so
+there is no 917 MHz transmission to observe and nothing to compare against 915 MHz.
 
-**What I got wrong, and the reason.** This item did not mislead me, so the honest report is
-narrower: I initially treated "FIELD-03 is about interference" and reached for a log grep of
-interference words as the primary evidence. **Reason: I let the item's title pick my
-method.** The acceptance criteria are about *isolation between two live transmitters*, which
-is a different measurement from *interference events on one receiver*. Reading the criteria
-before choosing the evidence would have saved the detour — and note this is the same class
-of mistake I made on FIELD-01, which is worth the compiler knowing: **twice this session I
-picked a method from a title instead of from the criteria.**
+**A note on scope for the compiler:** this item asks for isolation *between the project's own
+two bands*. An external or ambient 917 MHz interferer would still be measurable on a receiver
+alone, but `DRONE-RADIO`'s board does not answer identification, so even passive listening on
+that band is unavailable until the board is repaired. That is why this stays blocked rather than
+being reduced to a one-band test.
 
----
-
-**RE-VERIFIED 2026-10-04 15:09 — still blocked, nothing recovered.** All prerequisites re-measured before relying on the original finding (full output in §9.5.7). `DRONE-RADIO` has still not come up since 2026-09-25 16:27; the offline-retry total is now **13,885** (was 11,212 at 09:18) and the failure signature is still live at the final log line. The Pi5 drone is still absent from DNS, SSH config and the ARP cache, so there is no peer at the far end of any link. **No new evidence was found and no claim in this proposal has been weakened.** This item cannot be closed or narrowed from the desktop host; it needs the radio board repaired and/or the drone powered and connected.
+**Nothing was changed.** No config edit to either radio block, no restart, no port action.

@@ -3022,6 +3022,92 @@ as consistently as it propagates the intent.
   locked out is the symptom of that policy working, not of it failing. The fix is to add the
   operator to the mapping group, **not** to relax the mode to `777`.
 
+### 8.5.3 Re-verification 2026-10-04 15:59 — both mapping blockers are still live
+
+§8.5.1 and §8.5.2 were measured earlier the same day. Every prerequisite was re-measured before
+relying on them. **Nothing has recovered and no claim is weakened.** One *new* finding is
+recorded below: the `title:` key the proposal compiler silently requires.
+
+**FIELD-10 — the validator is still green on a tree that still does not satisfy §8.2:**
+
+```bash
+$ bash scripts/validation/check-photogrammetry-mount.sh
+OK: photogrammetry mount valid: systemd-1
+/dev/sdb1; 434G free
+rc=0
+```
+
+The validator still exits 0. Per §8.5.1 this must **not** be cited as evidence that §8.2 holds.
+
+**FIELD-10 / FIELD-15 — the operator is still locked out, and the database is still off-drive:**
+
+```bash
+$ stat -c '%n owner=%U group=%G mode=%a' /media/scottw/500GBPHOTOGRAM/tmp \
+      /media/scottw/500GBPHOTOGRAM/webodm/media \
+      /media/scottw/500GBPHOTOGRAM/retention/pending-review
+.../tmp                      owner=ao-mapping group=alwayson-mapping mode=770
+.../webodm/media             owner=scottw       group=ao-mapping       mode=770
+.../retention/pending-review owner=scottw       group=scottw          mode=770
+
+$ getent group alwayson-mapping
+alwayson-mapping:x:975:            # still no members
+
+$ mkdir /media/scottw/500GBPHOTOGRAM/tmp/processing
+mkdir: Permission denied           # rc=1
+
+$ podman inspect ao-webodm-db --format '{{range .Mounts}}{{.Source}} -> {{.Destination}}{{end}}'
+/home/scottw/webodm/dbdata -> /var/lib/postgresql/data
+                               # still the root filesystem, not the photogrammetry drive
+```
+
+The three-way depth inconsistency (`alwayson-mapping` / `ao-mapping` / `scottw`) persists, and
+the repair remains `sudo usermod -aG alwayson-mapping scottw` — **not** a mode change. See §8.5.2
+for why loosening to `777` would be a regression against §8.2.
+
+**FIELD-15 — new: the proposal compiler silently requires a `title:` key on `action: new`, and
+omitting it produces an unlabelled row in §19.1.** My own FIELD-15 proposal rendered with an
+**empty Item cell** and the whole proposal body dumped into the criteria cell as raw markdown:
+
+```bash
+$ for f in agents/COORDINATION/proposals/*.md; do a=$(grep -m1 '^action:' "$f" | sed 's/action: *//'); \
+    [ "$a" = new ] && printf '%-22s title:%s\n' "$(basename $f)" "$(grep -cm1 '^title:' "$f")"; done
+field-FIELD-15.md   title:0        # <- mine
+ops-a-OPS-35.md     title:0
+sec-SEC-04.md       title:0
+spec-NET-51.md      title:0
+spec-OPS-35.md      title:0
+spec-OPS-36.md      title:0
+                                     # 6 of 6 omit it
+
+$ # every action:new row in 19.1 with an empty Item cell:
+EMPTY ITEM CELL: NET-51
+EMPTY ITEM CELL: FIELD-15
+EMPTY ITEM CELL: OPS-36
+EMPTY ITEM CELL: OPS-35
+```
+
+Cause, measured in `scripts/orchestration/compile-proposals.py` lines 133-136:
+
+```python
+row = (... % (item, esc(p.get("title", "")), esc(p.get("body"))))
+                         ^^^^^^^^^^^^^^^^^^^^^^ absent key -> empty cell, no warning
+```
+
+`p.get("title", "")` returns `""` for a missing key, and `proposals/README.md` never documents
+`title:` as a field (`grep -n 'title:' proposals/README.md` → no match). **So this is a
+documentation gap in a shared file, not a mistake unique to my proposal** — four other sessions
+hit it identically. **The `new` action cannot render a usable row without it.** I have added
+`title:` to my own proposal; the other five belong to their own sessions and I report rather
+than edit them. This is a **cross-session finding for the compiler session**, not a FIELD item,
+so no new FIELD ID is taken for it.
+
+**Also worth the compiler's attention:** §19.1's FIELD group header still reads *"14 items, all
+Open"* while the block now holds **9 open rows** (`FIELD-15, 01, 02, 03, 06, 07, 09, 10, 14`) plus
+6 closed in §19.2 (`04, 05, 08, 11, 12, 13`). The header is not recomputed on close or on `new`.
+
+**Not attempted.** No directory created, no group membership changed, no data directory moved,
+no profile edited. All remain operator decisions under §4.1 rule 12.
+
 ## 8.6 3D Model Identity and Database Cross-Referencing
 
 Every 3D model, model revision, component, assembly, and derived artifact must be
@@ -3905,6 +3991,102 @@ quote none.
 Reason I got it wrong: I inferred a counting error from an unrelated warning line instead of
 running the comparison. The `-a` flag was already the right instinct for *reading* the file, but
 I projected it onto `-c` where it makes no difference.
+
+### 9.5.8 Second re-verification 2026-10-04 15:59 — all six blockers still live
+
+§9.5.7 was measured at 15:09 the same day. Re-measured at 15:59 before relying on it.
+**Nothing recovered.** The only numbers that move are the continuously-growing retry totals.
+
+```bash
+$ date -Is
+2026-10-04T15:59:52-07:00
+
+$ grep -ah 'is configured and powered up' ~/.reticulum-meshchatx/logs/meshchatx.log* | tail -2
+[2026-09-25 16:27:08] [Notice]   RNodeInterface[PEOPLE-RADIO] is configured and powered up
+[2026-09-25 16:27:11] [Notice]   RNodeInterface[DRONE-RADIO] is configured and powered up
+                                  # unchanged: last success for DRONE-RADIO is still 2026-09-25
+
+$ for f in ~/.reticulum-meshchatx/logs/meshchatx.log{,.1,.2,.3}; do \
+    printf '%-16s %s\n' "$(basename $f)" "$(grep -ac 'unrecoverable error' $f)"; done
+meshchatx.log    4063      # was 3667 at 15:09
+meshchatx.log.1  7800
+meshchatx.log.2  2389
+meshchatx.log.3  29
+                 ----
+                 14281     # was 13,885; +396 in 50 minutes, consistent with ~1 per 7s
+
+$ tail -3 ~/.reticulum-meshchatx/logs/meshchatx.log
+[2026-10-04 15:59:46] [Error]    The interface RNodeInterface[DRONE-RADIO] experienced an unrecoverable error and is now offline.
+[2026-10-04 15:59:46] [Error]    Reticulum will attempt to reconnect the interface periodically.
+[2026-10-04 15:59:51] [Notice]   Opening serial port /dev/serial/by-path/pci-0000:05:00.0-usb-0:1:1.0-port0...
+```
+
+**The retry loop is the same loop, still cycling, in the same order, 50 minutes later.** This is
+the strongest available confirmation that the fault is persistent hardware/software state and not
+a transient: an intermittent board would produce intermittent recoveries, and there is not one.
+
+**Drone still absent** (§9.5.6 unchanged — `getent` returns nothing, no `~/.ssh/config`, both
+`10.42.0.96` and `10.42.0.5` still `FAILED`):
+
+```bash
+$ getent hosts raspberrypi raspbianpios alwayondrone rpi5
+(no output)
+$ ls ~/.ssh/config
+ls: cannot access '/home/scottw/.ssh/config': No such file or directory
+$ ip neigh
+169.254.207.81 dev eno1 lladdr 30:05:5c:ee:a2:9b STALE
+10.42.0.96 dev eno1 FAILED
+10.42.0.5    dev eno1 FAILED
+192.168.87.1  dev wlp3s0 lladdr 16:22:3b:67:bd:98 REACHABLE
+```
+
+**The `:4242` decision still holds** (§9.3.1, FIELD-04) — listener unchanged and still reachable
+from the LAN address:
+
+```bash
+$ ss -ltnp | grep -E '18000|4242'
+LISTEN 0 128  127.0.0.1:18000  0.0.0.0:*  users:(("ReticulumMeshCh",pid=840861,fd=17))
+LISTEN 0 1    0.0.0.0:4242     0.0.0.0:*  users:(("ReticulumMeshCh",pid=840861,fd=46))
+$ timeout 5 bash -c 'exec 3<>/dev/tcp/192.168.87.135/4242' && echo lan-OK
+lan-OK
+```
+
+**The firewall mechanism is still unverifiable from here** — privilege wall, and still no policy
+document anywhere under `config/`:
+
+```bash
+$ ufw status
+ERROR: You need to be root to run this script
+$ sudo -n true
+sudo: interactive authentication is required
+$ find config -iname '*firewall*' -o -iname '*ufw*'
+(no output)
+```
+
+**The live radio settings are unchanged**, so §9.4.1's profile-vs-live comparison remains valid
+as of now — 915 MHz / 125 kHz / SF7 / 17 dBm and 917 MHz / 250 kHz / SF7 / 17 dBm:
+
+```bash
+$ grep -A12 'RNodeInterface' ~/.reticulum/config | grep -E 'frequency|bandwidth|spreadingfactor|txpower'
+frequency = 915000000
+bandwidth = 125000
+spreadingfactor = 7
+txpower = 17
+frequency = 917000000
+bandwidth = 250000
+spreadingfactor = 7
+txpower = 17
+```
+
+**Two corrections to how I have been quoting these totals.** First, §9.5.7's own advice — *quote
+a total with its timestamp or quote none* — is what I have done here; the 14,281 figure is only
+true at 15:59 and is already wrong. Second, my first pass in this pass used `grep -ah` on the
+glob while §9.5.7 used a per-file loop; the two agree (`4063+7800+2389+29 = 14281`), so the
+totals are not sensitive to that choice, but the **`-a` flag is** — see §9.5.7, where a file
+that `grep` calls binary is still counted correctly without it.
+
+**Nothing was touched.** No radio, no serial port, no firewall, no config file. Every blocker in
+§9.5.5 still requires physical repair or operator action.
 # 10. Simulation Architecture
 
 ## 10.1 Vehicle Simulation
