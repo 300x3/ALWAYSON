@@ -31,6 +31,10 @@ evidence: |
   REFUSED: scratch path /ALWAYSON/data/evil is inside the live /ALWAYSON tree.
   rc=2
 section: 17-backup-restore-monitoring-and-completion-criteria
+supersedes: |
+  Revision 2026-10-05T~08:00 — adds that the OPS-24 redundancy criterion is now
+  met by the backup timer (three consecutive parent-chained nightly snapshots),
+  and that the weekly integrity control behind it is dead (new OPS-37).
 ---
 **Still OPEN, and the reason is now much sharper.** New §17.4.1 pins the
 blocker to a specific permission. The drill recorded as PASS in §17.4 was run
@@ -43,6 +47,45 @@ that protects the most is the one never drilled.
 Closing it needs a privilege change on backup data (`pkexec`, a read-only group,
 or service-account read access), which is an explicit stop condition. Nothing was
 changed, no scratch directory remains, and nothing under `/ALWAYSON` was written.
+
+**Partial criterion now met, measured 2026-10-05 — the redundancy requirement
+is satisfied.** §19.1's OPS-24 asks for consecutive `data/`-inclusive
+snapshots. The nightly timer has now produced three, each explicitly parent-
+chained to the previous one, which demonstrates genuine incrementality rather
+than three copies of one state:
+
+```
+$ systemctl list-timers ao-restic-backup.timer --all
+NEXT                        LEFT LAST                              PASSED UNIT
+Tue 2026-10-06 03:35:11 PDT  19h Mon 2026-10-05 03:32:46 PDT 4h 14min ago ao-restic-backup.timer
+
+$ journalctl -u ao-restic-backup.service --since 2026-10-03 -o short-iso \
+    | grep -E 'snapshot .* saved|using parent snapshot'
+2026-10-03T08:12:22  using parent snapshot e79edfbf
+2026-10-03T08:12:24  snapshot fbc25f93 saved
+2026-10-04T03:35:37  using parent snapshot fbc25f93
+2026-10-04T03:35:38  snapshot 0548f116 saved
+2026-10-05T03:32:46  using parent snapshot 0548f116
+2026-10-05T03:32:47  snapshot c249b5db saved
+```
+
+Three distinct IDs, each naming its predecessor as parent, all covering the same
+11-path set including `data/`. The *schedule* half of OPS-24 is therefore met.
+
+**What this does NOT do is move OPS-24 toward closed, and I want that on the
+record because it is the tempting inference.** Three snapshots exist but **none
+has been integrity-checked by the scheduler** — `ao-restic-verify.service` has
+never succeeded (new OPS-37, §17.5.4). Redundancy without a verify control means
+three copies of a possibly-corrupt repository. The one manual `restic check`
+that did pass was run by hand against the off-host repo, so the untouched
+nightly repository at `/var/backups/alwayson-restic` has **zero** integrity
+evidence of any kind.
+
+So the honest scorecard for OPS-24 is: schedule **met**, integrity check
+**dead**, restore drill against the real repo **blocked on permissions**. The
+root-permission blocker above remains the only thing standing between this item
+and closure.
+
 
 ## What I got wrong this session
 

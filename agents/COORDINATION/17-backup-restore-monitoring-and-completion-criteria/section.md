@@ -973,6 +973,71 @@ job that runs every 24 h is a 2 h grace window, which is a real design decision
 someone made, and the "correct-looking" 900 s I had invented was me guessing at
 a number rather than reading one.
 
+### 17.2.1.2 The ten alert rules exist but are not loaded (measured 2026-10-05)
+
+§17.2.1.1 says the backup alerts "depend on metrics nothing emits". That is
+still true, but it is no longer the *first* thing wrong, and a reader needs the
+outer failure first: **not one of the ten rules is loaded by the running
+Prometheus.** The staged file is complete and syntactically real:
+
+```
+$ grep -cE '^\s+- alert:' /ALWAYSON/config/platform/monitoring/alwayson-alerts.yml
+10
+
+$ curl -s localhost:9090/api/v1/rules \
+    | python3 -c 'import json,sys;print("groups:",len(json.load(sys.stdin)["data"]["groups"]))'
+groups: 0
+```
+
+`prometheus.yml` asks for them by name, so this is not a configuration omission:
+
+```
+$ grep -n -A3 rule_files /ALWAYSON/config/platform/monitoring/prometheus.yml
+rule_files:
+  - /etc/prometheus/alwayson-alerts.yml
+```
+
+The cause is the Quadlet flat-deploy trap named in §16.1.1, caught in the act.
+The repository Quadlet mounts the rules file; the **deployed copy does not**:
+
+```
+$ diff /ALWAYSON/quadlet/operations/ao-prometheus.container \
+       ~/.config/containers/systemd/ao-prometheus.container
+13,18d12
+< # README 17.2 alerting rules (OPS-11). Loaded via rule_files in prometheus.yml.
+< Volume=/ALWAYSON/config/platform/monitoring/alwayson-alerts.yml:/etc/prometheus/alwayson-alerts.yml:ro,Z
+```
+
+So inside the container `/etc/prometheus/alwayson-alerts.yml` does not exist,
+`rule_files` resolves to nothing, and Prometheus starts cleanly with an empty
+rule set. **There is no error to notice** — a `rule_files` glob that matches no
+file is not a startup failure in Prometheus, which is exactly why this survived
+from the 2026-10-03 staging to today.
+
+**This is not fixed by this session, and the reason matters.** Editing the
+deployed unit is explicitly the trap — the live unit is a copy, and
+`systemctl --user restart ao-prometheus` is a service restart on the monitoring
+plane. Copying the unit and reloading is a container-lifecycle action belonging
+to whoever owns `ao-prometheus`. The change is prepared (the repository file is
+already correct; only the deployed copy lags) and recorded as **OPS-38**.
+
+**Ordering note for whoever picks it up.** Fixing the mount is necessary but not
+sufficient: after the mount lands, the rules will evaluate and **three** of the
+ten will still be `no data` — `AoBackupStale`, `AoRestoreTestStale` and
+`AoRepositoryVerifyStale`, the three named in §17.2.1.1 — because that section's
+missing emitters are unchanged. The other seven read node-exporter, self-metric
+or textfile-collector series that do exist, and should go green immediately.
+Loading the rules therefore converts a silent gap into a visible one, but it
+will also leave those three permanently pending until emitters exist. Expect
+that, and do not read the resulting pending state as a regression.
+
+A pleasing coincidence worth recording so nobody "fixes" it later:
+`AoRepositoryVerifyStale` measures the very control that §17.5.4 shows has never
+run. If the rules were loaded today, that alert would fire within its 1 h
+`for` window and give the operator the signal the dead unit currently silently
+withholds. The two defects share one remedy and one narrative.
+
+
 ### 17.2.2 Thresholds
 
 Ten rules, in four groups, evaluated every 60 s. Each threshold below is one
@@ -1402,6 +1467,85 @@ correct fix is either `copytruncate` or a `postrotate` that signals the
 container to reopen its log, and both touch a running simulation service.
 Recorded as an open finding, not silently patched.
 
+#### 17.5.1 The installed policy's own safety justification is false
+
+The defect above is not a policy bug — it is a **false claim inside the policy
+file**, and that is the more serious of the two. The installed
+`/etc/logrotate.d/alwayson` justifies `nocopytruncate` in a comment that will
+be read and believed:
+
+```
+# nocopytruncate is safe here because every writer in scripts/lib/common.sh
+# appends with >> per call and holds no descriptor - verified after rotation:
+# writes landed in the new file and backup.log.1 stayed at 1247 bytes.
+```
+
+Both halves of that are true and both are beside the point. `scripts/lib/
+common.sh` was verified and it does rotate correctly:
+
+```
+$ cat /ALWAYSON/logs/backup.log
+2026-10-04T10:35:39+00:00 actor=root script=restic-run.sh snapshot=0548f116 result=OK restic backup completed
+$ stat -c '%n size=%s' /ALWAYSON/logs/backup.log*
+/ALWAYSON/logs/backup.log   size=110    <- new writes land here
+/ALWAYSON/logs/backup.log.1 size=1247
+```
+
+But the comment says "every writer", and it scoped the check to one library.
+**Two writers were never in that library.** Podman opens the
+`--log-opt path=` file once at container start and never reopens it:
+
+```
+$ podman ps --format '{{.Names}} {{.Status}}' | grep -iE 'gz|foxglove'
+ao-sim-fabrication-foxglove  Up 44 hours
+ao-sim-fabrication-gz       Up 22 hours
+
+$ lsof /ALWAYSON/logs/sim-gz-server.log.1 /ALWAYSON/logs/sim-foxglove-bridge.log.1
+COMMAND     PID   USER FD   TYPE DEVICE SIZE/OFF     NODE NAME
+conmon   868080 scottw 7w   REG  259,2   100660 18222280 …/sim-foxglove-bridge.log.1
+conmon  1195162 scottw 6w   REG  259,2  1437117 18222278 …/sim-gz-server.log.1
+
+$ lsof /ALWAYSON/logs/sim-gz-server.log
+        (no output — nothing holds the live file open)
+```
+
+So the claim "verified after rotation: writes landed in the new file" is a true
+observation that was **generalised from a sample of writers to all writers**. It
+is the same error as §17.4.1's, in a different place: measuring the mechanism
+you tested and calling it the mechanism that exists.
+
+**Why it matters beyond the two affected files.** Gazebo and Foxglove output
+is currently landing in a rotated file. With `rotate 14` and `daily`, that
+file is a deletion candidate within 14 rotations, and when it is removed the
+log ends at whatever it held. Nothing was deleted by this session, so the data
+is still present — but the monitor is reporting on the wrong file.
+
+**The staleness validator does not catch this, which is the worst part.**
+`check-logs-journals.sh` was written before the rotation and checks the *live*
+file's mtime:
+
+```
+$ bash scripts/validation/check-logs-journals.sh | grep -E 'sim-gz|foxglove'
+sim-gz-server.log            OK (0d)          2026-10-04T07:18:38Z
+sim-foxglove-bridge.log       OK (0d)          2026-10-04T07:18:38Z
+PASS: every Section 16.3 log exists and is within its staleness budget
+```
+
+`OK (0d)` — it passes, because the rotation recreated the live file at 00:18
+and the validator is satisfied by a fresh empty file. **A validator that can be
+satisfied by an empty file cannot detect a detached writer.** The
+`AoRestoreTestStale`-style "no data" blindness from §17.2.1.1 has a second
+instance here, in the validator rather than in Prometheus.
+
+**Not changed by this session.** Correcting the policy comment requires editing
+`config/host/logrotate-alwayson.conf`, which is **not a file this session owns**,
+and would additionally break the `cmp` byte-identity that OPS-25's evidence
+rests on until the file is re-installed with root. The false claim is left
+standing in the installed file deliberately, and flagged here instead, because a
+stale-but-documented file is safer than an edit this session has no authority to
+make. An operator with root should do both halves at once: correct the comment
+**and** choose `copytruncate` vs `postrotate`. Recorded as **OPS-36**.
+
 **The journald half is genuinely still uninstalled**, and the evidence is
 stronger than "not found":
 
@@ -1462,3 +1606,237 @@ session grows that file without bound. The subdirectories grow without bound too
 though slowly. Neither is a capacity risk today; both are unbounded in principle.
 
 ---
+### 17.5.2 The policy is installed and has rotated unattended (measured 2026-10-05)
+
+This closes the evidentiary gap that §17.5.1 could not. Every earlier claim that
+"rotation is configured" rested on `logrotate -f`, a **forced** run performed by
+hand at install time. A forced run proves the policy parses and the permissions
+work; it does not prove the ordinary daily path works, because `logrotate.timer`
+runs unprivileged against a `su scottw scottw` policy on a tree the user owns,
+and the failure mode for that combination is silence, not an error.
+
+**The unattended run happened and left a timestamp that cannot be forged by
+mtime.** Renaming a file updates its **ctime** (inode change time) but not its
+mtime (content time). A rotated `X.log.1` therefore carries the *rotation
+instant* in its ctime and the *last-write* instant in its mtime. Every rotated
+file under `logs/` shows those two fields far apart, all pinned to the same
+instant:
+
+```
+$ for f in /ALWAYSON/logs/audit.log.1 /ALWAYSON/logs/audit.log.2 \
+           /ALWAYSON/logs/backup.log.1 /ALWAYSON/logs/backup.log.2 \
+           /ALWAYSON/logs/backup/db-dump.log.1 \
+           /ALWAYSON/logs/operations-journal.log.1; do
+    stat -c '%n  mtime=%y  ctime=%z' "$f"; done
+
+/ALWAYSON/logs/audit.log.1                mtime=2026-10-04 18:43:10   ctime=2026-10-05 00:22:50
+/ALWAYSON/logs/audit.log.2                mtime=2026-10-03 20:51:55   ctime=2026-10-05 00:22:50
+/ALWAYSON/logs/backup.log.1               mtime=2026-10-04 10:35:39   ctime=2026-10-05 00:22:50
+/ALWAYSON/logs/backup.log.2               mtime=2026-10-03 15:12:25   ctime=2026-10-05 00:22:50
+/ALWAYSON/logs/backup/db-dump.log.1       mtime=2026-10-04 03:01:33   ctime=2026-10-05 00:22:50
+/ALWAYSON/logs/operations-journal.log.1   mtime=2026-10-04 15:54:11   ctime=2026-10-05 00:22:50
+```
+
+The live file was **recreated empty at that same instant**, which is the
+signature of `create 0664 scottw scottw` firing and not of a truncation:
+
+```
+$ stat -c '%n size=%s mtime=%y ctime=%z' /ALWAYSON/logs/operations-journal.log
+/ALWAYSON/logs/operations-journal.log size=0 mtime=2026-10-05 00:22:50 ctime=2026-10-05 00:22:50
+```
+
+And the rename swept **all five policy blocks in one pass**, including the
+subdirectory block that the `su` directive and the earlier root-ownership
+problem made the least obvious:
+
+```
+$ find /ALWAYSON/logs -maxdepth 2 -newerct '2026-10-05 00:20' ! -newerct '2026-10-05 00:30' \
+    -printf '%p\n' | sort
+/ALWAYSON/logs/audit.log.1
+/ALWAYSON/logs/audit.log.2
+/ALWAYSON/logs/backup
+/ALWAYSON/logs/backup/db-dump.log.1
+/ALWAYSON/logs/backup/db-dump.log.2
+/ALWAYSON/logs/backup.log.1
+/ALWAYSON/logs/backup.log.2
+/ALWAYSON/logs/operations-journal.log.1
+/ALWAYSON/logs/operations-journal.log.2
+/ALWAYSON/logs/operations-journal.log
+```
+
+That the same pass renamed `db-dump.log` inside `backup/` and `audit.log` at the
+top level is what makes this strong evidence rather than coincidence: two
+independent blocks with different `rotate` budgets (14 and 400) both fired
+within the same second, which only a full timer-driven pass produces.
+
+**The window is bounded and empty, which is what makes the attribution safe.**
+Nothing under `logs/` has a ctime between the install at 09:07 on 2026-10-04
+and the timer at 00:22 on 2026-10-05 except ordinary appends to
+`logs/operations/`:
+
+```
+$ find /ALWAYSON/logs -maxdepth 2 -newerct '2026-10-04 09:07' ! -newerct '2026-10-05 00:20' \
+    -printf '%p ctime=%CY-%Cm-%Cd %CH:%CM\n' | sort
+/ALWAYSON/logs/operations/2026-10-04-secrets-and-backup-enforcement.md ctime=2026-10-04 18:51
+/ALWAYSON/logs/operations/build-update-audit.log                        ctime=2026-10-04 15:47
+/ALWAYSON/logs/operations/comm-federation-reverification-2026-10-04.log ctime=2026-10-04 15:16
+/ALWAYSON/logs/operations                                                  ctime=2026-10-04 18:51
+/ALWAYSON/logs/operations/ops-a-offsite-replica-2026-10-04.log           ctime=2026-10-04 16:03
+```
+
+No `*.log.N` file appears in that window, so no human ran a rotation between
+install and the timer. The only candidate cause is `logrotate.timer`.
+
+**One correction to an earlier claim of mine, recorded because it is the kind of
+error that survives into other sessions' work.** I previously wrote that an
+ordinary `logrotate` run "returns 0 while rotating nothing", and used that to
+explain why exit codes were uninformative. That is right about the exit code and
+it misled me about the *timing evidence*: I had been reading the install-time
+forced run's artefacts and treating them as continuous. The ctime/mtime split is
+what separates the two, and I only looked for it after noticing that the timer
+had produced rotated files whose mtimes predated the policy by a day.
+
+
+
+### 17.5.3 What the unattended run did *not* prove — the detached writer is worse than §17.5.1 said
+
+§17.5.1 established that two Podman `conmon` processes hold descriptors on the
+**rotated** file rather than the live one, and correctly called it a reporting
+error. Having now seen a real rotation happen, the consequence is sharper and
+more serious than "the monitor is reporting on the wrong file", and the earlier
+text understated it.
+
+```
+$ lsof /ALWAYSON/logs/sim-gz-server.log.1 /ALWAYSON/logs/sim-foxglove-bridge.log.1
+COMMAND     PID   USER FD   TYPE DEVICE SIZE/OFF     NODE NAME
+conmon   1195162 scottw 6w   REG  259,2  1437117 18222278 /ALWAYSON/logs/sim-gz-server.log.1
+conmon    868080 scottw 7w   REG  259,2   100660 18222280 /ALWAYSON/logs/sim-foxglove-bridge.log.1
+
+$ stat -c '%n ino=%i links=%h size=%s' /ALWAYSON/logs/sim-gz-server.log*
+/ALWAYSON/logs/sim-gz-server.log          ino=18223611 links=1 size=0
+/ALWAYSON/logs/sim-gz-server.log.1        ino=18222278 links=1 size=1437117
+```
+
+The descriptor is on inode **18222278**; the file the policy believes it is
+managing is inode **18223611**, which is empty and which **nothing holds open**.
+The writer and the policy are on two different inodes, and only one of them is
+under rotation control.
+
+**The silent-data-loss mechanism, stated precisely.** `conmon` was started with
+`-l k8s-file:/ALWAYSON/logs/sim-gz-server.log` and opened that path once; it has
+never re-resolved the name. A `nocopytruncate` rotation renames the path but
+does not touch the inode, so `conmon` keeps writing to the same inode forever
+while the policy tracks the *name*. On the next rotation that inode's name
+becomes `.log.2`, then `.log.3`, and after `rotate 14` it is unlinked — at which
+point Gazebo's output continues to be written to an inode with no directory
+entry, consuming space that `du` and `ls` cannot see and that is reclaimed only
+when the process exits. `sim-gz-server.log.1` currently sits at position 1 of
+14, so this is roughly two weeks out: not yet occurred, but not hypothetical in
+the long run either.
+
+**Nothing has been lost yet, and the number to not misreport.** The detached
+inode is still linked (`links=1`) and still on disk at 1 437 117 bytes, and it
+is **not currently growing** — sampled twice twenty seconds apart:
+
+```
+$ stat -c '%s %y' /ALWAYSON/logs/sim-gz-server.log.1; sleep 20; stat -c '%s %y' /ALWAYSON/logs/sim-gz-server.log.1
+1437117 2026-10-04 09:25:00.508796406 -0700
+1437117 2026-10-04 09:25:00.508796406 -0700
+```
+### 17.5.4 `ao-restic-verify.service` has never once succeeded
+
+Found while re-measuring the backup timer for OPS-24, and recorded here because
+it is a backup-integrity control that is silently dead. **The weekly repository
+integrity check has failed on every invocation in the unit's entire history.**
+
+```
+$ journalctl -u ao-restic-verify.service --no-pager | grep -c Starting
+1
+
+$ journalctl -u ao-restic-verify.service --no-pager -o short-iso
+2026-10-04T04:32:01-07:00 systemd[1]: Starting ao-restic-verify.service - ALWAYS ON weekly restic repository integrity check...
+2026-10-04T04:32:01-07:00 verify-backup.sh[3251293]: ERROR: root restic execution requires RESTIC_ENV_FILE from the operator wallet session
+2026-10-04T04:32:01-07:00 systemd[1]: ao-restic-verify.service: Main process exited, code=exited, status=3/NOTIMPLEMENTED
+2026-10-04T04:32:01-07:00 systemd[1]: ao-restic-verify.service: Failed with result 'exit-code'.
+```
+
+One invocation, and it failed. The cause is a one-line asymmetry between the two
+units installed by the same script. `scripts/ops/install-backup-schedule.sh`
+writes `ao-restic-backup.service` with an explicit environment file and the
+verify unit without one:
+
+```
+$ grep -n 'Environment\|ExecStart' /etc/systemd/system/ao-restic-backup.service
+8:Environment=RESTIC_ENV_FILE=/run/user/1000/ao-restic.env
+9:ExecStart=/ALWAYSON/scripts/backup/restic-run.sh
+
+$ grep -n 'Environment\|ExecStart' /etc/systemd/system/ao-restic-verify.service
+5:ExecStart=/ALWAYSON/scripts/backup/verify-backup.sh
+```
+
+Both scripts default to the same fallback path,
+`envfile="${RESTIC_ENV_FILE:-/run/alwayson/restic.env}"`, and **that path does
+not exist on this host**:
+
+```
+$ ls -l /run/alwayson/restic.env
+ls: cannot access '/run/alwayson/restic.env': No such file or directory
+```
+
+So `verify-backup.sh` takes its "no env file" branch, and because the unit runs
+as root that branch is a hard refusal rather than a wallet fetch — it exits 3 by
+design (`verify-backup.sh:10-13`). The same branch in `restic-run.sh` is
+unreached only because the backup unit supplies the variable.
+
+**Why the backup is unaffected, which is the reassuring half.** The nightly job
+still succeeds every night, and the journal proves it:
+
+```
+$ systemctl list-timers ao-restic-backup.timer --all
+NEXT                        LEFT LAST                              PASSED UNIT
+Tue 2026-10-06 03:35:11 PDT  19h Mon 2026-10-05 03:32:46 PDT 4h 14min ago ao-restic-backup.timer
+
+$ journalctl -u ao-restic-backup.service --since 2026-10-03 | grep -E 'snapshot .* saved'
+2026-10-03T08:12:24  snapshot fbc25f93 saved
+2026-10-04T03:35:38  snapshot 0548f116 saved
+2026-10-05T03:32:47  snapshot c249b5db saved
+```
+
+Three consecutive successful snapshots with distinct IDs, each showing
+`using parent snapshot <previous ID>` — so the chain is genuinely incremental
+and not three copies of one state. This also **satisfies the OPS-24 redundancy
+criterion** ("consecutive `data/`-inclusive snapshots are required"): three
+nights running, parent-chained, all covering the same 11-path set.
+
+**What the dead verify unit costs.** `restic check` is the only control that
+would detect a silently corrupted or truncated repository. §17.1's 3-2-1 claim
+and every restore-drill result in §17.4 rest on backups that have **never been
+integrity-checked by the scheduler**. The drill in §17.4 ran `restic check`
+manually and passed, which is real evidence about that moment — but a passing
+manual check does not substitute for a weekly one, because the failure mode being
+watched for (bit rot, a truncated pack, a bad rewrite) develops *after* the
+drill. The `AoRestoreTestStale` gap in §17.2.1.1 is the same blindness at a
+different layer.
+
+**The fix is a one-line addition to the installer plus a `daemon-reload`**, and
+it is **not applied by this session**: `install-backup-schedule.sh` is not a file
+this session owns, editing it requires root, and re-running it rewrites
+`/etc/systemd/system/`. The change is prepared and described, not forced.
+Filed as **OPS-37**.
+
+
+
+So the honest statement is: **the Gazebo process has written nothing since
+2026-10-04 09:25**, and the live `.log` being 0 bytes is a consequence of that
+silence as much as of the detached descriptor. A future reader must not upgrade
+this to "Gazebo output is being lost" without re-measuring growth — the fault is
+that *when* Gazebo next writes, it will write to an unrotated inode. The
+container has been up 38 h and the foxglove one 2 d 12 h, both quiet, which is
+consistent with an idle simulation rather than with a crashed one.
+
+**The repair is not a comment edit.** It is either `copytruncate` for the Podman
+files or moving those containers to `journald`/`k8s-file` under a path the
+policy does not rotate. Both are container-logging changes, outside this
+session's remit and outside the file list it owns. Recorded as **OPS-36** and
+left open, deliberately.
+
