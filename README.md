@@ -446,6 +446,34 @@ because the matrix file is not owned by this session.
   (`sudo -n aa-status` → `sudo: interactive authentication is required`, rc=1), the line
   cannot fail. This is the same class of defect as the cgroup check in §2.4.
 
+**Re-measured 2026-10-04 17:05 — every claim in this subsection reproduces, and the gap is
+unchanged.** I did not trust the earlier passes on this item, because one of them closed it on a
+host measurement and a package installed by hand between two passes then invalidated the close.
+
+```
+$ dpkg-query -W -f='${Package} ${Version}\n' apparmor-utils
+apparmor-utils 5.0.2-0ubuntu1~26.04.1                       # still installed
+$ dpkg -S /usr/sbin/aa-enforce /usr/sbin/aa-genprof 2>/dev/null | cut -d: -f1
+apparmor-utils                                               # both resolve to the right package
+$ grep -n 'apparmor' scripts/bootstrap/*.sh scripts/provision/*.sh
+(no matches, rc=1)                                           # the install lists STILL omit it
+$ grep -c apparmor scripts/provision/provision.sh
+0
+$ sed -n '6p' scripts/bootstrap/02-install-host-dependencies.sh
+pkgs=(podman uidmap slirp4netns fuse-overlayfs containernetworking-plugins nftables ufw git curl jq ca-certificates gnupg openssl restic smartmontools lm-sensors acl python3 python3-venv python3-pip)
+                                                          # no apparmor-utils
+$ aa-status >/tmp/aas.out 2>/tmp/aas.err ; echo "rc=$?"
+rc=4                                                         # §12.3 discards this with || true
+```
+
+**PLAT-03 therefore cannot close from this session, and the reason is ownership, not effort.**
+The acceptance criterion is *"reconcile the install list with the verification steps"* — a property
+of the **repository**. The package is on the host; the two install lists that would reproduce it on
+a rebuild are `scripts/bootstrap/02-install-host-dependencies.sh` and
+`scripts/bootstrap/ao-bootstrap-privileged.sh`, both documented in **§12.3**, which belongs to the
+OPS-B session. Editing them here would be editing another group's requirement. **Referred to OPS-B
+with this evidence**; see `agents/COORDINATION/proposals/plat-PLAT-03.md`.
+
 ## 2.4 Baseline Verification Must Assert
 
 §12.3's verify block currently **prints**; it does not **assert**. Reproduced 2026-10-03 by
@@ -572,6 +600,43 @@ evidence, and it is corrected in `agents/COORDINATION/proposals/plat-PLAT-01.md`
 generator, and these three rows plus the four missing digests need correcting.
 Verifying it by hand is what found the drift, so the capture automation matters — but that
 automation is `OPS-02`, assigned to OPS-B.
+
+**Fourth pass, 2026-10-04 17:05 — every figure in this audit re-measured. All reproduce.**
+Because this audit has already been corrected once for an unsummarised complement, I re-ran each
+figure rather than trusting the text:
+
+```
+$ uname -r                                    7.0.0-38-generic   # matrix says 7.0.0-34-generic
+$ dpkg-query -W -f='${Package} ${Version}\n' nvidia-container-toolkit
+nvidia-container-toolkit 1.20.1-1                                        # matrix says 1.20.0
+$ podman ps --format '{{.Image}}' | grep postgres | sort -u
+docker.io/library/postgres@sha256:d74eeac9a635390a49bc21bd49fccd973de707e2a53a76ac49b552b8712ec46f
+                                                                 # matrix says a65e6a84 (lines 47 AND 61)
+$ podman ps --format '{{.Image}}' | grep redis | sort -u
+docker.io/library/redis@sha256:c6eabf748fc7a61dbb5a705c78bcf3d6377b1127a97d0ce965c11c44ba46896f
+                                                                 # matrix says 91d0f7e8 (lines 21 AND 48)
+$ grep -rh '^Image=' quadlet/ | grep -vc '@sha256:'   2
+$ podman ps --format '{{.Names}}\t{{.Image}}' | grep -v '@sha256:' | wc -l   6
+$ podman ps --format '{{.Names}}' | wc -l               25
+```
+
+The six tag-only strays are the same six by name, and the two deliberate repository exceptions are
+the same two files (`ao-ardupilot-sitl.container:12`,
+`ao-sim-fabrication-gui-gz.container:47`). **Correction to the count: the stale digests live in
+four keys across four lines, not the "three rows" earlier passes reported** —
+
+```
+$ grep -n 'a65e6a84\|91d0f7e8' config/platform/version-matrix.yaml | sed 's/: *"docker.*//'
+21:  broker_image_digest
+47:    image_postgres
+48:    image_redis
+61:  image_postgres_shared
+```
+
+Counting *rows* rather than *keys* is how "three" survived two re-verification passes: `postgres`
+appears in two keys and `redis` in two more. With kernel and `nvidia-container-toolkit` that is
+**four stale keys carrying four wrong values**, and the two database digests are the serious ones
+because every running container disagrees with the recorded pin.
 
 # 3. High-Level Architecture
 
@@ -6870,7 +6935,7 @@ their output are in `agents/COORDINATION/proposals/plat-PLAT-01.md`.
 | Is the operator Podman rootless? | `podman info --format '{{.Host.Security.Rootless}}'` → `true` |
 | Which store backs it? | `podman info --format '{{.Store.GraphRoot}}'` → `/home/scottw/.local/share/containers/storage` |
 | Do any Quadlet units name a `User=` or `Group=`? | none — `grep -rn '^User=\|^Group=' quadlet/` returns nothing |
-| Are there system-level `.container` units? | `systemctl list-unit-files 'ao-webodm*' \| grep -c '^ao-'` → `0`; every mapping unit is `systemctl --user`, state `generated` (Quadlet generator output) |
+| Are there system-level `.container` or `.network` units? | **No — measured 2026-10-04 16:40.** `systemctl list-unit-files '*.container' --no-legend \| wc -l` → `0`, and `systemctl list-unit-files 'ao-*' --no-legend \| grep -Ec '\.(container\|network)$'` → `0`. Every mapping unit is `systemctl --user`, state `generated` (Quadlet generator output) |
 | Are the WebODM containers in the operator store? | `podman ps` lists `ao-webodm-{webapp,worker,db,broker}` and `ao-nodeodm` from the rootless store above |
 | Are the declared extra connections real? | `podman system connection list` → header only; `~/.config/containers/podman-connections.json` is `{"Connection":{},"Farm":{}}` |
 | Does `/run/ao-podman/` exist? | `ls /run/ao-podman` → `No such file or directory` |
@@ -6959,11 +7024,56 @@ any image table: NONE
 records whatsoever**, and the earlier claim that this could only be resolved with operator
 approval was wrong on both counts: the mode was misread, and no approval was ever needed.
 
+**Seven `ao-*` unit files exist at system level — none of them is a container.** Re-measured
+2026-10-04 16:40 with a deliberately broad pattern, because the row above originally cited only
+`ao-webodm*`, which returns `0` even when unrelated system units exist:
+
+```
+$ systemctl list-unit-files 'ao-*' | grep '^ao-'
+ao-podman-bridge.service   disabled enabled
+ao-restic-backup.service   static   -
+ao-restic-prefetch.service static   -
+ao-restic-verify.service   static   -
+ao-restic-backup.timer     enabled  enabled
+ao-restic-prefetch.timer   disabled enabled
+ao-restic-verify.timer     enabled  enabled
+```
+
+The six `ao-restic-*` units are host backup timers, not Quadlet containers, and
+`systemctl cat ao-restic-backup.service ao-restic-verify.service | grep -Ec 'podman|containers/storage'`
+returns **`0`** — they never touch a container store. The seventh is the rejected bridge unit already
+recorded in §13.2.1. The single-store designation is unaffected, but **"no system-level `ao-*`
+units" would have been false**; only "no system-level `ao-*` *container* units" is true, and that
+is what the design actually prohibits. Those restic units belong to §17 and are another session's.
+
 **Still open, and narrower than stated: residual image data.** `overlay-images/` is mode `0700`
-and `ls` on it returns `Permission denied` as uid 1000, so **whether any image blobs remain is
+and both `ls` and `du` return `Permission denied` as uid 1000, so **whether any image blobs remain is
 still unverified**. This is consistent with the last write being `2026-09-30` (images were pulled
-before the rootless migration) but does not prove it. For contrast the rootless store has 102
-image records and is fully enumerable by the operator. Enumerating the rootful remainder needs
+before the rootless migration) but does not prove it. For contrast the rootless store holds **100**
+distinct image IDs and is fully enumerable by the operator — measured 2026-10-04 17:05 as
+`podman images --all --quiet | sort -u | wc -l` → `100`.
+
+**Correction, 2026-10-04 17:05: "of which 50 are named" was wrong — the figure is 30.** The `100`
+count is right and reproduces exactly, but the breakdown attached to it was written without being
+measured. `--quiet` emits bare image IDs, so it cannot answer the naming question at all; I had
+to ask it with `--format`:
+
+```
+$ podman images --all --quiet | sort -u | wc -l
+100
+$ podman images --all --format '{{.Repository}}:{{.Tag}}' | sort -u | wc -l
+31                                  # distinct Repository:Tag entries
+$ podman images --all --format '{{.Repository}}:{{.Tag}}' | sort -u | grep -vc '<none>:<none>'
+30                                  # the actually-named ones
+```
+
+So **30 images carry a repository:tag name and 70 are intermediate or unreferenced layers** —
+not 50/50. Note the two counting questions are different and neither substitutes for the other:
+`--quiet | sort -u` counts image *IDs* (100), while `--format | sort -u` counts *name* entries (31).
+The retracted "102 image records" figure was wrong for the same reason — it was written without
+running the count.
+
+Enumerating the rootful remainder needs
 one `sudo` command and operator approval — recommended action, **no automatic action taken**, and
 no deletion is proposed.
 
