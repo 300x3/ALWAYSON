@@ -1,0 +1,237 @@
+# ALWAYS ON - vendor binaries manifest (OPS-17).
+#
+# config/build-update/unmanaged-software.yaml answers "what is installed and is
+# there a newer release?". It does NOT answer "where do I get this file again",
+# because for a vendor binary the answer is a single opaque blob with no package
+# source, no dependency resolution and no upgrade path. That is why
+# scripts/provision/provision.sh stage 40 printed "MANUAL fetch required" for
+# every AppImage and stopped there: the provisioner could rebuild the whole host
+# except the one class of file that has no repository.
+#
+# This manifest is that missing answer. One entry per vendor artifact:
+#   url      - direct vendor download, pinned to a version, never "latest"
+#   sha256 / sha256_published_by_vendor - the digest of the DOWNLOAD artifact
+#   installed_sha256 - digest of the file as it sits at `path` on this host
+#   path     - where it goes on disk
+#   install  - appimage | archive-extract | manual
+#
+# TWO DIGESTS, and why they are not interchangeable. For an AppImage the
+# download IS the installed file, so one digest covers both. For an archive the
+# two are different files: `sha256_published_by_vendor` covers the .tar.gz/.zip,
+# while `installed_sha256` covers the binary extracted out of it. Comparing an
+# extracted binary against its archive's digest always mismatches, which is a
+# false DRIFT report - that bug existed in the first revision of the installer
+# and is why the two fields are separate.
+#
+# RULE: sha256 is the digest of the artifact as obtained from `url` at the pinned
+# version. scripts/provision/install-vendor-binaries.sh refuses to install a file
+# whose digest does not match. This is README 4.1 rule 9 applied to vendor blobs,
+# which have no image digest to pin.
+#
+# DIGEST PROVENANCE, measured 2026-10-10. Every sha256 below was taken from the
+# file already on this host (`sha256sum`) and, where the vendor publishes a digest
+# in its GitHub release metadata, compared against that published digest. Two
+# facts came out of that comparison; both are recorded rather than smoothed over:
+#
+#   1. ReticulumMeshChatX v4.9.1 x86_64 AppImage matches its published digest
+#      exactly. The local file IS upstream v4.9.1.
+#   2. QGroundControl does NOT. The local file resolves to v5.1.0, not the v5.1.5
+#      the registry names as upstream. See `local_evidence` on that entry.
+#
+# Anything whose vendor publishes no digest (LM Studio, pCloud, nPerf, cline) is
+# recorded with `verifiable: false`. It is NOT dropped:
+# install-vendor-binaries.sh reports those as MANUAL and refuses to guess. An
+# unpinned blob that a script installs silently is worse than one it refuses.
+
+schema_version: 1
+measured_utc: "2026-10-10"
+measured_on: "ai-ops-b"
+
+vendor_binaries:
+
+  # -- AppImages ------------------------------------------------------------
+
+  - name: "QGroundControl-x86_64.AppImage"
+    id: qgroundcontrol
+    kind: appimage
+    install: appimage
+    path: "/home/scottw/Documents/APP IMAGES/QGroundControl-x86_64.AppImage"
+    version: "5.1.0"
+    version_source: "resolved by digest match against GitHub release metadata"
+    url: "https://github.com/mavlink/qgroundcontrol/releases/download/v5.1.5/QGroundControl-x86_64.AppImage"
+    upstream_version_at_measurement: "5.1.5"
+    sha256: "6844d46dadc7228a164662f66be9e02bc763b6d993f574083a265b26f03c307f"
+    sha256_published_by_vendor: "9a47e4cf269d9e4f897f582f6b19aa7ebf1e9e67c9d68a532a45b541354bc344"
+    verifiable: true
+    drift: behind
+    local_evidence: |
+      sha256 of the installed file is 6844d46d... It does NOT match the v5.1.5
+      asset (9a47e4cf...), nor v5.1.4 (1c4ac089...), v5.1.3 (ca0822ef...),
+      v5.1.2 (6056be3e...) or v5.0.0. It DOES match the v5.1.0 asset digest
+      exactly, at 200411640 bytes, which is also the installed file's size. So the
+      host runs QGroundControl 5.1.0.
+      CONSEQUENCE: `sha256` here is the 5.1.0 digest but `url` points at 5.1.5, so
+      install-vendor-binaries.sh will correctly REFUSE to install the 5.1.5 asset
+      against the 5.1.0 digest. That is the right behaviour and the reason the
+      drift is recorded rather than hidden. Moving the host forward is a
+      deliberate human step: re-measure the 5.1.5 asset's sha256 and update both
+      fields in one commit. A script must not silently adopt a new vendor
+      artifact (README 4.1 rule 14).
+    note: >-
+      The registry entry recorded the upstream release and called the local side
+      "one-sided, undatable". It is now two-sided: the digest resolves the
+      installed file to an exact upstream release.
+
+  - name: "ReticulumMeshChatX-v4.9.1-linux-x86_64.AppImage"
+    id: reticulum-meshchatx
+    kind: appimage
+    install: appimage
+    path: "/home/scottw/Applications/ReticulumMeshChatX-v4.9.1-linux-x86_64.AppImage"
+    version: "4.9.1"
+    version_source: "in filename, corroborated by digest match"
+    url: "https://github.com/Quad4-Software/MeshChatX/releases/download/v4.9.1/ReticulumMeshChatX-v4.9.1-linux-x86_64.AppImage"
+    upstream_version_at_measurement: "4.9.1"
+    sha256: "ed3c706fc86b63136538e479c082ece39f3ed40cd67f6f5d62a8c9e47a6a1d2d"
+    sha256_published_by_vendor: "ed3c706fc86b63136538e479c082ece39f3ed40cd67f6f5d62a8c9e47a6a1d2d"
+    verifiable: true
+    drift: none
+    local_evidence: |
+      Local sha256 equals the vendor-published digest for the v4.9.1 x86_64
+      AppImage. Byte-identical to upstream. The registry's `linux_amd64_direct`
+      pointed at a .deb for v4.9.3 instead - a different packaging format AND a
+      different version - so this manifest corrects it to the AppImage actually
+      installed.
+    note: >-
+      ~/Applications/meshchatx-native/ is the EXTRACTED runtime the systemd unit
+      execs, not a separate install. It derives from this AppImage and is not a
+      manifest entry; re-extraction is a documented manual step.
+
+  - name: "LM-Studio-0.4.20-1-x64.AppImage"
+    id: lm-studio
+    kind: appimage
+    install: appimage
+    path: "/home/scottw/Documents/APP IMAGES/LM-Studio-0.4.20-1-x64.AppImage"
+    version: "0.4.20-1"
+    version_source: "in filename"
+    url: null
+    sha256: "6e1c9e7973ae892eef934d706612c920c04b24165861108d5883258801c64aed"
+    sha256_published_by_vendor: null
+    verifiable: false
+    drift: unknown
+    note: >-
+      The download page is rendered client-side and exposes no version to a plain
+      fetch, and the vendor publishes no digest. The local digest is recorded so a
+      rebuilt host can be CHECKED against the file known good, but there is no url
+      to fetch, so this stays MANUAL. 1.1 GB, the largest file in the manifest.
+
+  - name: "pCloud.AppImage"
+    id: pcloud
+    kind: appimage
+    install: appimage
+    path: "/home/scottw/Documents/APP IMAGES/pCloud.AppImage"
+    version: null
+    version_source: "none"
+    url: null
+    sha256: "07e404be9e37ef2dffb6541fea74f10601f2a33fe490bcaa895fb5b238f81af6"
+    sha256_published_by_vendor: null
+    verifiable: false
+    drift: unknown
+    note: >-
+      No version in the filename and no machine-readable Linux release. Note that
+      ~/Documents/APP IMAGES/pCloud.AppImage.old sits beside it and is NOT the
+      installed file; recording only the current one avoids restoring a stale
+      copy. pCloud also runs from ~/pCloudDrive, a different install entirely.
+
+  - name: "nPerf.AppImage"
+    id: nperf
+    kind: appimage
+    install: appimage
+    path: "/home/scottw/.local/bin/nPerf.AppImage"
+    version: null
+    version_source: "none"
+    url: null
+    sha256: "13e422321043f1350384c566f8dfca75ca93fd3ee84b471cf3030eed53402d87"
+    sha256_published_by_vendor: null
+    verifiable: false
+    drift: unknown
+    note: >-
+      Provenance genuinely unknown. Every URL extracted from the 258 MB binary is a
+      licence text (AppImageKit, libfuse, zlib, musl, zstd, dot-asm); no homepage,
+      no repository, no version string. Until a human records where it came from
+      there is nothing to fetch it from, so the provisioner refuses it rather than
+      inventing a source.
+
+  # -- vendor executables ---------------------------------------------------
+  # These have an upstream release and a published digest, so unlike the AppImages
+  # they ARE machine-installable. They are here because the provisioner had no way
+  # to put them back: nothing in stage 40 wrote them.
+
+  - name: "gh (GitHub CLI)"
+    id: gh
+    kind: executable
+    install: archive-extract
+    path: "/home/scottw/.local/bin/gh"
+    version: "2.97.0"
+    version_source: "gh --version"
+    url: "https://github.com/cli/cli/releases/download/v2.97.0/gh_2.97.0_linux_amd64.tar.gz"
+    sha256: null
+    sha256_published_by_vendor: "a2c9b8497e1f85b1ad0dfcb78b5a622e098801b8e461e459e88e1ee12f018112"
+    member: "gh_2.97.0_linux_amd64/bin/gh"
+    installed_sha256: "141507c337e8b202ad398550c3b73d72f5af92e86f71665214538a81efd4c409"
+    verifiable: true
+    drift: none
+    local_evidence: |
+      The LOCAL tarball digest was not measured - the archive is not kept on this
+      host, only the extracted binary. The published digest is recorded, so the
+      installer verifies the download against it. The installed binary reports
+      "gh version 2.97.0 (2026-07-31)", which matches the pinned release.
+
+  - name: "bun"
+    id: bun
+    kind: executable
+    install: archive-extract
+    path: "/home/scottw/.bun/bin/bun"
+    version: "1.4.2"
+    version_source: "bun --version"
+    url: "https://github.com/oven-sh/bun/releases/download/bun-v1.4.2/bun-linux-x64.zip"
+    sha256: null
+    sha256_published_by_vendor: "36368faef7527875d5ffa52e53cd48021741f2a83eb6208a8dd64068d422a913"
+    member: "bun-linux-x64/bun"
+    installed_sha256: "a83d263767d839e4d2649ca8e35d07159c7afc99afdc96d731ced29e056dda0c"
+    verifiable: true
+    drift: none
+    local_evidence: |
+      Published digest for bun-linux-x64.zip at tag bun-v1.4.2. Local binary
+      reports 1.4.2. Same reasoning as gh: the archive is not retained locally, so
+      the installer checks the download against the vendor's published digest.
+
+  - name: "cline"
+    id: cline
+    kind: executable
+    install: manual
+    path: "/home/scottw/.local/bin/cline"
+    version: "3.0.60"
+    version_source: "cline --version"
+    url: null
+    sha256: null
+    verifiable: false
+    drift: unknown
+    note: >-
+      NOT machine-installable, and the reason is not "the vendor is awkward": the
+      cline/cline release tagged cli-v3.0.68 publishes an EMPTY asset list. There
+      is no tarball and no digest, so there is nothing to verify and nothing to
+      fetch. The installed ~/.local/bin/cline is a 1453-byte bash wrapper for
+      "cline kanban", not the CLI itself, which is why a digest of the wrapper
+      would prove nothing anyway. MANUAL until the vendor ships a binary asset.
+
+# ---------------------------------------------------------------------------
+# NOT COVERED HERE, and why
+#
+#   pymavlink  - PyPI package, installed by pip. A package index is a package
+#                source; it does not belong in a vendor-blob manifest.
+#   google-chrome, mcp - apt/PyPI, same reason.
+#   crossover, steam, obsidian - recorded in the registry as operator_managed.
+#                The operator tracks these personally; installing them is not
+#                ours to automate.
+#   The ten secrets and data/ trees - restored from backup, never fetched.
+# ---------------------------------------------------------------------------

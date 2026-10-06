@@ -30,7 +30,8 @@
 │   ├── check-local-services.js
 │   ├── check-logs-journals.sh
 │   ├── validate-sale-receipt.sh
-│   └── capture-version-matrix.sh
+│   ├── capture-version-matrix.sh
+│   └── check-user-linger.sh
 ├── mapping/         # imagery intake, deliverable archive, manifest export
 ├── radio/           # heltec detect, radio-profile validate, LoRa link test
 ├── simulation/
@@ -44,6 +45,7 @@
 ├── ops/             # wallet read/write helpers, kwallet provisioning
 ├── openclaw/        # chat relay for the ao-sales chat path
 ├── payment/         # ao-ingress-payment adapter, host relay, reconciliation CLI
+├── provision/      # provision.sh, install-vendor-binaries.sh
 ├── sales/           # sales-domain helpers
 ├── lib/             # shared shell library (common.sh)
 └── sync-lmstudio-readme-preset.sh
@@ -72,6 +74,58 @@ this tree go stale on every new script.
 generators (`provenance-log.py`, `inventory-full.py`, `refresh-install-log.sh`,
 `apt_history.py`, `test_generators.py`); it predates this section and is
 described in §12.5.
+
+### 16.1.1 `build-update/provenance/` — the generator package (OPS-18)
+
+`provenance-log.py` was a single ~2,300-line module holding evidence gathering,
+policy, plan generation and rendering in one file. It is now a thin entrypoint
+over a package, split by concern:
+
+| Module | Holds | Why it is separate |
+|---|---|---|
+| `provenance/common.py` | constants, `run()`, `now_utc()`, `norm()`, `is_complete_digest()`, `load_yaml()` | The three primitives everything else needs. No knowledge of provenance, policy or rendering. |
+| `provenance/collector.py` | every function that reads local state, spawns a subprocess or queries upstream | The only module with mutable module-level state (`COLLECTED`, `_CACHE_HITS`, `_CAND_VER`, `_CAND_ID`, `OFFLINE`). Those caches exist because the un-cached form spawned ~230 apt subprocesses per run and stopped completing. |
+| `provenance/policy.py` | `EXCLUSIONS`, `NEEDS_APPROVAL`, `PIN_POLICY`, `PLAN_VERBS`, `_argv_is_safe()`, `pin_policy()`, `update_risk()` | The updater allowlist and the **recorded reason** for each entry. Stdlib-only, so the safety property can be read and audited without following an import graph. |
+| `provenance/plan.py` | `update_steps()`, `write_update_plan()` | Machine-readable plans: each item is either `eligible` with exact ordered argv steps or `excluded` with the rule that excludes it. No third state, no implicit default. |
+| `provenance/render.py` | `HEADERS`, `CSS`, `rows_to_html()`, `rollup_details_md()`, `to_html()` | Presentation. Holds no policy and makes no network call, so a column-order change cannot reach back into collection. |
+
+Dependency direction is strictly one way, asserted from the import statements in
+`TestProvenancePackageBoundaries`:
+
+```
+plan     -> policy, render, common
+render   -> collector, policy, common
+collector-> common
+policy   -> (stdlib only)
+```
+
+Two properties of the split are load-bearing and are pinned by tests rather than
+left to convention:
+
+**Re-export is a snapshot, not an alias.** `provenance/__init__.py` binds every
+top-level name of every submodule so the entrypoint keeps its historical surface,
+but those bindings are taken at import time. If the owning module later
+*rebinds* its own name with a `global` statement, the copy keeps the old value.
+Measured: after `_load_apt_history()` cached the module in `collector`,
+`provenance._APT_HISTORY_MODULE` still read `'unset'`. Therefore any state that
+crosses a module boundary goes through an accessor owned by the writer —
+`cache_ttl()` / `set_cache_ttl()` for the TTL, and `set_offline()` in the
+entrypoint for `--offline`. A bare imported `CACHE_TTL` or `OFFLINE` global would
+have printed the default 6h TTL on a forced refresh.
+
+**The re-export is built from an explicit namespace walk, not `import *`.**
+`from .collector import *` skips underscore-prefixed names, and existing
+regression tests reach `_load_apt_history` and `_argv_is_safe` through the
+entrypoint; a plain star import turns those into `AttributeError` at the call
+site rather than at import. `__all__` is computed after the loop variables are
+deleted, because publishing them into the entrypoint's `from provenance import *`
+made the star import fail.
+
+`provenance-log.py` remains the executable entrypoint and the documented usage
+string, and holds argument parsing and flag wiring only. Measured line counts of
+the package (`wc -l`): `collector.py` 1,633, `render.py` 446, `plan.py` 211,
+`policy.py` 139, `common.py` 93, `__init__.py` 70; the entrypoint is 133 lines
+against the original 2,328.
 ### 16.1.2 Backup, restore and receipt executors (measured 2026-10-04)
 
 Measured with `ls -1` against the tree, not read off this document. This mapping
@@ -133,6 +187,76 @@ not a cadence. The restore test is manual until a timer and interval are approve
 `validate-transaction-bundle.sh`) and `validate-sale-receipt.sh` lives in
 `validation/`. Both were previously reported missing against an earlier snapshot
 of this section; that report is stale and is retracted here.
+
+### 16.1.3 Store status has four states, not two (OPS-33)
+
+`scripts/operations/collect-system-health.py` classifies every declared SQLite
+store into `ao_status.sqlite_store.status`, and the column is
+`CHECK (status IN ('absent','error','excluded','ok'))`. The four states are
+deliberate and the distinction between the middle two is the whole point of the
+item:
+
+| status | meaning | a human is required |
+|---|---|---|
+| `absent` | declared, but not installed on this host | no — a `?` in software-status.md |
+| `ok` | present and read | no |
+| `excluded` | present, but deliberately not snapshotted | no — a decision already taken |
+| `error` | present and **unreadable** | **yes** |
+
+`absent` and `error` are the pair that was previously collapsed. OPS-33 asks
+that a store declared in the manifest but missing here render as an *error*
+rather than silently reading as `absent`; the schema now carries the distinction,
+the view exposes `sqlite_stores_absent`, `sqlite_stores_error` and
+`sqlite_stores_excluded` as separate counters, and the collector sets `error` for
+anything it could not open, stat or parse.
+
+**The classification is keyword-based over `read_error` free text**, which is a
+known fragility and is recorded here so the next reader does not trust it
+blindly. `sqlite3` reports corruption as `DatabaseError('file is not a
+database')` or `'database disk image is malformed'` — sentences containing none
+of the usual "…failed" markers.
+
+**What I got wrong.** Because the fault list only matched `failed` /
+`not a sqlite file` / `header read failed` / `open failed` / `read failed` /
+`snapshot failed` / `integrity`, a **corrupt database was classified `excluded`**
+— that is, an unreadable store was recorded as a *deliberate operator
+decision*. Measured before the fix:
+
+```console
+$ classify_store({'present': True, 'read_error': 'database disk image is malformed'})
+-> 'excluded'      # want 'error'
+$ classify_store({'present': True, 'read_error': 'file is not a database'})
+-> 'excluded'      # want 'error'
+```
+
+That is the more dangerous direction of the two: a fault was reported as intent,
+so nobody would ever be paged for it. The same gap existed independently in the
+SQL backfill in `config/platform/postgresql/ao-status.sql`, which is the thing
+that would have poisoned rows already written to a live database. Both lists now
+carry the corruption markers, and the SQL is written to mirror the Python
+(`_STORE_ERRORS` + `_STORE_CORRUPT`) so the two cannot silently disagree.
+
+Verified against a throwaway PostgreSQL 18.6 rather than the live Grafana
+database. Seeded six rows with `status` dropped and re-ran the migration:
+
+```console
+$ psql -v ON_ERROR_STOP=1 -f config/platform/postgresql/ao-status.sql   # rc=0
+$ SELECT id, status FROM ao_status.sqlite_store ORDER BY id;
+     id      |  status
+-------------+----------
+ s-absent    | absent
+ s-badheader | error      <- not a SQLite file (bad header)
+ s-corrupt   | error      <- database disk image is malformed
+ s-excluded  | excluded   <- excluded from snapshot by operator decision
+ s-notadb    | error      <- file is not a database
+ s-ok        | ok
+(6 rows)
+```
+
+Idempotency and the constraint were both checked: a second run leaves the six
+statuses unchanged, and `INSERT … VALUES ('bad', true, 'banana')` is rejected by
+`sqlite_store_status_check`. The classifier agrees row-for-row with the SQL
+across all 16 cases exercised in Python.
 
 
 ### 16.1.1 Quadlet deploy path

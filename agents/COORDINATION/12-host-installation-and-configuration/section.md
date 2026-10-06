@@ -191,6 +191,78 @@ It asserts the **value** of `Linger` rather than the presence of the key, and
 reports `aa-enforce` as a WARN with the reason, instead of passing on
 `aa-status` — which ships in the base `apparmor` package and succeeds even
 though no profile can actually be enforced on this host (see §2.3).
+### 12.3.1 Linger is a precondition, not a nicety (OPS-13)
+
+**Overlap with the baseline verifier above, stated so the next reader does not
+double-count it.** `verify-host-baseline.sh` already asserts `Linger == yes` as
+one of its five checks, and that is the check to trust for the yes/no question.
+`check-user-linger.sh` is **not** a second opinion on that question - it is a
+*diagnostic* for it, reporting the linger state alongside the user-manager
+runtime, the deployed unit count and the running `ao-*` service count, so that
+when the baseline check fails you can see why. Both agree on the value.
+
+It earns a separate existence because the baseline check is a single boolean over
+one account, and this is the one that exits **2** for an account that does not
+exist - the failure mode a `[ "$linger" = "yes" ]` test handles worst. See the
+bug below.
+
+The `loginctl show-user -p Linger` line that section 12.3 used to carry was
+read-only and silent on failure, and linger is a real precondition rather than a
+nicety: every workload here is a *rootless user* Quadlet unit under
+`~/.config/containers/systemd/`, driven by `systemd --user`, and that instance
+only exists for the operator account while a session is open. Log out of KDE and
+every container, timer and Quadlet-generated unit for this account stops, and none
+of them come back on their own after a reboot. `ao-lmstudio.service` already
+depends on this - its own header says "Starts at boot via user lingering".
+
+So the rebuild must **report** linger before it starts any unit, and the
+provisioner now does, at stage 20, before stage 50:
+
+```bash
+./scripts/validation/check-user-linger.sh          # report
+./scripts/validation/check-user-linger.sh --check  # gate: 0 ok, 1 fault, 2 no such account
+```
+
+Measured on this host 2026-10-04:
+
+```console
+$ bash scripts/validation/check-user-linger.sh
+user            : scottw
+Linger          : yes
+State           : active
+OK:   linger enabled
+marker file     : present (/var/lib/systemd/linger/scottw)
+OK:   user manager runtime /run/user/1000 present
+      running user services: 90
+deployed units  : 21 .container files in /home/scottw/.config/containers/systemd
+generated ao-*  : 48 service units under systemd --user
+running ao-*    : 26
+```
+
+**The provisioner deliberately does not enable linger.** `loginctl enable-linger`
+needs root and writes `/var/lib/systemd/linger/` — a host-level change, which
+README §4.1 rules 1 and 3 place with the operator. The stage reports the state
+and prints the exact command; it does not run it.
+
+**What I got wrong.** The checker's first revision reported
+`FAIL: linger is not enabled` — and exited 1 — for an account that **does not
+exist at all**. Measured: `loginctl show-user alwayson-ledger -p Linger` returns
+`Failed to look up user ... No such process`, but with `--value` it returns the
+literal string `unknown`, which the script compared against `yes`. And
+`/var/lib/systemd/linger/` is not proof of existence: `alwayson-ledger`,
+`alwayson-mapping` and `alwayson-sales` all have marker files on this host while
+`getent passwd` finds none of them, so a leftover marker is misleading. A false
+FAIL on a checker is the worst kind of defect, because it teaches the operator to
+ignore it — which would hide a genuine `Linger=no`. The check now tests
+`getent passwd` first and exits **2** for "no such account", distinct from **1**
+for a real fault.
+
+Two earlier counting bugs in the same script are also fixed and worth naming,
+because both produced confident, wrong output: it grepped unit files for
+`\.container`, a name systemd never creates (Quadlet *generates*
+`ao-<name>.service`), so it claimed "21 deployed but none enabled" on a host with
+26 containers running; and it called `id -u` with no argument, so checking any
+account other than the caller reported `/run/user/-1`.
 
 ## 12.4 Rebuilding This Host From Nothing
 
@@ -207,19 +279,270 @@ describes, in stages. It is **dry-run by default**; pass `--yes` to apply.
 | Stage | Restores | Notes |
 |---|---|---|
 | 10 | 7 third-party apt repositories | ROS 2 is registered but **unreachable** (TLS); not worked around |
-| 20 | Host dependencies, layout, podman networks, inventory | **Delegates to `scripts/bootstrap/00`, `02`, `03`, `04`** rather than repeating them |
+| 20 | Host dependencies, layout, podman networks, inventory | **Delegates to `scripts/bootstrap/00`, `02`, `03`, `04`** rather than repeating them. Also **reports linger** before any unit starts (§12.3.1) |
 | 30 | 16 snaps, 1 flatpak | Enumerated from the installed set |
-| 40 | Host applications | Read from `unmanaged-software.yaml`, not hardcoded |
-| 50 | 9 Quadlet domains, 22 units | **Quadlet deploys flat** — `~/.config/containers/systemd/` holds copies, so the deploy script is mandatory, not optional |
+| 40 | Host applications | Read from `unmanaged-software.yaml`, not hardcoded. Vendor blobs delegated to `install-vendor-binaries.sh` (§12.4.1) |
+| 50 | 9 Quadlet domains, **36 Quadlet source units** | **Quadlet deploys flat** — `~/.config/containers/systemd/` holds copies, so the deploy script is mandatory, not optional |
 | 60 | Secret presence check | Derived from the units' own `EnvironmentFile=` lines |
 | 70 | Data check only | **Never restores.** Restoration is a human decision (rule 2/3) |
 | 90 | Verification | Regenerates the inventory for diffing against `docs/software-status.md` |
 
-Three things a rebuild cannot restore from the repository, and must come from
+Two things a rebuild cannot restore from the repository, and must come from
 backup: the **10 secret files** in `~/.local/share/ao-secrets/` (outside git by
-design), the **persistent data** in `data/` (ardupilot 2.1G, corda-install
-282M), and the **AppImages and vendor tarballs**, which have no package source
-and must be fetched by hand.
+design) and the **persistent data** in `data/` (ardupilot 2.1G, corda-install
+282M). The **AppImages and vendor binaries** were long described here as a third
+category "that must be fetched by hand"; §12.4.1 replaces that with a manifest
+and an installer that verifies what is already on disk.
+
+### 12.4.2 Every stage has an undo, and the undo is non-destructive (OPS-12)
+
+`scripts/provision/rollback.sh` is the missing half of §12.4. Until now each stage of
+`provision.sh` described only what it *built*, and a rebuild that failed halfway left the
+operator with no documented way back. The script is **dry-run by default**, mirroring
+`provision.sh`, because undo is as dangerous as the action.
+
+```bash
+./scripts/provision/rollback.sh --list   # what each stage undoes, and whether it needs an operator
+./scripts/provision/rollback.sh         # dry run: prints every action
+./scripts/provision/rollback.sh --yes   # apply
+```
+
+It runs stages in **descending order (90 → 10)** so dependents go before their
+dependencies: units are withdrawn before the repositories that supplied them.
+
+**The rule that shapes it: stages differ in whether their undo is safe to automate.**
+
+| Stage | Undo | Safe to run unattended? |
+|---|---|---|
+| 90 | nothing — regenerated artefacts | yes, informational |
+| 70 | **nothing** — stage 70 never restores | yes, reports `data/` sizes only |
+| 60 | **nothing** — stage 60 only checked presence | yes, never touches secrets |
+| 55 | restic units: stop, disable, remove the 6 unit files | yes, with a warning that this stops backups |
+| 50 | Quadlet files per domain, via `deploy/rollback-domain.sh` | yes |
+| 40 | vendor blobs | **no** — prints manifest ids, removes nothing |
+| 30 | snaps and flatpak | **no** — prints `snap remove` commands, runs none |
+| 20 | apt repo files and keyrings | printed, not executed |
+| 10 | nothing — stage 10 only *adds* | n/a |
+
+Three things are deliberately **never** undone, because no script here can undo them
+safely: `data/` (rule 2/3), **secrets** (the values live in the wallet and in
+`~/.local/share/ao-secrets/`, and are not reproducible from this repository), and
+Podman networks (removing one strands whatever containers are attached). A rollback that
+"restores the host to bare Ubuntu" would be a data-loss event wearing a rollback's
+clothes.
+
+**Verified, dry run.** State is identical before and after, and the summary line is last:
+
+```text
+$ bash -n scripts/provision/rollback.sh && echo 'SYNTAX OK'
+SYNTAX OK
+$ bash scripts/provision/rollback.sh >/tmp/rb5.out 2>&1; echo "rc=$?"
+rc=0
+$ grep -n '^--- stage' /tmp/rb5.out
+5:--- stage 90: verification artefacts (nothing to undo)
+8:--- stage 70: persistent data (NEEDS OPERATOR - not undone)
+17:--- stage 60: secrets (NEEDS OPERATOR - not undone)
+22:--- stage 55: restic backup units
+37:--- stage 50: Quadlet unit files (per domain)
+51:--- stage 40: vendor blobs (NEEDS OPERATOR - not undone)
+56:--- stage 30: snaps and flatpak (NEEDS OPERATOR - commands printed only)
+67:--- stage 20: apt repositories added by stage 10
+81:--- stage 10: nothing to undo
+$ tail -1 /tmp/rb5.out
+dry run only. Nothing was changed. Re-run with --yes to apply.
+```
+
+```text
+# BEFORE: units=85 restic=6 nets=14 timer=enabled
+$ bash scripts/provision/rollback.sh >/dev/null 2>&1
+# AFTER : units=85 restic=6 nets=14 timer=enabled
+```
+
+The only `rm` the script can reach is `sudo rm -f /etc/systemd/system/<unit>`, named from
+`systemd/backup/`. Stage 50 delegates to `rollback-domain.sh`, which removes **only** the
+unit files named in `quadlet/<domain>/` and never `rm -r`s the flat unit directory — that
+directory holds every other domain, plus the networks and volumes they share.
+
+It closes with the provision ledger's own record of which stages actually ran, read from
+`logs/operations/provision-ledger.jsonl` rather than assumed:
+
+```text
+$ python3 -c "..." # counting stage keys in the ledger
+  stage 10: 62 step(s) recorded
+  stage 20: 15 step(s) recorded
+  stage 50: 78 step(s) recorded
+  stage 55: 7 step(s) recorded
+  stage 90: 16 step(s) recorded
+```
+
+**Still open on this item.** A clean-room rebuild has still never been executed, so the
+procedure remains unproven end to end; and `bootstrap/01` photogrammetry verification is
+still not gated on §17.3 evidence as §16.1 requires. The rollback half is written and
+proven; those two are not mine to close here.
+
+#### A number in the stage table above was wrong
+
+The stage-50 row read "9 Quadlet domains, 22 units". **22 is only the `.container` count.**
+Measured across all nine domains the Quadlet *source* units are **36**:
+
+```text
+$ find quadlet -type f \( -name '*.container' -o -name '*.network' -o -name '*.volume' -o -name '*.build' \) | wc -l
+36
+$ find quadlet -type f | grep -oE '\.[a-z]+$' | sort | uniq -c
+     22 .container
+     15 .network
+      1 .path
+     16 .service
+      1 .sh
+      5 .timer
+```
+
+An undercount here is not cosmetic: stage 50 deploys **every** source unit, so a reader
+trusting "22" would conclude seven network units and six `ao-*` service/timer units were
+never deployed.
+
+That comparison is also where the counting trap lies. Comparing *all* 81 deployed files
+against the repo's 61 distinct basenames yields **32 apparent orphans** — but they are not
+stale copies. Every one of the 32 is a `.service`, and each self-declares as generated:
+
+```text
+$ head -3 ~/.config/containers/systemd/ao-sales-db.service
+# Automatically generated by /usr/libexec/podman/quadlet
+#
+# /ALWAYSON/quadlet/sales/ao-sales-db.container
+```
+
+Note the generator is Podman's quadlet helper at `/usr/libexec/podman/quadlet`, **not**
+`systemd-container-generator` (that path does not exist on this host). Restricted to
+source-typed files the two sets agree almost exactly:
+
+```text
+$ find ~/.config/containers/systemd -maxdepth 1 -type f \
+    \( -name '*.container' -o -name '*.network' -o -name '*.volume' -o -name '*.build' \) \
+    -printf '%f\n' | wc -l
+30
+# deployed source-typed NOT in repo:  (none)
+# repo source-typed NOT deployed:
+ao-ardupilot-sitl.container
+ao-data.network
+ao-field.network
+ao-ledger-core.network
+ao-ledger-ingest.network
+ao-sim-vehicle.network
+```
+
+Those six are a real, separate finding and are **reported, not fixed**. Five are
+`quadlet/networks/*.network` and one is `quadlet/sim-vehicle/`, none is deployed, yet all
+five networks exist live under those exact names:
+
+```text
+$ podman network ls --format '{{.Name}}' | grep -E '^ao-(data|field|ledger-core|ledger-ingest|sim-vehicle)$'
+ao-data
+ao-field
+ao-ledger-core
+ao-ledger-ingest
+ao-sim-vehicle
+```
+
+They were therefore created by `bootstrap/04-create-operational-layout`'s sibling
+`04-create-podman-networks.sh`, which calls `podman network create` directly. **The same
+network is described by two owners** — a repo Quadlet file and an imperative bootstrap
+script. For `ao-data` the two currently agree, so nothing is broken today:
+
+```text
+$ grep -E 'NetworkName|Internal' quadlet/networks/ao-data.network
+NetworkName=ao-data
+Internal=true
+$ podman network inspect ao-data --format '{{.Name}} internal={{.Internal}} subnet={{(index .Subnets 0).Subnet}}'
+ao-data internal=true subnet=10.89.8.0/24
+```
+
+But a future edit to one file would not change the running network. Deciding the single
+owner of network creation is a design decision, it touches live network configuration, and
+it is **not mine to settle** — it needs an operator decision and, if adopted, a redeploy of
+the flat unit copies (§16.1.1). `ao-ardupilot-sitl.container` being undeployed is
+unremarkable: SITL is a simulation container, not an always-on service.
+
+### 12.4.1 Vendor blobs are declared, pinned and verified (OPS-17)
+
+`config/build-update/vendor-binaries.yaml` is the manifest; each entry carries an
+`id`, `version`, `install` kind, target `path`, a download `sha256`, an optional
+`sha256_published_by_vendor`, and — for archives — the `member` to extract and a
+separate `installed_sha256` for the extracted binary.
+
+**Two digests, deliberately not conflated.** `sha256` is what the *download*
+must hash to. `installed_sha256` is what the *installed file* must hash to. For
+an AppImage these are the same value (the file *is* the download); for an
+archive they are not, because the download is a `.tar.gz`/`.zip` and the
+installed file is the binary inside it. The first revision used one field for
+both and reported a false DRIFT for every archive on a host where the binary was
+perfectly correct.
+
+```bash
+./scripts/provision/install-vendor-binaries.sh          # dry run (default)
+./scripts/provision/install-vendor-binaries.sh --yes    # fetch and install
+```
+
+Exit codes: **0** clean, **1** a download or install failed, **2** at least one
+entry was refused (DRIFT or an unpinned download). `manual` is deliberately *not*
+a failure — it means no vendor publishes an artifact, which is an operator phase,
+and counting it would make every run red.
+
+Measured on this host 2026-10-04, dry run against the real manifest:
+
+```console
+$ AO_ROOT=/tmp/ao-sessions/wt-ops-b bash scripts/provision/install-vendor-binaries.sh
+vendor binaries declared: 8
+OK      qgroundcontrol v5.1.0 - present, digest matches
+OK      reticulum-meshchatx v4.9.1 - present, digest matches
+OK      lm-studio v0.4.20-1 - present, digest matches (no url: not auto-installable)
+OK      pcloud v- - present, digest matches (no url: not auto-installable)
+OK      nperf v- - present, digest matches (no url: not auto-installable)
+OK      gh v2.97.0 - present, digest matches
+OK      bun v1.4.2 - present, digest matches
+OK      cline v3.0.60 - present, no installed digest recorded to check against
+  path: /home/scottw/.local/bin/cline
+
+installed=0  already-present=8  manual=0  refused=0  failed=0
+```
+
+**All eight are present on this host and verified.** Five have no vendor URL and
+so cannot be fetched unattended even in principle — a property of the vendors,
+not a gap in the provisioner, and the honest residue of OPS-17. Three (gh, bun,
+cline) are installable; the first two verify against a recorded `installed_sha256`.
+
+**What I got wrong.** The first revision tested "does this entry have a url?"
+**before** "is the file already installed?", and `continue`d out of the loop. The
+consequence, measured: `lm-studio`, `pcloud` and `nperf` were all reported
+`MANUAL ... a human must place this file` while **all three exist on disk and all
+three hash to the manifest's own recorded `sha256`**. The report told the operator
+to go fetch files that were already installed and verified — "cannot be fetched
+automatically" and "is not installed" are different facts, and only the second is
+a problem. Presence is now checked first; an entry with no url but a present,
+matching file reports OK with the caveat in parentheses.
+
+Two further defects, both found by testing rather than reading:
+
+- **An all-numeric digest was silently erased.** YAML coerces unquoted
+  `0000…0` to the integer `0`, and the `or ""` fallbacks then rendered that as
+  the empty string, so the entry degraded to "no installed digest recorded" and
+  reported **OK** — the one outcome a digest check must never produce. Every
+  scalar is now `str()`-ed, so the entry reports DRIFT instead. Real digests in
+  the manifest are quoted and contain `a`–`f`, so they round-trip exactly.
+- **Every failure exited 0.** A DRIFT and a failed download were both reported
+  as text and then succeeded, which is a provisioner whose failure signal is a
+  line nobody is reading. Because `provision.sh` calls this through its `run`
+  helper, which propagates the return code unguarded, that would have aborted
+  stage 40 of the whole rebuild — so the `run` call is now `|| true` as well. A
+  drifted AppImage must not leave the host without its Quadlet units; the
+  installer refuses to overwrite (README §4.1 rules 2/3), so "carry on and tell
+  the operator" is the correct outcome, not "stop the world".
+
+The OK, DRIFT, MANUAL and dry-run paths were each exercised against a throwaway
+fixture manifest rather than asserted. The fixture was first written with `kind:`
+before the schema key `install:` was checked, which is why its first run reported
+two entries as "no installed digest" — the fixture was wrong, not the script, and
+re-running with the correct key produced the DRIFT it was built to provoke.
 
 ## 12.5 Inventory and Update Management
 
