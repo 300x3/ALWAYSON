@@ -715,6 +715,106 @@ group-membership fix above.
 change. Creating directories on the operator's validated drive without approval is exactly the
 rule 2/rule 12 case.
 
+**Second-level directories are missing, and they are exactly the ones the operator cannot create**
+
+### 8.5.5 Re-verification 2026-10-05 07:57
+
+**§8.5.1 and §8.5.3 are now partly stale: directories have appeared since 2026-10-03.**
+`incoming/`, `manifests/`, `exports/`, `backups/`, `tmp/`, `webodm/` and `retention/` were all
+modified `Oct 4 17:30`. The compiler should not render §8.2's "the tree does not match this
+specification" as meaning *nothing* was created — a substantial part now exists. **FIELD-10
+stays OPEN.** What changed is the size of the gap, not its existence.
+
+Current state against the §8.2 spec, measured by enumerating rather than assuming:
+
+| Spec directory | State |
+|---|---|
+| `incoming/`, `validated/`, `rejected/`, `deliverables/`, `manifests/`, `exports/`, `backups/`, `tmp/` | present (top level) |
+| `webodm/{media,projects,nodeodm,temp,logs}` | **all five present** — the only complete subtree |
+| `retention/{pending-review,eligible-for-archive}` | present |
+| `incoming/{drone,operator,quarantine}` | **MISSING** |
+| `manifests/{intake,processing,ledger-submissions}` | **MISSING** |
+| `exports/{pcloud-staging,ipfs-staging}` | **MISSING** |
+| `backups/mapping-db` | **MISSING** |
+| `tmp/processing` | **MISSING** |
+
+That is 10 of the 18 specified directories missing. Every one of the ten is a **second-level**
+directory, and second level is where the repair fails.
+
+**The precise mechanism, which §8.5.2 described but did not enumerate.** Every missing
+directory sits under a parent owned `ao-mapping:alwayson-mapping` with mode `770`. The operator
+`scottw` is in group `ao-mapping` (gid 1001) but **not** in `alwayson-mapping` (gid 975), and
+`alwayson-mapping` has **no members at all**:
+
+```text
+$ getent group alwayson-mapping ao-mapping
+alwayson-mapping:x:975:
+ao-mapping:x:1001:scottw,ao-mapping
+```
+
+So for those parents the operator is neither the owner nor in the owning group, and `other` is
+`---`. Measured, not inferred — creation was attempted and refused:
+
+```text
+$ M=/media/scottw/500GBPHOTOGRAM
+$ for d in incoming/drone incoming/operator incoming/quarantine manifests/intake \
+           manifests/processing manifests/ledger-submissions exports/pcloud-staging \
+           exports/ipfs-staging backups/mapping-db tmp/processing; do
+      printf '%-30s ' $d
+      if mkdir $M/$d 2>/dev/null; then echo MKDIR-OK; rmdir $M/$d; else echo MKDIR-DENIED; fi
+  done
+incoming/drone                   MKDIR-DENIED
+incoming/operator                MKDIR-DENIED
+incoming/quarantine               MKDIR-DENIED
+manifests/intake                 MKDIR-DENIED
+manifests/processing             MKDIR-DENIED
+manifests/ledger-submissions     MKDIR-DENIED
+exports/pcloud-staging           MKDIR-DENIED
+exports/ipfs-staging             MKDIR-DENIED
+backups/mapping-db               MKDIR-DENIED
+tmp/processing                   MKDIR-DENIED
+```
+
+The same command **succeeds** under the two parents the operator can write, which is the
+control that proves the cause is ownership and not a broken mount:
+
+```text
+$ mkdir $M/webodm/projects/__fieldtest && rmdir $M/webodm/projects/__fieldtest   # OK, cleaned up
+$ [ -r $M/webodm ] && [ -x $M/webodm ]   # accessible
+```
+
+**This confirms and sharpens §8.5.2's ordering claim with a number.** The repair is
+`usermod -aG alwayson-mapping scottw` followed by the ten `mkdir`s — two steps, in that order,
+and the first is privileged. `sudo -n true` returns "interactive authentication is required",
+so this session cannot perform either step. §8.2's tree cannot be satisfied by the operator's
+own account until that group membership exists.
+
+**Two findings the compiler should not lose.**
+
+1. **The mount validator passes while the tree it guards fails.** `check-photogrammetry-mount.sh`
+   returns `OK: photogrammetry mount valid: systemd-1 /dev/sdb1; 434G free`, `rc=0`. It
+   validates the *mount* and never inspects the §8.2 tree, so a green result from it is **not**
+   evidence for FIELD-10 and must not be quoted as such.
+2. **§8.2's "no directory may be world-writable" holds.** `find $M -maxdepth 2 -type d -perm -0002`
+   returns nothing. That clause of the spec is satisfied; only the directory *list* is not.
+
+**Why this matters for FIELD-15.** FIELD-15 asks whether the mapping database should move onto
+this drive. The measurement above is the answer to its precondition: **the drive is not yet a
+place the operator can manage.** Moving PostgreSQL storage onto a volume whose intended operator
+cannot create, read or inspect it would convert a documented deviation into an unmanageable one.
+The group fix must land first. This is now an ordering constraint with a measured gate, not a
+caution.
+
+**I could not confirm my own probe file is gone, and I am not going to claim it is.** A
+`touch` inside `incoming/` reported `setting times: Permission denied` and I cannot `stat`,
+`ls` or `rm` the path afterwards — the directory is unreadable to me. **Treat a possible
+zero-byte `/media/scottw/500GBPHOTOGRAM/incoming/.fieldprobe` as present until an operator
+checks and removes it.** See housekeeping in the proposals.
+
+**Nothing was changed.** Every probe was a create-then-delete attempt that either succeeded and
+was reversed, or was refused by the kernel. No directory on the drive was created, chgrp'd or
+removed. `usermod` was not run and no `sudo` was invoked.
+
 ---
 
 ---

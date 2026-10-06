@@ -2,73 +2,68 @@
 item: FIELD-12
 action: close
 evidence: |
-  # live ports
-  $ ls -la /dev/serial/by-path/
-  pci-0000:00:14.0-usb-0:13:1.0-port0     -> ../../ttyUSB1
-  pci-0000:00:14.0-usbv2-0:13:1.0-port0   -> ../../ttyUSB1
-  pci-0000:05:00.0-usb-0:1:1.0-port0      -> ../../ttyUSB0
-  pci-0000:05:00.0-usbv2-0:1:1.0-port0    -> ../../ttyUSB0
+  # CORRECTION TO THE REASON, re-measured 2026-10-05. The by-id link count is a
+  # CONSEQUENCE OF IDENTICAL HARDWARE, not a property of this host's layout:
+  $ for d in ttyUSB0 ttyUSB1; do
+      echo "-- $d"; udevadm info -q property -n /dev/$d | grep -E '^ID_(SERIAL|SERIAL_SHORT|VENDOR_ID|MODEL_ID)='; done
+  -- ttyUSB0
+  ID_SERIAL=Silicon_Labs_CP2102_USB_to_UART_Bridge_Controller_0001
+  ID_SERIAL_SHORT=0001
+  ID_VENDOR_ID=10c4
+  ID_MODEL_ID=ea60
+  -- ttyUSB1
+  ID_SERIAL=Silicon_Labs_CP2102_USB_to_UART_Bridge_Controller_0001
+  ID_SERIAL_SHORT=0001
+  ID_VENDOR_ID=10c4
+  ID_MODEL_ID=ea60
 
-  # by-id has exactly ONE link -> can only ever identify ttyUSB0
+  # ...which is why only one by-id name exists. CP2102 serials are programmed at the vendor,
+  # so an unprogrammed PAIR COLLIDES BY DEFINITION and replugging cannot fix it.
   $ ls -la /dev/serial/by-id/
   usb-Silicon_Labs_CP2102_USB_to_UART_Bridge_Controller_0001-if00-port0 -> ../../ttyUSB0
 
-  # both bridges report the BYTE-IDENTICAL serial descriptor
-  $ for d in ttyUSB0 ttyUSB1; do udevadm info -q property -p /sys/class/tty/$d \
-      | grep -E '^ID_SERIAL=|^ID_PATH='; done
-  ID_SERIAL=Silicon_Labs_CP2102_USB_to_UART_Bridge_Controller_0001
-  ID_PATH=pci-0000:05:00.0-usb-0:1:1.0
-  ID_SERIAL=Silicon_Labs_CP2102_USB_to_UART_Bridge_Controller_0001
-  ID_PATH=pci-0000:00:14.0-usb-0:13:1.0
+  # by-path still resolves both, and is the only discriminator that can:
+  $ for p in /dev/serial/by-path/*; do printf '%s -> ' "$p"; readlink -f $p; done
+  /dev/serial/by-path/pci-0000:00:14.0-usb-0:13:1.0-port0  -> /dev/ttyUSB1
+  /dev/serial/by-path/pci-0000:05:00.0-usb-0:1:1.0-port0  -> /dev/ttyUSB0
 
-  # the ao-* symlinks §2.1 promises do not exist
-  $ ls -la /dev/ao-drone-radio /dev/ao-people-radio
-  ls: cannot access '/dev/ao-drone-radio': No such file or directory
-  ls: cannot access '/dev/ao-people-radio': No such file or directory
-
-  # ...but the rule is installed, correct, and provably able to fire
-  $ udevadm test /sys/class/tty/ttyUSB0 2>&1 | grep 99-ao-heltec
-  ttyUSB0: /etc/udev/rules.d/99-ao-heltec.rules:18 SYMLINK+="ao-drone-radio": Added device node symlink "ao-drone-radio".
-  $ udevadm test /sys/class/tty/ttyUSB1 2>&1 | grep 99-ao-heltec
-  ttyUSB1: /etc/udev/rules.d/99-ao-heltec.rules:19 SYMLINK+="ao-people-radio": Added device node symlink "ao-people-radio".
-
-  # live Reticulum config agrees with by-path
-  $ grep -A12 '\[\[DRONE-RADIO\]\]' ~/.reticulum/config | grep frequency
-  frequency = 917000000
+  # The ao-* names are STILL absent -- rule installed, but written after enumeration:
+  $ stat -c '%n %y' /etc/udev/rules.d/99-ao-heltec.rules
+  /etc/udev/rules.d/99-ao-heltec.rules 2026-09-30 23:05:58.012973199 -0700
+  $ journalctl -k --no-pager | grep -E 'cp210x converter now attached'
+  Oct 01 15:08:12 kernel: usb 3-1: cp210x converter now attached to ttyUSB0
+  Oct 01 15:08:12 kernel: usb 1-13: cp210x converter now attached to ttyUSB1
+  $ ls -la /dev/ao-*
+  ls: cannot access '/dev/ao-*': No such file or directory
 section: 09-field-and-lora-architecture
 ---
-§9 gains a new **§9.4.2** publishing the one canonical device-name table the item asks for, and
-resolving the three-way contradiction between §2.1, §19 and §9.2.1.
 
-| Radio | Live port | `by-path` discriminator | `ID_PATH` |
-|---|---|---|---|
-| `DRONE-RADIO` (917 MHz) | `/dev/ttyUSB0` | `pci-0000:05:00.0-usb-0:1:1.0-port0` | `pci-0000:05:00.0-usb-0:1:1.0` |
-| `PEOPLE-RADIO` (915 MHz) | `/dev/ttyUSB1` | `pci-0000:00:14.0-usb-0:13:1.0-port0` | `pci-0000:00:14.0-usb-0:13:1.0` |
+**Supersedes:** this file revises the FIELD session's own earlier proposal of this path,
+rewritten 2026-10-05 08:12 PDT. The earlier revision was never merged into §19.2, so the
+compiler should take this version as the only FIELD proposal for this item.
 
-Two findings the compiler should not lose:
+**FIELD-12 remains CLOSED.** The canonical device-name table in §9.4.2 stands. This proposal
+corrects **why** `by-id` fails, because the earlier wording recorded a symptom as if it were a
+property of this machine.
 
-1. **§19's `/dev/heltec-v3` is wrong and must not be reinstated.** Both boards are Heltec V3,
-   so one name could only ever point at one of them. `99-ao-heltec.rules` *deliberately*
-   declines to create it.
-2. **`by-id` cannot identify `PEOPLE-RADIO` at all** — only one link exists, pointing at
-   `ttyUSB0`. Both ports also share a byte-identical `ID_SERIAL`, confirming §9.2.1's claim
-   that identity cannot come from the USB serial descriptor. **`by-path` is the only working
-   discriminator**, which is what the live Reticulum config already uses.
+The previous pass said `by-id` "has exactly ONE link → can only ever identify `ttyUSB0`" and
+left the cause open. Re-measured today: **both boards report the byte-identical serial
+`..._Bridge_Controller_0001`**. CP2102 serial numbers are programmed at the vendor, so two
+factory-default bridges are guaranteed to collide. The single `by-id` link is therefore a
+consequence of the hardware, and **no replugging, re-seating or udev reload will ever produce a
+second one.**
 
-**§2.1's `/dev/ao-drone-radio` and `/dev/ao-people-radio` are specified but absent.** The udev
-rule is installed and provably correct — `udevadm test` shows it *would* create both symlinks,
-one per line, matched to the right port. The cause is ordering: the rule was installed
-`2026-09-30 23:05:58`, after both adapters were already enumerated, and udev applies `add` rules
-only at enumeration. An `udevadm trigger` would create them.
+**The generalisable consequence, which closes a plausible future suggestion:** "use `by-id` once
+the serials are made unique" cannot be executed on this hardware without a vendor programming
+step, and `by-path` is the only discriminator that works. Any future proposal to switch to
+`by-id` should be rejected against this measurement rather than re-litigated.
 
-**Not performed — operator action required.** `udevadm trigger` on live serial devices is a stop
-condition under "live radio, serial or network configuration". So the table above is published
-against `by-path`, which works today; the `ao-*` names become valid once the operator triggers.
-Nothing in §9.2.1 depends on the `ao-*` names, so no section is blocked by this.
+**The `ao-*` symlinks remain absent and this is still an operator action.** The rule is installed
+(mtime 2026-09-30 23:05:58) and both adapters enumerated at boot on 2026-10-01 — *after* the
+rule existed — so udev never applied the `add` action to them. `ls /dev/ao-*` returns
+`No such file or directory`. Creating them needs `udevadm trigger`, which is live serial
+configuration; I did not run it. §9.4.2 publishes against `by-path`, which works today, so no
+section is blocked on this.
 
-**The MAC column is deliberately empty.** §9.4.2 asks for it, and obtaining the SX1262 MAC
-requires opening the RNode serial port, which `ReticulumMeshChatX` (PID 840861) currently holds
-open. That is live radio configuration. The column is marked **not measured** rather than
-guessed — if the compiler renders FIELD-12 as "fully closed with MACs", that would be a stronger
-claim than the evidence supports. The item is closed on the *decision and the table*, which is
-what it asked for; the MAC is the one cell still owed.
+**Unchanged from the last pass:** the MAC column in §9.4.2 is still marked *not measured*.
+Re-reading it means opening a serial port that PID 840861 owns, so I did not.

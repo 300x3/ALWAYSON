@@ -125,10 +125,17 @@ The two radios are not interchangeable and are not both "chat". Each has one job
 and it receives **midflight mission updates** relayed by DRONE-RADIO to its session on the
 Pi5. PEOPLE-RADIO has no relationship to the drone.
 
-### 9.2.3 Bounded-ratchet persistence — classified 2026-10-03
+### 9.2.3 Bounded-ratchet persistence — classified 2026-10-03, **CLASSIFICATION REVERSED 2026-10-05**
 
-The `umsgpack` error named in FIELD-05 is **historical and resolved**. It is not occurring.
-Counts across the whole rotated log set:
+> **READ THIS BEFORE THE PARAGRAPHS BELOW.** Everything under this heading up to the
+> 2026-10-05 entry was written on 2026-10-03/04 and **two of its claims are now known to be
+> wrong**: (1) the `umsgpack` fault is *not* demonstrably historical — the count quoted here
+> **reproduces in no retained log today**, so the evidence it rested on was rotation-fragile;
+> (2) the causal hypothesis I withdrew below is **re-supported** by fresh data. The
+> 2026-10-05 entry supersedes both. FIELD-05 is reopened.
+
+The `umsgpack` error named in FIELD-05 was classified as **historical and resolved**. It is not
+occurring. Counts across the whole rotated log set:
 
 ```bash
 $ cd ~/.reticulum-meshchatx/logs
@@ -139,7 +146,26 @@ meshchatx.log.1: 0
 meshchatx.log: 0
 ```
 
-All 12,364 occurrences are the identical line, and the block terminates immediately before a
+**2026-10-05: the 12,364 count no longer reproduces in any file, and the error text is absent
+everywhere.** Re-measured binary-safe, across all four retained logs:
+
+```bash
+$ for f in meshchatx.log.3 meshchatx.log.2 meshchatx.log.1 meshchatx.log; do
+    echo "$f: umsgpack=$(grep -ac umsgpack $f)  'No module named'=$(grep -ac 'No module named' $f)"
+  done
+meshchatx.log.3: umsgpack=0  'No module named'=0
+meshchatx.log.2: umsgpack=0  'No module named'=0
+meshchatx.log.1: umsgpack=0  'No module named'=0
+meshchatx.log:   umsgpack=0  'No module named'=0
+```
+
+`No module named 'umsgpack'` — the exact string quoted below — **occurs in no retained log.**
+The segment holding those errors has been overwritten by rotation since 2026-10-04. **Reason the
+earlier claim was wrong: a count taken from a rotated log filename is not durable evidence,
+and I treated it as though it were.** A grep count of 0 in the *current* file proves only that
+the current file has none, which is a much weaker claim than "historical and resolved".
+
+All 12,364 occurrences were the identical line, and the block terminated immediately before a
 restart — the last error is directly followed by new startup banners:
 
 ```text
@@ -182,6 +208,15 @@ $ grep -c 'Bounded ratchet persist failed' ~/.reticulum-meshchatx/logs/meshchatx
 $ grep -ch 'unrecoverable error' ~/.reticulum-meshchatx/logs/meshchatx.log{,.1,.2,.3}
 994 / 7800 / 2389 / 29                                                        # 11,212 total
 ```
+
+**2026-10-05: the `0` on line two of that block was TRUE when written, and is no longer true.**
+It now reads **4**. The logs are binary to `grep`, so I re-checked with `grep -ac` to rule out a
+counting artefact — `grep -c` and `grep -ac` both return 4, so the increase is real, not a
+truncation effect. The four are new occurrences dated today; the withdrawal below was sound on
+2026-10-04 and is superseded by §9.2.3.1 because the association it denied has since held
+again. The teardown counts on lines one and three are unaffected — the cadence conclusion
+below stands. (The current log's `DRONE-RADIO` teardown count is now 3889, up from 994 as
+measured on 2026-10-04: the figure grows continuously because the radio is still retrying.)
 
 **`DRONE-RADIO` is not dropping hourly — it is retrying roughly every 7 seconds and has
 never recovered.** Consecutive events at `07:25:38`, `07:25:44`, `07:25:51`, `07:25:57`.
@@ -236,6 +271,81 @@ state is therefore **not** being flushed in the running instance.
 
 No corrective action was taken. Repairing it means touching the serial device and the running
 Reticulum stack, which is a stop condition.
+
+#### 9.2.3.1 Classification reversed 2026-10-05 — the persist fault is LIVE, and it tracks
+#### the `DRONE-RADIO` teardown
+
+**The 2026-10-03 classification above is withdrawn. FIELD-05 is reopened.** Two separate things
+were wrong with it, and the second is the one that matters operationally.
+
+**1. The `umsgpack` evidence does not survive.** The 12,364 count and the string
+`No module named 'umsgpack'` reproduce in **no retained log** (counts above). The classification
+"historical packaging defect, never recurred" rested entirely on a count taken from a rotated
+filename, and rotation has since destroyed the segment it referred to. I cannot now prove the
+`umsgpack` fault ever stopped, only that its evidence is gone.
+
+**2. The persist fault is still happening, today.** On 2026-10-04 I withdrew the
+shared-file-descriptor explanation, on the grounds that the current log had 994 `DRONE-RADIO`
+teardowns and **zero** persist failures. That reading was correct on the day — but the zero was a
+*count from an earlier point in a live log*, and the current log is still being appended to. It
+now holds four, and the association is exact:
+
+```bash
+$ grep -ac 'Bounded ratchet persist failed' meshchatx.log
+4                                   # in the current log, i.e. today
+$ grep -a 'Bounded ratchet persist failed' meshchatx.log | tail -1
+ERROR:meshchatx.rns_ratchet_persist:Bounded ratchet persist failed: [Errno 9] Bad file descriptor
+$ grep -an 'Bounded ratchet persist failed' meshchatx.log | cut -d: -f1
+8049
+12279
+16470
+19670
+```
+
+Every occurrence, with its surrounding lines — note the same second, and the reconnect that
+immediately follows:
+
+```text
+[2026-10-05 03:15:33] [Error]  The interface RNodeInterface[DRONE-RADIO] experienced an unrecoverable error and is now offline.
+[2026-10-05 03:15:33] [Error]  Reticulum will attempt to reconnect the interface periodically.
+ERROR:...rns_ratchet_persist:Bounded ratchet persist failed: [Errno 9] Bad file descriptor
+[2026-10-05 03:15:33] [Error]  Error while reconnecting port, the contained exception was: 'NoneType' object cannot be interpreted as an integer
+[2026-10-05 03:15:38] [Notice] Opening serial port /dev/serial/by-path/pci-0000:05:00.0-usb-0:1:1.0-port0...
+```
+
+Identical shape at `04:59:53`, `06:42:08` and `07:59:53`. Counts of this live error per file,
+oldest first: `.3` 2, `.2` 13, `.1` 9, current 4.
+
+**Why this is the same defect and not a new one.** `[Errno 9] Bad file descriptor` on a persist
+write, firing in the same second as an interface teardown, is consistent with **the ratchet
+state file's descriptor being closed as a side effect of the `DRONE-RADIO` reset** — the
+hypothesis I withdrew. The withdrawal was sound on the evidence available on 2026-10-04; it is
+superseded because that evidence was a snapshot of a file still being written to. It is
+reinstated as the **leading hypothesis, not a proven mechanism**: I have not traced the code
+path, and no stack trace is logged.
+
+**The operational consequence, which is the point.** The persistence subsystem is failing daily
+and **downstream of the same broken board** that blocks FIELD-01/02/03/06. One board repair may
+clear both. That is a stronger result than the closure I gave on 2026-10-04, where I noted this
+error and then wrote it off as "a different bug, not covered by closing FIELD-05" — which left a
+real daily fault with no open item against it.
+
+**Why I got it wrong, in the form that generalises.** Two different mistakes, both from trusting
+a count more than its scope. First, the `umsgpack` figure came from a **rotated** log filename, and
+rotation has since destroyed the segment it described — a `grep -c` against a file that will be
+overwritten answers "what is in this file now", which I read as "what is true of the fault". The
+tell was available and I recorded it: the count lived in `meshchatx.log.2` in one pass and
+`meshchatx.log.3` in the next. **A count that moves when you rename the file is not measuring the
+fault.** Second, the "zero persist failures" I used to withdraw the teardown hypothesis was a
+count of a **live, still-growing** log — correct that day, superseded today, and I nearly
+dismissed today's four as a measurement artefact.
+
+**On the binary-grep worry, checked rather than assumed:** these logs *are* binary to `grep`
+(`binary file matches`), which is a real trap for anyone counting here. I tested whether it
+explained the discrepancy and it does not — `grep -c` and `grep -ac` both return 4 on the current
+log. So use `grep -a` for safety, but the numbers above are not a truncation effect.
+
+**Nothing was changed.** Read-only inspection. No service restart, no file touched.
 
 ## 9.3 Operational Security
 
@@ -917,5 +1027,151 @@ field means what you think it means before you build a finding on it.
 **Nothing was touched.** No radio, no serial port, no firewall, no config file, no restart of
 the Reticulum stack. All six blockers in §9.5.5 remain live.
 
+### 9.5.10 Fourth re-verification 2026-10-05 07:56 — the `DRONE-RADIO` fault narrows to the
+### board's own firmware, with every hardware alternative excluded
+
+§9.5.2 concluded the fault "is the radio board, not the port, the symlink or permissions". That
+conclusion was reached without enumerating the remaining hardware causes, and **this pass closes
+that gap.** The exclusion is by measurement, and it is what an operator needs in order to know
+whether to reseat a cable, replace a board, or stop looking at this host at all.
+
+`DRONE-RADIO` is still down with zero successful detections and the failure signature is
+unchanged — the port opens and the board does not identify itself:
+
+```text
+$ tail -6 ~/.reticulum-meshchatx/logs/meshchatx.log
+[2026-10-05 07:53:34] [Error]    Could not detect device for RNodeInterface[DRONE-RADIO]
+[2026-10-05 07:53:34] [Error]    A serial port error occurred, the contained exception was: [Errno 9] Bad file descriptor
+[2026-10-05 07:53:34] [Error]    The interface RNodeInterface[DRONE-RADIO] experienced an unrecoverable error and is now offline.
+```
+
+The last successful detection anywhere in the retained logs is still 2026-09-25 17:22:28. Counts
+per rotated file, oldest first — the outage has now run **ten days continuously**:
+
+| Log | First line | `DRONE-RADIO` unrecoverable |
+|---|---|---|
+| `meshchatx.log.3` | 2026-09-25 16:27:17 | 2353 |
+| `meshchatx.log.2` | 2026-10-03 14:39:56 | 7798 |
+| `meshchatx.log.1` | 2026-10-04 07:25:38 | 7866 |
+| `meshchatx.log` | 2026-10-04 23:58:26 | 3777 |
+
+**The last row is a live figure and grows continuously** — it was 3777 when first counted and
+3898 on a later count the same morning, because the radio is still retrying every few seconds.
+**Treat it as a lower bound, and never cite a count from `meshchatx.log` as a fixed number.**
+The three rotated rows are stable. Same caveat applies to the teardown total in §9.2.3.
+
+**Alternative 1 — "the USB adapter is absent." Excluded.** Both `CP2102` bridges are enumerated
+on the expected buses and the kernel logged eight `cp210x` lines with **no disconnect or reset
+since**:
+
+```text
+$ lsusb | grep -i 10c4
+Bus 001 Device 010: ID 10c4:ea60 Silicon Labs CP210x UART Bridge
+Bus 003 Device 002: ID 10c4:ea60 Silicon Labs CP210x UART Bridge
+
+$ journalctl -k --no-pager | grep -E 'cp210|ttyUSB' | tail -6
+Oct 01 15:08:12 kernel: usb 3-1: Product: CP2102 USB to UART Bridge Controller
+Oct 01 15:08:12 kernel: usb 1-13: Product: CP2102 USB to UART Bridge Controller
+Oct 01 15:08:12 kernel: cp210x 3-1:1.0: cp210x converter detected
+Oct 01 15:08:12 kernel: usb 3-1: cp210x converter now attached to ttyUSB0
+Oct 01 15:08:12 kernel: cp210x 1-13:1.0: cp210x converter detected
+Oct 01 15:08:12 kernel: usb 1-13: cp210x converter now attached to ttyUSB1
+```
+
+`ttyUSB0` is the `DRONE-RADIO` port and it is **live**: ctime 2026-10-01 23:53:34, and `ls -la`
+shows a present character device.
+
+**Alternative 2 — "the port name is wrong or stale." Excluded.** All `by-path` symlinks resolve,
+and the one `DRONE-RADIO` uses is the correct board per §9.4.2 and `~/.reticulum/radio-ids.txt`
+(`3-1` = the USB-C port = `pci-0000:05:00.0`):
+
+```text
+$ for p in /dev/serial/by-path/*; do printf '%s -> ' "$p"; readlink -f $p; done
+/dev/serial/by-path/pci-0000:00:14.0-usb-0:13:1.0-port0  -> /dev/ttyUSB1
+/dev/serial/by-path/pci-0000:05:00.0-usb-0:1:1.0-port0  -> /dev/ttyUSB0
+```
+
+**Alternative 3 — "permissions or group membership." Excluded.** The operator is in `dialout`
+and both nodes are `root:dialout 0660`, readable and writable:
+
+```text
+$ ls -la /dev/ttyUSB0 /dev/ttyUSB1
+crw-rw---- 1 root dialout 188, 0 /dev/ttyUSB0
+crw-rw---- 1 root dialout 188, 1 /dev/ttyUSB1
+$ for d in /dev/ttyUSB0 /dev/ttyUSB1; do [ -r $d ] && [ -w $d ] && echo "$d rw OK"; done
+/dev/ttyUSB0 rw OK
+/dev/ttyUSB1 rw OK
+```
+
+**Alternative 4 — "something else is holding the port." Excluded, and this one needed sampling
+rather than a single check.** `ReticulumMeshChatX` (PID 840861) holds **only** `ttyUSB1` — the
+`PEOPLE-RADIO` port — and nothing else holds `ttyUSB0`. Sampling three times over six seconds
+caught `ttyUSB0` momentarily held by Reticulum itself, which is its own retry loop grabbing and
+releasing the port, not a third-party conflict:
+
+```text
+$ fuser -v /dev/ttyUSB0 /dev/ttyUSB1
+                     USER        PID ACCESS COMMAND
+/dev/ttyUSB1:        scottw    840861 F.... ReticulumMeshCh
+        # nothing listed for /dev/ttyUSB0
+```
+
+**What is left, stated precisely.** The USB bridge enumerates and the node opens, but the
+**ESP32 on the `DRONE-RADIO` board does not answer the identification RNode sends on that
+bridge.** That is a board-side or cable-side condition — the board's own firmware state, a
+damaged or charge-only cable, or the board needing a power cycle — and it is **not diagnosable
+or repairable from this host.** `DRONE-RADIO` is correctly configured and correctly addressed;
+there is nothing in the software configuration to change.
+
+**This is a stop condition, and I stopped.** "Live radio, serial or network configuration" is on
+the operator-approval list. I did not `udevadm trigger`, did not cycle the USB bus, did not open
+either port for a manual probe, and did not restart the Reticulum stack. The MAC in
+`radio-ids.txt` dates from 2026-09-21 and I did not re-read it from hardware, because that means
+opening a serial port the running service owns.
 **Nothing was touched.** No radio, no serial port, no firewall, no config file. Every blocker in
 §9.5.5 still requires physical repair or operator action.
+**Correction to a prior claim in this section, and it is the one most likely to mislead the next
+reader.** §9.4.2 and the FIELD-12 proposal record that `by-id` has "exactly ONE link → can only
+ever identify `ttyUSB0`". The observation still holds, but the reason was written as though it
+were a property of this host's layout. It is not: **both bridges ship with the byte-identical
+factory serial descriptor `Silicon_Labs_CP2102_USB_to_UART_Bridge_Controller_0001`**, because
+CP2102 serials are programmed at the vendor and a factory-default pair collides by definition.
+Re-measured today on both devices:
+
+```text
+$ for d in ttyUSB0 ttyUSB1; do udevadm info -q property -n /dev/$d | grep -E '^ID_(SERIAL|PATH)='; done
+ID_SERIAL=Silicon_Labs_CP2102_USB_to_UART_Bridge_Controller_0001
+ID_PATH=pci-0000:05:00.0-usb-0:1:1.0
+ID_SERIAL=Silicon_Labs_CP2102_USB_to_UART_Bridge_Controller_0001
+ID_PATH=pci-0000:00:14.0-usb-0:13:1.0
+```
+
+So the single `by-id` link is a **consequence of identical hardware**, and no amount of
+replugging will ever produce a second `by-id` name. **`by-path` is the only discriminator that
+can work for these two boards** — a property of the hardware, not an accident of one boot.
+§9.4.2's table should be read that way, and any future suggestion to "just use `by-id` once the
+serial is unique" is closed by this.
+
+**Two stale-by-date findings the compiler should re-check rather than copy.**
+
+- **The `ao-*` symlinks from FIELD-12 are still absent**, cause unchanged: the rule is installed
+  (`/etc/udev/rules.d/99-ao-heltec.rules`, mtime `2026-09-30 23:05:58`) and both adapters
+  enumerated at boot on 2026-10-01, i.e. **after** the rule was written. `ls /dev/ao-*` →
+  `No such file or directory`. Creating them still needs an operator `udevadm trigger`, which is
+  a live-serial action and was not performed.
+- **FIELD-05's `umsgpack` fault has not recurred.** `grep -c umsgpack` on the current log returns
+  **0**, with the last occurrence still in `meshchatx.log.2`. That *supports* FIELD-05's closure
+  rather than reopening it: the persistence error stopped instead of continuing.
+
+**Nothing was touched.** No radio, no serial port, no `udevadm trigger`, no USB reset, no
+firewall change, no config edit, no restart. `PEOPLE-RADIO` is up with zero error lines today
+(`grep -c 'PEOPLE-RADIO'` on the current log → `0`).
+
+**What I got wrong this pass.** I queried `journalctl -k --since '2026-10-04'` and `dmesg` to test
+whether the USB link had flapped, and got **empty output from both** — which reads exactly like
+"nothing happened". It is not evidence of that. `dmesg` is unreadable for this user, and the
+`--since` window genuinely contained no kernel messages, while the *unfiltered* query showed the
+eight lines that do exist, all from Oct 01. The lesson is the one from FIELD-05's rotated logs and
+my own §9.5.9 timestamp error, now for the third time in this section: **an empty result from a
+query whose scope I did not verify is not a negative finding.** I got the right answer only after
+running the unfiltered query and reading what it returned.

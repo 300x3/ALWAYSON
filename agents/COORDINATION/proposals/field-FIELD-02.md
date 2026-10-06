@@ -2,64 +2,53 @@
 item: FIELD-02
 action: blocked
 evidence: |
-  # same root blocker as FIELD-01 — DRONE-RADIO offline since 2026-09-25 16:27
-  $ grep -ch 'unrecoverable error' ~/.reticulum-meshchatx/logs/meshchatx.log{,.1,.2,.3}
-  994 / 7800 / 2389 / 29    # 11,212 total offline events
-  $ grep -h 'is configured and powered up' ~/.reticulum-meshchatx/logs/meshchatx.log* | tail -1
-  [2026-09-25 16:27:11] RNodeInterface[DRONE-RADIO] is configured and powered up
+  # Re-verified 2026-10-05. Same root blocker as FIELD-01, unchanged for ten days.
+  # There is no link to test: one end of it has never come up.
+  $ grep -h 'DRONE-RADIO.*powered up' ~/.reticulum-meshchatx/logs/meshchatx.log* | tail -1
+  INFO:meshchatx.rns:[2026-09-25 17:22:28] [Notice]   RNodeInterface[DRONE-RADIO] is configured and powered up
+  $ grep -c 'DRONE-RADIO.*powered up' ~/.reticulum-meshchatx/logs/meshchatx.log
+  0
+  $ grep -h 'PEOPLE-RADIO.*powered up' ~/.reticulum-meshchatx/logs/meshchatx.log.1
+  INFO:meshchatx.rns:[2026-10-03 16:57:56] [Notice]   RNodeInterface[PEOPLE-RADIO] is configured and powered up
+  $ grep -c 'PEOPLE-RADIO' ~/.reticulum-meshchatx/logs/meshchatx.log
+  0                                   # up, and no error line today
 
-  # no RF traffic at all, so no unicast/broadcast exchange to observe
-  $ grep -oh -E '(RSSI|rssi)[=: ]+[-0-9.]+' ~/.reticulum-meshchatx/logs/meshchatx.log* | wc -l
+  # No unicast/broadcast exchange to observe, on any band:
+  $ grep -ohE '(RSSI|SNR)[=: ]+-?[0-9.]+' ~/.reticulum-meshchatx/logs/meshchatx.log | wc -l
+  0
+  $ grep -cE 'Recieved (broadcast|proof)' ~/.reticulum-meshchatx/logs/meshchatx.log
   0
 
-  # a link test also needs a peer at the far end; the Pi5 drone is not on this network
-  $ getent hosts raspberrypi raspbianpios alwayondrone rpi5
-  (no output — not in DNS)
-  $ ls ~/.ssh/config
-  ls: cannot access '/home/scottw/.ssh/config': No such file or directory
-  $ ip neigh
-  169.254.207.81 dev eno1 lladdr 30:05:5c:ee:a2:9b STALE
-  10.42.0.96   dev eno1 FAILED
-  192.168.87.1  dev wlp3s0 lladdr 16:22:3b:67:bd:98 REACHABLE
+  # Cause narrowed to the board itself -- adapter alive, port correct, permissions fine,
+  # no contention. Full exclusion list in section 09 §9.5.10.
+  $ journalctl -k --no-pager | grep -cE 'usb .*disconnect|reset (high|full|super)speed'
+  0
+  $ ls -la /dev/ttyUSB0
+  crw-rw---- 1 root dialout 188, 0 /dev/ttyUSB0
+  $ fuser -v /dev/ttyUSB0 /dev/ttyUSB1
+                       USER        PID ACCESS COMMAND
+  /dev/ttyUSB1:        scottw    840861 F.... ReticulumMeshCh
+  (nothing for /dev/ttyUSB0)
 section: 09-field-and-lora-architecture
 ---
-**FIELD-02 stays OPEN — action `blocked`.** Recorded in the new §9.5 / §9.5.5 in §9.
 
-This item has **two** independent blockers, and both must clear before an end-to-end test is
-possible:
+**Supersedes:** this file revises the FIELD session's own earlier proposal of this path,
+rewritten 2026-10-05 08:12 PDT. The earlier revision was never merged into §19.2, so the
+compiler should take this version as the only FIELD proposal for this item.
 
-1. **No drone-side RF path.** `DRONE-RADIO` (917 MHz) has failed to come up since
-   2026-09-25 16:27, 11,212 logged offline events across four rotated logs. One of the two
-   paths the item wants tested does not exist on air.
-2. **No peer at the far end.** Unicast and broadcast need two ends. The Pi5 drone is not
-   connected: no DNS entry, no SSH config, absent from the ARP cache, and the dnsmasq lease
-   file is empty. `10.42.0.96` is `printer-01` (down), not the drone.
+**FIELD-02 stays BLOCKED, action `blocked`.** New subsection **§9.5.10**.
 
-The fail-safe half of the criteria — verified on radio, serial-path and peer loss — is
-likewise untestable: with only one radio on the host there is no peer to lose and no second
-path to fail over to.
+An end-to-end field link test needs both ends. `PEOPLE-RADIO` is up and clean; `DRONE-RADIO`
+has not completed detection since 2026-09-25 17:22:28, so there is no second endpoint and no
+exchange of any kind to observe — zero RSSI/SNR lines and zero received broadcasts or proofs in
+the current log.
 
-**One genuinely useful thing this session established**, and the reason the item is `blocked`
-rather than merely untouched: **peer loss *is* being observed continuously, and the system is
-not recovering from it.** The reconnect loop in §9.5.1 is exactly the peer/serial-loss
-fail-safe path, and it has been running for ten days without ever succeeding. That is a real
-finding about fail-safe behaviour, just not the pass the criteria ask for. I record it as a
-finding and **not** as a closure, because the criteria require unicast *and* broadcast to be
-proven, which needs the radio back.
+**The new information is the cause, and it is the same cause as FIELD-01**: the CP2102 bridge
+for `DRONE-RADIO` enumerates on bus 3 and has never disconnected, the `by-path` name resolves
+to the correct board, permissions are correct, and nothing but Reticulum's own retry loop ever
+holds the port. The ESP32 on the board does not answer identification. That is a hardware or
+firmware condition and cannot be cleared from this host.
 
-**I did not restart the stack to "clear" the loop.** Killing `ReticulumMeshChatX`
-(PID 840861) would drop the live `0.0.0.0:4242` listener that FIELD-04 decided is
-LAN-reachable, and would touch live radio and serial state. That is a stop condition, and
-doing it to make a test *look* runnable would be worse than leaving the item open.
-
-**What I got wrong, and the reason.** I nearly recorded the ten-day reconnect loop as
-evidence that the fail-safe criteria were satisfied, because the criteria mention "peer loss"
-and I had ten days of peer loss on record. **Reason: I was pattern-matching my evidence onto
-the item's wording instead of testing it against the wording.** A criterion that says fail-safe
-must be *verified* wants a demonstration that the system recovers; what I have is proof that
-it does not. Recording that as a pass would have inverted the finding — which is the specific
-failure mode this single-writer proposal process exists to prevent.
-
----
-
-**RE-VERIFIED 2026-10-04 15:09 — still blocked, nothing recovered.** All prerequisites re-measured before relying on the original finding (full output in §9.5.7). `DRONE-RADIO` has still not come up since 2026-09-25 16:27; the offline-retry total is now **13,885** (was 11,212 at 09:18) and the failure signature is still live at the final log line. The Pi5 drone is still absent from DNS, SSH config and the ARP cache, so there is no peer at the far end of any link. **No new evidence was found and no claim in this proposal has been weakened.** This item cannot be closed or narrowed from the desktop host; it needs the radio board repaired and/or the drone powered and connected.
+**Nothing was done to clear it.** No `udevadm trigger`, no USB bus reset, no manual port probe,
+no Reticulum restart. I did not attempt to work around a missing radio by loopback-testing the
+one that works, because that would produce a passing test that does not evidence a field link.
