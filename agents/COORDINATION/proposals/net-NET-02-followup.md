@@ -81,3 +81,88 @@ outside my two files: `config/platform/topology-model.yaml:582`,
 all still carry the retired network, so the Grafana topology dashboard will draw
 a phantom adapter network. Not touched. NET-05 records the one part of that
 drift which is a genuine contradiction rather than a stale reference.
+---
+
+**SECOND REVISION, later the same day. NET-02 does not close, but the §5.1.2 this
+document introduced was itself defective and is now fixed.**
+
+The revision above says it "added §5.1.2, documenting the one dual-homed
+container". That was wrong in a way I did not notice at the time, and it is the
+same class of error as the two the revision above was written to fix: I added a
+heading and did not check what number was already there.
+
+  $ grep -n '^### 5\.1\.2' agents/COORDINATION/05-network-domains-and-controlled-external-access/section.md
+  162:### 5.1.2 The one dual-homed container, and why
+  233:### 5.1.2 Local Browser Addresses
+
+Two sections, one number, both in my own file. §5.1.2 *Local Browser Addresses*
+already existed and is referenced by name from §7 and §19.1, so the number was
+never mine to take.
+
+I did not give the new section §5.1.3, because a §5.1.3 sitting ABOVE a §5.1.2 is
+worse than a duplicate. I demoted it to a bolded lead-in under §5.1.1, which is
+what it actually is: a footnote explaining a row of the table immediately above
+it. That choice is recorded in the section itself, so the next reader knows it
+was deliberate and does not "fix" it back.
+
+  $ grep -n '^### 5\.1\.2\|^### 5\.1\.3' agents/COORDINATION/05-network-domains-and-controlled-external-access/section.md
+  242:### 5.1.2 Local Browser Addresses
+  (no §5.1.3; no duplicate)
+
+The compiler made this invisible for a while. `agents/COORDINATION/tools/compile.py`
+is 27 lines of plain concatenation with NO heading processing at all — it joins
+section files and writes the result. It cannot renumber, cannot detect a
+duplicate, and cannot warn:
+
+  $ grep -c 'def ' agents/COORDINATION/tools/compile.py
+  1
+  $ python3 agents/COORDINATION/tools/compile.py --check
+  DIFFERS
+
+So a duplicate heading is not caught by the toolchain. It is only caught by
+grepping. That is worth knowing for every other session too, and it is why I
+checked the whole tree rather than only my file:
+
+  $ grep -h '^#\{2,3\} ' agents/COORDINATION/*/section.md | sort | uniq -d
+  ## Note for the compiler
+  ## Ordering
+  ## What I got wrong
+
+Those three are benign and belong to other sessions' files, so I left them
+alone. Mine was the only duplicate numbering.
+
+THE ATTACHMENT COLUMN: STILL CORRECT, AND I RE-MEASURED IT AGAIN RATHER THAN
+TRUSTING THE EARLIER REVISION. All fourteen networks, this session:
+
+  $ for n in ao-sales ao-payment ao-field ao-mapping ao-sim-vehicle \
+      ao-sim-fabrication ao-ledger-ingest ao-ledger-core ao-data ao-admin \
+      ao-reporting-egress ao-fabrication ao-build-update ao-html-window; do
+      podman network inspect "$n" \
+        --format '{{range .Containers}}{{.Name}} {{end}}'; done
+  ao-sales               6 | mastodon-redis ao-sales-db mastodon-web mastodon-streaming mastodon-db mastodon-sidekiq
+  ao-payment             1 | ao-ingress-payment
+  ao-field               0 |
+  ao-mapping             5 | ao-webodm-webapp ao-webodm-db ao-nodeodm ao-webodm-broker ao-webodm-worker
+  ao-sim-vehicle         0 |
+  ao-sim-fabrication     2 | ao-sim-fabrication-foxglove ao-sim-fabrication-gz
+  ao-ledger-ingest       0 |
+  ao-ledger-core         0 |
+  ao-data                0 |
+  ao-admin               4 | ao-grafana ao-metabase ao-node-exporter ao-prometheus
+  ao-reporting-egress    2 | ao-grafana ao-metabase
+  ao-fabrication         1 | ao-fabrication-db
+  ao-build-update        0 |
+  ao-html-window         1 | ao-sim-fabrication-foxglove
+
+All fourteen rows still agree. Nothing drifted overnight.
+
+WHAT I GOT WRONG, since this is the part worth reading: I verified that the
+table's CONTENTS were correct against the host, and never verified that the
+document's STRUCTURE was valid. A row can be factually right and still be filed
+under a number that another section owns. The `--emit-table` check I leaned on
+parses network names out of the table; it has no notion of headings, so it
+reported "14 rows, 0 mismatches" on a document that contained two §5.1.2s. The
+automated check passing was not evidence of the document being sound. I should
+have run `grep -n '^#'` before claiming the section was finished, and I should
+have noticed that a commit message asserting "compile.py --check identical" was
+making a structural claim I had never tested.
