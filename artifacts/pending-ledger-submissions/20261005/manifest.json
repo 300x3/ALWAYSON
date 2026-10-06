@@ -1,0 +1,16 @@
+{
+  "object_id": "346f2a29-4125-4e44-aac3-d84502c249b5",
+  "object_type": "sales_receipt",
+  "origin_domain": "storefront",
+  "created_at_utc": "2026-10-05T00:48:00Z",
+  "schema_version": "1.0",
+  "content_hash_sha256": "78d11734b0904b9d4ec739cb55642a4447cf5d4102f59b62c0b896d2a9b6bd22",
+  "content_size_bytes": 1639,
+  "local_storage_reference": "ao-sales-local",
+  "ipfs_cid": "",
+  "pcloud_archive_reference": "",
+  "transaction_id": "TXN-20261005T004800Z-0123456789AB",
+  "authorization_policy_id": "",
+  "producer_key_id": "testkey",
+  "signature": "ed25519:E0hVvgjPojprhG4f1DuYxGcRCl/ui1l5EUsSQU1mPtmvLN/rNyYO68lb5Ei9g332lLli4AOJ20GU+4fZXMXmCQ=="
+}

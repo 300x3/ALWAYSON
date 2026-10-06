@@ -203,7 +203,7 @@ def main():
     graph = "".join(svg)
 
     # ---- approval questions: always rendered, derived from the log ----
-    sec = open(os.path.join(ROOT, "agents/COORDINATION/19-current-status-and-outstanding-work/section.md"), encoding="utf-8").read()
+    sec = open(os.path.join(ROOT, "agents/COORDINATION (README UPDATES)/19-current-status-and-outstanding-work/section.md"), encoding="utf-8").read()
     def cl(x): return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", "", x)).strip()
     orows = [[cl(c) for c in re.findall(r"<td[^>]*>(.*?)</td>", r, re.S)]
              for r in sec[sec.index("## 19.1"):sec.index("## 19.2")].split("<tr>")]

@@ -14,8 +14,8 @@ Never renumbers a work ID. Never drops a row that has no proposal.
 import glob, os, re, sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-SEC = os.path.join(ROOT, "agents/COORDINATION/19-current-status-and-outstanding-work/section.md")
-PROP = os.path.join(ROOT, "agents/COORDINATION/proposals")
+SEC = os.path.join(ROOT, "agents/COORDINATION (README UPDATES)/19-current-status-and-outstanding-work/section.md")
+PROP = os.path.join(ROOT, "agents/COORDINATION (README UPDATES)/proposals")
 
 def clean(x):
     return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", "", x)).strip()

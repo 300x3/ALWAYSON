@@ -24,7 +24,7 @@ import json, os, subprocess, sys, time, signal, glob, shlex
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 RUN = "/tmp/ao-sessions"
-PAGES = "agents/handoffs/SESSION ASSIGNMENTS"
+PAGES = "agents/SESSION ASSIGNMENTS (AI WORKGROUPS)"
 GROUPS = ["plat","net","sec","ledger","pay","comm","field","sim","ops-a","ops-b","spec"]
 # A session with no new event for STUCK_MIN minutes, but no done/error event, is stuck.
 STUCK_MIN = 12
@@ -269,7 +269,7 @@ def nudge(g, reason):
         "  1. cd %s && git status --short && git log --oneline -3\n"
         "  2. Re-read your brief: %s\n"
         "  3. Re-read the acceptance criteria for your assigned items in "
-        "agents/COORDINATION/19-current-status-and-outstanding-work/section.md\n\n"
+        "agents/COORDINATION (README UPDATES)/19-current-status-and-outstanding-work/section.md\n\n"
         "Then continue the work. Do not start items you already completed - git status and\n"
         "your proposals directory show what is already done. If you were mid-way through an\n"
         "item, finish that one first.\n\n"
@@ -320,7 +320,7 @@ def cmd_report():
         s, d = state(g)
         print("%-7s %-8s %s" % (g, s, d[:100]))
     print("\nproposals written:")
-    for f in sorted(glob.glob(os.path.join(ROOT, "agents/COORDINATION/proposals/*.md"))):
+    for f in sorted(glob.glob(os.path.join(ROOT, "agents/COORDINATION (README UPDATES)/proposals/*.md"))):
         print("  ", os.path.basename(f))
 
 

@@ -81,3 +81,7 @@ When the user asks you to **"look it up on perplexity"**, **"use perplexity"**, 
 - After navigating and snapping, always confirm to the user that you read the whole page and surface the key content.
 - After a search-and-share flow, always return the actual shareable link you copied from the browser, and confirm whether the user also wanted the results content.
 
+
+==========
+
+
