@@ -2,46 +2,70 @@
 item: PAY-05
 action: update
 evidence: |
-  # The public storefront site tree, enumerated
   $ find '/home/scottw/pCloudDrive/PUBLIC FOLDER/***CURRENT***/site' -type f
   /home/scottw/pCloudDrive/PUBLIC FOLDER/***CURRENT***/site/index.html
   /home/scottw/pCloudDrive/PUBLIC FOLDER/***CURRENT***/site/alwayson-single-topology.html
   count=2
 
-  # assets exist but are images only — no export, route or embed
-  $ find '/home/scottw/pCloudDrive/PUBLIC FOLDER/***CURRENT***/assets' -type f | wc -l
-  49
-  $ ... | grep -vE '\.(png|jpg|jpeg|gif)$' | wc -l
-  0            # every asset is a still image; none is a view
+  $ grep -oE '(127\.0\.0\.1|localhost|10\.[0-9]+\.[0-9]+\.[0-9]+|192\.168\.[0-9]+\.[0-9]+|172\.(1[6-9]|2[0-9]|3[01])\.[0-9]+\.[0-9]+)' index.html | sort | uniq -c
+  (no output — no loopback or LAN reference in the published site)
 
-  # repository side
-  $ git --no-pager ls-files | grep -iE 'storefront|public.*\.html|index\.html'
-  GAZEBO/portal/index.html
-  GAZEBO/portal/viewer/index.html
-  config/storefront/release-policy.yaml
-  scripts/storefront/build-storefront.sh
-  scripts/storefront/publish-pcloud-storefront.sh
-  scripts/storefront/rollback-storefront-release.sh
-  scripts/storefront/verify-storefront-release.sh
+  $ grep -oiE 'instructables[^"'\'']{0,60}' index.html | sort -u
+  instructables-badge.png
+  instructables.com/member/SCOTT%20WIDMANN/instructables
+  Instructables — fabrication directions
+  Instructables badge: bottom-right of every product modal.
 
-  # publishing is itself gated, so nothing reaches the public tree
-  $ grep -n 'PENDING' scripts/storefront/publish-pcloud-storefront.sh
-  5:echo "PENDING: publish-pcloud-storefront.sh requires pCloud Public Folder
-      credential provisioning (Section 3.4) - paused for operator approval"
+  $ grep -oiE '(mastodon|meshchat)[^"'\'']{0,50}' index.html | sort -u
+  meshchatx.com/        (outbound link)
+  mastodon.social/search?q=300x3   (outbound link)
 
-  # the three loopback-only rows, as stated in my own section file
-  $ grep -n 'loopback' agents/COORDINATION/07-.../section.md
-  127:| 2 | MeshChatX — network visualizer | ... loopback-only and **not a
-      public ingress** (§9.2.1), so it cannot be iframed. ...
-  132:| 7 | Mastodon — live forum | ... `127.0.0.1:3300/`, loopback-only, ...
-  133:| 8 | Gazebo/Foxglove — simulation | ... sim console `127.0.0.1:8099/sim`,
-      Gazebo portal `127.0.0.1:8765/` ... bridge on `127.0.0.1:8081`. ...
-
-  # SIM-04 / SIM-05 referenced 5 times in §19 — the gate is real, not invented
-  $ grep -cE 'SIM-0[45]' agents/COORDINATION/19-.../section.md
-  5
+  $ grep -oE '<iframe[^>]*src="[^"]*"' index.html
+  '+(d.embed||d.href)+'      (one dynamic template, no hard-coded origin)
+  $ grep -oc '<iframe' index.html
+  1
 section: 07-public-storefront-and-payment-policy
 ---
+
+**Revision 2, 2026-10-05. Supersedes the revision of 2026-10-04. Re-measurement
+only; nothing was built, published or exposed.**
+
+**PAY-05 stays OPEN.** All three preconditions recorded on 2026-10-01 still hold,
+and the §7.1 boundary is intact — the published site still contains **no**
+loopback, LAN or Podman address, verified by grep over `index.html` itself rather
+than inferred from the build.
+
+Confirmed today: the site is still exactly the two specified files; the Instructables
+badge exists only as a *reference* (an `instructables-badge.png` asset name and the
+operator's member URL) and the operator-supplied image is still not supplied; and
+the Mastodon and MeshChatX entries are still **outbound links, not iframes**.
+
+**What I got wrong:**
+
+1. **My first iframe check produced a false positive and I nearly filed it as
+   "one live iframe".** `grep -oc '<iframe' index.html` returns `1`, which reads
+   like a count of one embedded view. It is not — it is a single *dynamic template*
+   whose `src` is `+(d.embed||d.href)+`, i.e. a JS expression evaluated at runtime
+   from catalog data. The count proves a template exists, not that any view is
+   live. Extracting the `src` showed no hard-coded origin at all, which is the
+   real finding: nothing is embedded from a publishable origin today, so no
+   iframe is actually serving. **A tag count is not a count of live views.**
+2. I nearly recorded the Instructables badge as "present, so that precondition is
+   resolved". It is not: an asset *name* in the markup is not the asset. The
+   operator specified a particular logo and said not to substitute it, so the
+   correct state is still "unsupplied" and I have kept it open.
+
+Not done, deliberately: nothing built, nothing published, no public entry opened.
+Every live view in §7.1.2 is a new public entry under §4.1 rule 6 and needs
+explicit operator approval; the Instructables image, the Mastodon/MeshChatX
+publishable origins, and SIM-04/SIM-05 for the three simulation views are all
+still outstanding and none of them is mine to decide.
+
+---
+
+## SUPERSEDED — revision 1 (2026-10-04), retained for audit
+
+
 **INDEPENDENT RE-VERIFICATION 2026-10-04 — item still OPEN, nothing built.**
 
 Re-measured rather than assumed. The storefront tree is still exactly the two files

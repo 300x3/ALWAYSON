@@ -316,6 +316,60 @@ returns `null` for the amount *and* records the top-level event `id` in place of
 reference. Reproduced with a throwaway in-memory payload only; no secret, no live
 request and no row was written.
 
+**Third re-verification, 2026-10-05 — all three defects still reproduce, and a
+fourth is added.** The adapter file is unchanged
+(`sha256:71a74988b0731695f61a7d56d9580a3c8364a3371906fa333c1784638d399f58`), so
+this is a re-measurement, not a re-fix. Re-derived by loading the module and
+calling `normalize()` directly, which touches no sink and writes nothing:
+
+```text
+$ grep -c 'def verify_coinbase' scripts/payment/ao-payment-adapter.py
+0
+$ grep -n 'AUTOMATED' scripts/payment/ao-payment-adapter.py
+43:AUTOMATED = ("paypal", "coinbase")
+208:        if provider in AUTOMATED:
+$ grep -rn 'COINBASE_WEBHOOK_SECRET' --include='*.py' --include='*.sh' \
+      --include='*.container' --include='*.service' .
+./scripts/operations/fetch-kwallet-secret.sh:165:  (writes it; never reads it)
+
+paypal   -> {'provider': 'paypal',   'provider_ref': '',     'amount_cents': None, 'currency': 'USD'}
+coinbase -> {'provider': 'coinbase', 'provider_ref': 'evt-1','amount_cents': None, 'currency': 'USD'}
+```
+
+**Defect 4, new, and worse than a lost amount: for PayPal the normalized
+`provider_ref` is the empty string.** A real `PAYMENT.CAPTURE.COMPLETED` carries its
+identifier at `resource.id`, which `normalize()` does not read, so `ref` falls
+through every branch to `""`. The sink gate at line 228 is
+`if not n["provider_ref"]: reply 400 "missing provider reference"` — so a genuine
+PayPal payment is not merely recorded wrongly, it is **rejected outright with 400**
+and no record is created at all. The earlier revisions described PayPal as losing
+only `amount_cents`; that understates it. For Coinbase the ref is wrong but
+present, so it passes the gate and is written wrongly; for PayPal it is absent and
+the event is dropped. The two providers fail in different ways, and only one of
+them is visible as a wrong value rather than a rejection.
+
+Reading the code explains the shape: `normalize()` looks only at top-level
+`id`/`txn_id`/`payment_id`/`transaction_id` and top-level `amount`/`currency`
+(lines 97–121). Neither provider puts either field at the top level.
+
+Live behaviour re-confirmed today, rejection-only, with a deliberately
+unverifiable signature so nothing could be written:
+
+```text
+$ curl -sS -X POST http://127.0.0.1:8899/webhook/coinbase \
+    -H "x-cc-webhook-signature: <hmac over a throwaway secret>" --data-binary '<charge:confirmed>'
+http=401
+{"error": "signature verification failed"}
+```
+
+That 401 is *correct* only by accident: the Coinbase path is gated by
+`verify_paypal()`, so it rejects a bad signature and would equally reject a good
+Coinbase signature. `payment_provider_events` remains at **0 rows**, so no probe
+this session created business state.
+
+**Conclusion unchanged:** PAY-02's acceptance criterion is not met. Nothing in
+this section was applied to the live adapter.
+
 **How each form is verified.**
 
 | Form | Verification |
@@ -397,6 +451,57 @@ status with expected delivery — can be **generated** as PDFs but **cannot be
 delivered**. Installing an MTA or configuring an SMTP relay is a credentials and
 egress decision reserved to the operator, so this is **OPEN** pending approval.
 
+**Re-measured 2026-10-05 — still no mail path, and a near-miss worth naming.**
+Nothing changed. No MTA is installed (`msmtp`, `sendmail`, `mail`, `mailx`,
+`mutt`, `swaks`, `s-nail`, `postfix` all `ABSENT`), no SMTP configuration exists at
+`/etc/msmtprc`, `/etc/s-nail`, `/etc/postfix` or `/etc/exim4`, and a repo-wide
+search of `*.py`, `*.sh`, `*.container`, `*.service` for
+`smtplib|sendmail|msmtp|SMTPServer|--mail-from` returns **nothing**.
+
+The near-miss: `grep -rniE 'smtp|mailx|sendmail|msmtp|email-relay' quadlet/ config/`
+returns **15 hits**, which looks like a mail path exists. All of them are Mastodon's
+own `config.action_mailer.smtp_settings` block in
+`config/mastodon/patches/production.rb` plus a commented-out placeholder in
+`config/mastodon/mastodon.env.example` reading *"Cloudflare Email Routing (pending
+dashboard enablement 2026-10-22)"*. It is not a path. Checked, not assumed:
+
+```text
+$ podman exec ao-mastodon-web env | cut -d= -f1 | grep -iE 'smtp|mail'
+(no output)
+$ hasEntry ao-mastodon mastodon-smtp-login    -> (false,)
+$ hasEntry ao-mastodon mastodon-smtp-password -> (false,)
+$ hasEntry ao-mastodon mastodon-smtp-server   -> (false,)
+```
+
+Not one Mastodon SMTP variable is provisioned and no wallet entry exists, so
+Mastodon's mailer has nothing to send through either. **Do not read those 15 hits as
+a partial delivery path** — a future agent grepping for `smtp` will find them and may
+conclude the work is half done. It is not; it is an unrelated component's
+unconfigured switch.
+
+**PAY-05 re-measured 2026-10-05 — nothing built, and the boundary still holds.**
+The published site is still exactly two files, and `index.html` still contains **no**
+loopback or LAN address:
+
+```text
+$ find '/home/scottw/pCloudDrive/PUBLIC FOLDER/***CURRENT***/site' -type f
+.../site/index.html
+.../site/alwayson-single-topology.html
+count=2
+$ grep -oE '(127\.0\.0\.1|localhost|10\.[0-9]+\.[0-9]+\.[0-9]+|192\.168\.|172\.(1[6-9]|2[0-9]|3[01])\.)' index.html
+(no output)
+```
+
+The three preconditions recorded on 2026-10-01 all still stand. The Instructables
+badge is present as a *reference* (`instructables.com/member/SCOTT%20WIDMANN/…`
+and an `instructables-badge.png` asset name) but the operator-supplied image itself
+is still not supplied. The Mastodon and MeshChatX entries remain **outbound links,
+not iframes** — `meshchatx.com` and a `mastodon.social/search?q=300x3` link are the
+only occurrences, and the file contains a single dynamic `iframe` template fed by
+`d.embed||d.href`, so no view is actually live. That is the correct outcome given
+the constraint: nothing is published, and nothing loopback is exposed. PAY-05 stays
+**OPEN**; publishing any of these is a new public entry under §4.1 rule 6.
+
 **`ao-ingress-payment` is running but not reachable from the internet.** Both
 `http://127.0.0.1:8899/health` and `http://127.0.0.1:8900/health` return
 `{"ok": true, "enabled": true}`, and `ss -ltn` confirms all three listeners —
@@ -407,21 +512,85 @@ opened. Note that `"enabled": true` means the adapter holds a database DSN, whic
 contradicts ST-12's statement that it "runs with no DSN"; the credential finding
 below explains why.
 
-**Credential finding — `payment.env` was hand-written, not wallet-produced.** The
-four `ao-payment` KDE Wallet entries do not exist (`hasEntry` returns `false` for
-`payment-db-password`, `payment-paypal-webhook-id`, `payment-paypal-webhook-secret`
-and `payment-coinbase-webhook-secret`; for comparison `ao-sales`/`sales-db-password`
-returns `true`). Despite that, a `payment.env` exists, mode 0600, containing one
-key, `PAYMENT_DSN`, whose password is **byte-identical to the `sales-db` wallet
-password** (both 48 characters, identical SHA-256 prefix). So the file was created
-by hand on 2026-09-30, it duplicates an existing secret rather than holding a
-distinct payment credential, and it grants `ao-ingress-payment` the
-`sales_migration_role` — the full 161-grant schema-admin role. That is a wider
-privilege than a payment ingress adapter needs, and it is a §14.1 deviation
-introduced outside the wallet bridge. The wallet bridge would overwrite this file
-in a single composed pass if the entries existed; it does not. **Not remediated by
-this session** — it touches credentials and would require rotating and re-scoping a
-live secret. Recorded as **OPEN** for the operator.
+**Credential finding — CORRECTED 2026-10-05. The previous account of this file is
+retracted: `payment.env` is now genuinely wallet-produced, and the four `ao-payment`
+entries now exist.** An earlier revision of this section recorded that the four
+entries did not exist and that `payment.env` had been hand-written outside the
+wallet bridge. Re-measured today, that is no longer true:
+
+```text
+$ gdbus call --session --dest org.kde.kwalletd6 --object-path /modules/kwalletd6 \
+    --method org.kde.KWallet.hasEntry <handle> ao-payment <key> alwayson-ops
+payment-db-password                    (true,)
+payment-paypal-webhook-id              (true,)
+payment-paypal-webhook-secret          (true,)
+payment-coinbase-webhook-secret        (true,)
+# negative controls, to rule out a hasEntry that always answers true:
+payment-paypal-webhook-idX             (false,)
+definitely-not-a-key                   (false,)
+payment-db-password read from ao-sales (false,)
+```
+
+`payment.env` (`~/.local/share/ao-secrets/payment.env`, mode 0600, mtime
+2026-10-04 18:38) now carries **four** keys, not one, and re-composing the file
+through the bridge reproduces it byte for byte — which is the test the earlier
+revision could not have passed:
+
+```text
+$ ./scripts/operations/fetch-kwallet-secret.sh "$T/payment.env" payment-credentials
+compose exit=0
+  key=PAYMENT_DSN                len=106
+  key=PAYPAL_WEBHOOK_ID          len=24
+  key=PAYPAL_WEBHOOK_SECRET      len=48
+  key=COINBASE_WEBHOOK_SECRET    len=48
+  PAYMENT_DSN              match=YES
+  PAYPAL_WEBHOOK_ID        match=YES
+  PAYPAL_WEBHOOK_SECRET    match=YES
+  COINBASE_WEBHOOK_SECRET  match=YES
+  whole-file: IDENTICAL
+```
+
+The temporary file was shredded immediately after the comparison. No secret value
+was printed at any point; only lengths, key names and SHA-256 equality were used.
+
+**Two findings survive the correction, and both are still OPEN:**
+
+1. **`payment-db-password` is byte-identical to `sales-db-password`.** The two
+   wallet entries hash the same (48 characters each, identical SHA-256 prefix).
+   So the "two secrets are one secret" problem the earlier revision identified is
+   real and is now located in the *wallet* rather than in a hand-written file — it
+   was seeded by copying, not by the bridge. Compromise of the sales-db password
+   yields the payment adapter's database access. **The other three entries are
+   genuinely distinct** from it (webhook id, PayPal secret, Coinbase secret all
+   hash differently), so this is one duplicated value, not a wholesale reuse.
+2. **The DSN still grants `sales_migration_role`** — the full schema-admin role —
+   to a payment ingress adapter that needs only INSERT on
+   `payment_provider_events`. That §14.1 least-privilege deviation is unchanged.
+
+**A staleness finding neither revision recorded.** The running container was
+started `2026-10-01 15:08:41`, but `payment.env` was last written
+`2026-10-04 18:38` — the container predates the file it reads. Its environment
+reflects the older content:
+
+```text
+$ podman inspect ao-ingress-payment --format '{{range .Config.Env}}{{println .}}{{end}}' | cut -d= -f1
+container GPG_KEY HOME HOSTNAME PATH PAYMENT_DSN PYTHON_SHA256 PYTHON_VERSION
+```
+
+`PAYPAL_WEBHOOK_ID`, `PAYPAL_WEBHOOK_SECRET` and `COINBASE_WEBHOOK_SECRET` are
+**absent from the live process** even though they are in the file and in the
+wallet. The `ExecStartPre` prefetch is non-fatal (`-` prefix), so the unit started
+cleanly on the older file and has not been restarted since. The running adapter's
+DSN password does match the current wallet value (identical SHA-256 prefix), so
+the database path is consistent; the three webhook secrets simply are not loaded.
+
+**Not remediated by this session.** Rotating a live password, re-scoping a role, or
+restarting a payment unit are §4.1 rule 14 and rule 12 stop conditions. The
+remediation proposed for operator approval is unchanged in shape: rotate
+`payment-db-password` to a value distinct from `sales-db-password`, grant a
+`sales_api_role` limited to the INSERT the adapter performs, and restart
+`ao-ingress-payment` so the prefetch loads the three webhook secrets. Recorded as
+**OPEN** for the operator.
 
 ### 7.3.2 Sequence
 
