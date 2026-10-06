@@ -1,0 +1,206 @@
+2026-10-02 — README update per COORDINATION BETWEEN AI/X - README - GITHUB REVIEW - 20261001.txt
+
+Scope: /ALWAYSON/README.md, assets/ao-single-topology*, docs/readme-change-log.md (new).
+No commits made. Nothing under backups/, scripts/, config/, quadlet/ was edited.
+
+TOPOLOGY ENLARGEMENT RE-SYNC (review line 5)
+- Symptom: assets/ao-single-topology{,-left,-right}.png|.svg|.html were dated 2026-10-02
+  02:04, while TOPOLOGY/TOPOLOGY - SINGLE GRAPHIC/ was 13:49 the same day. The README was
+  therefore embedding an OLDER diagram than the one on disk.
+- Verified before acting: the 13:49 build already carried every ES.2 item the review asked
+  for (ao-html-window x2, CONFIRMED SALE PDF OUTPUT, "PostgreSQL 18 (host cluster)" x2 and
+  no "PostgreSQL 18.6 (host)", band/section ordering for workloads, stores and field/radio).
+  So the build did NOT need changing; only the copy step had been missed.
+- sha256 mismatch confirmed before sync:
+    left  : TOPOLOGY 70da92c9...  vs  assets 7cc1af9d...  (differs)
+    right : TOPOLOGY 1bc4da33...  vs  assets 9708ad3e...  (differs)
+    svg   : TOPOLOGY 6ea23949...  vs  assets ea2b92b7...  (differs)
+- Backup first: cp -p assets/ao-single-topology.* backups/topology-assets-pre-sync-20261002/
+- Then: cp -p the five files from the build into assets/
+- Verified after sync, all byte-identical:
+    svg   6ea23949a82609af97190f83effe8d0673c6db26ec450713fed444b51110e353
+    html  95f6161922c06d5f7739908b693b8ba8d42ad0cd1bb7d134d7ee3602a2b6cf25
+    png   1e670fb6244b4821050056f11efefaf9ad79acca003ed3b3ba35ace51a9ccdb0
+    left  70da92c9cc4238b4d3763bea1270a4915ba8e08a41e1d37cd58cc3a8f29291e2
+    right 1bc4da3376284ea3eacfb8a294e5c91926ffec612004a0e892488bbfbecd9d0d
+- Font evidence: synced SVG carries font-size 26/25/24 for card text; the stale asset
+  carried 20/19/22. This is the "increase the small font by at least 3 points" item, and it
+  was NOT visible in the README before the sync.
+
+README EDITS
+- WHY row added under Project origin (review line 6).
+- "Does monitoring need Grafana?" -> "What are the database reporting tools and their
+  functions?", stating all three are read-only (review line 7).
+- "DOMOTICZ SHARED SERVER" row removed (review line 8). It was history for the *:6144
+  listener already removed 2026-09-30.
+- Gazebo portal :8765 and operator console :8099 moved OUT of the "not part of ALWAYS ON"
+  table into their own ALWAYS ON table (review line 9). Added §19 item 43 for the console
+  having no unit, since that is the open work this created.
+- MeshChatX documented as the coordination system for the Reticulum stack and the LoRa
+  radios, only needing to speak to the Reticulum network stack (review line 10).
+- DRONE-RADIO / QGroundControl given a dedicated RNS-enabled connection, in ES.1
+  (RNode client B, QGroundControl) and 9.2.2 (review line 11).
+- "The former §3.2 status table has been deleted" and the whole §3.2 removal narrative
+  removed from the body; history moved to docs/readme-change-log.md (review line 12).
+- ES.3.1 rebuilt from 5 columns to 4 (Next action folded under Current state) to fit
+  portrait; max row width 2186 chars, mean 411 (review line 13).
+- ES.3 and ES.3.2 relabelled as high-level summaries of §19; ES.1.1 likewise (review
+  lines 14, 15).
+- §19.0 priorities converted from a numbered list to a table (review line 16). The rest of
+  §19 was already tabular.
+- ao-html-window added to the ES.2 public-entries table; it was in the diagram but absent
+  from the README body.
+- CONFIRMED SALE PDF OUTPUT note added under 15.1.2 KIT REQUEST PDF intake; likewise in
+  the diagram but absent from the body.
+
+DEFECTS FOUND AND FIXED WHILE EDITING (not in the review)
+- ST-13 row in ES.3.1 was split by a stray empty cell, rendering as 7 columns and losing
+  its Next action. Also carried a sentence duplicated verbatim inside the row.
+- Line 3012 (quadlet/ paths table) had a stray "|;" splitting one cell from its
+  continuation, rendering as 3 columns against a 2-column header.
+
+VERIFICATION
+- Table lint over the whole document: 53 tables, 0 malformed rows.
+- All 12 README-referenced assets/ paths exist on disk.
+- ES.1 review checks: OrcaSlicer refs 0; standalone "CNC" row 0 (bCNC lives under Real
+  fabrication); "Radios" rows 1; "Simulation" rows 2; LM Studio directly below Social
+  media.
+- Render check with Playwright could NOT be run: the bundled Firefox exits immediately
+  (exitCode=0, no output). Validation was therefore structural, not visual. The operator
+  should eyeball the rendered README on GitHub.
+
+NOT DONE / OPERATOR ACTION
+- NOTHING outstanding for the published diagram. CORRECTION to an earlier note in this
+  file: the live viewer was already up to date and I did not need to publish anything.
+  Verified 2026-10-02 after the operator asked for a publish:
+    sha256 of the file served at the filedn URL in ES.2
+      https://filedn.com/.../%2A%2A%2ACURRENT%2A%2A%2A/site/alwayson-single-topology.html
+      -> http_code=200, size=419038,
+         95f6161922c06d5f7739908b693b8ba8d42ad0cd1bb7d134d7ee3602a2b6cf25
+    which is byte-identical to TOPOLOGY/.../alwayson-single-topology.html, to
+    assets/ao-single-topology.html, and to the pCloud published file
+    PCLOUD-PUBLIC/***CURRENT***/site/alwayson-single-topology.html (cmp: identical).
+    Published 13:58:11, nine minutes after the 13:49:34 build. Markers present in the
+    served bytes: ao-html-window x3, CONFIRMED SALE PDF OUTPUT x2,
+    "PostgreSQL 18 (host cluster)" x3, "PostgreSQL 18.6" x0.
+  The earlier claim came from logs/operations/readme-succinct-pass-20261002.log, which
+  said the hosted viewer still served the old diagram. That was true at 02:00 and was
+  overtaken when the file was republished at 13:58. I carried the old log's conclusion
+  forward without measuring. Lesson: re-measure a cross-session claim before repeating it.
+- The pCloud site folder holds only alwayson-single-topology.html and index.html. The
+  earlier alwayson-single-topology-v2.html is not in site/; it now sits in
+  PCLOUD-PUBLIC/ARCHIVED/along with a .bak-20261002-1350-pre-5c4bc11. Nothing links to
+  the -v2 name: index.html contains no reference to the topology at all.
+- Nothing committed. Per rule 6 of the coordination protocol, git add -A was NOT used; the
+  working tree carries many other sessions' uncommitted changes.
+- docs/readme-change-log.md is new and unreferenced except from the README header and
+  itself.
+
+2026-10-02 — operator request: "PUBLISH THE NEW TOPOLOGY DIAGRAM TO HTML AND REPLACE"
+- Inspected before writing, per rule 1. Did NOT overwrite: the target already held the
+  new build. No file was created, modified or deleted under PCLOUD-PUBLIC.
+- sha256 PCLOUD-PUBLIC/***CURRENT***/site/alwayson-single-topology.html
+  == sha256 TOPOLOGY/TOPOLOGY - SINGLE GRAPHIC/alwayson-single-topology.html
+  == sha256 assets/ao-single-topology.html
+  == sha256 of the bytes served at the filedn URL in ES.2
+  All four: 95f6161922c06d5f7739908b693b8ba8d42ad0cd1bb7d134d7ee3602a2b6cf25
+- cmp confirms byte-for-byte identity, not just equal length.
+
+2026-10-02 — merge ES.3 + ES.3.2 + section 19 into a single log at 19
+- Operator instruction: one status log at 19, no duplication, no executive summary.
+- Removed ES.3 (and ES.3.1 30-row table, ES.3.2 work summary). ES.4 renumbered ES.3.
+  ES.1 and ES.2 untouched.
+- New §19: 19.1 component status (30 ST rows) / 19.2 outstanding work (46 rows, 1-46) /
+  19.3 completed items (5) / 19.4 operator priorities (5).
+- Duplication removed: ST-20 and ST-04 restated their 19.2 items verbatim. 19.1 now gives a
+  one-line pointer. Token-overlap scan across both tables: 0 rows sharing >=6 long words.
+- Pre-existing numbering defects fixed: two "38", two "43", and duplicate 32/33 across
+  subsections. Now continuous 1-46, no repeats.
+- 5 completed items moved to 19.3 with evidence rather than deleted. Checked §20 first:
+  3 of the 5 (ActivityPub round trip, per-modal buttons, service-account consolidation) had
+  no §20 row, so deleting them would have destroyed the only record.
+- All ES.3/ES.3.1/ES.3.2/ES.4/§19.3/§19.5/§19 row 17 and WORK 000xxx refs repointed.
+  WORK ids were a second numbering scheme for the same work; each was matched to a merged
+  row before removal.
+- Verified: 51 tables, 0 malformed; 19.1 = 30 unique; 19.2 = 46 contiguous; no dup ids; all
+  30 ST ids defined; 0 old work items lost.
+- MISTAKE caught during verification: two string replacements swallowed a "|" separator and
+  broke rows 28/29 into 4 columns against a 5-column header. Caught by the table linter and
+  repaired. First row-counting script also mis-parsed section numbers via l[3:6] substring
+  match and reported 0 rows; re-ran with a regex instead.
+- NOT committed. Local main is 233+ behind origin/main (another session pushed 3b2af8c);
+  45 uncommitted files from other sessions are in the tree. Rebase/push is operator's call.
+
+2026-10-02 — sections 1-16 converted to pure specification; 17-19 hold all current state
+- Operator rule: above section 17 = planned future state only. No inconclusive language, no
+  moving target, no change/revision/decision in the body. 17-19 = developing.
+- Baseline scan of 1-16: 129 passages with status/history/decision/tentative language.
+  Now 10, all confirmed spec vocabulary (model-registry link types, a directory name, a
+  status enum, and "blocked until" as the rule itself). Verified each individually.
+- 12 whole subsections rewritten as spec: 2.2, 3.2, 7.1.2, 13.2, 13.3.1+13.3.2, 14.1.2,
+  14.1.3, 14.1.4, 15.4, 15.4.3, 16.1.1, plus ES.1.1 deleted.
+- ES.1.1 Change Summary deleted: history in the body, and operator asked for no exec summary.
+- 2.2 "Current Host Facts" -> "Platform Baseline". Measured values MOVED to ST-01 rather than
+  discarded; the stale /etc/cdi note reduced to a one-line rule.
+- 14.1.4 post-mortem (401, 5,119 crash-loops, "two earlier assumptions were wrong") -> four
+  token requirements as rules.
+- Verified: 49 tables, 0 malformed; all ST ids defined; 14 asset/docs links present;
+  heading order sane; 4,725 lines (was 4,886).
+- Spec word count 1-16: 27,103 -> 25,384. Drop is history/status narration, not spec: every
+  rule written as a resolved narrative was restated as a rule.
+- NOT committed. Local main is behind origin/main (another session pushed 3b2af8c) and 45
+  uncommitted files from other sessions are in the tree.
+
+2026-10-02 — end-results-not-decisions + section-by-section de-duplication
+- Operator: supersedes/replaced_by and received/validated/rejected are decisions/states;
+  document the end result. "blocked" is a 19 item, not spec. Nothing in 17 either.
+- Removed: the supersedes/replaced_by link type (8.6.1, now "model_object_links records the
+  relation"), the superseded state (now "retired"), the status = received|validated|rejected|
+  superseded enum (11.2.2 - column deleted entirely; eligibility is now three presence
+  facts), "Corda entry is blocked until" (now "eligible ... only when"), and the 17.1 off-site
+  folder "created ... empty, restic does not yet point at it".
+- Wrote /tmp/dup.py: assigns each line to a section, builds 7-grams minus stopwords, and
+  reports intra- and cross-section collisions. Used it to find real duplication rather than
+  eyeballing.
+- Real duplication found and fixed:
+  * 9.2.1: a paragraph duplicated VERBATIM. Deleted the second copy.
+  * Mastodon identity paragraph appeared 4x (15.3, 15.4.1, 18.5, 20). 15.4.2 is now the
+    single spec; 15.3 and 18.5 point to it; deleted the 15.4.1 duplicate bullet.
+    reserved_usernames now only in 19.1 and 20.
+  * 19.1 ST-07/ST-08 repeated the four baseline capabilities in full -> ST-08 refers to ST-07.
+  * ES.1 repeated the four capabilities in both sim rows -> vehicles row refers to the other.
+  * 3.3.1 carried Grafana /api/health evidence -> moved out; evidence lives in 20.
+  * 19.1 ST-05/06/19/20/25 repeated 20 evidence detail -> trimmed, "Evidence in 20".
+  * 18.4.1 repeated the 8899 rationale and mentioned another session's uncommitted config
+    edits -> both removed.
+  * 3.3.1 recorded the dropped duplicate webodm database -> removed.
+- Verified: 49 tables 0 malformed; all ST ids defined; 14 links present; 4,713 lines;
+  1-17 forbidden vocabulary down to 3, each checked and legitimate.
+- Repeats KEPT deliberately (not duplication): 5.1 HTML/CSS boilerplate, the identical
+  hardware cell on both radio rows, the shared ROS/Gazebo version in 2.1, the 3.3.1 rows that
+  share the same trailing boundary sentence.
+- NOT committed: local main behind origin/main, 45 uncommitted files from other sessions.
+
+2026-10-02 — PUSHED both README commits; then section-by-section succinctness rewrite
+PUSH 1: 9cdd65d..4be3be1 main -> main (fast-forward, 2 files: README, change log)
+  Verified on GitHub: raw README http 200, merged 19.1 present, old ES.3 absent.
+  The only byte difference vs local was line 13 (another session's edit to the
+  "Created with" row made after my commit) - not a lost change of mine.
+PUSH 2: 4be3be1..a1a8e4c main -> main (fast-forward, cherry-picked 5e42035)
+  Verified: GitHub 4,647 lines == local 4,647, 0 differing lines.
+
+SUCCINCTNESS PASS (per-section rewrite, nothing lost)
+- 14.1.1: 1295 -> 922 words. Closure narrative folded into rule+table.
+  IMPORTANT: my first cut dropped 9 identifiers (mastodon-ar-*, openclaw-bot-*,
+  roundtrip/roundtrip2). Caught it by scripting an identifier-presence check
+  against the pre-edit text, then restored the full entry-inventory table.
+  Final check: 53/53 identifiers retained.
+- 9.2.1: 828 -> 770.
+- 6.A: paragraph appeared twice; second removed.
+- 3.3: removed "During the current migration..." (current state, not spec).
+- 10.1.2 / 10.2.1: both opened identically and restated the geometry-separation
+  requirement; shortened each, keeping its distinct content.
+- Verified: 47 tables 0 malformed; 168 fences even; all ST ids defined; 14 links
+  present; 4,648 lines; no duplicate paragraphs outside 5.1 HTML/CSS boilerplate.
+- Left alone deliberately: 5.1 (combined matrix, 3,202 words), 19.1/19.2 (the log
+  the operator asked to consolidate), 12.2 (command block).

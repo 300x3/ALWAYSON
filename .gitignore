@@ -5,7 +5,7 @@ backups/
 pcloud/
 ipfs/
 pcloud/restore-cache/
-*.log
+
 .env
 !config/mapping/photogrammetry-volume.env
 config/mastodon/patches/
@@ -15,7 +15,7 @@ config/mastodon/patches/
 # copy can never be committed.
 config/platform/monitoring/grafana.env
 ALWAYSON/secrets/
-logs/operations/
+
 
 # Python bytecode caches. Regenerated on every run; never belongs in the
 # repository. One such file was tracked by mistake and was removed.

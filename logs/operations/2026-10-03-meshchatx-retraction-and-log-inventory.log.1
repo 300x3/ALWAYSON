@@ -1,0 +1,84 @@
+ALWAYS ON - MeshChatX retraction + ALWAYS ON software log inventory
+Date (UTC): 2026-10-03T01:30Z
+
+RETRACTION (operator caught this)
+  The Section 16.3 audit stated MeshChatX was NOT installed on this host and
+  that logs/meshchatx.log was therefore empty. THAT WAS WRONG.
+  Operator: "MESHCHATX IS INSTALLED, I'M USING IT RIGHT NOW."
+
+  MEASURED:
+    $ ps -eo pid,etime,cmd | grep -i meshchat
+      PID 5239, up 1-03:13:20
+      /home/scottw/Applications/meshchatx-native/ReticulumMeshChatX --headless
+        --host 127.0.0.1 --port 18000
+        --reticulum-config-dir /home/scottw/.reticulum
+        --storage-dir /home/scottw/.reticulum-meshchatx
+      + 16 child processes (multiprocessing forks)
+    $ systemctl --user status reticulum-meshchatx.service
+      active (running) since Thu 2026-10-01 15:08:35 PDT; 1 day 3h
+      FragmentPath=/home/scottw/.config/systemd/user/reticulum-meshchatx.service
+    $ systemctl --user list-units | grep reticulum
+      reticulum-meshchatx.service            active running
+      reticulum-meshchatx-watchdog.timer      active waiting
+      reticulum-meshchatx-watchdog.service    inactive dead (oneshot)
+    $ ls -la ~/.reticulum-meshchatx/logs/
+      meshchatx.log      3403635 bytes  mtime Oct 2 18:18  <- ACTIVE
+      meshchatx.log.1    5242803 bytes  mtime Sep 25
+      last-backend-crash.json
+    $ journalctl --user -u reticulum-meshchatx.service | wc -l
+      19332
+
+  ROOT CAUSE OF THE WRONG ANSWER (the reusable part):
+  I searched the repo and systemd for an "ao-field" unit, found none, and
+  inferred the software was absent. INVALID INFERENCE. MeshChatX is a
+  field/radio client per README 9.x, but it runs under its OWN "reticulum-*"
+  unit namespace, not the ao-field name the quadlet convention suggests.
+  ABSENCE OF A CONVENTIONALLY-NAMED UNIT IS NOT EVIDENCE OF ABSENCE OF
+  SOFTWARE. Confirm with: ps, binary path, systemctl --user, lsof.
+
+  CORRECTED IN THREE PLACES:
+    README.md 16.3 row        - was "not installed", now records the real path
+    README.md 18.7             - added an explicit RETRACTED paragraph + lesson
+    logs/meshchatx.log header  - rewritten, now a POINTER not a placeholder
+    scripts/validation/check-logs-journals.sh
+      - removed the "meshchatx.log|-1" NOT-APPLICABLE row that encoded the
+        false assumption; it now checks the live service AND the real app log
+
+LOG INVENTORY - where does ALWAYS ON software actually log?
+  Deployed ao-* containers: 21 total
+    ao-sim-fabrication-gz.container   LogDriver=k8s-file
+      -> --log-opt path=/ALWAYSON/logs/sim-gz-server.log   (ONLY file-logged)
+    the other 20 containers           LogDriver=journald
+  ao-* user services: 12, all journald
+  reticulum-meshchatx.service: journald + its own app log in storage dir
+
+  => 1 of 33 units writes a file into /ALWAYSON/logs/. 32 use journald.
+
+WHY LOGS WERE NOT REDIRECTED OUT OF JOURNALD (the request declined)
+  journald is NOT an unset default. It already provides size-capped retention
+  and rotation -- currently holding 4 GB, self-limiting. Measured:
+    $ journalctl --disk-usage
+      "Archived and active journals take up 4G in the file system."
+  Redirecting 32 units to flat files REMOVES that guarantee, and there is no
+  safety net:
+    $ grep -rl ALWAYSON /etc/logrotate.d/   -> NONE
+    No logrotate policy exists for /ALWAYSON/logs. Unbounded flat files on /
+    (70% full, 131G free) would grow without limit. sim-gz-server.log was
+    already 540 KB after ~2 days of continuous writing.
+  Doing it would also mean editing the FLAT deployed copies in
+  ~/.config/containers/systemd/ (copies not symlinks, README 16.1.1) and
+  restarting 20+ running containers including Mastodon, Grafana, Metabase,
+  Prometheus and the payment ingress.
+  This is exactly the retention-policy gap recorded as work item 53: a
+  redirect INCREASES exposure rather than closing it.
+
+OPEN - NEEDS OPERATOR DECISION
+  1. journald vs files: keep journald (current, capped) or move to files
+     WITH a logrotate policy first? Recommend keeping journald and adding
+     retention. Redirecting without rotation is the risk, not the fix.
+  2. The 4 GB journal: what retention cap? systemd-journald reports no
+     explicit SystemMaxUse override, so it is using the built-in default.
+  3. MeshChatX app log: 3.4 MB + 5.2 MB rotation inside a 907 MB storage
+     dir that also holds identities, session secret and mbtiles. The log
+     CANNOT be moved without moving application state. Its own rotation is
+     working. Leave it.

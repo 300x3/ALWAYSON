@@ -1,0 +1,60 @@
+# 2026-10-01 — site/index.html product modal: Instructables badge (bottom-right)
+
+Site root: /media/scottw/1TBSAMSUNGDATA/PCLOUD-PUBLIC/***CURRENT***/site
+File:      index.html  (sha256 dee6d9a217473065955ef31f219cb77e6912ef9f03eb1c1369734082eced805e)
+
+## Change
+Added a single persistent <a class="ibadge"> inside #itemOvl .modal, so it appears in
+the bottom-right of EVERY product modal (single DOM instance, not per-item).
+Target: https://www.instructables.com/member/SCOTT%20WIDMANN/instructables
+        target=_blank rel="noreferrer license"
+Asset:    ../assets/images/instructables-badge.png
+
+## Asset derivation
+Source (operator supplied):
+  assets/images/AUTODESK INSTRUCTABLES.png   317x396  srgba
+Command:
+  convert 'AUTODESK INSTRUCTABLES.png' -trim +repage -strip \
+          -define png:compression-level=9 instructables-badge.png
+Result:
+  assets/images/instructables-badge.png      279x363  srgba  33189 bytes
+NOTE: source file retained unmodified; only a trimmed, URL-safe copy is referenced.
+
+## CSS (index.html ~line 99-104)
+.ibadge{position:absolute;right:6px;bottom:6px;z-index:4;display:block;line-height:0;
+        background:#fff;border:1px solid #e5e7eb;padding:3px 4px}
+.ibadge img{display:block;height:56px;width:auto}
+.modal .content > .btn{right:88px}   /* clear the badge */
+
+## Verification (local static server, NOT deployed)
+  python3 -m http.server 8731   (root = ***CURRENT***, ephemeral; killed after test)
+  curl -o /dev/null -w '%{http_code}'  ->  / 200, /site/index.html 200,
+                                        /assets/images/robot-canrad-instructables.png 200
+  Headless Chromium @ 1440x900 and @ 604x808:
+    img.complete=true  natural=279x363
+    badge box 53x64 px, fully inside viewport, aspect not distorted
+    overlap with #kitsBtn (46x46, bottom-left): false
+    single instance: grep -c 'class="ibadge"' index.html -> 1
+
+## Housekeeping
+  test server stopped; port 8731 listener count 0
+  /ALWAYSON/.playwright-mcp/ screenshots + page snapshots removed
+  no public port exposed; no git commit made (operator has not asked)
+
+# 2026-10-01 — site/index.html hamburger menu subheading width
+Operator request: 5 longest parenthetical subheadings split to 2 lines; nothing else wider than the new width.
+Measurement method: headless Chromium, Range.getClientRects() per text run (NOT character counts — CSS
+font is inherited sans-serif and per-char width is non-uniform).
+Pre-change longest single-line widths in #mobile (px): 496.8, 489.6, 403.2, 388.8, 374.4, 316.8, 316.8, 295.2
+Splits applied (scoped to #mobile only; desktop nav.main markup byte-identical):
+  (Bed, Desk, Closet, Bathroom, Shower, | Kitchen/Storage/Cooler/Fab-Lab)
+  (~400 ft Column for: Water, Power, | Aquaculture, Mining, Warehousing)
+  (Recycle, Cafe, Live, Fabricate, | Teach, Chapel, Servers)
+  (Air/Land/Sea Bicopter/ | Tailsitter/Quadcycle/Submarine)
+  (5 Stories: Mall + Fulfillment, | Garage, Sport Court)
+CSS: #mobile width:auto -> width:337px; max-width:calc(100vw - 32px); box-sizing:border-box
+  (337 = 316.8 widest remaining line + 20px button padding-right)
+Verification: 500px viewport -> panel 337px, max line 316.8 <= 317 usable, overflow 0, exactly 5 spans
+  on 2 lines, 0 unexpected wraps, max label 216px, panel on-screen. 320px -> panel 288px, overflow 0.
+Backup: /tmp/index.html.bak-subhead ; sha256 index.html fff85281e02680fea54379e41bea1c01be869d9d32941b5842a27c516b157906
+Test server stopped; port 8731 closed; no public port exposed. NOT committed.

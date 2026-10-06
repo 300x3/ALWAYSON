@@ -1,0 +1,86 @@
+# 2026-10-01 — Inbound ActivityPub fixed: sidekiq `ingress` queue was orphaned
+
+Continues document A's live blocker ("inbound federation never produces a status").
+**Root cause found and fixed. Verified.** Fix is applied live but **NOT committed**.
+
+## Root cause
+
+`quadlet/sales/ao-mastodon-sidekiq.container` overrode the image's queue list:
+
+    -Exec=... bundle exec sidekiq -q default -q push -q pull_request -q mailers -q scheduler
+    +Exec=... bundle exec sidekiq
+
+Passing ANY `-q` flag makes sidekiq **ignore config/sidekiq.yml entirely**. Two
+consequences, both silent:
+
+1. **`ingress` was missing.** `ActivityPub::ProcessingWorker` has
+   `sidekiq_options queue: 'ingress'`. Jobs were enqueued correctly but **no
+   worker ever polled that queue** -> the 202-but-nothing-happened symptom.
+2. **`pull_request` is a typo** for `pull`, orphaning **33 workers**.
+
+## Evidence (before)
+
+    $ podman exec mastodon-web cat /opt/mastodon/app/workers/activitypub/processing_worker.rb
+    sidekiq_options queue: 'ingress', backtrace: true, retry: 8
+
+    $ podman inspect mastodon-sidekiq --format '{{join .Config.Cmd " "}}'
+    /bin/sh -c bundle exec sidekiq -q default -q push -q pull_request -q mailers -q scheduler
+
+    $ grep -rhoE "queue: *.[a-z_]+" /opt/mastodon/app --include=*.rb | sort | uniq -c
+         33 queue: 'pull        8 queue: 'push        1 queue: 'ingress        1 queue: 'default
+
+    # probe: enqueue ProcessingWorker with a nonexistent actor id (guaranteed no-op)
+    enqueued jid=0302e5b4b77a9b3fa051e559
+    $ redis-cli LLEN queue:ingress
+    1                       # <- stuck; sidekiq log showed only Scheduler::* activity
+
+## Evidence (after restart)
+
+    $ systemctl --user restart ao-mastodon-sidekiq.service   # active, restarts=0
+    $ podman logs mastodon-sidekiq | grep 0302e5b4
+    class=ActivityPub::ProcessingWorker jid=0302e5b4b77a9b3fa051e559 INFO: start
+    class=ActivityPub::ProcessingWorker jid=0302e5b4b77a9b3fa051e559 elapsed=0.036 INFO: done
+    $ redis-cli LLEN queue:ingress
+    0                       # <- the previously-stuck job was consumed on boot
+
+    $ rails runner  (Sidekiq::ProcessSet)
+    live_process queues=["default", "push", "ingress", "mailers", "pull", "scheduler"]
+
+## Not fixed / still open
+
+Full public-path E2E (a real remote Create(Note) creating a Status) is **not yet
+proven**. The signed-replay probe returned:
+
+    401 {"error":"Requests to private network addresses are disallowed
+          (tried to query Mastodon::PrivateNetworkAddressError on
+           http://ao-fedtest:8080/users/testactor/actor.json#main-key)"}
+
+That is a **security control working correctly** (SSRF guard on actor fetch), not
+the fault. I deliberately did **NOT** set ALLOWED_PRIVATE_ADDRESSES to make the
+probe pass. Throwaway actor container `ao-fedtest` and all /tmp test material
+removed. Real end-to-end confirmation needs a genuine post from a remote
+instance — recommend the operator post a mention from mastodon.social and check
+`from REMOTE accounts` (was 0).
+
+## Files changed (UNCOMMITTED)
+
+    quadlet/sales/ao-mastodon-sidekiq.container   (Exec + explanatory comment)
+
+Deployed flat to `~/.config/containers/systemd/` and daemon-reloaded.
+No other Mastodon container was touched; no image, port, mount or secret changed.
+
+## Traps hit
+
+- `rails runner` with **inline** quoting breaks; pipe a `.rb` file in via
+  `podman cp` + `rails runner /tmp/x.rb`. (A's trap, confirmed again.)
+- **Mastodon 4.3 has no `accounts.acct` column** and **no `Account#remote_url`**
+  (A documented `acct`; `remote_url` is a second, undocumented one). Use
+  `username`/`domain`/`uri`/`inbox_url`.
+- **The app path is `/opt/mastodon`, not `/usr/src/app`** (the docker image docs
+  and the systemd `WorkingDirectory` both mislead here).
+- `Sidekiq::Config` is **not autoloaded** in the web process — `require
+  'sidekiq/api'` and use `Sidekiq::ProcessSet` instead.
+- `podman run --network` needs the **bare** name (`ao-sales`), not the Quadlet
+  filename (`ao-sales.network`).
+- **`redis-cli HGETALL queues` fails** WRONGTYPE — it is a SET in Sidekiq 6, not
+  a hash. Use `LLEN queue:<name>` for depth.

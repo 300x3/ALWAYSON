@@ -1,0 +1,54 @@
+===== 2026-08-31T19:44:43-07:00 : apply-20260831-fixes =====
+/ALWAYSON/scripts/ops/apply-20260831-fixes.sh: line 16: step: command not found
+===== 2026-08-31T19:44:43-07:00 : pkexec-post-deploy =====
+
+--- 1. System-store container inventory (non-destructive) ---
+
+--- 2. Restart WebODM/NodeODM system-store stack (mapping operator workflow) ---
+ao-webodm-db not present in system store (skipped)
+ao-webodm-broker not present in system store (skipped)
+ao-webodm-worker not present in system store (skipped)
+ao-nodeodm not present in system store (skipped)
+ao-webodm-web not present in system store (skipped)
+
+--- 3. PostgreSQL 18 read-only reporting role for Metabase (Section 15.1/6.A.2) ---
+role metaread already exists (skipped)
+
+--- 4. Listener and firewall verification (no changes unless a violation exists) ---
+State  Recv-Q Send-Q Local Address:Port  Peer Address:PortProcess                                   
+LISTEN 0      200          0.0.0.0:5432       0.0.0.0:*    users:(("postgres",pid=2474,fd=6))       
+LISTEN 0      200             [::]:5432          [::]:*    users:(("postgres",pid=2474,fd=7))       
+Status: active
+Logging: on (low)
+Default: deny (incoming), allow (outgoing), disabled (routed)
+New profiles: skip
+
+To                         Action      From
+--                         ------      ----
+1716/tcp                   DENY IN     Anywhere                   # KDE Connect guard
+1716/tcp (v6)              DENY IN     Anywhere (v6)              # KDE Connect guard
+
+
+--- 5. Summary ---
+Privileged steps complete. Rootless ao-admin plane status:
+===== done =====
+/ALWAYSON/scripts/ops/apply-20260831-fixes.sh: line 19: step: command not found
+drwxr-x--- 4 scottw scottw 4096 Aug 25 14:11 /ALWAYSON/backups/postgres
+/ALWAYSON/scripts/ops/apply-20260831-fixes.sh: line 24: step: command not found
+cp: warning: behavior of -n is non-portable and may change in future; use --update=none instead
+9:ExecStartPre=/bin/bash -c "mkdir -p /tmp/sitl && echo  > /tmp/sitl/eeprom.bin"
+10:ExecStart=/home/scottw/ardupilot/build/sitl/bin/arducopter --model quad --speedup 1 --instance 0 --home=37.7749,-122.4194,0,0
+NOTE: run `systemctl --user daemon-reload` as scottw to pick up the fix
+/ALWAYSON/scripts/ops/apply-20260831-fixes.sh: line 35: step: command not found
+Created symlink '/etc/systemd/system/timers.target.wants/alwayson-restic-backup.timer' → '/etc/systemd/system/alwayson-restic-backup.timer'.
+Created symlink '/etc/systemd/system/timers.target.wants/alwayson-restic-verify.timer' → '/etc/systemd/system/alwayson-restic-verify.timer'.
+Tue 2026-09-01 03:37:59 PDT       7h -                                      - alwayson-restic-backup.timer   alwayson-restic-backup.service
+Sun 2026-09-06 04:39:54 PDT   5 days -                                      - alwayson-restic-verify.timer   alwayson-restic-verify.service
+--- running one restic backup now to verify end-to-end ---
+Job for alwayson-restic-backup.service failed because the control process exited with error code.
+See "systemctl status alwayson-restic-backup.service" and "journalctl -xeu alwayson-restic-backup.service" for details.
+RESTIC BACKUP RUN FAILED (check journalctl -u alwayson-restic-backup)
+Tue 2026-09-01 03:38:59 PDT       7h -                                      - alwayson-restic-backup.timer   alwayson-restic-backup.service
+Sun 2026-09-06 04:39:54 PDT   5 days -                                      - alwayson-restic-verify.timer   alwayson-restic-verify.service
+OK: backup schedule installed
+===== 2026-08-31T19:44:46-07:00 : apply-20260831-fixes done =====

@@ -1,0 +1,110 @@
+# 2026-10-01 — OpenClaw bridge replied to nothing: stale notification cursor
+
+Second, independent fault after the sidekiq `ingress` fix. README §19.3 item 16
+("conversation half"). Root cause found, fixed, VERIFIED — the bot replied and
+the reply federated out.
+
+## Symptom
+
+Operator posted a mention; inbound federation delivered it correctly (see
+2026-10-01-mastodon-inbound-federation-ingress.log) but **no reply appeared**.
+The bridge looked healthy the whole time:
+
+    $ systemctl --user show mastodon-openclaw-bridge.service -p NRestarts
+    NRestarts=3            # all three at 15:09:00-15:09:10 (login), pre-fix
+    $ ps -o etime,time,args -p <MainPID>
+    48:08  00:00:01  Ss  /usr/bin/python3 /home/scottw/.local/bin/mastodon-openclaw-bridge.py
+
+**No log line since 2026-09-25.** No errors, no restarts, no output. Silent skip.
+
+## Root cause
+
+    $ cat ~/.openclaw/mastodon-bridge-state.json
+    { "lastNotificationId": "13", "updatedAt": 1790313408.7282434 }   # 2026-09-24
+
+    $ rails runner  ->  notification_count=5
+                        max_notification_id=5
+
+The `notifications` table had been **repopulated directly in PostgreSQL** (the
+same pattern document A found in `accounts`), which **restarted the id sequence
+at 1**. The on-disk cursor still read `13`, written a week earlier. The poll loop
+does:
+
+    if last_id != '0' and int(nid) <= int(last_id):
+        continue
+
+Every notification (ids 1-5) was <= 13, so **all were skipped, forever**, with no
+error path. The unit stayed `active` and healthy throughout.
+
+## Not the cause - ruled out first
+
+    $ curl -H "Authorization: Bearer $LM_API_TOKEN" http://127.0.0.1:1234/v1/models
+       nvidia/nemotron-3-nano-4b     <-- the exact MODEL the bridge requests
+    ao-openclaw-gateway.service -> active
+    wallet token len=43, /api/v1/notifications returns 5 well-formed records
+
+LM Studio up, gateway up, model loaded, token valid, notifications well-formed
+(all 5 carried `status.id`, `status.account.acct`, `status.content`).
+
+## Fix
+
+`~/.local/bin/mastodon-openclaw-bridge.py`, guard at the top of the poll loop:
+
+    newest = max((int(n['id']) for n in items), default=0)
+    if last_id != '0' and newest and newest < int(last_id):
+        log(f'cursor {last_id} is ahead of newest notification {newest}; '
+            'notification ids were reset - reprocessing from the start')
+        last_id = '0'
+        write_state(last_id)
+
+Self-healing against a DB rebuild under a live cursor. `py_compile` clean.
+
+Cursor then set to **4** deliberately, so only notification 5 was answered —
+ids 1-4 are the 21:18-21:28 backlog and posting five public replies unattended
+would breach rule 14.
+
+## Verified
+
+    $ tail -1 ~/.openclaw/mastodon-bridge.log
+    2026-10-01T16:00:05-0700 replied to status 117367772780119064 from
+    300x3@mastodon.social: 117368134418083152
+
+    bot statuses=2
+      id=117368134418083152 in_reply_to_id=117367772780119064
+      text="300x3.com empowers humans with tools and communities to achieve independence."
+
+    $ podman logs mastodon-sidekiq | grep DeliveryWorker
+    class=ActivityPub::DeliveryWorker jid=ea365832c6742061fb9908ff8 INFO: start
+    class=ActivityPub::DeliveryWorker jid=ea365832c6742061fb9908ff8 elapsed=0.399 INFO: done
+
+Full round trip: remote post -> inbox -> ingress -> mention -> bridge -> model
+-> reply -> push -> delivered. All six queues depth 0, bridge NRestarts=0.
+
+## Incidental - NOT fixed
+
+`NotificationMailer` failing in `mailers`: `SMTP-AUTH requested but missing user
+name`, retry_count=3. Mention email is unconfigured. Does not affect federation
+or replies (Mastodon does not require SMTP). Left alone.
+
+## Traps
+
+- **The bridge script is not in /ALWAYSON and not in git.** Only
+  `~/.local/bin/mastodon-openclaw-bridge.py` (237 lines). `git ls-files | grep
+  openclaw-bridge` -> nothing; `grep -rl lastNotificationId` in repo -> nothing.
+  No tracked source of truth for a live service.
+- **`ENV_FILE` fallback is dead**: `/ALWAYSON/secrets/mastodon/openclaw-mastodon.env`
+  was deleted by document B's consolidation. Harmless only because
+  `read_wallet_token()` succeeds first and ENV_FILE is never read. If the wallet
+  ever fails, the bridge dies with FileNotFoundError instead of degrading.
+- **Notification ids here are small sequential ints, not snowflakes.**
+- Check `ActivityPub::DeliveryWorker` for outbound proof, not "push" (matches
+  scheduler noise).
+
+## Files changed (UNCOMMITTED)
+
+    ~/.local/bin/mastodon-openclaw-bridge.py   (cursor guard — OUTSIDE the repo)
+    COORDINATION BETWEEN AI/H. 2026-10-01-openclaw-bridge-stale-cursor.md  (NEW)
+    README.md                                   (§19.3 item 16)
+
+Recommend moving the bridge script under /ALWAYSON/scripts/mastodon/ and
+repointing the unit — needs operator approval (changes a deployed unit).

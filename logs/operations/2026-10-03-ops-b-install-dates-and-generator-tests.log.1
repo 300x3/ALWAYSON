@@ -1,0 +1,67 @@
+ALWAYS ON — OPS-21 / OPS-22 — install-date ground truth and generator regression tests
+Date: 2026-10-03   Session: ops-b   Items: OPS-21, OPS-22 (both close)
+
+Read-only throughout. No package installed, promoted, deployed or restarted.
+
+1. WHAT WAS WRONG (OPS-21)
+   docs/software-status.md `Installed` column derived its date from the mtime of
+   /var/lib/dpkg/info/<pkg>.list. dpkg rewrites that file on every unpack, so the
+   column reported the LAST UPGRADE date under the heading "Installed".
+
+2. FIX
+   New scripts/build-update/apt_history.py parses /var/log/apt/history.log plus its
+   rotated .gz siblings, which record Start-Date, the exact Commandline and separate
+   Install: / Upgrade: / Remove: / Purge: lines.
+
+   $ python3 scripts/build-update/apt_history.py
+   packages indexed      : 4445
+     installed           : 4281
+     upgrade-only (pre-window): 86
+     installed unattended: 2098
+   log files read        : ['history.log.1.gz', 'history.log.2.gz', 'history.log']
+
+   Note: §19 OPS-21 says the log "holds 13 dated transactions". Measured, it holds
+   186 across the three files; 13 is the live history.log alone.
+
+   $ python3 -c "...pl.apt_date(...)..."
+   nginx              not installed (removed/purged 2026-08-23)
+   dbeaver-ce         not installed (removed/purged 2026-10-01)
+   rclone             2026-10-03 (apt history, Install)
+   foxglove-studio    2026-10-01 (apt history, Install)
+   bash               2026-04-23 (dpkg mtime)
+
+   Cross-checked against the raw log:
+   $ sed -n '72,77p' /var/log/apt/history.log
+   Start-Date: 2026-10-03 08:21:06
+   Commandline: /usr/bin/apt-get install -y -qq rclone
+   Install: rclone:amd64 (1.60.1+dfsg-4ubuntu3.2)
+
+3. SILENT FAILURE FOUND AND FIXED
+   The first integration used `import apt_history`, which resolves against sys.path
+   (whose [0] is the CWD). refresh-install-log.sh does `cd "$AO_ROOT"` first, so the
+   import raised ImportError on EVERY production run and silently fell back to the
+   dpkg mtime — the exact source being replaced. Output looked normal. Now loaded by
+   __file__; asserted by test_apt_history_loads_regardless_of_working_directory.
+
+4. DEFECT FOUND BY THE NEW TESTS (OPS-22)
+   update_steps() accepted a digest on the "sha256:" prefix alone. `sha256:` + 12
+   hex chars passed, emitting `podman pull repo@sha256:<12>` — HTTP 400 from any
+   registry. is_complete_digest() now checks algorithm AND body length.
+
+   $ python3 scripts/build-update/test_generators.py
+   Ran 29 tests in 0.282s
+   OK
+
+   The suite did not run at all beforehand: a stray fragment hung off EOF after
+   unittest.main() (dead code), and TestAptHistoryParsing called importlib.reload()
+   on a module never in sys.modules. Parser now takes an injectable log_dir so tests
+   use tempfile.mkdtemp() and never touch /var/log/apt.
+
+5. FILES CHANGED
+   scripts/build-update/apt_history.py          (new)
+   scripts/build-update/provenance-log.py        (_load_apt_history, apt_date, is_complete_digest)
+   scripts/build-update/test_generators.py       (29 tests)
+   agents/COORDINATION/12-host-installation-and-configuration/section.md   §12.5.1, §12.5.2
+   agents/COORDINATION/proposals/ops-b-OPS-21.md, ops-b-OPS-22.md
+
+Not committed — awaiting operator instruction per AGENTS.md (commit only when asked).

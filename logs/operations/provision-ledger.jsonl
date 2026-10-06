@@ -1,0 +1,178 @@
+{"ts":"2026-10-03T00:52:59Z","stage":"10","step":"install -d -m 0755 /etc/apt/keyrings && curl -fsSL -o /etc/apt/keyrings/vscodium-archive-keyring.gpg 'https://download.vscodium.com/debs/gpg' && chmod 0644 /etc/apt/keyrings/vscodium-archive-keyring.gpg","rc":0}
+{"ts":"2026-10-03T00:52:59Z","stage":"10","step":"install -d -m 0755 /etc/apt/keyrings && curl -fsSL -o /etc/apt/keyrings/steam.gpg 'https://repo.steampowered.com/steam/gpg' && chmod 0644 /etc/apt/keyrings/steam.gpg","rc":0}
+{"ts":"2026-10-03T00:52:59Z","stage":"10","step":"install -d -m 0755 /etc/apt/keyrings && curl -fsSL -o /etc/apt/keyrings/google-chrome.gpg 'https://dl.google.com/linux/chrome-stable/deb/gpg' && chmod 0644 /etc/apt/keyrings/google-chrome.gpg","rc":0}
+{"ts":"2026-10-03T00:52:59Z","stage":"10","step":"install -d -m 0755 /etc/apt/keyrings && curl -fsSL -o /etc/apt/keyrings/microsoft-edge.gpg 'https://packages.microsoft.com/repos/edge-stable/gpg' && chmod 0644 /etc/apt/keyrings/microsoft-edge.gpg","rc":0}
+{"ts":"2026-10-03T00:52:59Z","stage":"10","step":"install -d -m 0755 /etc/apt/keyrings && curl -fsSL -o /etc/apt/keyrings/nodesource.gpg 'https://deb.nodesource.com/node_24.x/gpg' && chmod 0644 /etc/apt/keyrings/nodesource.gpg","rc":0}
+{"ts":"2026-10-03T00:52:59Z","stage":"10","step":"install -d -m 0755 /etc/apt/keyrings && curl -fsSL -o /etc/apt/keyrings/nvidia-container-toolkit-keyring.gpg 'https://nvidia.github.io/libnvidia-container/stable/deb/amd64/gpg' && chmod 0644 /etc/apt/keyrings/nvidia-container-toolkit-keyring.gpg","rc":0}
+{"ts":"2026-10-03T00:53:00Z","stage":"20","step":"apt-get update","rc":0}
+{"ts":"2026-10-03T00:53:03Z","stage":"50","step":"./scripts/deploy/deploy-quadlet-domain.sh build-update","rc":0}
+{"ts":"2026-10-03T00:53:03Z","stage":"50","step":"./scripts/deploy/deploy-quadlet-domain.sh mapping","rc":0}
+{"ts":"2026-10-03T00:53:03Z","stage":"50","step":"./scripts/deploy/deploy-quadlet-domain.sh build-update","rc":0}
+{"ts":"2026-10-03T00:53:03Z","stage":"50","step":"./scripts/deploy/deploy-quadlet-domain.sh fabrication","rc":0}
+{"ts":"2026-10-03T00:53:03Z","stage":"50","step":"./scripts/deploy/deploy-quadlet-domain.sh payment","rc":0}
+{"ts":"2026-10-03T00:53:03Z","stage":"50","step":"./scripts/deploy/deploy-quadlet-domain.sh sim-vehicle","rc":0}
+{"ts":"2026-10-03T00:53:57Z","stage":"10","step":"install -d -m 0755 /etc/apt/keyrings","rc":0}
+{"ts":"2026-10-03T00:53:57Z","stage":"10","step":"install -d -m 0755 /etc/apt/keyrings && curl -fsSL -o /etc/apt/keyrings/vscodium-archive-keyring.gpg 'https://download.vscodium.com/debs/gpg' && chmod 0644 /etc/apt/keyrings/vscodium-archive-keyring.gpg","rc":0}
+{"ts":"2026-10-03T00:53:57Z","stage":"10","step":"install -d -m 0755 /etc/apt/keyrings && curl -fsSL -o /etc/apt/keyrings/steam.gpg 'https://repo.steampowered.com/steam/gpg' && chmod 0644 /etc/apt/keyrings/steam.gpg","rc":0}
+{"ts":"2026-10-03T00:53:57Z","stage":"10","step":"install -d -m 0755 /etc/apt/keyrings && curl -fsSL -o /etc/apt/keyrings/google-chrome.gpg 'https://dl.google.com/linux/chrome-stable/deb/gpg' && chmod 0644 /etc/apt/keyrings/google-chrome.gpg","rc":0}
+{"ts":"2026-10-03T00:53:57Z","stage":"10","step":"install -d -m 0755 /etc/apt/keyrings && curl -fsSL -o /etc/apt/keyrings/microsoft-edge.gpg 'https://packages.microsoft.com/repos/edge-stable/gpg' && chmod 0644 /etc/apt/keyrings/microsoft-edge.gpg","rc":0}
+{"ts":"2026-10-03T00:53:57Z","stage":"10","step":"install -d -m 0755 /etc/apt/keyrings && curl -fsSL -o /etc/apt/keyrings/nodesource.gpg 'https://deb.nodesource.com/node_24.x/gpg' && chmod 0644 /etc/apt/keyrings/nodesource.gpg","rc":0}
+{"ts":"2026-10-03T00:53:57Z","stage":"10","step":"install -d -m 0755 /etc/apt/keyrings && curl -fsSL -o /etc/apt/keyrings/nvidia-container-toolkit-keyring.gpg 'https://nvidia.github.io/libnvidia-container/stable/deb/amd64/gpg' && chmod 0644 /etc/apt/keyrings/nvidia-container-toolkit-keyring.gpg","rc":0}
+{"ts":"2026-10-03T00:53:58Z","stage":"20","step":"apt-get update","rc":0}
+{"ts":"2026-10-03T00:54:01Z","stage":"50","step":"./scripts/deploy/deploy-quadlet-domain.sh build-update","rc":0}
+{"ts":"2026-10-03T00:54:01Z","stage":"50","step":"./scripts/deploy/deploy-quadlet-domain.sh fabrication","rc":0}
+{"ts":"2026-10-03T00:54:01Z","stage":"50","step":"./scripts/deploy/deploy-quadlet-domain.sh mapping","rc":0}
+{"ts":"2026-10-03T00:54:01Z","stage":"50","step":"./scripts/deploy/deploy-quadlet-domain.sh networks","rc":0}
+{"ts":"2026-10-03T00:54:01Z","stage":"50","step":"./scripts/deploy/deploy-quadlet-domain.sh operations","rc":0}
+{"ts":"2026-10-03T00:54:01Z","stage":"50","step":"./scripts/deploy/deploy-quadlet-domain.sh payment","rc":0}
+{"ts":"2026-10-03T00:54:01Z","stage":"50","step":"./scripts/deploy/deploy-quadlet-domain.sh sales","rc":0}
+{"ts":"2026-10-03T00:54:01Z","stage":"50","step":"./scripts/deploy/deploy-quadlet-domain.sh sim-fabrication","rc":0}
+{"ts":"2026-10-03T00:54:01Z","stage":"50","step":"./scripts/deploy/deploy-quadlet-domain.sh sim-vehicle","rc":0}
+{"ts":"2026-10-03T00:54:01Z","stage":"90","step":"python3 /ALWAYSON/scripts/build-update/inventory-full.py","rc":0}
+{"ts":"2026-10-03T00:54:01Z","stage":"90","step":"python3 /ALWAYSON/scripts/build-update/provenance-log.py --markdown --offline","rc":0}
+{"ts":"2026-10-03T00:54:16Z","stage":"10","step":"install -d -m 0755 /etc/apt/keyrings","rc":0}
+{"ts":"2026-10-03T00:54:16Z","stage":"10","step":"install -d -m 0755 /etc/apt/keyrings && curl -fsSL -o /etc/apt/keyrings/vscodium-archive-keyring.gpg 'https://download.vscodium.com/debs/gpg' && chmod 0644 /etc/apt/keyrings/vscodium-archive-keyring.gpg","rc":0}
+{"ts":"2026-10-03T00:54:16Z","stage":"10","step":"install -d -m 0755 /etc/apt/keyrings && curl -fsSL -o /etc/apt/keyrings/steam.gpg 'https://repo.steampowered.com/steam/gpg' && chmod 0644 /etc/apt/keyrings/steam.gpg","rc":0}
+{"ts":"2026-10-03T00:54:16Z","stage":"10","step":"install -d -m 0755 /etc/apt/keyrings && curl -fsSL -o /etc/apt/keyrings/google-chrome.gpg 'https://dl.google.com/linux/chrome-stable/deb/gpg' && chmod 0644 /etc/apt/keyrings/google-chrome.gpg","rc":0}
+{"ts":"2026-10-03T00:54:16Z","stage":"10","step":"install -d -m 0755 /etc/apt/keyrings && curl -fsSL -o /etc/apt/keyrings/microsoft-edge.gpg 'https://packages.microsoft.com/repos/edge-stable/gpg' && chmod 0644 /etc/apt/keyrings/microsoft-edge.gpg","rc":0}
+{"ts":"2026-10-03T00:54:16Z","stage":"10","step":"install -d -m 0755 /etc/apt/keyrings && curl -fsSL -o /etc/apt/keyrings/nodesource.gpg 'https://deb.nodesource.com/node_24.x/gpg' && chmod 0644 /etc/apt/keyrings/nodesource.gpg","rc":0}
+{"ts":"2026-10-03T00:54:16Z","stage":"10","step":"install -d -m 0755 /etc/apt/keyrings && curl -fsSL -o /etc/apt/keyrings/nvidia-container-toolkit-keyring.gpg 'https://nvidia.github.io/libnvidia-container/stable/deb/amd64/gpg' && chmod 0644 /etc/apt/keyrings/nvidia-container-toolkit-keyring.gpg","rc":0}
+{"ts":"2026-10-03T00:54:16Z","stage":"20","step":"apt-get update","rc":0}
+{"ts":"2026-10-03T00:54:19Z","stage":"50","step":"./scripts/deploy/deploy-quadlet-domain.sh build-update","rc":0}
+{"ts":"2026-10-03T00:54:19Z","stage":"50","step":"./scripts/deploy/deploy-quadlet-domain.sh fabrication","rc":0}
+{"ts":"2026-10-03T00:54:19Z","stage":"50","step":"./scripts/deploy/deploy-quadlet-domain.sh mapping","rc":0}
+{"ts":"2026-10-03T00:54:19Z","stage":"50","step":"./scripts/deploy/deploy-quadlet-domain.sh networks","rc":0}
+{"ts":"2026-10-03T00:54:19Z","stage":"50","step":"./scripts/deploy/deploy-quadlet-domain.sh operations","rc":0}
+{"ts":"2026-10-03T00:54:19Z","stage":"50","step":"./scripts/deploy/deploy-quadlet-domain.sh payment","rc":0}
+{"ts":"2026-10-03T00:54:19Z","stage":"50","step":"./scripts/deploy/deploy-quadlet-domain.sh sales","rc":0}
+{"ts":"2026-10-03T00:54:19Z","stage":"50","step":"./scripts/deploy/deploy-quadlet-domain.sh sim-fabrication","rc":0}
+{"ts":"2026-10-03T00:54:19Z","stage":"50","step":"./scripts/deploy/deploy-quadlet-domain.sh sim-vehicle","rc":0}
+{"ts":"2026-10-03T00:54:19Z","stage":"90","step":"python3 /ALWAYSON/scripts/build-update/inventory-full.py","rc":0}
+{"ts":"2026-10-03T00:54:19Z","stage":"90","step":"python3 /ALWAYSON/scripts/build-update/provenance-log.py --markdown --offline","rc":0}
+{"ts":"2026-10-03T01:09:11Z","stage":"10","step":"install -d -m 0755 /etc/apt/keyrings","rc":0}
+{"ts":"2026-10-03T01:09:11Z","stage":"10","step":"install -d -m 0755 /etc/apt/keyrings && curl -fsSL -o /etc/apt/keyrings/vscodium-archive-keyring.gpg 'https://download.vscodium.com/debs/gpg' && chmod 0644 /etc/apt/keyrings/vscodium-archive-keyring.gpg","rc":0}
+{"ts":"2026-10-03T01:09:11Z","stage":"10","step":"install -d -m 0755 /etc/apt/keyrings && curl -fsSL -o /etc/apt/keyrings/steam.gpg 'https://repo.steampowered.com/steam/gpg' && chmod 0644 /etc/apt/keyrings/steam.gpg","rc":0}
+{"ts":"2026-10-03T01:09:11Z","stage":"10","step":"install -d -m 0755 /etc/apt/keyrings && curl -fsSL -o /etc/apt/keyrings/google-chrome.gpg 'https://dl.google.com/linux/chrome-stable/deb/gpg' && chmod 0644 /etc/apt/keyrings/google-chrome.gpg","rc":0}
+{"ts":"2026-10-03T01:09:11Z","stage":"10","step":"install -d -m 0755 /etc/apt/keyrings && curl -fsSL -o /etc/apt/keyrings/microsoft-edge.gpg 'https://packages.microsoft.com/repos/edge-stable/gpg' && chmod 0644 /etc/apt/keyrings/microsoft-edge.gpg","rc":0}
+{"ts":"2026-10-03T01:09:11Z","stage":"10","step":"install -d -m 0755 /etc/apt/keyrings && curl -fsSL -o /etc/apt/keyrings/nodesource.gpg 'https://deb.nodesource.com/node_24.x/gpg' && chmod 0644 /etc/apt/keyrings/nodesource.gpg","rc":0}
+{"ts":"2026-10-03T01:09:11Z","stage":"10","step":"install -d -m 0755 /etc/apt/keyrings && curl -fsSL -o /etc/apt/keyrings/nvidia-container-toolkit-keyring.gpg 'https://nvidia.github.io/libnvidia-container/stable/deb/amd64/gpg' && chmod 0644 /etc/apt/keyrings/nvidia-container-toolkit-keyring.gpg","rc":0}
+{"ts":"2026-10-03T01:09:12Z","stage":"20","step":"apt-get update","rc":0}
+{"ts":"2026-10-03T01:09:14Z","stage":"50","step":"./scripts/deploy/deploy-quadlet-domain.sh build-update","rc":0}
+{"ts":"2026-10-03T01:09:14Z","stage":"50","step":"./scripts/deploy/deploy-quadlet-domain.sh fabrication","rc":0}
+{"ts":"2026-10-03T01:09:14Z","stage":"50","step":"./scripts/deploy/deploy-quadlet-domain.sh mapping","rc":0}
+{"ts":"2026-10-03T01:09:14Z","stage":"50","step":"./scripts/deploy/deploy-quadlet-domain.sh networks","rc":0}
+{"ts":"2026-10-03T01:09:14Z","stage":"50","step":"./scripts/deploy/deploy-quadlet-domain.sh operations","rc":0}
+{"ts":"2026-10-03T01:09:14Z","stage":"50","step":"./scripts/deploy/deploy-quadlet-domain.sh payment","rc":0}
+{"ts":"2026-10-03T01:09:14Z","stage":"50","step":"./scripts/deploy/deploy-quadlet-domain.sh sales","rc":0}
+{"ts":"2026-10-03T01:09:14Z","stage":"50","step":"./scripts/deploy/deploy-quadlet-domain.sh sim-fabrication","rc":0}
+{"ts":"2026-10-03T01:09:14Z","stage":"50","step":"./scripts/deploy/deploy-quadlet-domain.sh sim-vehicle","rc":0}
+{"ts":"2026-10-03T01:09:15Z","stage":"90","step":"python3 /ALWAYSON/scripts/build-update/inventory-full.py","rc":0}
+{"ts":"2026-10-03T01:09:15Z","stage":"90","step":"python3 /ALWAYSON/scripts/build-update/provenance-log.py --markdown --offline","rc":0}
+{"ts":"2026-10-03T01:12:47Z","stage":"10","step":"install -d -m 0755 /etc/apt/keyrings","rc":0}
+{"ts":"2026-10-03T01:12:47Z","stage":"10","step":"install -d -m 0755 /etc/apt/keyrings && curl -fsSL -o /etc/apt/keyrings/vscodium-archive-keyring.gpg 'https://download.vscodium.com/debs/gpg' && chmod 0644 /etc/apt/keyrings/vscodium-archive-keyring.gpg","rc":0}
+{"ts":"2026-10-03T01:12:47Z","stage":"10","step":"install -d -m 0755 /etc/apt/keyrings && curl -fsSL -o /etc/apt/keyrings/steam.gpg 'https://repo.steampowered.com/steam/gpg' && chmod 0644 /etc/apt/keyrings/steam.gpg","rc":0}
+{"ts":"2026-10-03T01:12:47Z","stage":"10","step":"install -d -m 0755 /etc/apt/keyrings && curl -fsSL -o /etc/apt/keyrings/google-chrome.gpg 'https://dl.google.com/linux/chrome-stable/deb/gpg' && chmod 0644 /etc/apt/keyrings/google-chrome.gpg","rc":0}
+{"ts":"2026-10-03T01:12:47Z","stage":"10","step":"install -d -m 0755 /etc/apt/keyrings && curl -fsSL -o /etc/apt/keyrings/microsoft-edge.gpg 'https://packages.microsoft.com/repos/edge-stable/gpg' && chmod 0644 /etc/apt/keyrings/microsoft-edge.gpg","rc":0}
+{"ts":"2026-10-03T01:12:47Z","stage":"10","step":"install -d -m 0755 /etc/apt/keyrings && curl -fsSL -o /etc/apt/keyrings/nodesource.gpg 'https://deb.nodesource.com/node_24.x/gpg' && chmod 0644 /etc/apt/keyrings/nodesource.gpg","rc":0}
+{"ts":"2026-10-03T01:12:47Z","stage":"10","step":"install -d -m 0755 /etc/apt/keyrings && curl -fsSL -o /etc/apt/keyrings/nvidia-container-toolkit-keyring.gpg 'https://nvidia.github.io/libnvidia-container/stable/deb/amd64/gpg' && chmod 0644 /etc/apt/keyrings/nvidia-container-toolkit-keyring.gpg","rc":0}
+{"ts":"2026-10-03T01:12:48Z","stage":"20","step":"apt-get update","rc":0}
+{"ts":"2026-10-03T01:12:50Z","stage":"50","step":"./scripts/deploy/deploy-quadlet-domain.sh build-update","rc":0}
+{"ts":"2026-10-03T01:12:50Z","stage":"50","step":"./scripts/deploy/deploy-quadlet-domain.sh fabrication","rc":0}
+{"ts":"2026-10-03T01:12:51Z","stage":"50","step":"./scripts/deploy/deploy-quadlet-domain.sh mapping","rc":0}
+{"ts":"2026-10-03T01:12:51Z","stage":"50","step":"./scripts/deploy/deploy-quadlet-domain.sh networks","rc":0}
+{"ts":"2026-10-03T01:12:51Z","stage":"50","step":"./scripts/deploy/deploy-quadlet-domain.sh operations","rc":0}
+{"ts":"2026-10-03T01:12:51Z","stage":"50","step":"./scripts/deploy/deploy-quadlet-domain.sh payment","rc":0}
+{"ts":"2026-10-03T01:12:51Z","stage":"50","step":"./scripts/deploy/deploy-quadlet-domain.sh sales","rc":0}
+{"ts":"2026-10-03T01:12:51Z","stage":"50","step":"./scripts/deploy/deploy-quadlet-domain.sh sim-fabrication","rc":0}
+{"ts":"2026-10-03T01:12:51Z","stage":"50","step":"./scripts/deploy/deploy-quadlet-domain.sh sim-vehicle","rc":0}
+{"ts":"2026-10-03T01:12:51Z","stage":"90","step":"python3 /ALWAYSON/scripts/build-update/inventory-full.py","rc":0}
+{"ts":"2026-10-03T01:12:51Z","stage":"90","step":"python3 /ALWAYSON/scripts/build-update/provenance-log.py --markdown --offline","rc":0}
+{"ts":"2026-10-03T01:14:36Z","stage":"10","step":"install -d -m 0755 /etc/apt/keyrings","rc":0}
+{"ts":"2026-10-03T01:14:36Z","stage":"10","step":"install -d -m 0755 /etc/apt/keyrings && curl -fsSL -o /etc/apt/keyrings/vscodium-archive-keyring.gpg 'https://download.vscodium.com/debs/gpg' && chmod 0644 /etc/apt/keyrings/vscodium-archive-keyring.gpg","rc":0}
+{"ts":"2026-10-03T01:14:36Z","stage":"10","step":"install -d -m 0755 /etc/apt/keyrings && curl -fsSL -o /etc/apt/keyrings/steam.gpg 'https://repo.steampowered.com/steam/gpg' && chmod 0644 /etc/apt/keyrings/steam.gpg","rc":0}
+{"ts":"2026-10-03T01:14:36Z","stage":"10","step":"install -d -m 0755 /etc/apt/keyrings && curl -fsSL -o /etc/apt/keyrings/google-chrome.gpg 'https://dl.google.com/linux/chrome-stable/deb/gpg' && chmod 0644 /etc/apt/keyrings/google-chrome.gpg","rc":0}
+{"ts":"2026-10-03T01:14:36Z","stage":"10","step":"install -d -m 0755 /etc/apt/keyrings && curl -fsSL -o /etc/apt/keyrings/microsoft-edge.gpg 'https://packages.microsoft.com/repos/edge-stable/gpg' && chmod 0644 /etc/apt/keyrings/microsoft-edge.gpg","rc":0}
+{"ts":"2026-10-03T01:14:36Z","stage":"10","step":"install -d -m 0755 /etc/apt/keyrings && curl -fsSL -o /etc/apt/keyrings/nodesource.gpg 'https://deb.nodesource.com/node_24.x/gpg' && chmod 0644 /etc/apt/keyrings/nodesource.gpg","rc":0}
+{"ts":"2026-10-03T01:14:36Z","stage":"10","step":"install -d -m 0755 /etc/apt/keyrings && curl -fsSL -o /etc/apt/keyrings/nvidia-container-toolkit-keyring.gpg 'https://nvidia.github.io/libnvidia-container/stable/deb/amd64/gpg' && chmod 0644 /etc/apt/keyrings/nvidia-container-toolkit-keyring.gpg","rc":0}
+{"ts":"2026-10-03T01:14:37Z","stage":"20","step":"apt-get update","rc":0}
+{"ts":"2026-10-03T01:14:39Z","stage":"50","step":"./scripts/deploy/deploy-quadlet-domain.sh build-update","rc":0}
+{"ts":"2026-10-03T01:14:39Z","stage":"50","step":"./scripts/deploy/deploy-quadlet-domain.sh fabrication","rc":0}
+{"ts":"2026-10-03T01:14:39Z","stage":"50","step":"./scripts/deploy/deploy-quadlet-domain.sh mapping","rc":0}
+{"ts":"2026-10-03T01:14:39Z","stage":"50","step":"./scripts/deploy/deploy-quadlet-domain.sh networks","rc":0}
+{"ts":"2026-10-03T01:14:39Z","stage":"50","step":"./scripts/deploy/deploy-quadlet-domain.sh operations","rc":0}
+{"ts":"2026-10-03T01:14:39Z","stage":"50","step":"./scripts/deploy/deploy-quadlet-domain.sh payment","rc":0}
+{"ts":"2026-10-03T01:14:39Z","stage":"50","step":"./scripts/deploy/deploy-quadlet-domain.sh sales","rc":0}
+{"ts":"2026-10-03T01:14:39Z","stage":"50","step":"./scripts/deploy/deploy-quadlet-domain.sh sim-fabrication","rc":0}
+{"ts":"2026-10-03T01:14:39Z","stage":"50","step":"./scripts/deploy/deploy-quadlet-domain.sh sim-vehicle","rc":0}
+{"ts":"2026-10-03T01:14:39Z","stage":"90","step":"python3 /ALWAYSON/scripts/build-update/inventory-full.py","rc":0}
+{"ts":"2026-10-03T01:14:39Z","stage":"90","step":"python3 /ALWAYSON/scripts/build-update/provenance-log.py --markdown --offline","rc":0}
+{"ts":"2026-10-03T01:40:49Z","stage":"10","step":"install -d -m 0755 /etc/apt/keyrings","rc":0}
+{"ts":"2026-10-03T01:40:49Z","stage":"10","step":"install -d -m 0755 /etc/apt/keyrings && curl -fsSL -o /etc/apt/keyrings/vscodium-archive-keyring.gpg 'https://download.vscodium.com/debs/gpg' && chmod 0644 /etc/apt/keyrings/vscodium-archive-keyring.gpg","rc":0}
+{"ts":"2026-10-03T01:40:49Z","stage":"10","step":"install -d -m 0755 /etc/apt/keyrings && curl -fsSL -o /etc/apt/keyrings/steam.gpg 'https://repo.steampowered.com/steam/gpg' && chmod 0644 /etc/apt/keyrings/steam.gpg","rc":0}
+{"ts":"2026-10-03T01:40:49Z","stage":"10","step":"install -d -m 0755 /etc/apt/keyrings && curl -fsSL -o /etc/apt/keyrings/google-chrome.gpg 'https://dl.google.com/linux/chrome-stable/deb/gpg' && chmod 0644 /etc/apt/keyrings/google-chrome.gpg","rc":0}
+{"ts":"2026-10-03T01:40:49Z","stage":"10","step":"install -d -m 0755 /etc/apt/keyrings && curl -fsSL -o /etc/apt/keyrings/microsoft-edge.gpg 'https://packages.microsoft.com/repos/edge-stable/gpg' && chmod 0644 /etc/apt/keyrings/microsoft-edge.gpg","rc":0}
+{"ts":"2026-10-03T01:40:49Z","stage":"10","step":"install -d -m 0755 /etc/apt/keyrings && curl -fsSL -o /etc/apt/keyrings/nodesource.gpg 'https://deb.nodesource.com/node_24.x/gpg' && chmod 0644 /etc/apt/keyrings/nodesource.gpg","rc":0}
+{"ts":"2026-10-03T01:40:49Z","stage":"10","step":"install -d -m 0755 /etc/apt/keyrings && curl -fsSL -o /etc/apt/keyrings/nvidia-container-toolkit-keyring.gpg 'https://nvidia.github.io/libnvidia-container/stable/deb/amd64/gpg' && chmod 0644 /etc/apt/keyrings/nvidia-container-toolkit-keyring.gpg","rc":0}
+{"ts":"2026-10-03T01:40:49Z","stage":"20","step":"bash /ALWAYSON/scripts/bootstrap/02-install-host-dependencies.sh","rc":0}
+{"ts":"2026-10-03T01:40:51Z","stage":"50","step":"./scripts/deploy/deploy-quadlet-domain.sh build-update","rc":0}
+{"ts":"2026-10-03T01:40:51Z","stage":"50","step":"./scripts/deploy/deploy-quadlet-domain.sh fabrication","rc":0}
+{"ts":"2026-10-03T01:40:51Z","stage":"50","step":"./scripts/deploy/deploy-quadlet-domain.sh mapping","rc":0}
+{"ts":"2026-10-03T01:40:51Z","stage":"50","step":"./scripts/deploy/deploy-quadlet-domain.sh networks","rc":0}
+{"ts":"2026-10-03T01:40:51Z","stage":"50","step":"./scripts/deploy/deploy-quadlet-domain.sh operations","rc":0}
+{"ts":"2026-10-03T01:40:51Z","stage":"50","step":"./scripts/deploy/deploy-quadlet-domain.sh payment","rc":0}
+{"ts":"2026-10-03T01:40:51Z","stage":"50","step":"./scripts/deploy/deploy-quadlet-domain.sh sales","rc":0}
+{"ts":"2026-10-03T01:40:51Z","stage":"50","step":"./scripts/deploy/deploy-quadlet-domain.sh sim-fabrication","rc":0}
+{"ts":"2026-10-03T01:40:51Z","stage":"50","step":"./scripts/deploy/deploy-quadlet-domain.sh sim-vehicle","rc":0}
+{"ts":"2026-10-03T01:40:51Z","stage":"90","step":"python3 /ALWAYSON/scripts/build-update/inventory-full.py","rc":0}
+{"ts":"2026-10-03T01:40:51Z","stage":"90","step":"python3 /ALWAYSON/scripts/build-update/provenance-log.py --markdown --offline","rc":0}
+{"ts":"2026-10-03T01:42:03Z","stage":"10","step":"install -d -m 0755 /etc/apt/keyrings","rc":0}
+{"ts":"2026-10-03T01:42:03Z","stage":"10","step":"install -d -m 0755 /etc/apt/keyrings && curl -fsSL -o /etc/apt/keyrings/vscodium-archive-keyring.gpg 'https://download.vscodium.com/debs/gpg' && chmod 0644 /etc/apt/keyrings/vscodium-archive-keyring.gpg","rc":0}
+{"ts":"2026-10-03T01:42:03Z","stage":"10","step":"install -d -m 0755 /etc/apt/keyrings && curl -fsSL -o /etc/apt/keyrings/steam.gpg 'https://repo.steampowered.com/steam/gpg' && chmod 0644 /etc/apt/keyrings/steam.gpg","rc":0}
+{"ts":"2026-10-03T01:42:03Z","stage":"10","step":"install -d -m 0755 /etc/apt/keyrings && curl -fsSL -o /etc/apt/keyrings/google-chrome.gpg 'https://dl.google.com/linux/chrome-stable/deb/gpg' && chmod 0644 /etc/apt/keyrings/google-chrome.gpg","rc":0}
+{"ts":"2026-10-03T01:42:03Z","stage":"10","step":"install -d -m 0755 /etc/apt/keyrings && curl -fsSL -o /etc/apt/keyrings/microsoft-edge.gpg 'https://packages.microsoft.com/repos/edge-stable/gpg' && chmod 0644 /etc/apt/keyrings/microsoft-edge.gpg","rc":0}
+{"ts":"2026-10-03T01:42:03Z","stage":"10","step":"install -d -m 0755 /etc/apt/keyrings && curl -fsSL -o /etc/apt/keyrings/nodesource.gpg 'https://deb.nodesource.com/node_24.x/gpg' && chmod 0644 /etc/apt/keyrings/nodesource.gpg","rc":0}
+{"ts":"2026-10-03T01:42:03Z","stage":"10","step":"install -d -m 0755 /etc/apt/keyrings && curl -fsSL -o /etc/apt/keyrings/nvidia-container-toolkit-keyring.gpg 'https://nvidia.github.io/libnvidia-container/stable/deb/amd64/gpg' && chmod 0644 /etc/apt/keyrings/nvidia-container-toolkit-keyring.gpg","rc":0}
+{"ts":"2026-10-03T01:42:03Z","stage":"20","step":"bash /ALWAYSON/scripts/bootstrap/02-install-host-dependencies.sh","rc":0}
+{"ts":"2026-10-03T01:42:03Z","stage":"20","step":"bash /ALWAYSON/scripts/bootstrap/03-create-operational-layout.sh","rc":0}
+{"ts":"2026-10-03T01:42:03Z","stage":"20","step":"bash /ALWAYSON/scripts/bootstrap/04-create-podman-networks.sh","rc":0}
+{"ts":"2026-10-03T01:42:03Z","stage":"20","step":"bash /ALWAYSON/scripts/bootstrap/00-inventory.sh","rc":0}
+{"ts":"2026-10-03T01:42:06Z","stage":"50","step":"./scripts/deploy/deploy-quadlet-domain.sh build-update","rc":0}
+{"ts":"2026-10-03T01:42:06Z","stage":"50","step":"./scripts/deploy/deploy-quadlet-domain.sh fabrication","rc":0}
+{"ts":"2026-10-03T01:42:06Z","stage":"50","step":"./scripts/deploy/deploy-quadlet-domain.sh mapping","rc":0}
+{"ts":"2026-10-03T01:42:06Z","stage":"50","step":"./scripts/deploy/deploy-quadlet-domain.sh networks","rc":0}
+{"ts":"2026-10-03T01:42:06Z","stage":"50","step":"./scripts/deploy/deploy-quadlet-domain.sh operations","rc":0}
+{"ts":"2026-10-03T01:42:06Z","stage":"50","step":"./scripts/deploy/deploy-quadlet-domain.sh payment","rc":0}
+{"ts":"2026-10-03T01:42:06Z","stage":"50","step":"./scripts/deploy/deploy-quadlet-domain.sh sales","rc":0}
+{"ts":"2026-10-03T01:42:06Z","stage":"50","step":"./scripts/deploy/deploy-quadlet-domain.sh sim-fabrication","rc":0}
+{"ts":"2026-10-03T01:42:06Z","stage":"50","step":"./scripts/deploy/deploy-quadlet-domain.sh sim-vehicle","rc":0}
+{"ts":"2026-10-03T01:42:06Z","stage":"90","step":"python3 /ALWAYSON/scripts/build-update/inventory-full.py","rc":0}
+{"ts":"2026-10-03T01:42:06Z","stage":"90","step":"python3 /ALWAYSON/scripts/build-update/provenance-log.py --markdown --offline","rc":0}
+{"ts":"2026-10-03T03:03:29Z","stage":"10","step":"install -d -m 0755 /etc/apt/keyrings","rc":0}
+{"ts":"2026-10-03T03:03:29Z","stage":"10","step":"install -d -m 0755 /etc/apt/keyrings && curl -fsSL -o /etc/apt/keyrings/vscodium-archive-keyring.gpg 'https://download.vscodium.com/debs/gpg' && chmod 0644 /etc/apt/keyrings/vscodium-archive-keyring.gpg","rc":0}
+{"ts":"2026-10-03T03:03:29Z","stage":"10","step":"install -d -m 0755 /etc/apt/keyrings && curl -fsSL -o /etc/apt/keyrings/steam.gpg 'https://repo.steampowered.com/steam/gpg' && chmod 0644 /etc/apt/keyrings/steam.gpg","rc":0}
+{"ts":"2026-10-03T03:03:29Z","stage":"10","step":"install -d -m 0755 /etc/apt/keyrings && curl -fsSL -o /etc/apt/keyrings/google-chrome.gpg 'https://dl.google.com/linux/chrome-stable/deb/gpg' && chmod 0644 /etc/apt/keyrings/google-chrome.gpg","rc":0}
+{"ts":"2026-10-03T03:03:29Z","stage":"10","step":"install -d -m 0755 /etc/apt/keyrings && curl -fsSL -o /etc/apt/keyrings/microsoft-edge.gpg 'https://packages.microsoft.com/repos/edge-stable/gpg' && chmod 0644 /etc/apt/keyrings/microsoft-edge.gpg","rc":0}
+{"ts":"2026-10-03T03:03:29Z","stage":"10","step":"install -d -m 0755 /etc/apt/keyrings && curl -fsSL -o /etc/apt/keyrings/nodesource.gpg 'https://deb.nodesource.com/node_24.x/gpg' && chmod 0644 /etc/apt/keyrings/nodesource.gpg","rc":0}
+{"ts":"2026-10-03T03:03:29Z","stage":"10","step":"install -d -m 0755 /etc/apt/keyrings && curl -fsSL -o /etc/apt/keyrings/nvidia-container-toolkit-keyring.gpg 'https://nvidia.github.io/libnvidia-container/stable/deb/amd64/gpg' && chmod 0644 /etc/apt/keyrings/nvidia-container-toolkit-keyring.gpg","rc":0}
+{"ts":"2026-10-03T03:03:29Z","stage":"20","step":"bash /ALWAYSON/scripts/bootstrap/02-install-host-dependencies.sh","rc":0}
+{"ts":"2026-10-03T03:03:29Z","stage":"20","step":"bash /ALWAYSON/scripts/bootstrap/03-create-operational-layout.sh","rc":0}
+{"ts":"2026-10-03T03:03:29Z","stage":"20","step":"bash /ALWAYSON/scripts/bootstrap/04-create-podman-networks.sh","rc":0}
+{"ts":"2026-10-03T03:03:29Z","stage":"20","step":"bash /ALWAYSON/scripts/bootstrap/00-inventory.sh","rc":0}
+{"ts":"2026-10-03T03:03:33Z","stage":"50","step":"./scripts/deploy/deploy-quadlet-domain.sh build-update","rc":0}
+{"ts":"2026-10-03T03:03:33Z","stage":"50","step":"./scripts/deploy/deploy-quadlet-domain.sh fabrication","rc":0}
+{"ts":"2026-10-03T03:03:33Z","stage":"50","step":"./scripts/deploy/deploy-quadlet-domain.sh mapping","rc":0}
+{"ts":"2026-10-03T03:03:33Z","stage":"50","step":"./scripts/deploy/deploy-quadlet-domain.sh networks","rc":0}
+{"ts":"2026-10-03T03:03:33Z","stage":"50","step":"./scripts/deploy/deploy-quadlet-domain.sh operations","rc":0}
+{"ts":"2026-10-03T03:03:33Z","stage":"50","step":"./scripts/deploy/deploy-quadlet-domain.sh payment","rc":0}
+{"ts":"2026-10-03T03:03:33Z","stage":"50","step":"./scripts/deploy/deploy-quadlet-domain.sh sales","rc":0}
+{"ts":"2026-10-03T03:03:33Z","stage":"50","step":"./scripts/deploy/deploy-quadlet-domain.sh sim-fabrication","rc":0}
+{"ts":"2026-10-03T03:03:33Z","stage":"50","step":"./scripts/deploy/deploy-quadlet-domain.sh sim-vehicle","rc":0}
+{"ts":"2026-10-03T03:03:33Z","stage":"55","step":"sudo install -m 0644 -o root -g root '/ALWAYSON/systemd/backup/ao-restic-backup.service' /etc/systemd/system/ao-restic-backup.service","rc":0}
+{"ts":"2026-10-03T03:03:33Z","stage":"55","step":"sudo install -m 0644 -o root -g root '/ALWAYSON/systemd/backup/ao-restic-prefetch.service' /etc/systemd/system/ao-restic-prefetch.service","rc":0}
+{"ts":"2026-10-03T03:03:33Z","stage":"55","step":"sudo install -m 0644 -o root -g root '/ALWAYSON/systemd/backup/ao-restic-verify.service' /etc/systemd/system/ao-restic-verify.service","rc":0}
+{"ts":"2026-10-03T03:03:33Z","stage":"55","step":"sudo install -m 0644 -o root -g root '/ALWAYSON/systemd/backup/ao-restic-backup.timer' /etc/systemd/system/ao-restic-backup.timer","rc":0}
+{"ts":"2026-10-03T03:03:33Z","stage":"55","step":"sudo install -m 0644 -o root -g root '/ALWAYSON/systemd/backup/ao-restic-prefetch.timer' /etc/systemd/system/ao-restic-prefetch.timer","rc":0}
+{"ts":"2026-10-03T03:03:33Z","stage":"55","step":"sudo install -m 0644 -o root -g root '/ALWAYSON/systemd/backup/ao-restic-verify.timer' /etc/systemd/system/ao-restic-verify.timer","rc":0}
+{"ts":"2026-10-03T03:03:33Z","stage":"55","step":"sudo systemctl --user daemon-reload && sudo systemctl --user enable --now ao-restic-prefetch.timer ao-restic-backup.timer ao-restic-verify.timer","rc":0}
+{"ts":"2026-10-03T03:03:34Z","stage":"90","step":"python3 /ALWAYSON/scripts/build-update/inventory-full.py","rc":0}
+{"ts":"2026-10-03T03:03:34Z","stage":"90","step":"python3 /ALWAYSON/scripts/build-update/provenance-log.py --markdown --offline","rc":0}

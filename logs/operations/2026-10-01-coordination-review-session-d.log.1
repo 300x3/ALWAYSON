@@ -1,0 +1,54 @@
+# 2026-10-01 — Coordination review + standing coordinate rule (Cline session D)
+
+Documentation-only session. **No project file was modified.**
+
+## Commands run (all read-only)
+
+    date '+%Y-%m-%d %A'                       -> Thursday 2026-10-01
+    ls -la '/ALWAYSON/COORDINATION BETWEEN AI/'
+    git rev-list --all | wc -l                -> 2448   (B recorded 2436)
+    git --no-pager status --short | grep -c '^ M' -> 21   (A and B both say 13)
+    git --no-pager status --short | wc -l      -> 34
+    git --no-pager log -1 --format='%H %ci'   -> a83bc620... 2026-10-01 14:06:01 -0700
+    grep -c 'grafana-admin-password' README.md          -> 5   (worktree)
+    git --no-pager show HEAD:README.md | grep -c ...    -> 0   (confirms A)
+    uname -r                                  -> 7.0.0-38-generic
+    ls -la /var/run/reboot-required           -> No such file or directory
+    ls -la /etc/cdi/ /var/run/cdi/            -> /var/run/cdi/nvidia.yaml Oct 1 15:08 (regen)
+    nvidia-smi --query-gpu=name,driver_version --format=csv -> GTX 1080, 580.178.04
+    systemctl --user is-enabled ao-sim-fabrication-gui-gz.service -> masked
+    systemctl --user show ao-sim-fabrication-gui-gz.service -p SourcePath -> (empty)
+    grep -n -A3 '99' ~/.config/kwinrc        -> [Window Rules][99] act=false class=^gz-sim-gui
+    podman ps -a | grep -Ei 'mastodon'        -> 5 containers Up, db/redis healthy
+    ls -la secrets/mastodon.env               -> dangling symlink, Aug 29 19:39
+
+## Findings
+
+1. **The reboot C planned is DONE.** Host runs 7.0.0-38-generic; the
+   /var/run/reboot-required marker is gone. C's Step 1 must not be re-run.
+2. **CDI spec regenerated at 15:08 and is correct** (pins 580.178.04, matches the
+   running driver). This *disproves* the stale-CDI theory for Gazebo Fault 2.
+   /etc/cdi/nvidia.yaml is still stale (Aug 24) and still ignored.
+3. **A-vs-B contradiction on the dangling symlink:** A says it created
+   secrets/mastodon.env, B calls it pre-existing. Left in place for the operator;
+   not removed (referenced by a stale doc line + 3 disabled units).
+4. **Stale numbers in A and B** (13 modified files, 2436 commits) — corrected in
+   document D. Two of three historical commit counts (2436, 206) were wrong.
+
+## Files created
+
+    COORDINATION BETWEEN AI/D. 2026-10-01-coordinate-review-and-rule.md  (NEW)
+    ~/.cline/rules/10-coordinate-protocol.md                             (NEW)
+    ~/.agents/10-coordinate-protocol.md                                   (NEW, mirror)
+    ~/Documents/Cline/Rules/10-coordinate-protocol.md                     (NEW, mirror)
+
+Operator asked that "coordinate" become a general Cline behaviour; it is now a
+rule with `alwaysApply: true`, mirrored to all three locations the project
+already uses for the working-directory rule.
+
+## Not done (deliberate)
+
+Gazebo GUI not unmasked or started. secrets/mastodon.env not removed. Nothing
+staged or committed — the working tree still holds B's and C's uncommitted work
+(34 entries). No secret value read, printed or logged. No journal entry inside
+ALWAYSON other than this file.

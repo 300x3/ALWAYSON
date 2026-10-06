@@ -1,0 +1,58 @@
+2026-10-04 ops-a session — off-site restic repository re-measurement (OPS-29/OPS-30/OPS-31)
+Host: scottw-ms7b44   Section owner: 17-backup-restore-monitoring-and-completion-criteria
+
+COMMANDS AND OUTPUT
+-------------------
+$ export RESTIC_REPOSITORY=/media/scottw/1TBSAMSUNGDATA/PCLOUD_STORAGE/ALWAYSON-BACKUPS
+$ restic cat config
+{ "version": 2,
+  "id": "d22cddc074532b53bcea8ee739c3b7b7107d9fd3baa3224125d0e569fbfb94be",
+  "chunker_polynomial": "33c903993a9dcf" }
+$ restic snapshots
+56bf1af5  2026-10-03 08:59:59  scottw-ms7b44  alwayson-offsite-proof
+          /ALWAYSON/artifacts  304.564 KiB
+          /ALWAYSON/config
+1 snapshots
+$ restic check --read-data-subset=1/10
+no errors were found
+
+$ stat -c '%d %i %n' /media/scottw/1TBSAMSUNGDATA/PCLOUD_STORAGE/ALWAYSON-BACKUPS \
+                      /home/scottw/pCloudDrive/PCLOUD_STORAGE/ALWAYSON-BACKUPS
+2049 5505025 /media/scottw/1TBSAMSUNGDATA/PCLOUD_STORAGE/ALWAYSON-BACKUPS
+ 218 211841 /home/scottw/pCloudDrive/PCLOUD_STORAGE/ALWAYSON-BACKUPS
+$ findmnt -no SOURCE,FSTYPE /home/scottw/pCloudDrive
+pCloud.fs  fuse.pCloud.AppImage
+
+$ RESTIC_REPOSITORY=/home/scottw/pCloudDrive/PCLOUD_STORAGE/ALWAYSON-BACKUPS restic check --read-data-subset=1/10
+no errors were found
+
+$ grep -c 'ALWAYSON-BACKUPS\|offsite' /ALWAYSON/scripts/backup/restic-run.sh
+0
+$ systemctl --user list-timers --all --no-pager | grep -i restic
+ao-restic-prefetch.timer          (only restic timer; no off-site timer)
+
+RETRACTION
+----------
+Earlier session claimed ALWAYSON-RESTIC2PCLOUD is "ABSENT entirely".
+RETRACTED: it exists at the pCloud account root and is empty, which is
+exactly what OPS-29 states. Earlier evidence line
+`find -iname '*RESTIC*'` -> ./ALWAYSON-BACKUPS was also impossible
+(ALWAYSON-BACKUPS does not match the glob). Cause: searched only the USB
+disk sync root (dev 2049) and generalised the negative to the pCloud
+account root (dev 218).
+
+SECRETS
+-------
+restic password read from /run/user/1000/ao-restic.env into the environment
+only. Length recorded (44 chars). No value printed, logged or committed.
+
+NOT DONE (operator decision)
+----------------------------
+Scheduling the off-site repository. Touches backup data and creates a
+recurring privileged job writing into the live pCloud sync root. Stopped.
+
+GIT
+---
+commit 70b9094 pushed to origin/ai-ops-a; git ls-remote confirmed.
+NOTE: branch.ai-ops-a.merge is refs/heads/main, so `git log @{u}..HEAD`
+misleadingly lists commits. Compare against origin/ai-ops-a instead.

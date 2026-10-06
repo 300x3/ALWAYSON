@@ -1,0 +1,121 @@
+# ALWAYS ON — Gazebo Sim 10 GUI: visual-mesh abort fix + main-monitor placement
+# Date: 2026-10-01   Host: scottw-ms7b44   Session: Gazebo GUI (continues doc C)
+# Journal per README 4.1 rule 11. Nothing committed; nothing staged.
+
+## 1. Fault confirmed on the VISUAL path (extends doc C)
+Abort is NOT collision-specific, as compute-mesh-aabb.py's docstring implied.
+Backtrace (GDB, LD_LIBRARY_PATH cleared for the inferior):
+
+  terminate called after throwing an instance of 'std::logic_error'
+    what():  basic_string: construction from null is not valid
+
+  gz::sim::v10::RenderUtil::Update()
+    -> SceneManager::CreateVisual()
+    -> SceneManager::LoadGeometry()
+    -> gz::sim::v10::loadMesh()
+    -> gz::common::MeshManager::Load()
+    -> gz::common::ColladaLoader::Load()
+    -> ColladaLoader::Implementation::LoadGeometry()   <-- throws
+
+Cause: SketchUp edge geometry in the .dae exports, as Collada <lines>.
+The throw happens in a Qt event handler, so the GUI cannot catch it.
+
+## 2. Evidence that <lines> is the cause
+Isolated test (separate partition ao_meshtest_iso3, own container, /t bind
+mount, stripped copies only) vs production:
+  - original meshes -> aborts ~1s after "Camera pose topic advertised"
+  - <lines> stripped -> GUI stays up, renders, zero "Failed to load mesh"
+NOTE: an earlier run of this test was INVALID — the GUI container lacked the
+/t mount, so meshes were simply absent and "no abort" proved nothing.
+The test was redone with the mount present and only the mesh content changed.
+
+## 3. Fix applied
+New tool: scripts/simulation/strip-collada-lines.py
+  - removes <lines>...</lines> and <lines .../> only
+  - refuses to write if no <triangles> survives (guards a bad regex)
+  - never edits a source export in place
+Blocks removed / bytes:
+  09-SIMULATIONARMS.dae                     36 blocks  -6248
+  09-SIMULATIONCONVEYOR.dae                220 blocks -59407
+  09-SIMULATIONMASSING-ADUDOORS_FABRICATIONAREA.dae
+                                          107 blocks -86417
+  09-SIMULATIONVEHICLES-ARMS.dae           610 blocks -244203
+Output written to GAZEBO/models/factory_assets/meshes/*.dae, replacing four
+SYMLINKS. The massing_fab symlink was already BROKEN (embedded newline in the
+target path). Original SketchUp exports in /ALWAYSON/GAZEBO are untouched.
+All four verified: 0 <lines>, <triangles> intact (462/140/196/572), XML parses.
+
+## 4. Verification against the PRODUCTION world (partition alwayson_fabrication_sim)
+  - GUI stayed up well past the ~1s abort point
+  - grep -c 'logic_error|Aborted'  = 0
+  - grep -c 'Failed to load|Unable to find' = 0
+  - entity tree showed ground_plane, factory, sun  (real production world)
+Screenshots /tmp/ao-meshtest-screen.png, /tmp/ao-gz-placement.png show rendered
+factory geometry.
+
+## 5. Main-monitor placement — three things that did NOT work
+Main monitor measured: DP-3, priority 1, geometry 0,738 1920x1080.
+DP-1 is portrait, 1920,0 1080x1920. xrandr --listmonitors confirms.
+
+  a) kwinrc [Window Rules][100] with geometry=0,738,1920,1080
+     -> reconfigure returned 0, no warning, and NOTHING happened.
+        Window still mapped at 1200x1000+1800+474. Rule removed.
+  b) KWin script using workspace.windowAdded / workspace.windowScreenChanged
+     -> windowScreenChanged does NOT exist in 6.6.6; "Cannot call method
+        'connect' of undefined". Verified by dumping Object.keys(workspace).
+     -> workspace.outputs() does NOT exist either; the list is
+        workspace.screens, entries have .name and .geometry.
+     -> metadata.json needed "KPackageStructure": "KWin/Script".
+  c) Script matching client.resourceClass === "gz-sim-gui"
+     -> silently matched nothing. The live value is "Gazebo GUI";
+        client.resourceName is "gz-sim-gui". Matching must use resourceName.
+
+  Working script: ~/.local/share/kwin/scripts/ao-gazebo-monitor/
+    contents.js + metadata.json (loaded via /Scripting, start()).
+  Confirmed:  js: ao-gazebo-monitor: placed gz-sim-gui on DP-3 1920x1080+0+738
+  xwininfo:  "Gazebo Sim" 1920x1052+0+766   (was +1800+474)
+  (+766 vs +738 is the window frame/title bar; width 1052 vs 1080 likewise.)
+
+  NOTE: the script is loaded at runtime. It is NOT yet wired to autostart,
+  so it will be lost on the next KWin restart. Needs a persistent install step.
+
+## 6. State left behind
+  - ao-sim-fabrication-gz.service : active, untouched throughout
+  - ao-sim-fabrication-gui-gz.service : still MASKED (left as found)
+  - ~/.config/kwinrc : byte-identical to backup /tmp/kwinrc.bak.152854
+  - all ad-hoc test containers removed; production world never modified
+  - scripts/simulation/strip-collada-lines.py : new, uncommitted
+  - GAZEBO/models/factory_assets/meshes/*.dae : symlinks -> real files
+
+=== 2026-10-01T23:00Z — SketchUp edge geometry removed from ALL Collada copies ===
+Operator decision: strip the source exports in place as well, not just the
+runtime copies. Backups taken and hash-verified BEFORE any write.
+
+BACKUP  /ALWAYSON/backups/sketchup-dae-edges-20261001T225802Z/
+        09-SIMULATION{ARMS,CONVEYOR,VEHICLES-ARMS,MASSING...}.dae  (4)
+        worlds-run-meshes/{arms,conveyor,massing_fab,vehicles_arms}.dae  (4)
+        sha256 verified identical to pre-strip sources; 8 files total.
+        NOTE: hashes match pairwise across both sets, proving
+        worlds-run/models/meshes/ was byte-identical to the exports.
+
+STRIP   973 <lines> blocks removed total (-397,275 bytes). Triangle counts
+        unchanged in all 8 files (196/462/572/140). Written via same-dir
+        temp + os.replace; no .tmp residue; perms restored 0664.
+
+RESULT  Full-tree audit: 0 <lines> blocks remain in any .dae under GAZEBO/.
+        All 16 .dae paths parse as well-formed XML (ET.parse OK).
+        All 4 worlds-run symlinks resolve to clean targets.
+        Headless production load (gz-sim-server v10.5.0, factory.world,
+        -r -v 4, image sha256:55f8dbcf...): 0 logic_error/Aborted/
+        terminate/Failed to load/Unable to find; world served normally.
+
+CAVEAT  SketchUp is NOT installed on this host. The strip is post-processing
+        only. The next re-export from the .skp originals will reintroduce
+        <lines> unless edges are disabled in the Collada export dialog.
+        Record the export settings with whoever owns the source models.
+
+CORRECTION to doc G: the massing_fab symlink was NOT broken. Its target
+        filename legitimately begins with a literal newline, and the symlink
+        points at exactly that name; os.path.exists() -> True. Doc G's
+        "already broken" claim is retracted. The newline filename is still a
+        hazard for any glob('*.dae') script.

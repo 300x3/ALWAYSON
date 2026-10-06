@@ -1,0 +1,132 @@
+ALWAYS ON — fabrication simulation: sensor instantiation + Foxglove bridge faults
+Date: 2026-10-02  Operator: "fix it up"  Session: Cline
+Journal per README §4.1 rule 11.
+
+STARTING STATE (measured, not assumed)
+  ao-sim-fabrication-gz        active, up 14h, image digest-pinned
+  ao-sim-fabrication-foxglove  active, up 15h, IMAGE NOT PINNED (:latest)
+  ao-sim-fabrication-portal    active, HTTP 200 on 127.0.0.1:8765
+  Foxglove bound 127.0.0.1:8081 only (correct)
+  Foxglove viewer showed ONLY /rosout and /parameter_events.
+
+FAULT 1 — Foxglove bridge had no route to the Gazebo server. FIXED.
+  Evidence before:
+    bridge nets: ao-html-window=10.89.14.37
+    server nets: ao-sim-fabrication=10.89.5.24
+    /proc/net/route inside bridge: only 000E590A/00FFFFFF (10.89.14.0/24)
+    connect 10.89.5.24:11345 -> "Network is unreachable"
+  Cause: quadlet declared only Network=ao-html-window.network. gz-transport
+  discovery is UDP multicast on the local link, so both containers must share
+  one L2 segment. A matching GZ_PARTITION does not route between two separate
+  Internal=true bridges.
+  Fix: added second Network=ao-sim-fabrication.network to the bridge quadlet.
+  Correction recorded in-file: the old header note claimed "reachability comes
+  from the loopback publish, not from network egress" citing ao-mapping ->
+  ao-webodm-web on 8000. That is a category error — the loopback publish makes
+  the VIEWER reach the BRIDGE; it does nothing for the BRIDGE reaching the
+  SERVER, which travels over gz-transport. The cited precedent never bridged
+  across networks and was never like-for-like.
+
+FAULT 2 — Gazebo camera sensor never instantiated. FIXED.
+  Evidence before: the running server logged ZERO "CameraSensor" lines and never
+  advertised /factory/camera/image. Only the 20:37 run on 2026-10-01 had loaded
+  the Sensors system, and uniquely it did NOT print
+  "No systems loaded from SDF, loading defaults".
+  Cause: $GZHOME/.gz/sim/10/server.config names only 3 systems (Physics,
+  UserCommands, SceneBroadcaster). Without a world-level <plugin> block Gazebo
+  loads exactly those 3. No Sensors system means no render thread, so the camera
+  sensor is never created — SILENTLY. The server looks completely healthy.
+  A/B PROVEN in throwaway containers, same image, same world apart from the block:
+    control (no plugin block) -> 0 x "CameraSensor", topic absent
+    fix    (plugin block)    -> Sensors system loaded; ogre2 headless;
+                                "Camera images ... advertised on
+                                 [/factory/camera/image]"
+  Fix: added an explicit world-level <plugin> block to
+  GAZEBO/worlds/factory.world (Sensors first, then UserCommands,
+  SceneBroadcaster, Physics).
+  Verified live: server restarted 2026-10-02 12:12:08 and logged
+  "Camera images for [camera_rig::camera_rig::user_camera] advertised on
+  [/factory/camera/image]".
+
+FAULT 3 — the bridge container could not load its own libraries. FIXED.
+  This was the real reason the viewer was empty, and it was SILENT.
+  Evidence:
+    ldconfig -p | grep -c gz            -> 0
+    find / -name 'libgz-*'              -> only under /opt/ros/lyrical/opt/
+    missing: /opt/ros/lyrical/lib/x86_64-linux-gnu  (libfastcdr.so.2,
+             librmw_fastrtps_cpp.so — the ROS middleware itself)
+    missing: the five gz_*_vendor/lib dirs (libgz-transport.so.15,
+             libgz-msgs.so.12)
+  The previous LD_LIBRARY_PATH listed only three directories. Symptoms on top of
+  the silence: "dlopen error: libfastcdr.so.2: cannot open shared object file"
+  and "failed to load any RMW implementations".
+  Fix: entrypoint now exports /opt/ros/lyrical/lib/x86_64-linux-gnu plus all
+  five gz_*_vendor/lib directories.
+
+FAULT 4 — wrong bridge executable and wrong type mapping. FIXED.
+  Evidence:
+    bridge_node with the previous -p topic:=/factory/camera/image@ros2 and
+    -p bridge_type:=gz.msgs.Image  -> stays alive, logs NOTHING, creates NO
+    publisher (confirmed with `ros2 node info /ros_gz_bridge`: Publishers
+    listed only /parameter_events and /rosout). Bridged nothing, silently.
+    Naming the gz type alone ->
+      "No template specialization for the pair"
+    Correct spec, which logs and works:
+      parameter_bridge '/factory/camera/image@sensor_msgs/msg/Image[gz.msgs.Image'
+      -> "Creating GZ->ROS Bridge: [/factory/camera/image (gz.msgs.Image)
+                                 -> /factory/camera/image (sensor_msgs/msg/Image)]"
+  '[' is the direction bracket for Gazebo -> ROS ONLY, which is what this
+  view-only surface requires. Verified view-only: the live bridge logs exactly
+  one "Creating GZ->ROS Bridge" line and NO "Creating ROS->GZ" line, and no
+  /world/*/control topic is bridged.
+  Fix: GZ_BRIDGE now points at parameter_bridge, not bridge_node.
+
+IMAGE RE-PIN (README §4.1 rule 9)
+  820dd22a4a7d...  first pin 2026-10-02 — ENTRYPOINT BROKEN, bridged nothing
+  b58ea8704f17...  re-pin 2026-10-02 — gz hop verified bridging
+  Verified `podman image inspect localhost/foxglove-bridge@<digest>` resolves
+  before editing the quadlet.
+
+FINAL VERIFICATION (live, production units)
+  systemctl --user is-active gz / foxglove / portal  -> active active active
+  foxglove log: "Creating GZ->ROS Bridge: [/factory/camera/image
+                 (gz.msgs.Image) -> /factory/camera/image
+                 (sensor_msgs/msg/Image)] (Lazy 0)"
+  foxglove log: "Advertising new channel 4 for topic
+                 /factory/camera/image"
+  bridge nets: ao-html-window=10.89.14.39  ao-sim-fabrication=10.89.5.32
+  ros2 topic info /factory/camera/image ->
+      Type: sensor_msgs/msg/Image
+      Publisher count: 1
+  Throwsaway-container equivalent measured at ~9.7 Hz, matching the world's
+  <update_rate>10</update_rate>.
+  Port still loopback-only: 127.0.0.1:8081.
+
+CONTRADICTIONS WITH EARLIER COORDINATION DOCUMENTS
+  - Documents C and G both state ao-sim-fabrication-gui-gz is MASKED. It is not:
+    `is-enabled` returns "generated" and there is no mask symlink in
+    ~/.config/systemd/user. The reason for the mask (a crash loop) was fixed in
+    document G, so the mask appears to have been lifted without a record. The
+    unit is therefore startable by anything, and G's own warning stands: the
+    KWin focus-stealing rule has never been proven against a live window.
+  - Document M's addendum says for 8081 "no container, no quadlet unit, no
+    PublishPort chosen". All three now exist and are live.
+
+OPEN — NOT DONE
+  1. ao-sim-fabrication-gui-gz: unmask/enable is an operator decision. Left as
+     found (inactive). Not touched.
+  2. Stray containers vigorous_shannon and dreamy_rosalind (created 2026-10-01
+     20:09/20:11, --help probes, no restart policy, same image). Still present.
+     Removal is container deletion, so not done without explicit approval.
+  3. Nothing committed. The whole Foxglove path is untracked working-tree state.
+  4. artifacts/fabrication-simulation-manifests/factory-world-v1.json records
+     content_size_bytes 5371 and hash 64eacbbf...; the world is now 17400+ bytes
+     with a different hash. The signed manifest is STALE and has not been
+     re-signed. Flagged, not actioned — re-signing needs the
+     ao-sim-fabrication key and is an operator decision.
+
+HOUSEKEEPING (mine)
+  /tmp/ao-sensortest/ — all disposable, safe to delete.
+  All throwaway test containers removed; verified none remain.
+  Pre-change server log preserved at
+  /ALWAYSON/logs/sim-gz-server.log.pre-fix-20261002

@@ -1,0 +1,127 @@
+ALWAYS ON — operations journal
+Date: 2026-10-03 (PDT)
+Session: COMM (community, federation, local AI)
+Scope: COMM-01..COMM-07 verification pass. NO configuration was changed, NO
+       package installed, NO DNS altered, NO port opened, NO public post made.
+
+=== METHOD NOTE ===
+All shell quoting was done via probe scripts written to /tmp (quoted heredoc +
+Q() helper). Reason: inline `echo '...' | podman exec ... "select ..."` forms
+collided with SQL quotes and produced `unexpected EOF while looking for matching
+'''` twice. Those two failures LOOKED like database results and were not.
+
+=== SERVICE BASELINE (measured, not assumed) ===
+$ podman images | grep mastodon
+ghcr.io/mastodon/mastodon:v4.3.7
+ghcr.io/mastodon/mastodon-streaming:v4.3.7
+  -> digest-pinned in config/platform/version-matrix.yaml (web/sidekiq/streaming).
+$ systemctl --user is-active ao-mastodon-web.service ao-mastodon-sidekiq.service ...
+  (mastodon-web, sidekiq, streaming, redis, db all active)
+$ curl -s -o /dev/null -w '%{http_code}' https://mastodon.300x3.com/api/v1/instance   -> 200
+$ curl -s -o /dev/null -w '%{http_code}' https://mastodon.300x3.com/api/v2/instance   -> 200
+$ curl -s -o /dev/null -w '%{http_code}' https://mastodon.300x3.com/                   -> 200
+$ curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/
+301 redirect=https://127.0.0.1:3000/     (upstream force_ssl hardcoded; proof for 15.4.2)
+
+=== SCHEMA FACTS (Mastodon 4.3) ===
+- settings key column is `var`      (NOT `name`)
+- notifications has NO `status_id` column
+- notifications.from_account_id      (NOT `from_account`)
+- users.approved EXISTS (count from information_schema = 1)
+- accounts.actor_type populated: Person / Service / Application
+Queries using the wrong column names errored loudly and returned no rows.
+
+=== REGISTRATION (contradicts instance-policy.yaml:24) ===
+$ curl -s .../api/v1/instance | python3 -c "...print(d.get('registrations'),d.get('approval_required'))"
+False False
+No `registrations` row in settings. Registration is CLOSED, not "open with approval gate".
+Reported as drift D6 (config/ is not owned by this session; file NOT edited).
+
+=== MODERATION TABLES (all zero) ===
+blocks=0 domain_blocks=0 account_domain_blocks=0 email_domain_blocks=0
+canonical_email_blocks=0 follow_requests=0 invites=0 ip_blocks=0 user_invite_requests=0
+14 accounts total: 2 local (admin,bot), 1 internal Application, 2 real remote
+(Gargron=Person, 300x3@mastodon.social=Service), 9 discovery Applications.
+local users: 1|admin@300x3.com approved=true ; 2|bot@300x3.com approved=true
+
+=== FEDERATION / REVERSE FOLLOW (COMM-02) ===
+$ curl -s .../api/v1/accounts/115945980770248178/following?limit=80   (REMOTE side)
+count= 2
+admin@mastodon.300x3.com | https://mastodon.300x3.com/@admin
+bot@mastodon.300x3.com   | https://mastodon.300x3.com/@bot
+$ .../followers?limit=80  -> followers_count= 1  (bot@mastodon.300x3.com)
+Gargron paginated 25 pages / 2000 entries -> our_accounts_found=[]  (correct: not reciprocal)
+local follows rows: 1 bot->admin | 2 Gargron->bot | 3 300x3social->bot | 4 300x3social->admin
+Asymmetry documented in 15.4.9 so a later session does not "fix" it.
+
+=== QUEUES (pipeline idle, nothing stuck) ===
+LLEN queue:push_public = 0 ; LLEN queue:pull = 0 ; KEYS 'queue:*' -> (empty array)
+
+=== BRIDGE / OAUTH (COMM-04) ===
+token length 43 chars (value NEVER printed). verify_credentials HTTP 200, acct=bot,
+id=117363090433277638.
+sha256 both bridge copies = 486e7472a4bb7286caf51e66ba089d0fcd341ddb7120262f119a092146199c19
+  (byte-identical COPY, not a symlink — editing /ALWAYSON copy alone changes nothing live)
+line 281 'visibility': 'public' in BOTH copies -> 2026-10-01 operator decision honoured
+unit: active (running) since Thu 2026-10-01 18:50:55 PDT; 2 days ago (no 401 loop)
+cursor lastNotificationId=7, max(notifications.id)=8; rows 7&8 are type=follow
+  -> skipped by design; NOT the old stale-cursor fault.
+journal retains original faults: 404 runs + "cursor 68 is ahead of newest notification 7".
+
+=== TUNNEL ===
+cloudflared --protocol http2, tunnel alwayson-mastodon-federation; 4/4 connections
+Registered (lax08, phx01, phx01, lax11). One drop+reconnect at 02:18:47Z = normal
+Restart=always behaviour, not an incident.
+ingress: chat.300x3.com -> :18790/:18789 ; mastodon.300x3.com -> :3000 ; catch-all 404.
+  -> 300x3.com / www.300x3.com NOT routed to Mastodon (confirms 15.3).
+
+=== TRANSIENT OBSERVATIONS (recorded so they are not re-investigated) ===
+- https://mastodon.300x3.com/users/bot returned 502 ONCE, then 200 on 5/5 retries.
+- mastodon.social WebFinger for our accts -> 404. NORMAL: no local record there.
+  (It DOES hold our actors: lookup?acct=bot@mastodon.300x3.com -> id=117327405745705562)
+- Direct loopback TLS probe https://127.0.0.1:3000/users/bot -> 000. Not a valid test
+  (origin traffic arrives via tunnel with tunnel-set Host). Dropped, not reported as fault.
+
+=== EMAIL / MX (COMM-05) — BLOCKED, OPERATOR DECISION REQUIRED ===
+dig MX 300x3.com        -> answers=0   (no MX record at all)
+dig TXT 300x3.com       -> (none)      (no SPF)
+dig TXT _dmarc.300x3.com-> (none)      (no DMARC)
+dig A mail.300x3.com    -> (none)
+/dev/tcp/172.67.163.66/25 -> no-answer/closed     (implicit MX = A record, RFC5321 5.1)
+/dev/tcp/104.21.41.83/25  -> no-answer/closed
+ss -lntp :25|465|587     -> no local SMTP listener
+=> ALL mail to @300x3.com silently undeliverable. Affects admin@ and bot@ password reset.
+NOT fixed: options are (a) hosted relay = external DNS + third-party mail path,
+(b) local MTA = new package (rule 3) + new public port 25 (rule 4), (c) formal deferral.
+Each needs operator approval. STOPPED.
+
+=== NOT DONE — REQUIRES OPERATOR APPROVAL (COMM-07) ===
+- No public post made. No directory submission attempted or form filled.
+- joinmastodon.org/ -> 200 (reachability only). joinmastodon.org/instances -> 404.
+- Question raised: submit 300x3.com (storefront, NOT routed to Mastodon) or
+  mastodon.300x3.com (the federation host)? Directory listings are permanent.
+- COMM-06 human step (Konqueror sign-in + UI follow) not performed and NOT simulated;
+  fabricating it would corrupt a verification record. First contact HAS occurred
+  (10 remote domains known), so the technical precondition is met.
+
+=== CONFIG DRIFT FOUND (reported, NOT edited — config/scripts not owned here) ===
+D1 mastodon.env.example:7            LOCAL_DOMAIN=300x3.com           -> mastodon.300x3.com
+D2 fetch-openclaw-mastodon-env.sh:17 MASTODON_SERVER=https://300x3.com -> .../mastodon.300x3.com
+D3 fetch-openclaw-mastodon-env.sh:19 MASTODON_BOT_EMAIL=300x3@posteo.net -> bot@300x3.com
+D4 instance-policy.yaml:9            apex host + retired network name ao-mastodon-federation
+D5 instance-policy.yaml:8,16,34     approved_pub_host / Tokodon origin = 300x3.com
+D6 instance-policy.yaml:24           registrations "open with approval gate" (service says closed)
+D8 version-matrix.yaml:41            already correct (mastodon.300x3.com, digest-pinned)
+D9 version-matrix.yaml:51            repeats the RAILS_FORCE_SSL=false error + port typo 3300 vs 3000
+D2 IS LIVE: scripts/mastodon/post.sh:17 calls the helper, :21 consumes MASTODON_SERVER.
+
+=== SELF-CORRECTION (my own section file, 15.3 / 15.4.2) ===
+Prior text claimed LOCAL_HTTPS=false and RAILS_FORCE_SSL=false "applied 2026-09-24".
+FALSE. Both are true in the runtime env, in fetch-mastodon-env.sh:42-43 and in
+mastodon.env.example:36-37. The 301 measurement proves the claim was unnecessary
+(upstream hardcodes force_ssl). Corrected in place, with the correction left visible.
+
+=== BUILD ===
+$ python3 agents/COORDINATION/tools/compile.py --check
+identical
+Proposals written: agents/COORDINATION/proposals/comm-COMM-0{1..7}.md (§19 untouched).

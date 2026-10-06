@@ -1,0 +1,397 @@
+# ALWAYS ON — Grafana system-health dashboard — 2026-10-02 (local) / 2026-10-03T15:05Z
+# Operator: Cline (C.BOT). Assignment: C.BOT — GRAFANA DASHBOARD SETUP.
+# Scope: Grafana only. Prometheus explicitly out of scope and untouched.
+
+## Operator directives received (verbatim intent)
+- Grafana uses PostgreSQL, not Prometheus.
+- "MAKE SURE GRAFANA COVERS SQLITE AS WELL."
+- "PROMETHEUS IS NOT YOUR CONCERN"
+- "REMOVE 'POSTGRESQL IS GRAFANAS ONLY DATASOURCE' - NOT PROMETHEUS"
+- "YOU ARE WORKING ON GRAFANA - GRAFANA CONNECTS TO POSTGRESQL.
+   NOTHING CONNECTS TO PROMETHEUS (EVER)"
+
+## Defect found and fixed
+The provisioned dashboard queried a Prometheus metric `ALWAYSON_STATIC{metric=...}`
+from 10 stat panels. That metric does not exist and nothing in the tree writes it
+(`grep -r ALWAYSON_STATIC` matched only the generator itself). All 10 stat panels
+rendered "No data". Only the static nodeGraph and a text panel worked.
+
+## Approach chosen
+Grafana keeps PostgreSQL as its only datasource. Because the live health facts
+(podman/systemd/sockets/disks/GPU) are not held in any database, a read-only host
+collector projects them into PostgreSQL schema `ao_status`. Grafana's only panel
+source is `SELECT` from that schema. No Prometheus datasource, no shell,
+no container control — consistent with the §6.A.2 GUI boundary.
+
+### SQLite
+Grafana OSS 11.6.0 bundles no SQLite datasource, and the SQLite stores are host
+paths the container cannot see. Rather than install an unsigned plugin and bind
+mount personal databases into the container, the collector opens each declared
+store read-only on the host (`file:...?mode=ro` + `PRAGMA query_only=ON`) and
+projects counts/metadata into the same schema. Counts only — never message
+bodies, mail, browsing history or credentials.
+
+## Files created
+- config/platform/postgresql/ao-status.sql
+- scripts/operations/collect-system-health.py  (read-only collector; --dry-run)
+- quadlet/operations/ao-status-collect.service (oneshot, EnvironmentFile 0600 wallet env)
+- quadlet/operations/ao-status-collect.timer   (60 s)
+- config/platform/monitoring/grafana/provisioning/datasources/postgres-aostatus.yml
+
+## Files modified
+- config/platform/monitoring/grafana/provisioning/dashboards/json/ao-topology.json (regenerated)
+- scripts/operations/generate-topology.py  (grafana_dashboard() rewritten: PostgreSQL rawSql)
+- quadlet/operations/ao-grafana.container  (Requires=ao-prometheus.service removed)
+- README.md  (8 lines: §3.3, §5.3, §11, §17.2, §19.1 ST-19, §19.2 item 87, §20)
+
+## Files deleted
+
+## Commands run and evidence
+
+### Projection writes successfully
+$ python3 /ALWAYSON/scripts/operations/collect-system-health.py
+[ao-status] collected containers=21 networks=15 units=44 listeners=41 disks=4 gpus=1 sqlite_stores=5 (present=3)
+[ao-status] projection written in 0.3s
+
+### Exactly one datasource, PostgreSQL (the operator's requirement)
+$ psql ... -c "select uid,name,type,is_default,(json_data::jsonb->>'schema') from data_source"
+    uid    |       name       |   type   | is_default |  schema
+ ao-status | ALWAYS ON Status | postgres | t          | ao_status
+(1 row)
+# prometheus.yml deleted; `grep -ril prometheus` over grafana/ returns only the
+# two files that MENTION Prometheus to state that Grafana does not read it.
+
+### No Prometheus coupling on the live unit
+$ systemctl --user show ao-grafana.service -p After -p Requires -p Wants | grep -i prometheus
+NO PROMETHEUS DEPENDENCY LIVE
+
+### All 23 queried panels return real data (via Grafana's own /api/ds/query)
+DASHBOARD: ALWAYS ON — system topology   uid=ao-topology   panels=30   datasource=ao-status
+  SYSTEM HEALTH      12 stat + 2 bargauge -> all 1 row (Filesystem use % = 4 rows)
+  TOPOLOGY COVERAGE  networks 15 rows | containers 21 | attachments 22 | units 48 | listeners 41
+  TOPOLOGY DETAIL    nodeGraph (static, full graph)
+  DATA STORES        postgres dbs/roles 7 | sqlite stores 5 | sqlite metrics 4 | declared 20
+RESULT: 23 ok, 0 failed
+
+### Timer is live, not a one-shot
+$ systemctl --user status ao-status-collect.service
+Process: 2874151 ExecStart=...collect-system-health.py (code=exited, status=0/SUCCESS)
+$ psql ... -Atc "select generated_utc, extract(epoch from (now()-generated_utc))::int from ao_status.fact_generated"
+2026-10-03 08:04:42.488219-07|12      <- 12 s old, confirming the 60 s timer refreshes
+
+### SQLite stores, read-only, including WAL
+    id         | present | table_count | journal_mode |                  note
+ db-akonadi        | t       |          18 | wal          |
+ db-meshchatx      | f       |             |              | declared store not present on this host
+ db-openclaw       | t       |          74 | wal          |
+
+## Traps found (cost real time — read these)
+1. **Grafana's PostgreSQL provisioner takes the connection from TOP-LEVEL `url`
+   and `database` keys.** A `host:`/`port:` pair is silently ignored: provisioning
+   succeeds, the datasource appears, and every query fails with
+   `dial tcp :5432: connect: connection refused`. Verified against
+   `select url, database from data_source` -> both empty strings.
+   Recorded in postgres-aostatus.yml.
+2. **The Grafana admin account is `ao-admin`, not `admin`.** Using `admin`
+   returns HTTP 401 and looks like a bad credential. Checked with
+   `select "login" from "user"` — note the quoted lowercase column names
+   (`is_admin`, not `isAdmin`).
+3. **Grafana's `/api/ds/query` requires the datasource on EACH query object**, not
+   only at the top level. Omitting it returns HTTP 400 for every panel.
+4. **`df` reports 0-byte pseudo filesystems as 100% full.** `/tmp/.mount_pCloudMLIAae`
+   (pCloud.AppImage) made `disk_max_use_percent` read 100. Filtered pseudo fs types
+   and applied a 1 GiB floor on size.
+5. **Quadlets deploy flat.** `~/.config/systemd/user/` holds copies. Editing
+   `quadlet/operations/*.service` changes nothing until redeployed; verified by
+   `systemctl --user status` showing the deployed path.
+6. **A 30 s timeout on a shell command killed a verification run** that included
+   `sleep 70`. Long waits must be split into separate commands.
+
+## Open deviation (needs operator decision)
+The `ao-status` datasource authenticates as `grafana_app` — the same
+least-privilege application role that owns the Grafana database — rather than a
+dedicated SELECT-only reader role. A dedicated role needs the postgres superuser,
+which is NOT available non-interactively on this host (`sudo -n -l` requires
+interactive auth; peer auth rejects `psql -U postgres`). The projection therefore
+lives in schema `ao_status` inside the existing `grafana` database rather than a
+new `aostatus` database. `grafana_app` holds no superuser and no CREATEDB
+(verified: `rolsuper=f, rolcreatedb=f`).
+Recorded in README §19.2 and in postgres-aostatus.yml.
+
+## Housekeeping
+- /tmp/verify_panels.py and /tmp/aostatus.{json,err} are scratch, safe to delete.
+- `__pycache__` from py_compile in scripts/operations/.
+- NOT COMMITTED. No `git add -A` was used. Unrelated modified files left alone:
+  GAZEBO/worlds/factory.world, scripts/backup/restic-run.sh,
+  scripts/provision/provision.sh, scripts/simulation/ao-sim-portal.py, and 9+
+  untracked GAZEBO/TOPOLOGY files belonging to another session.
+
+ db-podman         | t       |          12 | delete       |
+ db-qgroundcontrol | f       |             |              | declared store not present on this host
+
+- config/platform/monitoring/grafana/provisioning/datasources/prometheus.yml
+
+# 2026-10-02 — Grafana system-health dashboard: PostgreSQL-only datasource, live projection, SQLite coverage
+
+Assignment: `COORDINATION BETWEEN AI/ASSIGNMENTS` → C.BOT GRAFANA DASHBOARD SETUP.
+Operator directives, verbatim: **"GRAFANA USES POSTGRESQL - NOT PROMETHEUS, THAT IS
+WHAT THE README SAYS, IF IT SAYS ANYTHING ELSE IT'S WRONG."** · **"YOU ARE WORKING
+ON GRAFANA - GRAFANA CONNECTS TO POSTGRESQL. NOTHING CONNECTS TO PROMETHEUS (EVER)"**
+· **"PROMETHEUS IS NOT YOUR CONCERN"** · **"MAKE SURE GRAFANA COVERS SQLITE AS
+WELL."**
+
+## Starting state, measured 2026-10-02
+
+- `ao-grafana.service` active, `127.0.0.1:3001`, `/api/health` → `database: ok`, 11.6.0
+- Provisioning had exactly one datasource file: `datasources/prometheus.yml`,
+  `url: http://ao-prometheus:9090`, `isDefault: true`
+- `ao-grafana.container` carried `Requires=ao-prometheus.service`
+- The 10 stat panels queried `ALWAYSON_STATIC{metric="..."}` against Prometheus.
+  **`ALWAYSON_STATIC` does not exist** — `grep -r ALWAYSON_STATIC` matched only
+  `generate-topology.py`, so all 10 tiles rendered "No data".
+
+## Design: why a projection instead of a direct datasource
+
+Live health facts (podman, systemd, sockets, disks, GPU) are not held in any
+database, so with a PostgreSQL-only datasource something has to project them into
+PostgreSQL. The same pattern covers SQLite without touching Grafana's boundary.
+
+## Change
+
+1. `config/platform/postgresql/ao-status.sql` — new. Schema `ao_status` in the
+   existing `grafana` database: `fact_generated`, `container`, `container_network`,
+   `network`, `unit`, `listener`, `disk`, `gpu`, `sqlite_store`, `sqlite_metric`,
+   plus view `v_system_health`. Idempotent, no secret.
+2. `scripts/operations/collect-system-health.py` — new. Read-only host inspection;
+   writes the projection in one transaction. `--dry-run` needs no database.
+3. `quadlet/operations/ao-status-collect.{service,timer}` — new. 60 s,
+   `Persistent=true`, armed on `graphical-session.target`; password from the
+   existing 0600 `reporting-grafana-postgres.env`.
+4. Datasource swap. `datasources/prometheus.yml` **deleted**;
+   `postgres-aostatus.yml` added over the already-mounted `/var/run/postgresql`
+   socket — no new listener, no new network. `Requires=ao-prometheus.service`
+   removed from `ao-grafana.container` and redeployed flat to
+   `~/.config/containers/systemd/`. `ao-prometheus.*` was not opened, edited,
+   stopped or restarted.
+5. `scripts/operations/generate-topology.py` → `grafana_dashboard()` rewritten:
+   30 panels / 6 rows. The JSON is generated, so the dead `ALWAYSON_STATIC`
+   panels were fixed at source; a hand-edit would be overwritten on next run.
+6. `README.md` — §19.2 items **89, 90, 91** added; §20 evidence row added.
+   Item 87 (the original defect) was already closed.
+
+
+## SQLite coverage
+
+Grafana OSS 11.6.0 bundles 19 datasources and **none is SQLite** (verified in the
+running container). Direct SQLite drill-down would need an unsigned third-party
+plugin **plus** read-only bind mounts of personal databases (OpenClaw state, the
+72M Akonadi db, browser profiles) — conflicting with §6.A.3 and §4.3.
+**Rejected**; recorded as item 91.
+
+Instead the five README §4.3 stores are opened **on the host**, read-only
+(`file:...?mode=ro` + `PRAGMA query_only=ON`), and only **metadata and row counts**
+are projected. No mount, no unsigned code, no personal data crossing the boundary.
+
+Measured: **3 present** (OpenClaw 74 tables WAL, Akonadi 18 tables, Podman
+metadata), **2 absent** — MeshChatX and QGroundControl do not exist on this host.
+Recorded `present=false`; **no row invented**. Item 90.
+
+## Verification — commands and output
+
+```
+$ python3 /ALWAYSON/scripts/operations/collect-system-health.py
+[ao-status] collected containers=21 networks=15 units=48 listeners=41 disks=4 gpus=1 sqlite_stores=5 (present=3)
+[ao-status] projection written in 0.4s
+
+$ systemctl --user start ao-status-collect.service
+Process: 1000266 ExecStart=... (code=exited, status=0/SUCCESS)
+Active: inactive (dead)   <- correct: Type=oneshot
+
+$ systemctl --user list-timers ao-status-collect.timer
+Fri 2026-10-02 20:39:54 PDT  53s  ...  ao-status-collect.timer
+$ systemctl --user is-enabled ao-status-collect.timer
+enabled
+
+$ select uid,name,type,is_default from data_source
+    uid     |       name       |   type   | is_default
+ ao-status | ALWAYS ON Status | postgres | t
+(1 row)                                    <- exactly one, PostgreSQL
+
+$ systemctl --user show ao-grafana.service -p Requires -p After -p Wants | grep -ci prometheus
+0
+$ systemctl --user is-active ao-grafana.service    -> active
+$ systemctl --user is-active ao-prometheus.service  -> active   (untouched, as instructed)
+
+$ all 23 panel rawSql executed against the live database
+total 23 queries, 0 failing/empty
+  Filesystem 4 | Networks 15 | Containers 21 | Attachments 22 | Units 48
+  Listeners 41 | SQLite stores 5 | SQLite metrics 4 | Store inventory 20
+
+$ select relname,n_live_tup from pg_stat_user_tables where schemaname='ao_status'
+container 21 | container_network 22 | disk 4 | fact_generated 1 | gpu 1
+listener 41 | network 15 | sqlite_metric 4 | sqlite_store 5 | unit 48
+
+$ journalctl --user -u ao-status-collect.service | grep -cF "$GF_DATABASE_PASSWORD"
+0                                       (pw length 46, never printed)
+```
+
+## Open findings
+
+1. **§19.2 item 89 — writer shares Grafana's application role.** `grafana_app` has
+   `rolsuper=f, rolcreatedb=f`, so a new database or role needs a superuser. The
+   projection writes as the same principal that reads it. Least-privilege is true
+   of the *collector* (read-only inspection, read-only SQLite) but not of the
+   *role*. Fix needs a superuser action + a new KDE Wallet entry →
+   **needs explicit operator approval**. Not forced through (rule 12).
+2. **§19.2 item 90 — absent vs not-deployed.** MeshChatX and QGroundControl show
+   `present=false`. A store that *should* be here and is missing is a real
+   finding; one correctly absent shows the same red. Distinguishing them needs an
+   `expected_on_host` column and an operator decision.
+3. **Freshness lag, accepted.** A 60 s projection can lag by up to a minute where
+   a 15 s scrape would not. Inherent to the PostgreSQL-only directive.
+   `fact_generated_utc` and a "Fact age (s)" panel are on the dashboard so
+   staleness is visible rather than silent.
+4. **No alerting.** §19.2 item 58 (alerting thresholds) remains open and is
+   **not** addressed here — Grafana alerting needs its own notification path,
+   which is a separate approval.
+
+## Traps
+
+- **The dashboard JSON is generated.** Hand-editing
+  `provisioning/dashboards/json/ao-topology.json` is silently reverted by the next
+  `generate-topology.py` run. Change the generator.
+- **Markdown table cells cannot contain a raw `|`.** My first §20 evidence row
+  embedded `\|` inside a backtick command and added a phantom cell (5 pipes vs 4).
+  Caught by counting pipes per row; fixed by rewording.
+- **`df` on this host includes AppImage/pCloud pseudo mounts** reporting 0 GB and
+  therefore 100% full. See the defect above.
+- **Peer auth blocks `psql -U postgres`** from the `scottw` account, and `sudo`
+  needs interactive auth. Use the wallet-backed `grafana_app` env file instead of
+  trying to become the superuser.
+- **Grafana provisions on a 30 s poll**, so dashboard/datasource changes are not
+  visible instantly. Wait, then re-check `dashboard` and `data_source`.
+
+## Housekeeping
+
+- Backups: `/tmp/README.md.bak` (pre-insert README), `/tmp/row89.md`,
+  `/tmp/row90.md`, `/tmp/panelq.json`, `/tmp/aostatus.json` — all in `/tmp`,
+  nothing stray left in the repo.
+- **NOT COMMITTED.** The operator has not asked for a commit. Changed/added:
+  `README.md`, `scripts/operations/generate-topology.py`,
+  `scripts/operations/collect-system-health.py`,
+  `config/platform/postgresql/ao-status.sql`,
+  `config/platform/monitoring/grafana/provisioning/datasources/postgres-aostatus.yml`,
+  `quadlet/operations/ao-status-collect.{service,timer}`, regenerated
+  `provisioning/dashboards/json/ao-topology.json`, and deployed copies under
+  `~/.config/`.
+- 9 untracked GAZEBO files in the tree are **another session's** — untouched.
+  No `git add -A` was used.
+
+
+Panel datasource uids in the live dashboard: `ao-status`, and the built-in `grafana`
+(used only by the static `nodeGraph`). No panel references a Prometheus datasource.
+
+## Defect found and fixed during the work
+
+`df` reported `/tmp/.mount_pCloudMLIAae` (`pCloud.AppImage`) as **0.0 GB at
+100.00%**, surfacing as `disk_max_use_percent = 100` — a false "disk full" alarm.
+Fixed by filtering pseudo/packaged filesystems (`_PSEUDO_FS`) plus a 1 GiB size
+floor. After the fix: 4 real filesystems, max 71.44% (`/home/scottw/pCloudDrive`).
+
+## SQLite coverage extended to browser stores (operator directive, 2026-10-03)
+
+The operator directed: *"GRAFANA MUST ALSO BE ABLE TO REPORT ON SQLITE, PER THE
+README"*. The first pass covered only 5 stores; the README store inventory also
+names the browser profile stores, so the declared list was extended to **14**.
+
+Same read-only mechanism, no plugin, no new bind mount:
+`file:<path>?mode=ro` + `PRAGMA query_only=ON`, metadata and `count(*)` only.
+
+**Two faults found and fixed while extending it:**
+
+1. **Metrics silently dropped to zero on the next timer run.** First run showed
+   5 SQLite metrics, the 60 s timer then wrote only 3. The cause was `timeout=5`
+   on `sqlite3.connect` — with Chrome running, its history/webdata stores lock,
+   the connect raised `sqlite3.OperationalError`, and the exception escaped to
+   the per-store handler which set `read_error` and **discarded the metrics
+   already collected for that store**. Fix: raised to `timeout=15`, opened via
+   `immutable=0` on a retry, and made the metrics collection independently
+   fault-isolated per metric so one locked table cannot void a store's other
+   counts.
+
+2. **Verification script used the wrong Grafana username.** The Grafana admin is
+   `ao-admin`, not `admin`; the 401s I first saw were my script's bug, not a
+   credential fault. Corrected in the verification path.
+
+**Store inventory as measured (14 declared, 10 present, 4 absent):**
+
+| store | present | tables | journal |
+|---|---|---|---|
+| db-akonadi | yes | 18 | wal |
+| db-podman | yes | 12 | delete |
+| db-browser-chrome-cookies | yes | 2 | delete |
+| db-browser-chrome-history | yes | 19 | delete |
+| db-browser-chrome-logins | yes | 8 | delete |
+| db-browser-chrome-webdata | yes | 39 | delete |
+| db-browser-edge-cookies | yes | 2 | delete |
+| db-browser-edge-history | yes | 23 | delete |
+| db-browser-edge-logins | yes | 9 | delete |
+| db-browser-edge-webdata | yes | 54 | delete |
+| db-browser-brave-history | **no** | — | not present on this host |
+| db-browser-firefox-places | **no** | — | not present on this host |
+| db-meshchatx | **no** | — | not present on this host |
+| db-qgroundcontrol | **no** | — | not present on this host |
+
+Absent stores are recorded `present=false` with
+`read_error='declared store not present on this host'`. **No row is invented for
+a store that does not exist.**
+
+8 metrics projected: `akonadi.collections=100`, `akonadi.pim_items=35591`,
+`chrome.cookies=181`, `chrome.history_urls=107`, `chrome.autofill_profiles=11`,
+`edge.cookies=48`, `edge.history_urls=16`, `edge.autofill_profiles=1`.
+
+**Privacy boundary held:** only table counts and `count(*)` rows are projected.
+No URLs, no titles, no cookie values, no login rows, no autofill entries, no
+mail. `db-browser-*-logins` is opened to prove it exists and to report its
+table count; its contents are never selected.
+
+Re-verified after the fix — every queried panel returns data:
+
+```
+DASHBOARD: ALWAYS ON — system topology  panels=30
+  ok  SQLite stores — declared vs present on thi   rows=14
+  ok  SQLite store metrics — row counts only       rows=8
+  ok  Declared data stores — authority from the    rows=20
+RESULT: 23 ok, 0 failed
+```
+
+2026-10-03 revision 2 -- SQLite datasource, committed
+------------------------------------------------------------
+COMMIT  b7e76d5  feat(grafana): system-health dashboard on PostgreSQL and
+                 SQLite only   (12 files, +3819/-445)
+
+Verified before commit:
+  systemctl --user is-active ao-grafana.service        -> active
+  systemctl --user is-active ao-status-collect.timer   -> active
+  curl -s 127.0.0.1:3001/api/health -> database ok, 11.6.0
+  podman logs --since 60m ao-grafana | grep frser-sqlite-datasource
+    -> 8 datasources, endpoint=queryData and endpoint=checkHealth,
+       status=ok on every one (19:50:52Z .. 19:52:00Z)
+  podman inspect ao-grafana | grep UNSIGNED
+    -> GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS=frser-sqlite-datasource
+  git diff --cached | secret scan for literal passwords  -> 0 matches
+
+Not committed (gitignored by project design):
+  COORDINATION BETWEEN AI/          (.gitignore:42)
+  logs/                            (.gitignore:3)
+
+Left alone -- another session's files:
+  9 untracked GAZEBO/worlds/factory.world.bak.* and the untracked
+  TOPOLOGY/*.dot|.svg|.png|.html artifacts.
+
+Faults I caused and fixed this revision:
+  1. Pruned the plugin 229M->30M; MANIFEST.txt signature check then failed
+     and Grafana refused to load it. Reinstalled intact from a throwaway
+     container. Never prune a Grafana plugin directory.
+  2. README claimed PGP-signed. Measured: unsigned, no signature and no
+     signedByOrg. README corrected; allow-list naming one plugin id.

@@ -1,0 +1,80 @@
+=== ALWAYS ON provisioner ===
+mode      : DRY-RUN (pass --yes to apply)
+host      : scottw-ms7b44   kernel: 7.0.0-38-generic
+repo      : /ALWAYSON
+
+
+--- stage 10: apt repositories
+  [dry-run] install -d -m 0755 /etc/apt/keyrings
+  present: githubcli-archive-keyring.gpg
+  [dry-run] install -d -m 0755 /etc/apt/keyrings && curl -fsSL -o /etc/apt/keyrings/vscodium-archive-keyring.gpg 'https://download.vscodium.com/debs/gpg' && chmod 0644 /etc/apt/keyrings/vscodium-archive-keyring.gpg
+  source: https://download.vscodium.com/debs vscodium main
+  [dry-run] install -d -m 0755 /etc/apt/keyrings && curl -fsSL -o /etc/apt/keyrings/steam.gpg 'https://repo.steampowered.com/steam/gpg' && chmod 0644 /etc/apt/keyrings/steam.gpg
+  source: https://repo.steampowered.com/steam stable steam
+  [dry-run] install -d -m 0755 /etc/apt/keyrings && curl -fsSL -o /etc/apt/keyrings/google-chrome.gpg 'https://dl.google.com/linux/chrome-stable/deb/gpg' && chmod 0644 /etc/apt/keyrings/google-chrome.gpg
+  source: https://dl.google.com/linux/chrome-stable/deb stable main
+  [dry-run] install -d -m 0755 /etc/apt/keyrings && curl -fsSL -o /etc/apt/keyrings/microsoft-edge.gpg 'https://packages.microsoft.com/repos/edge-stable/gpg' && chmod 0644 /etc/apt/keyrings/microsoft-edge.gpg
+  source: https://packages.microsoft.com/repos/edge-stable stable main
+  [dry-run] install -d -m 0755 /etc/apt/keyrings && curl -fsSL -o /etc/apt/keyrings/nodesource.gpg 'https://deb.nodesource.com/node_24.x/gpg' && chmod 0644 /etc/apt/keyrings/nodesource.gpg
+  source: https://deb.nodesource.com/node_24.x nodistro main
+  [dry-run] install -d -m 0755 /etc/apt/keyrings && curl -fsSL -o /etc/apt/keyrings/nvidia-container-toolkit-keyring.gpg 'https://nvidia.github.io/libnvidia-container/stable/deb/amd64/gpg' && chmod 0644 /etc/apt/keyrings/nvidia-container-toolkit-keyring.gpg
+  source: https://nvidia.github.io/libnvidia-container/stable/deb/amd64 /
+  ROS 2   : packages.ros.org - registered but UNREACHABLE (TLS). Not worked around.
+--- stage 20: host dependencies (delegating to scripts/bootstrap/02)
+  [dry-run] bash /ALWAYSON/scripts/bootstrap/02-install-host-dependencies.sh
+  NOTE: bootstrap/02 exits 5 when packages are missing and will not
+  install unattended. Run the printed sudo apt line yourself.
+  [dry-run] bash /ALWAYSON/scripts/bootstrap/03-create-operational-layout.sh
+  [dry-run] bash /ALWAYSON/scripts/bootstrap/04-create-podman-networks.sh
+  [dry-run] bash /ALWAYSON/scripts/bootstrap/00-inventory.sh
+--- stage 30: snaps (16) and flatpak (1)
+--- stage 40: host applications from the inventory registry
+  apt: google-chrome-stable (Google LLC)
+  appimage: QGroundControl-x86_64.AppImage - vendor site, MANUAL fetch required
+  appimage: LM-Studio-0.4.20-1-x64.AppImage - vendor site, MANUAL fetch required
+  appimage: pCloud.AppImage - vendor site, MANUAL fetch required
+  appimage: nPerf.AppImage - vendor site, MANUAL fetch required
+  appimage: ReticulumMeshChatX-v4.9.1-linux-x86_64.AppImage - vendor site, MANUAL fetch required
+  AppImages and vendor tarballs are MANUAL: they have no package source.
+--- stage 50: podman networks and Quadlet units
+  22 units across 8 domains. Unit files deploy FLAT:
+  ~/.config/containers/systemd/ holds COPIES. Editing the repo is inert
+  until deployed, so the deploy script is mandatory, not optional.
+  [dry-run] ./scripts/deploy/deploy-quadlet-domain.sh build-update
+  [dry-run] ./scripts/deploy/deploy-quadlet-domain.sh fabrication
+  [dry-run] ./scripts/deploy/deploy-quadlet-domain.sh mapping
+  [dry-run] ./scripts/deploy/deploy-quadlet-domain.sh networks
+  [dry-run] ./scripts/deploy/deploy-quadlet-domain.sh operations
+  [dry-run] ./scripts/deploy/deploy-quadlet-domain.sh payment
+  [dry-run] ./scripts/deploy/deploy-quadlet-domain.sh sales
+  [dry-run] ./scripts/deploy/deploy-quadlet-domain.sh sim-fabrication
+  [dry-run] ./scripts/deploy/deploy-quadlet-domain.sh sim-vehicle
+
+--- stage 60: secrets the units actually read (presence only)
+  present: /ALWAYSON/config/platform/monitoring/grafana-admin.env
+  present: /home/scottw/.local/share/ao-secrets/fabrication-db.env
+  present: /home/scottw/.local/share/ao-secrets/mastodon-db.env
+  present: /home/scottw/.local/share/ao-secrets/mastodon.env
+  present: /home/scottw/.local/share/ao-secrets/payment.env
+  present: /home/scottw/.local/share/ao-secrets/reporting-grafana-admin.env
+  present: /home/scottw/.local/share/ao-secrets/reporting-grafana-postgres.env
+  present: /home/scottw/.local/share/ao-secrets/reporting-metabase.env
+  present: /home/scottw/.local/share/ao-secrets/sales-db.env
+  present: /home/scottw/.local/share/ao-secrets/webodm.env
+  Secrets live in ~/.local/share/ao-secrets/ and are NOT in git.
+  A reinstall must restore them from backup to that exact path.
+  This script never reads, prints or writes a secret value.
+--- stage 70: persistent data (CHECK ONLY - never restores)
+  present: data/ardupilot (2.1G)
+  present: data/corda-install (282M)
+  present: data/sim-fabrication (23M)
+  present: data/sales (44K)
+  present: data/mapping (4.0K)
+  Restoration is a human decision (AGENTS.md rule 2/3).
+--- stage 90: verification
+  [dry-run] python3 /ALWAYSON/scripts/build-update/inventory-full.py
+  [dry-run] python3 /ALWAYSON/scripts/build-update/provenance-log.py --markdown --offline
+  Then DIFF the regenerated inventory against docs/software-status.md.
+  A mismatch means the rebuild is not faithful; do not proceed.
+
+provision complete. log: /ALWAYSON/logs/operations/20261003T014203Z-provision.log

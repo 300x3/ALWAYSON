@@ -1,0 +1,95 @@
+2026-09-29T20:38Z plasmashell-crashfix: backed up autostart/*.desktop to BACKUP-20260929-crashfix, disabled pcloud/podman-desktop/OpenRGB/meshchatx autostarts (moved, not deleted); backed up plasma appletsrc+plasmashellrc (.BAK-20260929); cleared ~/.cache/fontconfig (fc-cache -r, 824 fonts); reset+started plasma-plasmashell.service PID 122074 running 8s+ OK. icontasks mainscript warning persists but non-fatal. Next: reboot test, re-enable autostarts one-by-one.
+2026-09-29T20:40Z operator-approved reboot after plasmashell stabilization (PID 122074 up 1m+)
+2026-09-29T20:41Z reboot verified stable: up 1min, plasmashell PID 4825 running 41s, 0 KCrash since boot
+2026-09-29T20:43Z drkonqi-flood: 15+ stale drkonqi+gdb excavating pre-reboot (pre-13:38) plasmashell/kioworker cores; killed backlog, cleaned /tmp/drkonqi*, disabled Sentry+DownloadSymbols in drkonqirc (BAK kept). Current plasmashell PID 4825 healthy. /var/lib/systemd/coredump 605 files 2.3G - NOT purged (needs approval). kwalletd6 uid993 still aborting every ~15s.
+2026-09-29T20:45Z operator requested restore autostarts: pcloud, OpenRGB, reticulum-meshchatx copied back from BACKUP-20260929-crashfix. podman-desktop remains disabled.
+2026-09-29T20:47Z operator requested restore: podman-desktop autostart re-enabled. All 4 autostarts now active.
+2026-09-29T20:50Z post-reboot health: plasmashell PID 5099 39s 0 KCrash, all 4 autostarts + reboot clean. Remaining: kwalletd6 uid993 abort loop (22x), ao-mastodon sidekiq/web failed, nodeodm EACCES /var/www, coredump 664 files 2.3G, scottw missing video/render groups, icontasks warning.
+2026-09-29T20:52Z operator-approved pkexec purge: /var/lib/systemd/coredump 664 files 2.3G -> 0 files 132K (all today's plasmashell/drkonqi/kioworker + old llama/meshchatx/podman/lm-studio). Cause already diagnosed + journaled, no live data affected.
+2026-09-29T21:22Z wallet-bridge live: bridge script OK (mastodon.env+sales-db.env via ACL option A), live 6 sales units repointed to /home/scottw staging + ExecStartPre removed, db+redis healthy, web 301 streaming 400, zero wallet failures last 1min. Bridge unit fixed (cross-user -M start removed, blocked by machine transport). Canon/live secrets-path drift + headless-uid graphical-session limitation recorded. Remaining: README 18.8 row, sales-db/web/sidekiq/streaming restart verify.
+2026-09-29T21:36Z mastodon-local restored: history review found scripts/operations/mastodon-local-proxy.py (3300->3000, injects X-Forwarded-Proto:https to bypass RAILS_FORCE_SSL 301 loop); was run manually pre-reboot (python3 pid 2714757) and lost on reboot. Created user unit quadlet/operations/mastodon-local-proxy.service -> ~/.config/systemd/user/, enabled (default.target = login start per operator preference), active PID 231768. Stack ao-mastodon-db/redis/web/sidekiq/streaming all active. Operator approval: act-mode request 'get mastodon local working again at 3300'.
+2026-09-29T23:35Z RECURRENCE root-caused: plasmashell SIGSEGV x3 (16:25:21/24/27, cores 4559/4872/5838,
+  NRestarts=3 -> unit failed, no panel/black screen). Same signature as the 13:16 event: libfontconfig
+  FcCharSetHasChar <- QFontEngineMultiFontConfig <- QQuickText/QQuickLabel.
+  CAUSE: ~/.cache/fontconfig corrupted AGAIN after my 13:38 fix. fc-cache -v reported 10x
+  "invalid cache file ...-le64.cache-9" plus dangling symlinks (cache-10 -> cache-12).
+  Corrupt entries timestamped 15:12:30 and 15:19:45 = window of my headless-Chrome/snap-Firefox
+  Playwright probe runs, i.e. a BUNDLED fontconfig (different cache version -9 vs host -12) wrote
+  into the shared user cache. Host fontconfig is 2.17.1.
+  ACTION: moved old cache to ~/.cache/fontconfig.BAK2-20260929/old, recreated dir, fc-cache -r.
+  RESULT: 0 invalid cache files, 824 fonts (was 754/10-broken). plasmashell restarted, PID 28060,
+  NRestarts=0, stable 9m33s+, no new cores (58 cores on disk are all pre-fix).
+  NOTE: earlier "kscreenlocker not installed" hypothesis was WRONG and is retracted - Plasma 6.6
+  merges the locker into ksmserver (ScreenLocker::KSldApp symbols present in /usr/bin/ksmserver);
+  no standalone kscreenlocker package exists in resolute. Locker shares the SAME font-rendering
+  path, so the corrupt cache explains the black lock screen too. ksmserver journal shows only
+  cosmetic xdg-desktop-portal registration warnings. plasma-workspace verified intact (dpkg -V clean).
+  OUTSTANDING: durable mitigation for foreign fontconfig writers not yet approved/installed.
+2026-09-29T23:50Z ROOT CAUSE IDENTIFIED (was: fontconfig cache corruption, source unknown).
+  METHOD: sandboxed reproduction with isolated HOME/XDG_CACHE_HOME in /tmp (real cache untouched).
+    TEST C: host `fc-cache -rf` alone -> 38 real -le64.cache-9 files, no symlinks, 0 invalid.
+    TEST D: google-chrome 154.0.8037.57 headless alone -> 38 real -le64.cache-12 PLUS 38 symlinks
+            each of -cache-9, -cache-10, -cache-11 pointing at the v12 file.
+  MECHANISM: Chrome writes font cache format v12 and back-links older names (9/10/11) to it.
+  Host fontconfig 2.17.1 understands v9 only, so it opens -cache-9, follows the symlink into v12
+  data, logs "invalid cache file: <hash>-le64.cache-9" and plasmashell SIGSEGVs in
+  FcCharSetHasChar/QFontEngineMultiFontConfig -> no panel + black lock screen.
+  The 4 hashes reported in the sandbox (a698622a, c57959a1, da43223d, bf3b770c) are IDENTICAL to
+  the hashes in the 16:25 crash, confirming the same mechanism.
+  TRIGGER: any Chrome launch. The 15:12/15:19 corrupt writes coincide with my own headless-Chrome
+  Playwright probes for the Mastodon two-tab login test, which is why the 13:38 fc-cache repair
+  appeared to "not hold".
+  RULED OUT: WebODM containers (python3.9 use bundled libfontconfig.so.1.12.0 but HOME=/root inside
+  the container, so they write their own cache); pCloud AppImage (380MB payload, no bundled
+  fontconfig); podman-desktop (no bundled fontconfig); package corruption (dpkg -V plasma-workspace
+  clean; libfontconfig1 2.17.1-3ubuntu1 intact, no apt transaction for fontconfig today).
+  NOTE: `ldd /opt/google/chrome/chrome` resolves to the system libfontconfig.so.1, which does not
+  explain a v12 writer; recorded as an open discrepancy - the empirical isolation above stands.
+  OUTSTANDING (needs operator approval): isolate Chrome's font cache via a wrapper with its own
+  XDG_CACHE_HOME, or accept fc-cache -r as a recurring band-aid.
+2026-09-30T00:00Z FIX APPLIED (operator-requested: stop Chrome writing the shared fontconfig cache).
+  Approach: fontconfig derives its cache dir from $XDG_CACHE_HOME and exposes no dedicated
+  override, so Chrome is given its own cache home via a wrapper.
+  Created (all new files, fully reversible by deletion):
+    /home/scottw/.local/bin/google-chrome           (execs /opt/google/chrome/google-chrome)
+    /home/scottw/.local/bin/google-chrome-stable    (same; covers PATH-based and scripted use)
+    /home/scottw/.local/share/applications/google-chrome.desktop        (user override)
+    /home/scottw/.local/share/applications/com.google.Chrome.desktop   (user override)
+  Both system entries used Exec=/usr/bin/google-chrome-stable (absolute, so a PATH shim alone
+  would not have intercepted them); user overrides in ~/.local/share/applications take precedence.
+  ~/.local/bin is first on PATH, so CLI/scripted `google-chrome` also resolves to the wrapper.
+  XDG_CONFIG_HOME intentionally untouched: browser profile stays in ~/.config/google-chrome.
+  VERIFIED: the exact headless invocation that previously produced 38x v12 + 9/10/11 back-link
+  symlinks now leaves the shared cache at 38x pure cache-9 with 0 "invalid cache file" warnings;
+  the v12 set lands in /home/scottw/.cache/chrome/fontconfig instead.
+  Desktop unaffected: plasmashell PID 28060 up 20m+, cache clean.
+  REMAINING GAP: any future tool that invokes /usr/bin/google-chrome* by absolute path (bypassing
+  PATH and the desktop entries) can still poison the shared cache; `fc-cache -r` repairs it.
+2026-09-29T23:54Z Mastodon local VERIFIED + "role root" FIXED + 993 duplicate removal staged.
+  MASTODON LOCAL (kept stack, owned by scottw): confirmed functioning.
+    http://127.0.0.1:3300/ -> 200 (mastodon-local-proxy.service -> 127.0.0.1:3000 -> mastodon-web)
+    /api/v1/instance -> Mastodon 4.3.7, uri 300x3.com, user_count 2
+    accounts confirmed: bot@300x3.com, admin@300x3.com (both confirmed_at set)
+    containers: mastodon-web/streaming/db/redis/sidekiq all Up, db+redis healthy
+  "role root does not exist" FIXED: ao-webodm-db.container (ContainerName=db) and
+  ao-sales-db.container (ContainerName=sales-db) both had bare `HealthCmd=pg_isready`, which
+  connects as the container's default user `root` - a role that does not exist in either DB.
+  Changed to explicit role/db matching each unit's POSTGRES_USER:
+    ao-webodm-db.container: HealthCmd=pg_isready -U postgres -d webodm
+    ao-sales-db.container : HealthCmd=pg_isready -U sales_migration_role -d salesdb
+  Backups: *.BAK-20260930 beside each. daemon-reload + restart; both Up (healthy).
+  VERIFIED: 0 occurrences of 'role "root" does not exist' since 16:52:10; all prior lines came
+  from the replaced container PIDs 5473/5492. New PIDs 140823/140884 log only normal startup.
+  NOTE: this was log noise only - pg_isready does not authenticate, so the containers were
+  healthy throughout; it was never a real DB fault.
+  993 DUPLICATE (alwayson-sales ao-mastodon-db/redis/sidekiq): operator approved removal.
+  pkexec cannot authenticate from the agent shell (no tty, GUI agent unreachable), so staged a
+  root-run, idempotent, self-gating script:
+    sudo bash /ALWAYSON/scripts/operations/remove-993-mastodon-duplicates.sh
+  It refuses to proceed unless http://127.0.0.1:3300/ returns 200 AND the scottw containers are
+  present, then stops/disables those 3 units as 993, removes 993's 3 containers and their unit
+  files (live + disabled copies), and reloads 993's generator. It never touches scottw's Mastodon
+  nor 993's other units. Syntax checked; abort path verified.
+  The duplicate Postgres volume is intentionally NOT deleted by the script - confirm it is unused
+  before removing, per no-delete-without-approval.
+  llama-server VRAM 4.7G/8G: operator says this is expected. No action taken.

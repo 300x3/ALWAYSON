@@ -1,0 +1,208 @@
+2026-10-05 LM Studio shared-endpoint validation — OpenClaw + Cline on one loaded model
+Session: Cline act-mode. Source handoff: /home/scottw/Desktop/DASHBOARD UPDATES/
+"I NEED TO SPLIT MY LOADED LM STUDIO MODEL INTO TWO.md" (Part 2, the explicit
+handoff prompt: single shared endpoint, Max Concurrent Predictions=2, no second
+instance). Operator direction (verbatim intent): "maximize gpu use by running the
+lmstudio model and using it for openclaw requests as well as cline requests while
+still separating the content."
+
+RESULT: NO configuration changes were required. The existing deployment already
+implements the handoff architecture. This was a validation run. Nothing to roll back.
+
+HOST AND VERSIONS
+  kernel            7.0.0-38-generic
+  llmster           0.0.20-1 (daemon pid 2658)
+  lms CLI           commit 71bd99c (/home/scottw/.lmstudio/bin/lms)
+  llama backend     llama.cpp-linux-x86_64-nvidia-cuda-avx2-2.50.0
+  Cline CLI         3.0.60 (/home/scottw/.local/bin/cline)
+  OpenClaw          2026.7.1-2 (0790d9f)
+  GPU               NVIDIA GeForce GTX 1080, 8192 MiB
+  date              2026-10-05T18:08Z
+
+PHASE 1-2 — SERVER INSPECTION (read-only)
+$ ss -ltnp | grep ':1234'
+  LISTEN 127.0.0.1:1234 users:(("llmster",pid=2658,fd=31))     <- loopback only
+$ curl -sS -o /dev/null -w '%{http_code}' http://127.0.0.1:1234/v1/models
+  401                                                             <- auth enforced
+$ python3 (read ~/.lmstudio/.internal/http-server-config.json)
+  port=1234 networkInterface=127.0.0.1 cors=False
+  logSensitiveData=False logIncomingTokens=False fileLoggingMode=succinct
+$ lms server status -> The server is running on port 1234.
+$ lms ps
+  nvidia/nemotron-3-nano-4b  IDLE  2.84GB  context 100096  parallel 2  Local
+  text-embedding-mxbai-embed-large-v1  IDLE  669.60MB  context 512
+$ ps engine pid 2900270 args
+  --host 127.0.0.1 --port 44573(internal) --ctx-size 100000
+  --n-gpu-layers 999999 --parallel 2 --flash-attn on --kv-unified
+  --cache-type-k f16 --cache-type-v f16 --mlock --jinja
+  NOTE: --parallel 2 IS the handoff's "Max Concurrent Predictions = 2".
+  Full GPU offload already active -> "maximize GPU use" already satisfied.
+
+PHASE 4 — OPENCLAW (read-only, no changes)
+$ openclaw models list --provider lmstudio
+  lmstudio/nvidia/nemotron-3-nano-4b  ctx 100k  local=yes auth=yes  default,configured
+$ openclaw status
+  Gateway ws://127.0.0.1:18789 reachable 121ms auth=password
+  Sessions 210 active - default nvidia/nemotron-3-nano-4b (100k ctx) - 2 stores
+  (config: ~/.openclaw/openclaw.json models.providers.lmstudio.baseUrl =
+   http://127.0.0.1:1234/v1, api=openai-completions, apiKey from KDE Wallet
+   entry lmstudio-api-key via openclaw-kwallet-secret. Handoff doc suggested
+   api=openai-responses; doc also says preserve what already works -> NO CHANGE.)
+
+PHASE 5 — CLINE CLI (verified, no config rewrite)
+$ providers.json ~/.cline/data/settings/providers.json
+  providers.lmstudio.settings.baseUrl = http://127.0.0.1:1234/v1
+  providers.lmstudio.settings.model   = nemotron-3-nano-4b
+  providers.lmstudio.settings.apiKey  = <35 chars, sha256-EQUAL to wallet entry>
+  lastUsedProvider = cline (cloud cline-free/mimo-v2.6-flash) - LEFT UNCHANGED
+$ cline -P lmstudio -m nemotron-3-nano-4b ... "Reply with exactly CLINE-LOCAL-OK-20261005"
+  exit=0  provider=lmstudio  durationMs=2172  iterations=1  cost=0
+  reply text == CLINE-LOCAL-OK-20261005                      <- PASS
+  NOTE: both "nemotron-3-nano-4b" and "nvidia/nemotron-3-nano-4b" resolve
+  (server normalizes to nvidia/nemotron-3-nano-4b:2); Cline's stored spelling works.
+
+PHASE 6a — 4-WAY SIMULTANEOUS SERVER TEST (barrier, /tmp/cline-lmstudio-smoke/barrier_test.sh)
+  4 requests launched at the same epoch instant (1791223365.887):
+  ALPHA/BETA/GAMMA/DELTA all http 200
+  peak concurrent in-flight = 4 (server accepted all 4 while parallel=2: 2 run, 2 queue)
+  own sentinel present in full response (content+reasoning) for all 4
+  cross-leak check: every response contained NONE of the other 3 sentinels  <- PASS
+  VRAM during test stayed <= 5972 MiB (policy ceiling 80% of 8192 = 6553 MiB)
+
+PHASE 6b — REAL CLIENTS OVERLAPPED IN TIME (overlap_test.sh)
+  Started real `cline -P lmstudio` essay run; watched engine pid 2900270 CPU time;
+  fired real `openclaw infer model run` the moment Cline's inference was active.
+  cline_window  = 1791223423.64 .. 1791223548.09 (124s)
+  openclaw_window = 1791223427.51 .. 1791223434.71 (7.2s) <- ENTIRELY INSIDE
+  OpenClaw leg: status=200, reply == OPENCLAW-CONCURRENT-OK-20261005      <- PASS
+  GPU utilization mid-flight: 83% then 91%; VRAM peak observed 5972 MiB
+  Cline leg: exit=1 finishReason=aborted durationMs=120103 - CAUSED BY MY OWN
+  -t 120 timeout: the reasoning model was still rambling through a 200-word essay
+  (1659 streamed content_start events, GPU busy the whole time, zero tool calls,
+  zero approval waits, no endpoint errors). Test-harness artifact, NOT a defect.
+  Follow-up clean re-run (short prompt): exit=0 finishReason=completed
+  reply == CLINE-POSTLOAD-OK-20261005 durationMs=7829                        <- PASS
+  CONCLUSION: both real clients were served concurrently by the same loaded
+  model; each response contained only its own content.
+
+PHASE 6c — CONTENT SEPARATION / DATA-AT-REST
+  Separation model: clients are separate (OpenClaw agent sessions in
+  ~/.openclaw/agents SQLite; Cline task sessions in ~/.cline/data); the server is
+  stateless per request, so neither client can observe the other's conversation.
+  Server logging flags: logSensitiveData=False, logIncomingTokens=False.
+  ~/.lmstudio/.internal/api-prediction-history/ has exactly 1 pack, mtime
+  ~2026-09-24 - TODAY'S TESTS WROTE NO PROMPT/RESPONSE CONTENT TO DISK.
+
+POST-TEST HEALTH
+  $ lms ps      -> both models still loaded, IDLE, parallel 2
+  $ nvidia-smi  -> 5736 MiB used / 2369 MiB free (under 6553 MiB policy ceiling)
+  $ ss -ltn     -> still 127.0.0.1:1234 only
+  $ unauthenticated /v1/models -> 401
+
+GPU-USE / CONCURRENCY FINDINGS (Phase 3, no change made)
+  Already maxed where it matters: full offload (n-gpu-layers 999999), 100k ctx,
+  flash-attn, unified f16 KV, mlock, parallel 2.
+  LM-process VRAM ~5.2 GiB vs policy ceiling 6.4 GiB (lmstudio-memory-policy.py
+  VRAM_RATIO=0.80) -> roughly 1.2 GiB headroom. Raising Max Concurrent
+  Predictions 2->3/4 would require editing /home/scottw/.local/bin/
+  ao-lmstudio-supervisor (load line: --parallel 2) and a model reload.
+  NOT DONE - requires explicit operator approval (risk: memory-policy unload).
+
+WALLET/KEY NOTES (no secret values recorded)
+  Helper MUST be called with an entry name:
+    /home/scottw/.local/bin/openclaw-kwallet-secret lmstudio-api-key
+  (no argument -> "Unsupported wallet entry", exit 64)
+  Wallet entry lmstudio-api-key is 35 chars and sha256-equal to the apiKey
+  Cline stores -> no rotation, both clients hold the current token.
+
+CHANGED FILES
+  None in any configuration. Pre-existing working tree changes under
+  /ALWAYSON/TOPOLOGY/ belong to another session and were not touched.
+  New files: this journal, and
+  "/ALWAYSON/COORDINATION BETWEEN AI/P. 2026-10-05-lmstudio-shared-endpoint.md"
+  (not committed - commit only on operator request; stage by file, never git add -A).
+
+PRE-EXISTING ISSUES OBSERVED (reported, not touched)
+  1. ao-lmstudio-preset-sync.service failed (start-limit-hit) since 2026-10-02.
+  2. ~/.lmstudio/.internal/lms-key-2: 24-byte key-shaped file, mode 0664
+     (others-readable), NOT equal to the current API token - unidentified.
+  3. `openclaw status` reports "Gateway service: systemd user not installed"
+     although ao-openclaw-gateway.service is active - OpenClaw does not recognize
+     the ao- prefixed unit name.
+
+ROLLBACK
+  Nothing to roll back: no configuration, service, or model setting was modified.
+  Scratch artifacts: /tmp/cline-lmstudio-smoke/ (test scripts, sentinel responses,
+  logs) and 3 short-lived Cline test sessions in ~/.cline/data - deletable.
+
+--- APPEND: open-findings resolution, same session 2026-10-05 ---
+
+Operator directives received: (1) keep exactly two slots - one OpenClaw, one
+Cline; (2) preset sync is useful - identify what references the work product;
+(3) research lms-key-2 - secrets belong in KDE Wallet, remove it ONLY if nothing
+useful depends on it; (4) fix OpenClaw status to rely on the ao- prefix.
+
+FINDING 1 - NO CHANGE. Max Concurrent Predictions stays 2 (one slot OpenClaw,
+one slot Cline). Recorded here as the operator decision.
+
+FINDING 2 - preset sync REPAIRED:
+$ systemctl --user reset-failed ao-lmstudio-preset-sync.service /.path
+$ systemctl --user start ao-lmstudio-preset-sync.path   -> active
+$ /ALWAYSON/scripts/sync-lmstudio-readme-preset.sh
+  WROTE .../ALWAYSON - FULL CONTEXT.preset.json (891324 bytes, sha d43b05aaff1c7656)
+  state hash now == README hash (was stale 7566377a from Oct-2); JSON parses.
+Root cause: >=5 rapid README writes on Oct 2 tripped systemd's start limit; both
+units stuck failed, path unit stopped watching (README changed Oct 4 -> preset
+never regenerated). Fix: reset-failed + StartLimitIntervalSec=300 and
+StartLimitBurst=60 added to [Unit], daemon-reload, manual trigger ->
+"Finished ..." (inactive = oneshot OK), path still active.
+Work-product consumers (answer to operator Q): repo-wide grep finds ONLY the
+generator script; no automation in OpenClaw/Cline/dashboard reads the preset.
+Its consumer is the operator manually - the preset appears in the LM Studio
+desktop GUI preset list for GUI chats.
+
+FINDING 3 - lms-key-2 KEPT, chmod 600 (documented policy exception):
+Reversible probe: file moved aside -> `lms ps` rc=1 with
+  "ENOENT: no such file or directory, open '.../.internal/lms-key-2'"
+-> file restored (sha unchanged), `lms ps` OK. lms CLI source shows
+  auth = { clientIdentifier:"lms-cli", clientPasskey: lmsKey + lmsKey2 }
+with lmsKey2 read from this path, and an UNGUARDED readFile in the connect
+path - deleting it breaks `lms`, which breaks ao-lmstudio.service (supervisor
+uses lms load/ps). It is the CLI<->daemon IPC passkey half, NOT the HTTP API
+token (that lives in KDE Wallet entry lmstudio-api-key). Vendor-hardcoded path:
+it cannot be relocated to the wallet. $ chmod 600 -> verified mode 600.
+
+FINDING 4 - OpenClaw status now relies on the ao- prefix (3 parts, verified):
+a) dist patch: constants-obO8goqF.js GATEWAY_SYSTEMD_SERVICE_NAME
+   "openclaw-gateway" -> "ao-openclaw-gateway" (+ profile-suffix literal).
+   Backup: constants-obO8goqF.js.bak-ao-20261005 (byte-identical pre-patch).
+b) residual wrong-state root cause: live unit line 26
+   Environment=OPENCLAW_SYSTEMD_UNIT=openclaw-gateway.service - status parses
+   the unit's Environment= and probed that legacy name. Fixed in BOTH copies:
+   ~/.config/systemd/user/ao-openclaw-gateway.service AND
+   ~/.config/containers/systemd/ao-openclaw-gateway.service.
+c) daemon-reload + restart ao-openclaw-gateway.service -> new pid 1276383,
+   /proc/<pid>/environ confirms OPENCLAW_SYSTEMD_UNIT=ao-openclaw-gateway.service.
+VERIFICATION (commands + output):
+  openclaw status  -> Gateway service: systemd user installed - enabled
+                      - running (pid 1276383, state active)
+  openclaw gateway status -> Service: systemd user (enabled)
+  strace -e execve -> is-enabled/show now target ao-openclaw-gateway.service
+  dependent units post-restart: ao-openclaw-chat-relay=active,
+                      mastodon-openclaw-bridge=active, gateway=active
+DURABILITY: /ALWAYSON/scripts/operations/patch-openclaw-ao-unit-name.sh
+  (idempotent; tested rc=0 "dist already patched") - run after every
+  `openclaw update`, which will overwrite dist/ and revert the constant.
+TRAP: never run `openclaw gateway install` - it would overwrite the
+  customized unit file (wallet/DBUS Environment lines live there).
+
+FILES CHANGED in this resolution pass (all uncommitted, staged-by-file if ever):
+  ~/.config/systemd/user/ao-lmstudio-preset-sync.service   (StartLimit lines)
+  ~/.config/systemd/user/ao-openclaw-gateway.service       (OPENCLAW_SYSTEMD_UNIT)
+  ~/.config/containers/systemd/ao-openclaw-gateway.service (OPENCLAW_SYSTEMD_UNIT)
+  ~/.npm-global/lib/node_modules/openclaw/dist/constants-obO8goqF.js (+ .bak-ao-20261005)
+  /ALWAYSON/scripts/operations/patch-openclaw-ao-unit-name.sh (NEW)
+  ~/.lmstudio/.internal/lms-key-2 (mode 600 only; content untouched)
+  coordination doc P revised (Supersedes line added)
+Observation left open (cosmetic): `openclaw gateway status` warns the unit PATH
+lacks /home/scottw/.bun/bin - pre-existing, unrelated to naming, not touched.

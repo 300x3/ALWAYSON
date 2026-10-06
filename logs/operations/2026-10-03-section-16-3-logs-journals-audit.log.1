@@ -1,0 +1,107 @@
+ALWAYS ON - README Section 16.3 logs-journals audit
+Date (UTC): 2026-10-03T01:06Z
+Actor: scottw (via Cline session)
+
+SCOPE
+  Verify every log/journal required by README Section 16.3 (a) exists and
+  (b) is updated regularly, and correct the record where it was wrong.
+
+MEASURED FIRST (README 4.1 rule 1)
+  $ ls -la /ALWAYSON/LOGS-JOURNALS/
+    -> ONE file only: operations-journal.log (176261 bytes)
+  $ find logs -maxdepth 1 -type f   -> 11 files; all other Section 16.3 logs here
+  Conclusion: README 16.3 line 3721 named /ALWAYSON/LOGS-JOURNALS/ as the
+  location, but that directory held one of seventeen entries. Everything else
+  was in /ALWAYSON/logs/.
+
+  WHO ACTUALLY WRITES (measured, not assumed):
+    scripts/lib/common.sh:6            AO_LOG_DIR="/ALWAYSON/logs"
+    ~/.config/containers/systemd/ao-sim-fabrication-gz.container:74
+        --log-opt path=/ALWAYSON/logs/sim-gz-server.log      [unit RUNNING]
+    ~/.config/containers/systemd/ao-build-update.container:47
+        Volume=/ALWAYSON/logs/operations:/var/log/ao-build-update:rw,Z
+    README 11.1 line 2585-2587         /ALWAYSON/logs/installation/agent-install.log
+  Two of these are LIVE deployed units writing to logs/ right now.
+
+MISSING ENTRIES (did not exist anywhere on the host)
+  installation-journal.log   created
+  backup.log                 created
+  restore-test.log           created
+  meshchatx.log              created (MeshChatX not installed - see below)
+  gpu-runtime/               created
+
+NO WRITER AT ALL
+  operations-journal.log existed but NOTHING in the repository appended to it
+  (grep -rn 'operations-journal' over *.sh/*.py/*.service/*.timer/*.container
+  returned zero hits). It was a hand-maintained file, not a live journal.
+
+CHANGES
+  scripts/lib/common.sh
+    + AO_OPERATIONS_JOURNAL / AO_INSTALLATION_JOURNAL / AO_BACKUP_LOG /
+      AO_RESTORE_TEST_LOG path variables
+    + ao_operation, ao_install, ao_backup_run, ao_restore_test helpers
+  scripts/backup/restic-run.sh
+    + journals every backup run, success and failure
+    + records the restic snapshot short_id read back from restic (not guessed)
+    + DRY-RUN recorded as DRY-RUN, not as a backup run
+  scripts/validation/check-gpu-runtime.sh
+    + also writes a per-run capture to logs/gpu-runtime/<UTC>-gpu-runtime.txt
+    (was appending only to the rolling log; the capture dir was required and empty)
+  scripts/validation/check-logs-journals.sh   NEW
+    Existence + staleness check for all 18 Section 16.3 entries.
+    Exit 0 pass / 1 missing / 2 stale.
+  README.md 16.3  corrected: /ALWAYSON/logs/ is canonical; per-row writers named
+  README.md 18.7  NEW: deviation record for the location correction
+  LOGS-JOURNALS/README-THIS-DIRECTORY.txt  NEW: pointer explaining the above
+
+DATA HANDLING (README 4.1 rule 2, preserve existing data)
+  The 2766-line operational journal history was COPIED from
+  LOGS-JOURNALS/operations-journal.log to logs/operations-journal.log, then
+  verified with:
+    $ diff <(tail -n +5 logs/operations-journal.log) \
+           LOGS-JOURNALS/operations-journal.log
+    -> no output (identical)
+  Only after that verification was the duplicate removed.
+  logs/installation/agent-install.log was NOT renamed. Both files exist and
+  each header states the relationship.
+  A copy also remains at /tmp/ops-original-backup for this session.
+
+VERIFICATION (each with command and output)
+  $ bash -n scripts/lib/common.sh && bash -n scripts/backup/restic-run.sh
+    && bash -n scripts/validation/check-gpu-runtime.sh
+    && bash -n scripts/validation/check-logs-journals.sh     -> all clean
+  $ ./scripts/validation/check-gpu-runtime.sh
+    -> wrote logs/gpu-runtime/20261003T010007Z-gpu-runtime.txt, EXIT=0
+  $ RESTIC_ENV_FILE=/nonexistent-probe ./scripts/backup/restic-run.sh --dry-run
+    -> EXIT=0, backup.log got one DRY-RUN row, no restic executed
+  $ ./scripts/validation/check-logs-journals.sh
+    -> missing=0 stale=0, "PASS: every Section 16.3 log exists..."  EXIT=0
+  $ (web-console.log temporarily moved aside)
+    -> "web-console.log  MISSING", missing=1, EXIT=1   [check is not vacuous]
+  $ ./scripts/validation/check-network-isolation.sh
+    -> EXIT=0, "OK: all domain networks present..."   [no regression from common.sh]
+
+DELIBERATELY EMPTY - DO NOT FABRICATE
+  meshchatx.log      MeshChatX is NOT installed on this host. No ao-field unit
+                     is deployed. The file exists because 16.3 requires it; it
+                     holds no events and says so in its header.
+  restore-test.log   Every script under scripts/restore/ exits 3 "PENDING".
+                     No restore test has ever completed here, so there is no
+                     result to record. An empty log with a stated reason is
+                     evidence; invented entries are not.
+
+OPEN - NEEDS OPERATOR APPROVAL
+  1. Physical consolidation. logs/ and LOGS-JOURNALS/ are NOT merged. Doing so
+     means editing the DEPLOYED units (flat copies in
+     ~/.config/containers/systemd/, not symlinks - see README 16.1.1),
+     redeploying, and restarting ao-sim-fabrication-gz and ao-build-update.
+     Not done. The README now matches reality instead, which is the safe
+     direction.
+  2. No backup timer exists. `systemctl --user list-timers` shows no restic or
+     backup timer, so nothing calls restic-run.sh on a schedule. backup.log
+     will stay empty until a timer or manual run exists. Section 17.1 requires
+     hourly/daily backup cadence; that is unmet and is a Section 17 gap, not a
+     Section 16.3 one.
+  3. ao_operation is currently called by check-logs-journals.sh and available
+     to all scripts sourcing common.sh, but deploy/enable/restart scripts do
+     not call it yet. Wiring each one is a separate change.

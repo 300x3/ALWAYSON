@@ -1,0 +1,84 @@
+2026-09-25 OPERATIONS JOURNAL — OpenClaw / LM Studio / edge connectivity fix
+Operator request: "openclaw direct communication to lmstudio is a bit slower, why so slow?";
+"www.300x3.com website is also failing to connect to the openclaw instance";
+"MASTODONLOCAL IS OFFLINE - FOCUS ON OPENCLAW"; "THE OPENCLAW FEATURE FOR MEMORY IS ALSO OFFLINE";
+"don't need web search either."; "fix it" (act mode).
+
+DIAGNOSIS (host rebooted ~16:26 PDT 2026-09-25; findings are post-reboot):
+1. Tunnel ingress rule 0 (chat.300x3.com) pointed at 127.0.0.1:8788 — no listener; cloudflared
+   logged ~10x "dial tcp 127.0.0.1:8788: connect: connection refused" in 30 min. The OpenClaw
+   gateway actually serves the OpenClaw Control webchat on 127.0.0.1:18789
+   (openclaw-gateway.service, PID 5910); /health -> {"ok":true,"status":"live"}.
+2. LM Studio slowness (ground truth ~/.lmstudio/server-logs/2026-09/2026-09-25.1.log):
+   - prompt eval ~480-500 tok/s (prefix cache "graphs reused" working — NOT the bottleneck)
+   - generation ~39-41 tok/s on GTX 1080; typical turn 440-508 tokens => 11-13 s GPU time
+   - sessions carry ~26.9k-28k token context; nvidia/nemotron-3-nano-4b at 100,096 ctx, 2 slots
+   - GPU 92% util / 71 C / 5.9 GiB of 8 GiB used (llama-server 4518 MiB)
+   => dominant cost is hardware generation speed + long session context, not the loopback path.
+3. OpenClaw-side latency adders in gateway journal: ECONNREFUSED retries to :1234 during boot
+   (lane task durationMs=2510 failover), recurring "[memory] sync failed (search-bootstrap):
+   No API key found for provider openai", recurring "[tools] web_search failed: web_search
+   is disabled or no provider is available".
+4. mastodon-openclaw-bridge.service crash-looping (168 restarts) — Mastodon origins 3000/4000
+   have no listeners; out of scope per operator (Mastodon local offline, focus on OpenClaw).
+
+CHANGES APPLIED:
+- /home/scottw/.cloudflared/config.yml: ingress chat.300x3.com 8788 -> 18789; comment updated.
+  systemctl --user restart cloudflared-alwayson.service. VERIFIED: https://chat.300x3.com/ -> 200,
+  https://chat.300x3.com/health -> 200 {"ok":true,"status":"live"}; no new ERR tunnel log lines.
+- openclaw config set tools.web.search.enabled false (operator: web search not needed).
+- openclaw config set agents.defaults.memorySearch.provider lmstudio
+- openclaw config set agents.defaults.memorySearch.model text-embedding-mxbai-embed-large-v1
+  (already loaded in LM Studio; avoids loading a second embedding model).
+  openclaw config validate: "Config valid". VERIFIED: LM Studio log shows POST /v1/embeddings
+  serving OpenClaw; zero "No API key found"/"search-bootstrap"/"web_search failed" lines after.
+- /home/scottw/.config/systemd/user/openclaw-gateway.service: bounded ExecStartPre wait
+  (<=20 s) for 127.0.0.1:1234 so early requests do not ECONNREFUSED while LM Studio loads;
+  proceeds anyway if LM Studio absent. daemon-reload + restart; health OK 16:57:13 PDT.
+- systemctl --user stop mastodon-openclaw-bridge.service (stopped only, still enabled — ends
+  restart storm against offline Mastodon origin; start again when the Mastodon stack returns).
+- README.md: WORK 000010 stale endpoint 127.0.0.1:32811/v1 corrected to 127.0.0.1:1234/v1;
+  Section 20 Cloudflare Tunnel row updated (both hostnames); new deviation 18.6 records the
+  approved chat.300x3.com -> 127.0.0.1:18789 edge route.
+
+NOT DONE / DEFERRED (deliberate):
+- LM Studio context 100k -> 32k and/or parallel 2 -> 1 NOT changed: would drop live sessions
+  for a modest gain (prompt eval already cached; generation speed is the bottleneck). If the
+  operator wants it: lms load nvidia/nemotron-3-nano-4b -c 32768 --parallel 1 (reload drops
+  in-flight sessions) and update README WORK 000010 context figures.
+- Mastodon origin (127.0.0.1:3000/:4000) offline and its public 502: out of scope per operator.
+- MCP "bundle-mcp ... registered" lines recur per agent run — appears to be normal per-run tool
+  registration, not a crash; no action taken.
+
+ADDENDUM (2026-09-25, after initial journal):
+- openclaw memory status --deep found the vector index had been built for
+  text-embedding-nomic-embed-text-v1.5 while the config now expects
+  text-embedding-mxbai-embed-large-v1 -> "Vector search: paused until memory is rebuilt".
+  Ran: openclaw memory status --index --agent main -> "Memory index complete."
+  (104 chunks re-embedded, vector dims 768 -> 1024, Dirty: no).
+- VERIFIED end-to-end: openclaw memory search "project home working directory" returns
+  scored matches (0.652 memory/ALWAYSON-README.md:626-704); Provider: lmstudio;
+  Embeddings: ready; zero No-API-key / search-bootstrap / web_search errors in the
+  gateway journal since the 16:57 restart.
+- README WORK 000010 bridge claims corrected in both places: mastodon-openclaw-bridge
+  service is enabled but stopped while Mastodon origins are offline (restart command
+  recorded in README).
+- FINAL STATE: chat.300x3.com -> 200, gateway /health -> {"ok":true,"status":"live"},
+  openclaw config validate -> valid, tunnel ERR only for offline Mastodon origin :3000
+  (out of scope per operator), no chat/8788 errors remain.
+
+## 2026-09-25 ~21:15 PDT - large-text + hero optimization (operator-requested)
+Relay /ALWAYSON/scripts/openclaw/chat-relay.py:
+- MAX_MESSAGE_CHARS 1200 -> 6000, MAX_BODY_BYTES 16384 -> 32768
+- RELAY_MAX_TOKENS default 1024 -> 2048, RELAY_TEMPERATURE 0.3
+- stop sequences ["\\nQ:", "\\nYou:", "\\nQuestion:"] on both forward + retry paths
+- system prompt: reply cap ~600 words + direct-answer clause (no invented/restated Q/A, no Q:/A: prefixes)
+- retry nudge now restates visitor message (was bare repeat, which echoed Q/A)
+- safety-screen regex hardened earlier: full-IP 10.x check, 3-segment paths, lan dup removed
+Site /home/scottw/pCloudDrive/PUBLIC FOLDER/***CURRENT***/300X3-LATEST-BACKUP-141340/site/index.html (backup index-2026.09.25-BACKUP.html untouched):
+- slide 5 hero-boiler-dimsum.png class="left" -> class="" (centers via object-position:center on resize)
+- textarea max-height 120 -> 220px, reply 90 -> 260px, word-break:break-word both
+- textarea maxlength=6000 rows=3, JS slice(0,6000), JS strips leading Q:/You: echo lines
+Validation:
+- big1 (3687 chars, repeated Q x40): stopReason=length at 1024 tokens -> agent error surfaced (pre-fix cap)
+- big2 (3877 chars): http=200 t=33.2s chars=415 clean product answer, no Q/A prefix, 0 safety retries

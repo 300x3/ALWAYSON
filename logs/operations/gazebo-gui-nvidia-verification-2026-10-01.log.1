@@ -1,0 +1,77 @@
+# ALWAYS ON - Gazebo Sim 10 GUI: NVIDIA render path verification
+# Date: 2026-10-01. Operator instruction: keep Gazebo and ROS 2 on NVIDIA.
+
+## Host NVIDIA state
+$ cat /proc/driver/nvidia/version | head -1
+  NVRM version: NVIDIA UNIX x86_64 Kernel Module  580.178.04  Tue Jul  7 12:38:21 UTC 2026
+$ nvidia-smi --query-gpu=name,driver_version --format=csv,noheader
+  NVIDIA GeForce GTX 1080, 580.178.04
+
+## System update at 13:21 did NOT touch the render stack
+Transaction 2026-10-01 13:21:12 upgraded browsers, KDE coreaddons, kernel headers,
+linux-tools, openssl. Grep for nvidia|libdrm|mesa|qt6 in that transaction: 0 matches.
+Rendering-relevant libraries are unchanged by the update.
+NOTE: /var/run/reboot-required exists; kernel 7.0.0-38 installed, 7.0.0-34 running.
+
+## CDI spec state (IMPORTANT - previous README claim was wrong)
+  /etc/cdi/nvidia.yaml     2026-08-24  pins driver 580.173.02  -> STALE
+  /var/run/cdi/nvidia.yaml 2026-09-30  pins driver 580.178.04  -> AUTHORITATIVE
+Stale spec audit: 29 driver hostPath entries referenced, 29 absent from host.
+=> /etc/cdi/nvidia.yaml contributes nothing and is silently skipped.
+README section 18.1 row "NVIDIA integration" corrected 2026-10-01 to say so.
+
+## CDI passthrough verified
+$ podman run --rm --device nvidia.com/gpu=0 <gui image>
+  /dev/nvidia0 present; 59 NVIDIA libs present
+  libGLX_nvidia.so.580.178.04 present  (earlier "missing libGLX_nvidia" claim
+  was WRONG - it came from a head-truncated grep; corrected 2026-10-01)
+
+## EGL vendor resolution verified inside the container
+Tested via dlopen of libEGL.so.1 (no headers in image):
+  WITH    __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/10_nvidia.json
+          eglInitialize=1, EGL 1.5, EGL_VENDOR = "NVIDIA"      <- CORRECT
+  WITHOUT the pin (variable emptied)
+          eglInitialize=0                                    <- FAILS
+This confirms the unit's documented reason for the pin: Mesa's dri2 platform
+claims the NVIDIA render node and EGL cannot initialise. Pin is retained.
+
+## Gazebo GUI faults diagnosed this session
+1. FIXED - gz-transport discovery. Server runs GZ_IP=127.0.0.1, GUI did not.
+   Symptom: "[GUI] GUI requesting list of world names" every 5s forever, black
+   viewport, server healthy in the same network namespace.
+   Fix: Environment=GZ_IP=127.0.0.1 added to ao-sim-fabrication-gui-gz.container
+   (both repo and ~/.config/containers/systemd/) and to ao-sim-gui-client.sh.
+   After fix the client reaches the world: ogre2 plugin loads and
+   "Camera pose topic advertised on [/gui/camera/pose]".
+2. OPEN - abort ~0.94s after camera pose advertises (first rendered frame):
+     terminate called after throwing 'std::logic_error'
+     what(): basic_string: construction from null is not valid
+   thrown from a Qt event handler (thread 72, libQt6Core frame).
+   Offscreen probe (QT_QPA_PLATFORM=offscreen) ran 55s+ WITHOUT crashing, so the
+   fault is on the real GL/XCB path, not QML and not discovery.
+   Coredumps: ulimit -c unlimited added to launcher, but container processes do
+   not reach host systemd-coredump (0 entries for gz-sim). Stack not yet obtained.
+   Ruled out: GZ_SIM_SERVER_CONFIG_PATH / GZ_SIM_RENDER_ENGINE_PATH (unset on the
+   GUI but also unset on the server, which runs fine).
+   Material spam "Can't assign material scene::Material(N)" x1210 is cosmetic;
+   gazebo.material lives at /usr/share/gz/gz-sim/media/ which ogre2 does not load.
+
+## Desktop safety
+ao-sim-fabrication-gui-gz is STOPPED and MASKED. A crash loop was stealing focus
+and the pointer, which the operator reported as blocking other work.
+KWin window rule 99 added to kwinrc (backup /tmp/kwinrc.bak):
+  class=^gz-sim-gui  name=.*  fsp=true  act=false
+Rule not yet proven against a live Gazebo window. NOT COMMITTED.
+
+## Negative result: GZ_RENDERING_OGRE2_WORKER_THREAD (tested 21:35, REVERTED)
+Hypothesis: the abort is a race on the render thread; ogre2's dedicated worker
+thread might avoid it.
+Test: exported GZ_RENDERING_OGRE2_WORKER_THREAD=1 from ao-sim-gui-client.sh
+      (unit untouched; EGL vendor pin and CDI passthrough unchanged).
+Result: FAILED. Identical abort, same signature, same timing:
+  21:35:43.802  Camera pose topic advertised on [/gui/camera/pose]
+  21:35:44.768  Qt has caught an exception thrown from an event handler   (+0.966s)
+                terminate ... what(): basic_string: construction from null
+NVIDIA EGL context unaffected - EGL_VENDOR stayed NVIDIA.
+CONCLUSION: the render thread model is not the cause. Variable removed from the
+launcher; zero references remain. Recorded so it is not retried blindly.

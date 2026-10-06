@@ -1,0 +1,103 @@
+# ALWAYS ON operational journal - plat session
+# 2026-10-03 - PLAT-01..04: podman store designation, version-matrix audit
+# Committed in worktree /tmp/ao-sessions/wt-plat as ea340f8 on branch ai-plat.
+# No secrets below: package versions, digests and account names only.
+
+## Host measured
+$ uname -r
+7.0.0-38-generic
+$ grep PRETTY /etc/os-release
+PRETTY_NAME="Ubuntu 26.04.1 LTS"
+$ id -un
+scottw
+
+## PLAT-01 - podman store designation (CLOSE)
+$ podman info --format '{{.Host.Security.Rootless}}'
+true
+$ podman info --format '{{.Store.GraphRoot}} | {{.Store.RunRoot}}'
+/home/scottw/.local/share/containers/storage | /run/user/1000/containers
+$ systemctl --user list-unit-files 'ao-webodm*'
+4 units, all STATE=generated  (Quadlet generator output)
+$ systemctl list-unit-files 'ao-webodm*' | wc -l
+0                                        # no system-level units
+$ grep -rn '^User=\|^Group=' quadlet/
+(no output)
+$ podman system connection list
+header only - no extra connections
+$ cat ~/.config/containers/podman-connections.json
+{"Connection":{},"Farm":{}}
+$ ls /run/ao-podman
+No such file or directory
+$ systemctl is-enabled ao-podman-bridge.service
+disabled
+$ loginctl show-user ao-mapping -p Linger
+Failed to get user: User ID 997 is not logged in or lingering
+$ ps -eo user,pid,comm --no-headers | awk '$1 ~ /ao-|alwayson/'
+(no rows)                               # nothing runs as ao-sales/ledger/mapping
+
+CONCLUSION: runtime is rootless, single-store. The three per-service accounts and
+the disabled ao-podman-bridge.service are leftover scaffolding from a rejected
+design. They hold no store, no socket and no process, so the runtime is NOT mixed
+and the section 19.2 "mixed-store deviation" row is wrong.
+LEFT IN PLACE - deleting a user or unit file requires operator approval (rule 3).
+
+OPEN: /var/lib/containers/storage/db.sql exists, mtime 2026-09-30, contents are
+root-only. sudo requires interactive authentication, so it could NOT be
+enumerated: 'sudo ls /var/lib/containers/storage/overlay-images/' returned
+Permission denied. Section 13.2 therefore claims the store is unused by workloads,
+NOT that it is empty. One operator sudo command would settle it.
+
+## PLAT-02 - version matrix audit (UPDATE)
+$ grep -rn 'nginx:alpine' . --exclude-dir=.git | grep -E '^\./(quadlet|config)/'
+(no output)                             # the row PLAT-02 targets is already gone
+$ grep -rh '^Image=' quadlet/ | grep -vc '@sha256:'
+2   # ardupilot-sitl:latest (deliberate) + localhost/gz-sim10-resolute:gui-svgfix
+$ podman ps --format '{{.Names}}\t{{.Image}}' | grep -v '@sha256:'
+6 tag-only containers, all with podman-generated names, so no Quadlet unit owns
+them: ao-sqli3, confident_khayyam, dreamy_rosalind, keen_bhabha, relaxed_tharp,
+vigorous_shannon. NOT removed - container deletion needs operator approval;
+tracked by section 19 OPS-16.
+
+Matrix drift found (3 stale rows):
+  host.kernel             records 7.0.0-34-generic, live 7.0.0-38-generic
+  gpu container_runtime   records toolkit 1.20.0, actual 1.20.1-1
+  operations postgres     records @sha256:a65e6a84... but ao-sales-db,
+                          mastodon-db and ao-fabrication-db all run
+                          @sha256:d74eeac9...  (nothing runs the recorded digest)
+Also 4 running digests absent from the matrix: gz-sim10-server 55f8dbcf,
+foxglove-bridge 9acc6d4d, and redis c6eabf74 (used by ao-webodm-broker and
+mastodon-redis, while the matrix records the older 91d0f7e8).
+config/platform/version-matrix.yaml is not owned by this session - NOT edited.
+
+## PLAT-03 - apparmor-utils (CLOSE the identification; fix belongs to OPS-B)
+$ dpkg -S /usr/sbin/aa-status
+apparmor: /usr/sbin/aa-status            # base package, NOT apparmor-utils
+$ apt-cache policy apparmor-utils | head -2
+  Installed: (none)
+$ command -v aa-enforce aa-complain aa-decode aa-logprof aa-genprof
+all MISSING
+Neither scripts/bootstrap/02-install-host-dependencies.sh (line 6) nor
+scripts/bootstrap/ao-bootstrap-privileged.sh (lines 44-64) names apparmor-utils,
+and scripts/provision/provision.sh never mentions apparmor - so the package is
+absent because the install chain never asked for it. Requirement recorded in
+section 2.3. Adding it means editing section 12.3 and scripts/bootstrap/02,
+both owned by OPS-B. NOT edited.
+
+## PLAT-04 - section 12.3 verify block cannot fail (UPDATE)
+Ran the block's five commands as written, then broke the cgroup test:
+  Linger=yes
+  cgroups v2 active
+  cgroup line rc=0
+  --- now simulate the cgroup check FAILING:
+  last rc=1  <-- silent, no output, script continues
+  OVERALL SCRIPT EXIT=0
+The 'test ... && echo ...' line is silent on failure and nothing reads its return
+code, so the block exits 0 either way. Requirement recorded in section 2.4.
+Section 12.3 is owned by OPS-B - diagnosed and handed over, NOT edited.
+
+## Housekeeping
+- Section 19 NOT edited (diff empty). Four proposals written for the compiler:
+  agents/COORDINATION/proposals/plat-PLAT-01.md .. plat-PLAT-04.md
+- README.md regenerated via agents/COORDINATION/tools/compile.py;
+  compile.py --check reports "identical".
+- Committed ea340f8 on ai-plat. Working tree clean at end of session.

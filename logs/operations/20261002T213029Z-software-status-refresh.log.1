@@ -1,0 +1,9 @@
+=== ALWAYS ON software status refresh ===
+start (UTC) : 2026-10-02T21:30:29Z
+host        : scottw-ms7b44
+kernel      : 7.0.0-38-generic
+git HEAD    : eb89ec7b7c29b43163aa30a5de03a9215f02d782
+script      : /ALWAYSON/scripts/build-update/provenance-log.py
+offline     : no
+backup      : /ALWAYSON/backups/software-status/20261002T213029Z
+Terminated                 python3 scripts/build-update/provenance-log.py --markdown --out "$AO_ROOT/docs/software-status.md" --html "$AO_ROOT/tmp/software-status.html" ${REFRESH:+--refresh} ${OFFLINE:+$OFFLINE}

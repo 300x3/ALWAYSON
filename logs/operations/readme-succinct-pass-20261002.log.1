@@ -1,0 +1,80 @@
+2026-10-02 — README update + succinctness pass (source: COORDINATION BETWEEN AI/X - README - GITHUB REVIEW - 20261001.txt)
+
+Scope: apply X-file review items to /ALWAYSON/README.md and tighten every edited row.
+
+Commands and results:
+- git --no-pager diff README.md            -> 23 insertions, 14 deletions; edits limited to ES.1, ES.1.1, §19.0
+- awk pipe-count over README lines 55-79   -> every ES.1 row has exactly 3 pipes (table intact)
+- Edited 10 ES.1 rows for succinctness (Social media, RNode A, Radios, Email endpoint,
+  Prometheus, Corda, Additive fabrication, Real fabrication, Simulation x2). No fact removed;
+  duplicates like "direct publisher (direct Mastodon publisher)" and the double
+  "Corda 5 / Corda 5.2.2" statement collapsed.
+- Topology: verified build_svg.py (modified 2026-10-02 01:15) implements X items 10,12-18;
+  outputs rebuilt 2026-10-02 01:17. Synced to README assets:
+  cp alwayson-single-topology.{svg,html,png} -> assets/ao-single-topology.*
+  cp alwayson-single-topology-{left,right}.png -> assets/ao-single-topology-{left,right}.png
+  -> SYNC_OK
+- grep ao-html-window assets/ao-single-topology.svg   -> 2 matches (was 0 before sync)
+- grep CONFIRMED SALE PDF OUTPUT assets svg           -> 1 match
+- font-size="20" present in assets svg                -> font bump (X item 13) confirmed
+- All five README-referenced asset files exist; git status shows M on README.md and the
+  five assets files.
+
+Not done / operator action:
+- Hosted live viewer (filedn link in README ES.2) still serves the OLD diagram; uploading
+  the new alwayson-single-topology.html to the pCloud/filedn site needs operator action.
+- Nothing committed (commit only on operator request).
+
+2026-10-02 — verification (operator: "CONFIRM TOPOLOGY SVG AND HTML UPDATED"):
+- sha256 TOPOLOGY/alwayson-single-topology.svg == assets/ao-single-topology.svg
+  ea2b92b7a807b904be1bcbcb6fa38f0ec12b5d018bf3d2b6bb7b56ad59440275 (byte-identical)
+- sha256 TOPOLOGY/alwayson-single-topology.html == assets/ao-single-topology.html
+  5c85a9291b1eeddee20103a6777dba3163f4e67fc74f9ad5e6208aa425a3f2dc (byte-identical)
+- Build order: build_svg.py 01:15:01 < svg/html 01:17:32/33 (outputs newer than source)
+- Markers in BOTH assets svg and html: ao-html-window present; CONFIRMED SALE PDF OUTPUT
+  present; "PostgreSQL 18 (host cluster)" present; "PostgreSQL 18.6 (host)" ABSENT
+  (duplicate listing removed); font-size="20" x290 (font bump active)
+- Rendered card positions (y-order) confirm: work = pay,sales,admin,veh,field,map
+  (admin under sales; field next to sim-vehicle); data = redis,sql,pg,graf,prom,meta
+  (stores grouped; reporting grouped); field = drone,gw,qgc,rpi,fc,people,mesh,retic,
+  webodm (radio chain order, WebODM last); a_html = last card in adapters column
+- 02:11 uploaded as -v2 (operator instruction, original left untouched):
+  cp assets/ao-single-topology.html -> '/media/scottw/1TBSAMSUNGDATA/PCLOUD-PUBLIC/***CURRENT***/site/alwayson-single-topology-v2.html'
+  sha256 both = 5c85a9291b1eeddee20103a6777dba3163f4e67fc74f9ad5e6208aa425a3f2dc (400882 bytes)
+  site/ now holds: alwayson-single-topology.html (old, Sep 30), alwayson-single-topology-v2.html (new)
+- README live-viewer links (ES.2, both occurrences) updated to -v2 with
+  "(v2, rebuilt 2026-10-02)" marker; grep confirms 2 references to -v2 in README.md
+- Showed the HTML viewer: temporary loopback-only server (python3 -m http.server 8931
+  --bind 127.0.0.1, pid 3344577, setsid-detached; log /tmp/topo-http.log) serving the
+  site/ folder; opened http://127.0.0.1:8931/alwayson-single-topology-v2.html in the
+  browser, page title "ALWAYS ON — single-page topology", screenshot at
+  /ALWAYSON/topology-v2-viewer.png. Rendered order verified visually: adapters end with
+  ao-html-window; work = payment,sales,admin,sim-vehicle,field,...; stores = redis,
+  sqlite, postgresql, grafana, prometheus, metabase; field chain ends with WebODM.
+  Stop the server with: pkill -f 'http.server 8931'
+
+Table ordering correction (README.md ES.2 artefact table, lines 128-133):
+  Operator reported the Software status row sat between the Live topology viewer
+  row and the ao-single-topology.svg / .html rows. Bad ordering.
+  Fixed: row moved to LAST position. Table now reads
+    1 Live topology viewer  2 ao-single-topology.svg
+    3 ao-single-topology.html  4 Software status - markdown
+  No text changed, only order. Verified with sed -n '128,134p'.
+
+GitHub update (operator asked to update GitHub):
+  Root cause of "topology in the GitHub README has not been updated": the rebuilt
+  diagram existed only in the working tree. All ES.2 items were verified present
+  in assets/ao-single-topology.svg before staging (ao-html-window x2,
+  CONFIRMED SALE PDF OUTPUT x1, "PostgreSQL 18 (host cluster)" x2,
+  "PostgreSQL 18.6 (host)" x0, font-size="20" x290, 66 data-id nodes).
+  Commit 2dc836b "docs(topology): apply review items to the master diagram and
+  README" - 9 files, staged BY NAME. No git add -A.
+  Push was rejected at first: remote had b23a073 "Update README.md" (operator,
+  11:14, one line: Project origin adds "Equipment 2022"). Non-overlapping with
+  my changes, so merged instead of rebasing/stashing - no other session's
+  uncommitted work was disturbed. Merge commit 39c80b1, now on origin/main.
+  Second push attempt showed "cannot lock ref ... is at 39c80b1 but expected
+  b23a073" - that was a STALE push racing the successful one, not a failure.
+  Verified: origin/main == HEAD == 39c80b1.
+  Left untouched (other sessions): GAZEBO/*, config/platform/*, quadlet/*,
+  scripts/simulation/*, docs/inventory.md.

@@ -1,0 +1,800 @@
+ALWAYS ON — fabrication simulation: enforce view-only viewer surfaces
+Date: 2026-10-02  Operator: "the purpose of the portal is to view the sim, not
+to modify it"; Foxglove "only functions as a viewer".
+Journal per README 4.1 rule 11.
+
+READ/WRITE BOUNDARY
+  Simulation (ao-sim-fabrication-gz): READ/WRITE. Unchanged and must stay so.
+  Foxglove bridge + HTML portal: READ-ONLY. Enforced below.
+
+CHANGE 1 — PORTAL IS NOW VIEW-ONLY (live)
+  scripts/simulation/ao-sim-portal.py:
+    - start/stop/reset REMOVED from ACTIONS; unit_action() DELETED outright, so
+      there is no code path from an HTTP request to systemctl.
+    - do_POST now returns 405 with Allow: GET, HEAD, for every path.
+    - import subprocess removed; grep for systemctl/unit_action/subprocess: none.
+    - unit_state() is now filesystem-only (path, size, mtime for world/boning/
+      objects). NO systemctl, NO simulation probe.
+    - /api/health reports view_only: true, controls: null.
+  GAZEBO/portal/index.html: Start/Reset/Stop buttons and the act() POST helper
+  removed; card is now a read-only "World status" panel naming the operator CLI.
+  <title> unchanged, so config/platform/loopback-services.yaml expectations for
+  :8765 still hold.
+
+  WHY NOT /server_control. An earlier draft replaced the removed systemctl call
+  with a probe of Gazebo's /server_control. Rejected: that is the world CONTROL
+  service, not a status endpoint. The server logs it as
+    "Serving world controls on [/world/factory/control], [/world/factory/
+     control/state] and [/world/factory/playback/control]"
+  Probing it from a "view-only" portal would have re-created exactly the write
+  path this change removes. The panel review caught this.
+
+  WHERE WORLD LIFECYCLE LIVES NOW (pre-existing, not created here):
+    /ALWAYSON/scripts/operations/ao-sim-portal.sh {start|stop|reset|inspect|status}
+  An existing ao- named operator CLI that already did exactly this. The portal
+  points operators at it. It is a deliberate local shell action, not reachable
+  from a browser.
+
+  VERIFIED LIVE on 127.0.0.1:8765:
+    POST /api/reset -> 405   POST /api/start -> 405   POST /api/stop -> 405
+    DELETE /        -> 501
+    GET /api/health -> 200 view_only=true
+    GET /api/status -> 200     GET / -> 200
+    SIM UNCHANGED: ao-sim-fabrication-gz StartedAt identical before and after
+    the write probes. The portal cannot reach the simulation.
+
+CHANGE 2 — FOXGLOVE BRIDGE ENFORCED READ-ONLY (live)
+  GAZEBO/containers/foxglove-bridge/entrypoint.sh now passes:
+    capabilities            = ['connectionGraph','assets']
+    client_topic_whitelist  = ['/factory/camera/image']
+    param_whitelist         = ['^$']
+    asset_uri_allowlist     = ['^$']
+  clientPublish, parameters and services were dropped. connectionGraph and
+  assets are retained because the panel UI needs them.
+  Image rebuilt and re-pinned:
+    820dd22a4a7d  first pin      - entrypoint bridged nothing
+    b58ea8704f17  2026-10-02     - gz hop bridging, ~9.7 Hz
+    6d3461ddf027  2026-10-02     - view-only enforced (README 4.1 rule 9)
+  Confirmed live via ros2 param get inside the container.
+
+  TRAP: "allow nothing" CANNOT be written as []. Measured:
+    parameter_value_from failed for parameter 'param_whitelist':
+    Invalid parameter value: rcl parameter structure contains no value
+  The bridge ABORTS at startup, before serving anything. '^$' is the working
+  "matches no name" idiom. Do not "simplify" [] back in.
+
+  VERIFIED with the same probe that previously succeeded. Before:
+    "SERVER ACCEPTED a new writable channel: /factory/cmd_vel"
+  After:
+    'Invalid message: unknown variant `clientPublish`'
+    'Invalid message: unknown variant `serviceCall`'
+    'Server does not support clientPublish capability'
+  No writable channel created. Camera still advertised on channel 4.
+
+HONEST DISCLOSURE — MISTAKE MADE AND CORRECTED
+  I sent POST /api/reset to the LIVE portal before confirming the service had
+  reloaded the edited code. systemctl restart had not replaced the process
+  (PID 5127, started Oct 1 15:08, predates the edits), so the OLD control code
+  ran and the request EXECUTED: it restarted ao-sim-fabrication-gz.
+  Server StartedAt moved 12:12:04 -> 13:57:14. No data lost: the world rebuilds
+  from factory.world, which still parses as valid XML and is byte-identical
+  (sha256 586dc6fe...), the sim re-advertised the camera at 13:57:17, and it is
+  active with RestartCount 0.
+  Cause of the failed handover: ao-sim-fabrication-portal.service is Type=simple
+  running /usr/bin/python3 directly, and "systemctl restart" left the original
+  process alive. Deploying this unit requires stop + pkill -9 + start, which is
+  what I did afterwards. Recorded because the same trap will bite the next
+  session.
+
+SIMULATION CONFIRMED RUNNING (operator item 3)
+  ao-sim-fabrication-gz active, RestartCount 0, world file valid XML.
+  The stale signed manifest (factory-world-v1.json records content_size_bytes
+  5371 / sha256 64eacbbf...; the world is 18404 bytes / sha256 586dc6fe...) is
+  COSMETIC. It describes an exported artifact, not the running world. Nothing
+  operational depends on it. NOT re-signed: that is a signing-key action and an
+  operator decision, and it is unrelated to view-only.
+
+NOT DONE — NEEDS OPERATOR DECISION
+  1. NON-ao- CONTAINERS. Instruction received: "only ao- containers are to be
+     kept in operation. migrate or delete old ones." STOPPED, deliberately.
+     Measured inventory of non-ao- containers:
+       mastodon-db, mastodon-redis, mastodon-sidekiq, mastodon-streaming,
+       mastodon-web    - LIVE PRODUCTION, not scaffolding.
+     ~/.cloudflared/config.yml routes mastodon.300x3.com -> 127.0.0.1:3000,
+     which is mastodon-web, and cloudflared-alwayson.service is active. This is
+     the public federation edge (README ST-13/ST-14). Renaming or deleting these
+     is a production cutover on the customer-facing service, not Gazebo cleanup,
+     and is not authorised by a Gazebo-scoped instruction. Requires its own
+     plan and explicit approval.
+       vigorous_shannon, dreamy_rosalind - stray --help debug containers from
+     2026-10-01 20:09/20:11, foxglove image, no restart policy. Safe to delete.
+  2. ao-sim-fabrication-gui-gz: instruction is to render offscreen or as a very
+     small window rather than masking. NOT DONE - needs a separate decision on
+     which, and it is an X11 client (QT_QPA_PLATFORM=xcb) so offscreen is not a
+     one-line change.
+  3. README updates not yet made; the operator was asked to approve specific
+     items first.
+
+HOUSEKEEPING
+  Backups of all three edited files: /tmp/ao-preportal/
+  Throwaway validation containers (ao-fgcheck, ao-fgcheck2) used --rm and are
+  gone. Scratch portal instance on :8799 stopped.
+
+CHANGE 3 — GUI-gz AS A SMALL BOTTOM-LEFT WINDOW (operator instruction)
+  Operator: "do gui-gz as a very small window for your work and keep it in the
+  bottom left of the main monitor, that won't get in my way."
+  Main monitor is DP-3, geometry 0,738 1920x1080 (DP-1 is a rotated portrait
+  1080x1920 secondary at +1920+0).
+  ~/.local/share/kwin/scripts/ao-gazebo-monitor/contents.js rewritten from
+  "fill the whole main monitor" to a small bottom-left placement:
+      WINDOW_WIDTH 480, WINDOW_HEIGHT 320, MARGIN 24
+      x = g.x + 24, y = g.y + g.height - h - 24
+  The script also clears client.activeWindow so the GUI does not hold focus.
+  metadata.json bumped to Version 2.
+  jsEnabled=true added to kwinrc [Plugins]; the script had never been enabled,
+  so nothing had been enforcing placement at all.
+
+  ALSO FIXED: kwinrc [Window Rules][99] matched class=^gz-sim-gui, but the real
+  resourceClass is "Gazebo GUI" (resourceName is "gz-sim-gui"), so the rule
+  matched nothing and the GUI DID steal focus. Corrected to name=^gz-sim-gui$.
+  This is the trap recorded in coordination document G.
+
+  NOTE - the script only takes effect on a NEW window or after an explicit
+  reconfigure. Editing the file alone does not reload it into a running KWin:
+    qdbus6 org.kde.KWin /KWin reconfigure
+    qdbus6 org.kde.KWin /Scripting org.kde.kwin.Scripting.loadScript \
+        /home/scottw/.local/share/kwin/scripts/ao-gazebo-monitor/contents.js
+  (the D-Bus interface is org.kde.kwin.Scripting, not org.kde.KWin.Scripting)
+
+  VERIFIED:
+    xwininfo: "Gazebo Sim" 480x292+24+1502
+    DP-3 spans y 738-1818, so the window sits at the bottom-left, inside bounds.
+    Render confirmed live by window capture: world grid, entity tree, physics
+    plugins, 99.96% sim, 3D view drawn.
+    Container log shows ogre2 loaded and /gui/camera/pose advertised.
+    GUI stopped after verification; ao-sim-fabrication-gz unaffected
+    (StartedAt unchanged, RestartCount 0).
+
+CHANGE 4 — README AND CONFIG RECORDS (factual, no removal notes in the body)
+  README.md
+    - §10.2.1 fabrication portal clause: view-only; world lifecycle named as
+      scripts/operations/ao-sim-portal.sh.
+    - §10.1.2 vehicle portal clause: view-only.
+    - Listener table row for 127.0.0.1:8765: now records
+      ao-sim-fabrication-portal.service.
+  scripts/validation/check-network-isolation.sh
+    - ao-html-window added to the `expected` internal-network list. The CIDR
+      registry is REGENERATED by this script, so editing network-cidrs.yaml by
+      hand would have been overwritten on the next run.
+    - Re-ran the validator: registry now contains
+      ao-html-window internal=true subnets=10.89.14.0/24, and it reports OK.
+  config/platform/version-matrix.yaml
+    - foxglove_bridge_version corrected to the containerised 3.5.0.
+    - image_foxglove_bridge added with the pinned digest (rule 9).
+    - image_nginx corrected to "not in use".
+  config/platform/topology-model.yaml
+    - desktop-gazebo entry had 127.0.0.1:8765 attributed to foxglove_bridge on
+      ROS_DOMAIN_ID=21; replaced with the two real nodes:
+      ao-sim-fabrication-foxglove (:8081) and ao-sim-fabrication-portal (:8765).
+
+VALIDATION AFTER ALL CHANGES
+  check-network-isolation.sh : OK, all domain networks present, isolation
+                               domains internal-only.
+  check-local-services.js    : 15 pass, 0 fail, 0 unverifiable.
+                               "Gazebo factory world portal http://127.0.0.1:8765/"
+                               PASSES - its expected title and body both still
+                               match because <title> was left unchanged.
+  ao-sim-fabrication-gz / -foxglove / -portal : all active.
+  Camera still advertised; Foxglove channel 4 for /factory/camera/image.
+
+CHANGE 5 — LOCAL SIMULATION VIEWER (no cloud, no credentials)
+  GAZEBO/portal/viewer/index.html - a local HTML page that connects to
+  ws://127.0.0.1:8081 and renders the camera on a canvas. Served by the portal
+  at http://127.0.0.1:8765/viewer.
+  WHY: https://app.foxglove.dev is a HOSTED CLOUD APPLICATION behind an account
+  wall (verified: it redirects to /signin and shows "Need an account?"). Using
+  it would send the simulation's camera feed to a third party. The local viewer
+  keeps everything on the host.
+  CREDENTIALS: none. A loopback WebSocket to a bridge on 127.0.0.1 has no
+  account, token or password, so there is nothing to store. Nothing was written
+  to KDE Wallet, deliberately - storing a credential with no consumer would be
+  worse than storing none.
+
+  THREE REAL BUGS FOUND AND FIXED WHILE BUILDING IT
+  1. THE BRIDGE NEVER RECEIVED ANYTHING. Two causes, both fixed:
+     a. The Gazebo server advertised GZ_IP=127.0.0.1, so its camera publisher
+        was reachable only on loopback. The GUI was unaffected only because it
+        shares the server's network namespace. Measured from the bridge:
+          gz topic -i -t /factory/camera/image
+            No publishers on topic [/factory/camera/image]
+        i.e. the subscriber connected and no data ever arrived.
+        FIX: server now advertises a routable, PINNED address, 10.89.5.10, with
+        PodmanArgs=--ip 10.89.5.10. Must be changed in both places together.
+        After: Publishers [tcp://10.89.5.10:36593, gz.msgs.Image]
+     b. The bridge entrypoint set GZ_PARTITION but NOT GZ_IP. Unset, gz-transport
+        falls back to the container hostname, which resolves to nothing
+        reachable. FIX: entrypoint now derives GZ_IP at runtime from the
+        container's own ao-sim-fabrication address and fails fast if absent:
+          [entrypoint] gz-transport discovery will advertise GZ_IP=10.89.5.37
+  2. THE VIEWER SHOWED NOTHING THOUGH DATA WAS ARRIVING. The bridge sends CDR
+     message data as BINARY WebSocket frames, not JSON. Measured: 97 binary
+     frames in 10s, 2 text frames. JSON.parse threw on every one and the
+     failure was invisible - it looks exactly like "connected but blank".
+  3. THE CDR DECODER WAS WRONG TWICE. The bridge prepends a variable-length
+     preamble (measured 17 bytes, carrying the subscription id) ahead of the
+     CDR payload, so a fixed offset is wrong. The decoder is now SELF-LOCATING:
+     it finds the "rgb8" encoding field and reads every other field relative to
+     it, with a length check before drawing. Verified against a live frame:
+       height 240 @65, width 320 @69, "rgb8" @77, step 960 @85, data @93
+       230493 - 93 == 240*320*3 == 230400
+     A scope bug (returning `c` instead of `p.s` inside a map callback) threw a
+     ReferenceError that the per-frame catch swallowed. Caught by calling
+     decodeImage() directly on a live frame rather than trusting the page.
+
+  VERIFIED IN A BROWSER (not by assertion):
+    http://127.0.0.1:8765/viewer
+      res = "320 x 240", enc = "rgb8", hz = "10.0 Hz", age = "just now"
+    Pixel samples across the frame return real rendered values (188-218 grey,
+    sky/ground gradient), so it is image content and not a blank canvas.
+    The scene is STATIC between frames because factory.world has no animated
+    entities; frames still arrive at the world's update_rate of 10 Hz.
+
+CHANGE 6 — BROWSER TESTING WINDOW PLACEMENT (operator rule)
+  NEW RULE: ~/.cline/rules/20-browser-testing-placement.md
+    "all browser-based testing runs in the bottom-left corner of the main
+     monitor, tight to the corner. It must never follow the pointer."
+  ENFORCEMENT: ~/.local/share/kwin/scripts/ao-browser-testing/
+    Anchors browser windows to the bottom-left of DP-3, margin 8, and clears
+    activeWindow so it neither raises nor steals focus. Reads no cursor state.
+  MEASURED HOST LAYOUT (recorded in the rule):
+    DP-3  0,738 1920x1080  primary   <- main monitor
+    DP-1  1920,0 1080x1920 rotation 2
+    Bottom-left is therefore near y=738+1080-height, NOT y=0. Using 0,0 puts the
+    window off-screen on this layout.
+  VERIFIED: journal shows
+    js: ao-browser-testing: placed firefox at 900x640+8+1170 on DP-3
+    window spans x 8-908, y 1170-1810; DP-3 bottom edge is 1818, so the gaps
+    are 8px left and 8px bottom - tight to the corner as asked.
+
+CHANGE 7 — CAMERA FRAMING AND THE DOUBLE-UNIT BUG (the real cause)
+  SYMPTOM: the viewer rendered a flat grey field. Pixel histogram proved it:
+    76,765 of 76,800 pixels in one brightness band. Not a framing problem.
+  THE GAZEBO GUI CONFIRMED IT: opening ao-sim-fabrication-gui-gz showed the
+  ground grid and NOTHING else. No building geometry had ever rendered.
+
+  ROOT CAUSE: a DOUBLE inch->metre conversion.
+    The Collada exports declare   <unit meter="0.0254" name="inch"/>
+    and the world ALSO applied    <scale>0.0254 0.0254 0.0254</scale>
+  Gazebo honours the DAE <unit> element, so the scale was applied a second time:
+  0.0254 x 0.0254 = 0.000645. The 7.87 m plant was being drawn 6.5 mm across -
+  sub-pixel, therefore invisible. The collision boxes were correct the whole
+  time, which is why the boned extents looked right while nothing rendered.
+  FIX: <scale>1.0 1.0 1.0</scale> on all three meshes. Do NOT put the 0.0254
+  back - the conversion is already in the file.
+
+  PROOF (single-variable test, massing only, scale 1.0 vs 0.0254):
+    dark pixels 35 -> 16,881 ; all three meshes -> 17,667 dark, 23% of frame.
+
+  ALSO ADDED: explicit <material> on building_massing, conveyor_system and
+  robot_arms. They had none, so they lit almost identically to the 0.7-grey
+  background and were hard to read even once visible.
+
+  CAMERA, from the boned cell-massing envelope (0,0,0)-(7.874,4.831072,2.0574):
+    centre (3.937, 2.4155, 1.0287)
+    h_fov 1.047 rad -> v_fov 46.8 deg at the default 4:3 aspect
+    fill distance = hypot(7.874,4.831072)/2 / tan(h_fov/2) = 8.00 m
+    FINAL POSE  8.837 7.316 5.030 0 0.5236 -2.3562
+    (30 deg elevation, 45 deg azimuth, camera 5.03 m up vs a 2.06 m building)
+  SAVED AS THE DEFAULT IN BOTH PLACES:
+    GAZEBO/worlds/factory.world  - both the camera_rig sensor and the <gui>
+                                   camera, kept byte-identical as the file
+                                   requires
+    ~/.local/share/ao-simulation/gui-home/.gz/sim/10/gui.config line 44
+                                   <camera_pose>8.837 7.316 5.030 0 0.5236
+                                   -2.3562</camera_pose>
+    (backup of the previous gui.config: /tmp/gui.config.bak)
+
+  VERIFIED BOTH WAYS, as requested:
+    Foxglove/local viewer http://127.0.0.1:8765/viewer - the model fills the
+    frame; building, conveyor and arm structures all legible.
+    Gazebo GUI ao-sim-fabrication-gui-gz - opens on the saved default camera
+    with the factory massing rendering.
+
+  NOTE: ao-sim-fabrication-gui-gz shares the server's network namespace
+  (--network container:ao-sim-fabrication-gz). It MUST be stopped before the
+  server can be restarted, or the restart fails with "container ... has
+  dependent containers which must be removed before it".
+    systemctl --user stop ao-sim-fabrication-gui-gz.service
+
+CHANGE 8 — LIGHTING AND PART COLOURS (operator-specified 2026-10-02)
+  LIGHTING. One directional light plus 0.4 ambient left every face turned away
+  from the sun sitting on the ambient floor, which is why the plant read as one
+  flat dark silhouette rather than a building.
+    ambient  0.40 -> 0.62
+    sun      direction -0.5 0.1 -0.9 -> -0.45 0.35 -0.82, diffuse 1.0 0.98 0.94
+    fill     NEW second directional light, no shadows, cool 0.42 0.48 0.58,
+             from the opposite side, so shadow faces are readable.
+
+  COLOURS APPLIED
+    walls / building massing   dark tan-brown  ambient 0.30 0.21 0.14
+                                             diffuse 0.44 0.31 0.20
+    conveyor belts             blue            ambient 0.10 0.20 0.46
+                                             diffuse 0.14 0.29 0.68
+    robot arms                 orange          ambient 0.62 0.31 0.06
+                                             diffuse 0.88 0.45 0.10
+    conveyor gearboxes         silver          ambient 0.58 0.59 0.62
+                                             diffuse 0.76 0.77 0.80
+                                             specular 0.65
+
+  GEARS SEPARATED. The monolithic conveyor.dae was split with the existing
+  scripts/simulation/split-collada-parts.py. Part signatures found in inches:
+    size(67,1,67) x20   flat belt sections
+    size(37,37,23) x12  gearboxes / gears  <- extracted
+  The 12 gear parts are now separate <visual> elements in the conveyor_system
+  link with the silver material, in
+  GAZEBO/models/factory_assets/meshes/parts/conveyor_gear_00..11.dae
+  IMPORTANT UNIT TRAP, opposite to the monolithic meshes: the split tool emits
+  <unit meter="1" name="inch"/>, so the loader does NOT convert and these parts
+  need <scale>0.0254</scale>. The monolithic meshes declare meter="0.0254" and
+  need 1.0. Getting these backwards makes the part invisible, exactly as the
+  double-unit bug did to the whole plant.
+
+  NOT DONE — BLUE DOORS. Cannot be separated reliably from this export.
+  massing_fab.dae has no semantic part names (anonymous group_0..group_25), and
+  running the splitter on it returns a degenerate signature - every part comes
+  back as a CUBE (150x150x150, 161x161x161, 152x152x152 ...), so the AABB
+  computation is not resolving real per-part geometry for that file. There is
+  therefore no way to tell a door from a wall. Delivering it would mean either
+  re-exporting the SketchUp model with named groups, or fixing the splitter's
+  AABB handling for that file. I did not guess a colour onto the wrong
+  geometry.
+
+CHANGE 9 — FOUR CAMERA VIEWS (operator request)
+  All four share the SAME focal point - the boned cell-massing centre
+  (3.937, 2.4155, 1.0287) - and the same 8.00 m stand-off. They differ only in
+  where the camera sits around that point. Poses derived, not guessed:
+    image  (main)    az  45 el 30   8.836 7.314 5.029 0 0.5236 -2.3562
+    left   (corner)   az 135 el 30  -0.962 7.314 5.029 0 0.5236 -0.7854
+    edge   (between)  az  90 el 30   3.937 9.344 5.029 0 0.5236 -1.5708
+    above  (plan)     az  90 el 75   3.937 4.486 8.756 0 1.3090 -1.5708
+  Topics /factory/camera/{image,left,edge,above}; three new static camera
+  models added to factory.world, each sensor at 10 Hz, visualize=0.
+  Bridge: entrypoint now passes all four to parameter_bridge (gz -> ROS only,
+  '[' direction) and client_topic_whitelist covers exactly those four.
+  Image rebuilt and re-pinned to 2ef387f001546dff...
+  Server advertises all four; bridge advertises channels 4-7.
+
+  VIEWER BUGS FOUND WHILE VERIFYING (both were "the dropdown does nothing"):
+  1. The change handler set the channel variable but never sent unsubscribe or
+     subscribe, so the picture never moved.
+  2. Even after that, stale frames kept overdrawing the canvas. A foxglove
+     binary frame does not identify its channel in the payload - the
+     SUBSCRIPTION ID is carried at BYTE 1 (a frame for subscription 11 starts
+     1,11,0,0; confirmed by subscribing with ids 100-103 and reading the byte
+     back). The viewer now filters on that byte AND takes a FRESH subscription
+     id on every selection, so any in-flight frame from the previous channel
+     fails the filter immediately.
+  3. The dropdown listed /rosout, /parameter_events and the bridge's own
+     sysinfo. Now filtered to /factory/camera/* only.
+
+  PROOF THE FOUR ARE GENUINELY DIFFERENT (per-channel wire hashes, each
+  subscribed alone with its own id):
+    left  3750641230 | image 3723722013 | edge 2381276890 | above 3987311982
+  Verified visually in the browser for all four.
+
+CHANGE 6 — 2026-10-02/03: manual viewport resize + 7 cameras aimed at boned cells
+OPERATOR REQUEST: make the 3D view manually resizable; review camera locations
+(they were aimed at the building centre, not the arms) and add 3 elevation views.
+
+A. MANUAL RESIZE (GAZEBO/portal/viewer/index.html)
+   - #viewwrap gained CSS resize:both (drag bottom-right corner).
+   - Numeric width/height inputs, clamped 240..1920 x 180..1080, plus Fit/Full.
+   - Canvas backing store follows the wrapper (crisp, not stretched); image is
+     scaled into it preserving aspect ratio.
+   - ResizeObserver guarded against ratcheting: only a genuinely different size
+     is written back, and the element's own measured width is never echoed into
+     the style that produced it.
+
+B. CAMERA RE-AIM — the real fault
+   All four original views were aimed at the MASSING centre (3.937, 2.4155,
+   1.0287). The robot arms are boned at cell-arms centre (6.821, 3.534, 1.151)
+   (GAZEBO/sim/boning.yaml:38-39, extent 0.840 x 1.672391 x 1.238532). They are
+   ~2.9 m off the building centre, so no arm view ever contained the arms.
+
+C. 7 CAMERAS, all standoff derived from boned extents
+   arms   : 1.9 m, 22 deg elevation, cell-arms centre
+            ne(az45) n(az90) se(az135) + a 4th at az60/38deg
+   elev   : arms 3.8 m/65deg, conveyor 3.4 m/65deg, massing 8.6 m/70deg
+   Standoff formula: d = projected_half_width / tan(h_fov/2), h_fov = 1.047 rad.
+
+D. MEASURED OCCLUSION MAP for cell-arms (boned x 6.401..7.241, y 2.698..4.370)
+   CLEAR  : az 45, 60, 90, 135
+   BLOCKED: az 0   (camera outside x_max 7.874 -> building's own east wall)
+   BLOCKED: az 180 (camera inside a wall; flat brown fill)
+   BLOCKED: az 225 (interior partition fills frame)
+   BLOCKED: az 315 (conveyor fills frame)
+   The cell is in the building's north-east corner, so south/west quadrants have
+   no line of sight. This map is recorded in factory.world next to the camera so
+   the next session does not repeat four failed placements.
+
+E. VIEWER BUGS FOUND AND FIXED (all caught by pixel inspection, not assumption)
+   1. drawImage(canvas, ...) copied the visible canvas onto ITSELF. The
+      unscaled native-resolution frame survived in the top-left corner of every
+      upscaled view. Fixed with an offscreen decodeCanvas + a fillRect clear.
+      I introduced this bug myself and shipped it once - it rendered the canvas
+      fully black because the 9-arg drawImage overload needs source w/h.
+      Caught by calling render() on a live frame and reading the thrown error,
+      because the per-frame catch was swallowing it.
+   2. unsubscribe used `subscriptions:[...]`. The foxglove protocol uses a FLAT
+      `subscriptionIds:[id]` for unsubscribe. The bridge logged
+      "Invalid message ... missing field `subscriptionIds`" on every channel
+      change and silently kept the old subscription, so the dropdown changed the
+      label but never the picture. This is the same class of bug as the
+      subscription-id-in-byte-1 filter fixed earlier.
+
+F. VERIFICATION (live, via Playwright against 127.0.0.1:8765/viewer)
+   - Server advertises 8 cameras after restart.
+   - Bridge: 8 GZ->ROS bridges, 0 failures.
+   - arms_ne / arms_n / arms_se / arms_e: arms (orange) clearly in frame.
+   - elev_arms: whole arms cell in frame (widened from 2.9 m/70deg, which cut
+     the cell off at the top edge).
+   - elev_conveyor: conveyor + arms both legible.
+   - elev_massing: full plan view of the building.
+   - Selection changes now actually move the subscription (hz 3.5+ on switch).
+
+CHANGE 7 — 2026-10-02/03 — TRUE ELEVATIONS
+OPERATOR: previous elev_arms/elev_conveyor/elev_massing were high oblique aerial views
+(pitch 30-70 deg), not elevations. Operator corrected the definition: an elevation is a
+view DIRECTLY FROM THE SIDE, not at an angle.
+FIX: all three recomputed with pitch EXACTLY 0.0000 -- camera level with the subject
+centre, optical axis horizontal and face-on to one side of each cell. narrow
+horizontal_fov 0.6 rad (was 1.047) to flatten perspective.
+  camera_elev_arms      N elevation  d=2.67m  6.821  6.203 1.151  0 0.0000 -1.5708
+  camera_elev_conveyor  S elevation  d=4.38m  6.073 -2.042 1.029  0 0.0000  1.5708
+  camera_elev_massing   E elevation  d=7.81m 11.746  2.416 1.029  0 0.0000  3.1416
+STANDBOFF: d = max((across_frame_width/2)/tan(h_fov/2), (height/2)/tan(v_fov/2)).
+  CRITICAL: across-frame width is the axis PERPENDICULAR to the view direction, not
+  the extent named in boning. A N/S elevation's frame width is the X extent; an E/W
+  elevation's is the Y extent. First attempt used the named extent for both and put
+  the east elevation 16.664m out -- it framed a distant slab in 1/3 of the frame.
+VERIFIED: XML valid; 8 cameras advertised after restart; screenshot of each of the
+  three elevations shows a level horizon with no vertical convergence.
+KNOWN IMPERFECTION (not fixed, reported to operator): elev_arms is centred on the boned
+  arms-cell centre (6.821,3.534) but the arms render right-of-centre and the building's
+  north wall intrudes at frame left. The boned datum is narrower than the as-built arm
+  cluster. Correcting it needs the as-built arm centroid, which boning.yaml does not
+  carry. Left for operator direction rather than guessed.
+
+CHANGE 8 — 2026-10-02 19:31 — BRIDGE LOG DESTINATION
+FINDING: logs/sim-foxglove-bridge.log had not been written since 2026-09-28.
+  README §16.3 lists it as a current log while the bridge runs, but
+  ao-sim-fabrication-foxglove.container set no log driver at all, so bridge
+  output went only to the journal. A fault after a reboot would have left
+  nothing on disk. This is the same silence class as the gz hop's missing
+  LD_LIBRARY_PATH and the Sensors system not being loaded.
+FIX: LogDriver=k8s-file + PodmanArgs=--log-opt path=/ALWAYSON/logs/
+  sim-foxglove-bridge.log, matching ao-sim-fabrication-gz.container. The
+  journald driver ignores --log-opt path, hence the explicit driver.
+VERIFIED: file mtime advanced 2026-09-28 -> 2026-10-02 19:31, 2055 -> 6094
+  bytes, containing live "Advertising new channel" lines for all 8 camera
+  topics. ros2 topic info /factory/camera/image -> Publisher count: 1.
+  All three units active after restart.
+
+CHANGE 9 — 2026-10-02 19:35 — README: THREE ABSENT COMPONENTS RECORDED
+ST-08 was marked "Implemented (headless runtime)", which reads as complete.
+  §10.2's component tree names nine components; three do not exist and no
+  §19.2 item tracked them:
+    81 facility scheduler              — absent from the repo
+    82 safety-zone and interlock model — absent; safety-relevant, so recorded
+                                        separately rather than merged
+    83 RL objects                      — GAZEBO/sim/objects.yaml is a 104-line
+                                        catalogue declaring a non-static
+                                        rl_objects model that does NOT exist
+                                        in factory.world, so /api/objects
+                                        serves objects Gazebo never
+                                        instantiated
+  ST-08 in §19.1 now reads "Partly implemented" and names all three.
+  §10.2.1 left untouched: it is specification, not status.
+
+CHANGE 10 - elev_arms framing, from boned datum to measured as-built centroid
+Issue: README work item 70 recorded that elev_arms framed the boned arms-cell
+datum, which is narrower than the as-built arm cluster, so the arms sat
+off-centre and the building wall intruded at frame left.
+
+Method (no estimating from a render):
+1. Extracted the true arms AABB from GAZEBO/models/factory_assets/meshes/arms.dae
+   vertex positions, transformed by the visual pose in factory.world.
+   Measured: min (5.9813, 1.8617, 0.5315)  max (6.8213, 3.5341, 1.1508)
+2. The boned joint_origin was (6.401314, 2.697865, 1.150797) -- the as-built
+   centroid. boning.yaml cell-arms origin was (6.821, 3.534, 1.151), i.e. the
+   cell's far corner, NOT a centre. That is why the datum was wrong.
+3. Rewrote boning.yaml cell-arms so origin is the as-built centroid, and
+   recomputed every camera that aimed at it.
+4. Wrote an explicit line-of-sight checker (ray vs the world collision boxes)
+   and swept azimuth x distance x elevation for a vantage that (a) has clear
+   LOS to the arms and (b) contains the WHOLE measured AABB inside the frame.
+
+Trap recorded: the fit test must check the VERTICAL axis too. An earlier
+version only tested the lateral axis and placed camera_arms_e at az100/d1.8/
+el35, which rendered a bare wall with the arms entirely below the frame.
+
+Trap recorded: the arms cell has only a 65-115 degree clear azimuth band. Every
+azimuth outside it is blocked by the building shell or the conveyor. A search
+that samples only the four "corner" azimuths (45/135/225/315) finds nothing
+usable, which is exactly the earlier failure.
+
+Result: all four arm vantages are fronto-parallel at d=3.0 m, pitch 0.0000,
+across az 65 / 80 / 95 / 115. Verified visually in the viewer: each shows both
+arms with the whole cell in frame. 8 cameras advertised.
+
+CHANGE 11 - README work item 83 closed: rl_objects now exists in the world
+Defect: objects.yaml declared 9 trainable objects in 3 groups and named a
+non-static model `rl_objects` as their home, but no such model was in
+factory.world. /api/objects therefore served a catalogue of objects Gazebo
+had never instantiated, while Section 10.2.1 requires them to be
+individually addressable, observable and resettable.
+
+Fix: scripts/simulation/build-rl-objects.py renders objects.yaml into the
+world. Generating one from the other is deliberate - the defect WAS a silent
+disagreement between two files, and hand editing cannot stop that recurring.
+The block is fenced by BEGIN/END markers, is idempotent (--write twice is a
+no-op), and --check fails if the world is stale, so a future catalogue edit
+cannot silently diverge again.
+
+Traps hit while building it, all recorded in the script:
+1. Appending the block to the end of the file lands it AFTER </sdf>, which is
+   "junk after the document element" and fails to parse. It must be spliced
+   in before </world>.
+2. Each link MUST carry its home_pose. The model sits at the world origin, so
+   links left at 0 0 0 stack every object on the origin. This produced no log
+   error at all - the world loaded clean and the objects were simply not where
+   the catalogue said. Only a screenshot revealed it.
+3. objects.yaml writes home_pose as [x, y, z, "0 0 0"] - the trailing
+   roll/pitch/yaw is one flow STRING inside the list, so a naive float() over
+   the list raises ValueError.
+
+Each object gets collision plus explicit solid-box inertia, so the engine
+never has to infer inertia from collision geometry (the usual source of the
+"missing <inertial>" warning on small dynamic bodies in gz-sim 10).
+
+Portal /api/objects now reports in_world {known, present, missing} so a
+consumer can tell catalogue from simulation instead of trusting the catalogue.
+
+Verified: 9 objects / 3 groups in the world, 8 cameras still advertised, world
+loads with no errors, objects visible and settled (frame identical after 15 s),
+in_world present=9 missing=[], portal still view-only (POST 405, health
+view_only true), simulation start time unchanged by any of this.
+
+CHANGE 12 - IMAGE QUALITY: sensors 320x240 -> 640x480; zone visuals off by default
+--------------------------------------------------------------------------------
+Operator reported image quality in the viewer as very bad. Measured and fixed:
+
+1. Root cause of the blur was NOT sensor resolution but double resampling. The
+   viewer defaulted to a 640x480 frame while sensors emitted 320x240, so every
+   frame was upscaled with smooth interpolation. Sensors are now 640x480 and the
+   viewer defaults to 640x480, giving a 1:1 pixel mapping and no resampling.
+
+2. 1280x960 was tried and REVERTED. It dropped the frame rate to 0.9 Hz and drove
+   gz-sim-server to 700% CPU. Measured ladder:
+       320x240 -> 2.00 Hz, 313% CPU
+       640x480 -> 1.60 Hz, 493% CPU
+      1280x960 -> 0.90 Hz, 700% CPU
+   Rendering is headless software rasterisation (llvmpipe; Ogre2RenderEngine.cc:556
+   "Unable to open display ... headless mode"), so it is CPU-bound and starves
+   under contention. Host load was 11.58 on 12 cores with four concurrent cline
+   sessions, which is why the original 320x240 baseline also measures ~2 Hz now
+   rather than the 10 Hz recorded earlier in the day. Scene geometry is unchanged
+   (12 models, 15 meshes), so this is host contention, not a regression in the world.
+
+3. Red wash over every camera was self-inflicted. The safety-zone work (CHANGE 10)
+   emitted translucent zone volumes; zone-fabrication-floor is a
+   9.874 x 6.8311 x 4.0574 m box enclosing the whole building, so it tinted every
+   frame flat red. Lighting was verified untouched (git diff empty for ambient/
+   diffuse/direction). Zone rendering is now opt-in behind the --visual flag in
+   verify_safety_zones.py; the zone links and poses remain in the SDF so the zone
+   model stays machine-readable and verifiable.
+
+TRAP: an XML comment may not contain "--". Emitting "pass --visual to draw zones"
+produced "not well-formed (invalid token): line 973" and Gazebo would not have
+loaded the world. The flag name had to be reworded out of the comment text.
+
+Verified: world XML valid, 8 cameras advertised, zone tint materials 0, zone
+links 4, portal/bridge/gz all active. Viewer shows the approved palette (tan
+walls, blue conveyor, orange arms) with the rl_objects bins visible.
+
+CHANGE 13 - RENDER QUALITY: lighting rebalance, material shininess, bogus gear
+visuals removed. 2026-10-03
+--------------------------------------------------------------------------------
+Operator: "MAKE THE RENDERING LOOK GOOD, IT LOOKS AWFUL".
+
+1. Lighting. Scene ambient was 0.62. In Gazebo <ambient> is ADDED FLAT, so a
+   value that high lifted every shadowed face almost to the lit faces and
+   flattened the whole building into one tone. Dropped to 0.20, which was too
+   dark, and settled at 0.34 with the fill light lifted to 0.52 0.58 0.70.
+   Key light warmed to 1.0 0.95 0.86. Background changed from flat 0.7 grey to
+   0.55 0.62 0.72 so the backdrop is not dead grey.
+
+2. Materials. NO material in the world had <shininess>, so every specular
+   highlight was the same broad plastic blob. Added shininess tuned per surface:
+   walls 6 (matte painted block), conveyor belt 32, arms 38, ground 4,
+   RL bins 24, camera markers 45. Per-material ambient was also far too high
+   (walls 0.30 against diffuse 0.44) and was cancelling the directional shading;
+   ambient is now low on every material and the lights do the modelling.
+
+3. Removed the 12 conveyor_gear_NN visuals. TRAP AND SELF-INFLICTED DEFECT: an
+   earlier change claimed to have extracted conveyor gearboxes as silver parts.
+   split-collada-parts.py had actually produced twelve copies of ONE part - all
+   twelve share the same 4x5x3 inch signature and the same local centre
+   (2.00, 2.50, 3.50) in, with no node transform. At scale 0.0254 they all land
+   within 10 cm of the world origin, 6.02 m from the conveyor at
+   (6.073, 2.337, 1.029) that they were meant to dress. They drew a stray
+   light-coloured sliver through the wall and cost twelve extra draws per frame
+   for geometry representing nothing. Removed. The blue conveyor still renders
+   from conveyor.dae.
+
+TRAP - ElementTree DESTROYS XML COMMENTS. Rewriting factory.world with
+xml.etree.ElementTree stripped all 61 comments from the file. It was caught on
+the next check (grep -c '<!--' returned 0) and restored from backup. The
+material edit was then redone with string/regex replacement only, asserting the
+comment count before and after every edit. NEVER round-trip a hand-commented SDF
+file through ElementTree.
+
+Verified: world XML valid, 8 cameras advertised, 0 mesh load failures, no
+conveyor_gear references remain, comments 62 -> 50 (the 12 removed gears each
+carried one explanatory comment), shininess blocks 27 -> 15. All three units
+active. Screenshot confirms: no stray sliver, tan walls with tonal separation,
+blue conveyor, orange arms, shadowed faces readable rather than black.
+
+CHANGE 14 - Recovered the massing source export; removed superseded backups
+--------------------------------------------------------------------------------
+Operator approved cleanup of the untracked leftovers (sole session on these).
+
+1. GAZEBO/\n09-SIMULATIONMASSING-ADUDOORS_FABRICATIONAREA.dae -- a SketchUp export
+   written with a LITERAL NEWLINE at the start of its filename, from a bad shell
+   redirect. Its three siblings (ARMS, CONVEYOR, VEHICLES-ARMS) are all tracked;
+   this one could never be added to git, so a 2,123,299-byte source asset was
+   invisible to version control. Renamed to match its siblings and committed;
+   bytes preserved exactly.
+
+   TRAP: never rename a path containing a newline in the shell. Quoting it is
+   error-prone and globbing will not match it. Use python3 os.rename() with an
+   explicit "\n"-prefixed name, and assert the destination does not already
+   exist so a rename can never silently overwrite.
+
+2. Provenance comment in factory.world updated to name the corrected file and
+   record why the rename happened.
+
+3. Removed the eight factory.world.bak.* working copies. Each held ONE camera
+   against the live world's eight, and all predate the camera work.
+
+Verified after: world XML valid, 8 cameras advertised, 0 mesh load failures,
+live world 38260 bytes with 50 comments intact. Pushed 8c28bdb, local and
+origin/main both at 8c28bdb, 0 behind / 0 ahead.
+
+CHANGE 15 - 2026-10-03 - Shadow casting disabled (operator decision)
+
+SYMPTOM: operator reported shadow reception on walls and all other surfaces as
+"really really bad" and preferred no shadows at all.
+
+MEASURED BEFORE/AFTER:
+  sun <cast_shadows> true -> false. The fill light was already false.
+  Log line count for shadow-related warnings this run: 0.
+  Cameras advertising after restart: 8.
+
+WHY: the geometry is flat interior wall panels, so a directional light with a
+shadow map produces self-shadow acne and hard banding across every panel rather
+than legible form. With casting off every face is lit purely by diffuse plus the
+cool fill, which is how an interior actually reads and matches what the operator
+asked for.
+
+CHANGED: GAZEBO/worlds/factory.world (one element). Backup /tmp/fw.pre-noshadow.
+
+CHANGE 16 - 2026-10-04 - Flat single-colour structure + heavy edge linework
+
+REQUEST: operator asked for the factory structure (previously tan) to be one
+uniform colour with heavy edge linework.
+
+FINDING - no outline pass exists in gz-sim 10. Verified in the server container:
+  /usr/share/gz/gz-sim/media/gazebo.material has 90 materials; the only outline /
+  wireframe support is a single polygon_mode wireframe pass inside
+  Gazebo/TurquoiseGlowOutline, which draws every TRIANGLE of the DAE rather than
+  real edges. libgz-rendering10 exports no Outline symbol. So edge linework
+  cannot come from the render engine and is applied in the viewer instead.
+
+CHANGED:
+  factory.world  massing_fab.dae visual material: ambient/diffuse
+                 0.30 0.21 0.14 / 0.46 0.33 0.21 (tan) -> 0.72 0.72 0.74 flat,
+                 specular 0.10 -> 0.02, shininess 6 -> 2. The massing is a single
+                 visual, so one material drives the whole structure.
+  portal/viewer/index.html  new applySobel(), run on the decoded frame before
+                 it is blitted, plus an "edge lines" checkbox (on by default).
+                 EDGE_MIN 5 / EDGE_MAX 46 bracket the real gradient range once
+                 shadows are off and faces are flat.
+
+BUG FOUND AND FIXED: the first implementation called applySobel AFTER
+dctx.putImageData(out,0,0), so the modified pixels never reached the canvas and
+the view was pixel-identical with the toggle on and off. Detected by comparing
+screenshots and confirming in-page that the checkbox was checked, the function
+loaded and the constants were live. Moved the call before the blit.
+
+Backups: /tmp/fw.pre-flat, /tmp/viewer.pre-edge.
+
+CHANGE 17 - 2026-10-04 - Massing shaded emissive-only (flat panels)
+
+SYMPTOM: operator reported each flat plane reads as multiple polygons and is
+shaded badly because of it.
+
+MEASURED - the export really is subdivided. massing_fab.dae:
+  triangles            28288 in 196 triangle sets across 98 geometries
+  unique vertex triples 28288  ->  reuse 1.00x (already fully split, so this is
+                                  NOT shared-vertex normal interpolation)
+  explicit <normal>     0 / 28288  ->  the engine derives face normals
+  normal spread within an axis-aligned bucket: up to 2.80 degrees
+  planar grouping (0.5 deg / 2 mm): 5866 groups, avg 4.8 triangles per panel
+So panels are subdivided roughly 2-5x beyond a single quad, and those triangles
+differ by a couple of degrees of normal, which is what bands them under a
+directional light.
+
+FIX APPLIED: the massing material now carries its tone in <emissive> with
+ambient/diffuse/specular all zero, so no light direction and no per-triangle
+normal can modulate it. The tone is exactly flat regardless of how the panel was
+triangulated, and form comes entirely from the viewer's edge overlay. Arms,
+conveyors and gear keep their normal lit materials.
+
+ALSO REJECTED: a mesh-rewrite route (flatten-panel-normals.py, park all
+coplanar triangles onto one averaged normal) was written and measured correctly
+but the emitted DAE came out malformed - the Collada file's namespace handling
+did not survive ElementTree round-tripping, and the <vertices> element picked up
+a stray NORMAL input. Derived mesh deleted, script parked at
+/tmp/flatten-panel-normals.py.broken. Not shipped rather than shipped broken.
+If true single-polygon panels are still wanted, the right route is to weld the
+coplanar groups in the source CAD and re-export, not to post-process the DAE.
+
+VIEWER: Sobel ink capped 0.97 -> 0.80 and range 5..46 -> 9..52. At 0.97 nearly
+every detected pixel went black, which turned the small arms and conveyor
+details into solid blobs; they are mostly edge at that pixel scale. Trade-off
+remains: fine detail is inked. The "edge lines" checkbox gives the un-inked
+lit view.
+
+CHANGE 18 - 2026-10-04 - Flat-shaded structure mesh; panels read as single planes
+
+SYMPTOM (round 1): panels read as multiple polygons, shaded badly.
+SYMPTOM (round 2, after emissive-only): all white, and now many panel edges
+invisible - the Sobel had no luminance step to find between adjacent panels.
+Round 2 was an over-correction: removing all shading variation removed the very
+signal the edge overlay depends on.
+
+TRUE CAUSE, measured. The mesh carries SMOOTHED VERTEX NORMALS, not face
+normals. <vertices> binds a NORMAL source alongside POSITION, and vertex INDICES
+ARE SHARED between triangles (an earlier 1.00x "reuse" reading was wrong - it
+counted unique index TRIPLES, not individual indices). Corner normals within one
+triangle disagreed by up to 56 degrees, so the engine interpolated a gradient
+across each triangle.
+
+TWO FAILED ROUTES, recorded so they are not retried:
+  1. Averaging normals per planar group and writing them into the existing NORMAL
+     arrays in place. Result: triangles with corner disagreement only 11436 ->
+     10915, and worst disagreement WORSENED to 180 deg. Cause: indices are shared,
+     so two coplanar and two non-coplanar triangles fight over the same vertex
+     slot and the last writer wins with the opposite normal.
+  2. ElementTree round-trip of the whole Collada document to add a new NORMAL
+     source. Result: malformed output - namespace handling did not survive and
+     <vertices> picked up a stray NORMAL input. Deleted rather than shipped.
+
+FIX THAT WORKED: drop the NORMAL binding from <vertices> entirely
+(flatten-panel-normals.py). With no vertex normals the engine derives a face
+normal per triangle, so every triangle is flat-shaded. Coplanar triangles in one
+panel differ by well under a degree, so the panel reads as ONE surface, while
+genuinely different panels keep clearly different normals - which is exactly the
+signal the edge overlay needs. The transform rewrites no elements, so there is no
+namespace risk.
+
+  meshes/massing_flat.dae  derived; source export massing_fab.dae untouched.
+  Parses clean; 28288 triangles preserved; 101 vertex NORMAL inputs removed.
+  factory.world points the structure visual at the derived mesh.
+  Material restored from emissive-only to lit: ambient 0.34, diffuse 0.58,
+  specular 0.03. At 0.58/0.74 every panel blew to near-white and the
+  per-orientation separation collapsed again.
+
+Verified in the viewer: no within-panel gradients, panel-to-panel boundaries all
+visible, arms and conveyor legible.

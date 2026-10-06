@@ -1,0 +1,33 @@
+# 2026-10-03 PDF sales handoff forms - intake reader, autofill, AcroForm
+
+## commit
+de07d6a feat(sales): PDF intake reader, autofillable work order, AcroForm overlay
+
+## build (email -> 2 single-page PDFs)
+$ ./scripts/sales/intake-to-pdf.sh tmp/sample-request.txt tmp/final
+OK: tmp/final/request-record.json
+request_number=REQ-2026-10-03190318
+items=3 unresolved=1
+UNRESOLVED (not in catalogue): Sprocket Widget
+READY: complete request, awaiting operator review
+OK: tmp/final/00-kit-request-intake-record.pdf
+OK: tmp/final/00-kit-request-intake-record.html
+OK: tmp/final/01-kit-request-work-order.pdf
+OK: tmp/final/01-kit-request-work-order.html
+OK: tmp/final/00-kit-request-intake-record-fillable.pdf
+fields=20 page=792x612pt
+OK: 1 page - tmp/final/00-kit-request-intake-record-fillable.pdf
+OK: 1 page - tmp/final/00-kit-request-intake-record.pdf
+OK: 1 page - tmp/final/01-kit-request-work-order.pdf
+record: tmp/final/request-record.json
+
+## verification
+registered AcroForm fields: 20
+  item row y=332.2: 0 overlap(s)
+  item row y=317.2: 0 overlap(s)
+  item row y=301.4: 0 overlap(s)
+
+## pages
+  00-kit-request-intake-record-fillable.pdf: 1 page(s)
+  00-kit-request-intake-record.pdf: 1 page(s)
+  01-kit-request-work-order.pdf: 1 page(s)

@@ -1,0 +1,97 @@
+Warning: environ value jdk-21.0.6+7 for key :java-version has been overwritten with 21.0.6
+2026-09-25 03:42:19,196 INFO metabase.util :: Maximum memory available to JVM: 7.8 GB
+2026-09-25 03:42:21,050 INFO util.encryption :: Saved credentials encryption is DISABLED for this Metabase instance. 🔓 
+ For more information, see https://metabase.com/docs/latest/operations-guide/encrypting-database-details-at-rest.html
+2026-09-25 03:42:25,300 INFO driver.impl :: [34mRegistered abstract driver :sql[0m  🚚
+2026-09-25 03:42:25,364 INFO driver.impl :: [34mRegistered abstract driver :sql-jdbc[0m (parents: [:sql]) 🚚
+2026-09-25 03:42:25,370 INFO metabase.util :: [32mLoad driver :sql-jdbc took 12.1 ms[0m
+2026-09-25 03:42:25,371 INFO driver.impl :: [34mRegistered driver :h2[0m (parents: [:sql-jdbc]) 🚚
+2026-09-25 03:42:26,109 INFO driver.impl :: [34mRegistered driver :mysql[0m (parents: [:sql-jdbc]) 🚚
+2026-09-25 03:42:26,138 INFO driver.impl :: [34mRegistered driver :postgres[0m (parents: [:sql-jdbc]) 🚚
+2026-09-25 03:42:26,779 INFO core.core :: 
+Metabase v0.54.1 (774e5a3) 
+
+Copyright © 2026 Metabase, Inc. 
+
+Metabase Enterprise Edition extensions are NOT PRESENT.
+2026-09-25 03:42:28,387 INFO driver.impl :: [34mRegistered abstract driver :metabase.driver.sql-jdbc.execute.legacy-impl/use-legacy-classes-for-read-and-set[0m  🚚
+2026-09-25 03:42:28,391 INFO driver.impl :: [34mRegistered abstract driver :metabase.driver.sql.query-processor.empty-string-is-null/empty-string-is-null[0m  🚚
+2026-09-25 03:42:28,689 INFO cmd.copy :: [34mSet up h2 source database and run migrations...[0m 
+2026-09-25 03:42:28,690 INFO db.setup :: [36mVerifying h2 Database Connection ...[0m
+2026-09-25 03:42:28,711 ERROR cmd.copy :: [31m[FAIL]
+[0m
+clojure.lang.ExceptionInfo: ERROR Set up h2 source database and run migrations...: Unable to connect to Metabase h2 DB. {}
+	at metabase.cmd.copy$do_step$fn__109858.invoke(copy.clj:40)
+	at metabase.cmd.copy$do_step.invokeStatic(copy.clj:36)
+	at metabase.cmd.copy$do_step.invoke(copy.clj:34)
+	at metabase.cmd.copy$copy_BANG_110048__110049.invokeStatic(copy.clj:406)
+	at metabase.cmd.copy$copy_BANG_110048__110049.invoke(copy.clj:394)
+	at metabase.cmd.load_from_h2$load_from_h2_BANG_.invokeStatic(load_from_h2.clj:36)
+	at metabase.cmd.load_from_h2$load_from_h2_BANG_.invoke(load_from_h2.clj:26)
+	at clojure.lang.Var.invoke(Var.java:386)
+	at metabase.cmd$load_from_h2.invokeStatic(cmd.clj:75)
+	at metabase.cmd$load_from_h2.invoke(cmd.clj:69)
+	at metabase.cmd$load_from_h2.invokeStatic(cmd.clj:72)
+	at metabase.cmd$load_from_h2.invoke(cmd.clj:69)
+	at clojure.lang.AFn.applyToHelper(AFn.java:152)
+	at clojure.lang.AFn.applyTo(AFn.java:144)
+	at clojure.core$apply.invokeStatic(core.clj:667)
+	at clojure.core$apply.invoke(core.clj:662)
+	at metabase.cmd$run_cmd$fn__120720.invoke(cmd.clj:334)
+	at metabase.cmd$run_cmd.invokeStatic(cmd.clj:331)
+	at metabase.cmd$run_cmd.invoke(cmd.clj:321)
+	at clojure.lang.Var.invoke(Var.java:395)
+	at metabase.core.core$run_cmd.invokeStatic(core.clj:208)
+	at metabase.core.core$run_cmd.invoke(core.clj:206)
+	at metabase.core.core$entrypoint.invokeStatic(core.clj:232)
+	at metabase.core.core$entrypoint.doInvoke(core.clj:225)
+	at clojure.lang.RestFn.applyTo(RestFn.java:140)
+	at clojure.lang.Var.applyTo(Var.java:707)
+	at clojure.core$apply.invokeStatic(core.clj:667)
+	at clojure.core$apply.invoke(core.clj:662)
+	at metabase.core.bootstrap$_main.invokeStatic(bootstrap.clj:36)
+	at metabase.core.bootstrap$_main.doInvoke(bootstrap.clj:29)
+	at clojure.lang.RestFn.applyTo(RestFn.java:140)
+	at metabase.core.bootstrap.main(Unknown Source)
+Caused by: clojure.lang.ExceptionInfo: Unable to connect to Metabase h2 DB. {}
+	at metabase.db.setup$verify_db_connection50586__50587$fn__50588.invoke(setup.clj:123)
+	at metabase.db.setup$verify_db_connection50586__50587.invokeStatic(setup.clj:121)
+	at metabase.db.setup$verify_db_connection50586__50587.invoke(setup.clj:113)
+	at metabase.db.setup$setup_db_BANG_50627__50628$fn__50631$fn__50632.invoke(setup.clj:195)
+	at metabase.util.jvm$do_with_us_locale.invokeStatic(jvm.clj:239)
+	at metabase.util.jvm$do_with_us_locale.invoke(jvm.clj:225)
+	at metabase.db.setup$setup_db_BANG_50627__50628$fn__50631.invoke(setup.clj:191)
+	at metabase.db.setup$setup_db_BANG_50627__50628.invokeStatic(setup.clj:190)
+	at metabase.db.setup$setup_db_BANG_50627__50628.invoke(setup.clj:183)
+	at metabase.cmd.copy$copy_BANG_110048__110049$fn__110054.invoke(copy.clj:407)
+	at metabase.cmd.copy$do_step$fn__109858.invoke(copy.clj:37)
+	... 31 more
+Caused by: org.h2.jdbc.JdbcSQLNonTransientConnectionException: Invalid database name: "/" [90138-214]
+	at org.h2.message.DbException.getJdbcSQLException(DbException.java:678)
+	at org.h2.message.DbException.getJdbcSQLException(DbException.java:477)
+	at org.h2.message.DbException.get(DbException.java:223)
+	at org.h2.message.DbException.get(DbException.java:199)
+	at org.h2.engine.ConnectionInfo.getName(ConnectionInfo.java:470)
+	at org.h2.engine.Engine.openSession(Engine.java:49)
+	at org.h2.engine.Engine.openSession(Engine.java:222)
+	at org.h2.engine.Engine.createSession(Engine.java:201)
+	at org.h2.engine.SessionRemote.connectEmbeddedOrServer(SessionRemote.java:338)
+	at org.h2.jdbc.JdbcConnection.<init>(JdbcConnection.java:122)
+	at org.h2.Driver.connect(Driver.java:59)
+	at java.sql/java.sql.DriverManager.getConnection(Unknown Source)
+	at java.sql/java.sql.DriverManager.getConnection(Unknown Source)
+	at metabase.db.data_source.DataSource.getConnection(data_source.clj:78)
+	at clojure.java.jdbc$get_connection.invokeStatic(jdbc.clj:372)
+	at clojure.java.jdbc$get_connection.invoke(jdbc.clj:274)
+	at clojure.java.jdbc$db_query_with_resultset_STAR_.invokeStatic(jdbc.clj:1111)
+	at clojure.java.jdbc$db_query_with_resultset_STAR_.invoke(jdbc.clj:1093)
+	at clojure.java.jdbc$query.invokeStatic(jdbc.clj:1182)
+	at clojure.java.jdbc$query.invoke(jdbc.clj:1144)
+	at clojure.java.jdbc$query.invokeStatic(jdbc.clj:1160)
+	at clojure.java.jdbc$query.invoke(jdbc.clj:1144)
+	at metabase.driver.sql_jdbc.connection$can_connect_with_spec_QMARK_.invokeStatic(connection.clj:398)
+	at metabase.driver.sql_jdbc.connection$can_connect_with_spec_QMARK_.invoke(connection.clj:395)
+	at clojure.lang.Var.invoke(Var.java:386)
+	at metabase.db.setup$verify_db_connection50586__50587$fn__50588.invoke(setup.clj:121)
+	... 41 more
+[31mCommand failed with exception: ERROR Set up h2 source database and run migrations...: Unable to connect to Metabase h2 DB.[0m

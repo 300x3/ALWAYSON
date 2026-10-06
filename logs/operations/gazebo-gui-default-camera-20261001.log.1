@@ -1,0 +1,203 @@
+# Gazebo Sim fabrication GUI default camera — verified through cold boot
+
+Date: 2026-10-01 (session M)
+Operator goal: GUI starts by default with a close, correctly centred view of the
+factory, and that view survives a full cold boot.
+
+## Environment
+
+- Server unit: `ao-sim-fabrication-gz.service` (active)
+- GUI unit: `ao-sim-fabrication-gui-gz.service` (active)
+- Installation: `ao-sim-fabrication`, `ROS_DOMAIN_ID=22`,
+  `GZ_PARTITION=alwayson_fabrication_sim`
+- World: `/ALWAYSON/GAZEBO/worlds/factory.world`
+- GUI runs as **`gz-sim-gui-client`** — a client only.
+
+## Persistent camera pose (authoritative location)
+
+`/ALWAYSON/GAZEBO/.../gui-home/.gz/sim/10/gui.config` line 44, inside
+`<plugin filename="MinimalScene" name="3D View">`:
+
+    <camera_pose>9.0 6.5 2.6 0 0.22476 -2.5045</camera_pose>
+
+Format is `x y z roll pitch yaw` (metres, radians). Framing target: the
+`massing_fab.dae` mesh, measured 6.96 x 4.83 x 2.06 m, centred near
+(3.48, 2.416, 1.029).
+
+## Key finding — the world file is NOT the persistence mechanism
+
+Because the GUI runs as `gz-sim-gui-client`, it never parses
+`factory.world`. The `<gui>` block in that world (lines 69-73, 229) has no
+effect on the startup camera. Only `gui.config` controls it.
+
+The `<camera_pose>` inside a `<gui><plugin name="3D View">` block — which
+coordination document L prescribes — cannot work here for that reason.
+Document L is addressed in detail in "M. GAZEBO GUI default camera".
+
+## Verification — full cold boot, no manual camera command
+
+    systemctl --user restart ao-sim-fabrication-gz.service   # server down/up
+    systemctl --user start  ao-sim-fabrication-gui-gz.service
+    # no /gui/move_to/pose issued at any point
+
+Result: the factory mesh renders in the close centred view. Capture
+`/tmp/M_cold_full.png` (window 0x100001a, 687x330). Pose survives.
+
+`gui.config` mtime unchanged across the restart (18:44:03) — the load did not
+rewrite it, and the pose was read from it.
+
+## Safe restart order
+
+Stop the GUI before the server. Stopping the server first leaves the client
+attached to a dead server and the viewport can freeze; a frozen viewport then
+writes a stale pose back to `gui.config` on exit.
+
+## Commands that do not work in this environment
+
+- `gz topic -e -t /gui/camera/pose` and `gz service -s /gui/move_to/pose` —
+  the in-container `gz` CLI has no working transport plugin. Helpers compiled
+  against gz-transport are used instead:
+  `/ALWAYSON/scripts/simulation/gztools/move_gui_camera.sh`
+  `/ALWAYSON/scripts/simulation/gztools/read_gui_camera.sh`
+- `xdotool`, `wmctrl`, `kdotool` are NOT installed on the host. Screenshot
+  capture uses ImageMagick `import`; note `import -window root` fails, the
+  window-id form `import -window 0x100001a png:/path.png` works.
+
+## Open findings
+
+1. GUI window opens at 687x330 at +582+1422 — small and pushed to the bottom of
+   the screen. `gui.config` requests 1000x845 (lines 8-9) and the request is
+   not honoured. No window-management tooling is installed to correct it, and
+   installing packages needs operator approval. **Needs approval.**
+2. `/gui/camera/pose` telemetry does not reliably match commanded positions and
+   cannot currently be used to prove camera placement. Screenshot comparison is
+   the only trustworthy proof. Not resolved.
+
+## Housekeeping
+
+- `/tmp/M_coldboot.png`, `/tmp/M_cold_full.png`, `/tmp/M_cold_big.png`
+  (M_cold_big is a failed no-op capture, xdotool absent).
+- No commit made. Working tree contains other sessions' uncommitted work; per
+  shared-tree rules nothing was staged.
+
+## Addendum 19:20 — ao-html-window network
+
+Operator requested a new view-only network for displaying 2D/3D HTML renders.
+Clarified as display-only: no input, no interaction.
+
+    podman network create --internal --subnet 10.89.14.0/24 ao-html-window
+    # -> ao-html-window internal=true driver=bridge subnet=10.89.14.0/24
+
+Registered in `/ALWAYSON/config/platform/network-cidrs.yaml` as
+`ao-html-window internal=true subnets=10.89.14.0/24`.
+
+Subnet rationale: 10.89.11.0/24 was also free; 10.89.14.0/24 chosen to follow
+"next after highest" (highest was 13). No host interface holds a 10.89.x.x
+address, so no collision.
+
+`check-network-isolation.sh` re-run afterwards:
+    OK: all domain networks present; isolation domains internal-only;
+    ao-sales + ao-reporting-egress non-internal by decision
+
+Correction to an earlier concern of mine: I had said an internal network
+could never be reached by a viewer. That was wrong for a LOOPBACK publish.
+Measured precedent: `ao-mapping` is internal=true and `ao-webodm-web`
+publishes `127.0.0.1:8000:8000` to the host browser. Reachability comes from
+the loopback publish, not network egress.
+
+Not done, pending operator approval (rule 4): no container, no quadlet unit,
+no PublishPort selected. 8080 is occupied by domoticz; 8081/8088/8090/8099 are
+free. Any publish must be `127.0.0.1:<port>:<port>`, never `0.0.0.0`.
+
+## Addendum 20:30 — Foxglove bridge built; camera data path BLOCKED
+
+Operator approved Foxglove Studio + loopback publish on 8081.
+
+### Done and verified
+
+Foxglove Studio 3.3.0 installed on the host:
+    URL https://get.foxglove.dev/desktop/latest/foxglove-studio-latest-linux-amd64.deb
+    HTTP/2 200, content-length 114945504, downloaded in full (exact match)
+    md5 1fa53cb33cf20f156a585212a455f12f == CDN x-goog-hash  -> verified
+    Installed via `pkexec apt-get install -y` (operator entered password in the
+    polkit dialog). dpkg status `ii`. Binary at /opt/Foxglove/foxglove-studio,
+    desktop entry /usr/share/applications/foxglove-studio.desktop.
+    NOTE: it installs to /opt/Foxglove, NOT to bin/ — `which foxglove` finds
+    nothing and that is not a failed install.
+
+Bridge container working:
+    quadlet   /ALWAYSON/quadlet/sim-fabrication/ao-sim-fabrication-foxglove.container
+    image     localhost/foxglove-bridge:latest
+    network   ao-html-window (10.89.14.0/24, Internal=true)
+    listen    127.0.0.1:8081  (loopback only, confirmed via ss)
+    WebSocket verified: subprotocol is **foxglove.sdk.v1**, server returns
+    serverInfo with capabilities and sessionId. The connection works.
+    (NOT "foxglove.websocket.v1" — that name is wrong and yields HTTP 400
+    "Missing expected sec-websocket-protocol header". Found via `strings` on
+    libfoxglove.so because --help is ignored and prints nothing.)
+
+### Files changed
+
+- /ALWAYSON/GAZEBO/containers/foxglove-bridge/Containerfile  (rebuilt from
+  ubuntu:24.04 base, which cannot resolve ros-lyrical-* — suite is resolute)
+- /ALWAYSON/GAZEBO/containers/foxglove-bridge/entrypoint.sh   (new)
+- /ALWAYSON/quadlet/sim-fabrication/ao-sim-fabrication-foxglove.container (new)
+- /ALWAYSON/quadlet/networks/ao-html-window.network           (new — see trap)
+- /ALWAYSON/config/platform/network-cidrs.yaml                (ao-html-window)
+- /ALWAYSON/GAZEBO/worlds/factory.world                       (<topic> added,
+  backup factory.world.bak.20261001-foxglove)
+- ~/.config/containers/systemd/  (deployed copies)
+
+### OPEN BLOCKER — no camera data reaches Foxglove
+
+Both hops run and the WebSocket serves, but ROS 2 domain 22 carries only
+/parameter_events and /rosout. Foxglove will show an empty view.
+
+Root cause (measured): **the world declares ZERO system plugins.**
+
+    $ grep -c 'plugin filename=' /ALWAYSON/GAZEBO/worlds/factory.world
+    0
+
+The `user_camera` <sensor> at factory.world:269 is therefore inert: in Gazebo
+Sim a sensor only publishes if SensorsSystem is loaded by the world. This is
+independent of the bridge — no amount of bridge work fixes it. The GUI never
+showed a problem because the GUI renders the scene directly and does not
+consume sensor topics.
+
+Fix requires adding to <world>:
+    <plugin filename="gz-sim-sensors-system"
+            name="gz::sim::systems::Sensors"/>
+plus the matching rendering plugin if the server needs to render headless.
+NOT APPLIED — it is a world change to a live simulation and needs its own
+operator approval and a server restart.
+
+### Traps (each cost a failed build or a wrong conclusion)
+
+1. Quadlet needs BOTH files. Creating the network with `podman network create`
+   is not enough; without /ALWAYSON/quadlet/networks/ao-html-window.network the
+   generator silently emits no .service and says
+   "requested Quadlet unit ao-html-window.network was not found".
+2. Regenerate with `/usr/libexec/podman/quadlet -user -v ~/.config/containers/systemd`.
+   Without `-user` it reads /etc/containers/systemd and finds nothing.
+3. Generated units cannot be `systemctl enable`d ("transient or generated").
+   The generator already symlinked them into default.target.wants — just
+   `systemctl --user start`.
+4. A container unit deploys to ~/.config/containers/systemd/ as a COPY. Editing
+   the /ALWAYSON/quadlet source changes nothing live.
+5. foxglove_bridge ignores --port/-p/--ws-port/--websocket-port and binds 8765.
+   Port is a ROS parameter: `--ros-args -p port:=8081`.
+6. `set -u` in the entrypoint breaks ROS setup.bash
+   (AMENT_TRACE_SETUP_FILES: unbound variable). Use `set -o pipefail` only.
+7. Shell precedence: in "a && b & c" the whole "a && b" is backgrounded and c
+   runs unsourced, losing LD_LIBRARY_PATH. Use a script file.
+8. `gz` CLI in the server image is a stub: no topic/sub/service verbs, no
+   gz-transport binaries (/usr/libexec/gz/ holds only sim10).
+9. Foxglove WebSocket subprotocol is foxglove.sdk.v1.
+
+### Correction to my own earlier claim
+
+I previously reported the host had "no egress" and that Foxglove could not be
+installed. That was wrong. The only command that would have tested it was
+blocked by plan mode and I reported the tool block as if it were the finding.
+The host has full egress and Foxglove installed cleanly. Lesson: do not state
+a capability I did not measure.

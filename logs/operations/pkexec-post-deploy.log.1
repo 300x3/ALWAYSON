@@ -1,0 +1,99 @@
+===== 2026-08-29T17:34:28-07:00 : pkexec-post-deploy =====
+
+--- 1. System-store container inventory (non-destructive) ---
+
+--- 2. Restart WebODM/NodeODM system-store stack (mapping operator workflow) ---
+ao-webodm-db not present in system store (skipped)
+ao-webodm-broker not present in system store (skipped)
+ao-webodm-worker not present in system store (skipped)
+ao-nodeodm not present in system store (skipped)
+ao-webodm-web not present in system store (skipped)
+
+--- 3. PostgreSQL 18 read-only reporting role for Metabase (Section 15.1/6.A.2) ---
+CREATE ROLE
+metaread password written to /ALWAYSON/secrets/metaread.credential (0600)
+
+--- 4. Listener and firewall verification (no changes unless a violation exists) ---
+State  Recv-Q Send-Q Local Address:Port  Peer Address:PortProcess                                   
+Status: active
+Logging: on (low)
+Default: deny (incoming), allow (outgoing), disabled (routed)
+New profiles: skip
+
+To                         Action      From
+--                         ------      ----
+1716/tcp                   DENY IN     Anywhere                   # KDE Connect guard
+1716/tcp (v6)              DENY IN     Anywhere (v6)              # KDE Connect guard
+
+
+--- 5. Summary ---
+Privileged steps complete. Rootless ao-admin plane status:
+===== done =====
+===== 2026-08-31T19:44:43-07:00 : pkexec-post-deploy =====
+
+--- 1. System-store container inventory (non-destructive) ---
+
+--- 2. Restart WebODM/NodeODM system-store stack (mapping operator workflow) ---
+ao-webodm-db not present in system store (skipped)
+ao-webodm-broker not present in system store (skipped)
+ao-webodm-worker not present in system store (skipped)
+ao-nodeodm not present in system store (skipped)
+ao-webodm-web not present in system store (skipped)
+
+--- 3. PostgreSQL 18 read-only reporting role for Metabase (Section 15.1/6.A.2) ---
+role metaread already exists (skipped)
+
+--- 4. Listener and firewall verification (no changes unless a violation exists) ---
+State  Recv-Q Send-Q Local Address:Port  Peer Address:PortProcess                                   
+LISTEN 0      200          0.0.0.0:5432       0.0.0.0:*    users:(("postgres",pid=2474,fd=6))       
+LISTEN 0      200             [::]:5432          [::]:*    users:(("postgres",pid=2474,fd=7))       
+Status: active
+Logging: on (low)
+Default: deny (incoming), allow (outgoing), disabled (routed)
+New profiles: skip
+
+To                         Action      From
+--                         ------      ----
+1716/tcp                   DENY IN     Anywhere                   # KDE Connect guard
+1716/tcp (v6)              DENY IN     Anywhere (v6)              # KDE Connect guard
+
+
+--- 5. Summary ---
+Privileged steps complete. Rootless ao-admin plane status:
+===== done =====
+===== 2026-09-21T23:25:03-07:00 : pkexec-post-deploy =====
+
+--- 1. System-store container inventory (non-destructive) ---
+
+--- 2. Restart WebODM/NodeODM system-store stack (mapping operator workflow) ---
+ao-webodm-db not present in system store (skipped)
+ao-webodm-broker not present in system store (skipped)
+ao-webodm-worker not present in system store (skipped)
+ao-nodeodm not present in system store (skipped)
+ao-webodm-web not present in system store (skipped)
+
+--- 3. PostgreSQL 18 read-only reporting role for Metabase (Section 15.1/6.A.2) ---
+role metaread already exists (skipped)
+
+--- 4. Listener and firewall verification (no changes unless a violation exists) ---
+State  Recv-Q Send-Q                   Local Address:Port  Peer Address:PortProcess                                       
+LISTEN 0      32                     169.254.248.253:53         0.0.0.0:*    users:(("dnsmasq",pid=3051,fd=9))            
+LISTEN 0      1                              0.0.0.0:4242       0.0.0.0:*    users:(("ReticulumMeshCh",pid=706601,fd=126))
+LISTEN 0      32                           10.42.0.1:53         0.0.0.0:*    users:(("dnsmasq",pid=3051,fd=7))            
+LISTEN 0      32     [fe80::b47b:8101:204:7f5b]%eno1:53            [::]:*    users:(("dnsmasq",pid=3051,fd=19))           
+Status: active
+Logging: on (low)
+Default: deny (incoming), allow (outgoing), deny (routed)
+New profiles: skip
+
+To                         Action      From
+--                         ------      ----
+1716/tcp                   DENY IN     Anywhere                   # KDE Connect guard
+4242/tcp                   ALLOW IN    Anywhere                  
+1716/tcp (v6)              DENY IN     Anywhere (v6)              # KDE Connect guard
+4242/tcp (v6)              ALLOW IN    Anywhere (v6)             
+
+
+--- 5. Summary ---
+Privileged steps complete. Rootless ao-admin plane status:
+===== done =====

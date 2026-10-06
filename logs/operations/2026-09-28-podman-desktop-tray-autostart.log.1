@@ -1,0 +1,40 @@
+2026-09-28T18:14:57-07:00 ALWAYS ON - Podman Desktop autostart minimized to tray - operator request ("ensure PODMAN runs at startup and shrinks to an icon in the taskbar")
+
+CHANGE:
+  - Created /home/scottw/.config/autostart/podman-desktop.desktop (new file; XDG autostart).
+    Exec=/home/scottw/Applications/podman-desktop/podman-desktop --minimize
+    StartupWMClass=podman-desktop, X-GNOME-Autostart-enabled=true.
+  - No Quadlet units, networks, containers, or secrets were touched.
+
+WHY XDG AUTOSTART:
+  - "Start on login" preference in this Podman Desktop build is macOS/Windows-only
+    (resources/app.asar: configure() returns early when platform()==='linux').
+  - Verified in app.asar main process: process.argv containing '--minimize' suppresses
+    the main-window show(); the app runs with tray icon only. Tray icon is created
+    regardless; closing the window hides to tray unless preferences.ExitOnClose or
+    preferences.ShowTrayIcon=false (both default off/on respectively).
+
+VERSIONS:
+  - Podman Desktop (unpacked Electron app): /home/scottw/Applications/podman-desktop/podman-desktop, Electron/43.2.0
+  - podman version 5.7.0
+
+VERIFIED:
+  - desktop-file-validate /home/scottw/.config/autostart/podman-desktop.desktop -> VALID (hint only: multiple main Categories, harmless).
+  - Restarted GUI: killed previous instance PID 2716437 (SIGTERM, clean exit), relaunched
+    with --minimize -> PID 3161889; log /tmp/podman-desktop-restart.log shows extension
+    init and "Autostarting podman-desktop.podman container engine"; only benign ENOENT
+    probe errors (podman-compose/kind/kubectl not installed - pre-existing).
+  - StatusNotifierWatcher (org.kde.StatusNotifierWatcher) RegisteredStatusNotifierItems
+    contains ":1.13815/org/chromium/StatusNotifierItem/1", Id="Podman Desktop_status_icon_1",
+    bus :1.13815 = PID 3161889 podman-desktop -> tray/taskbar icon registered, window hidden.
+  - podman ps: all 13 Quadlet-managed containers (mastodon-*, broker, ao-node-exporter,
+    ao-prometheus, ao-metabase, ao-grafana, nodeodm, webapp, worker) unaffected - GUI
+    restart does not manage container lifecycle (systemd Quadlet does).
+
+CONTROL:
+  - No public ports, no privilege changes, no secrets written. Change is user-level autostart only.
+
+NOTE:
+  - GUI autostart is user-session (login) scoped, not boot-time. Container services already
+    run at boot via systemd Quadlet; this entry only starts the management GUI minimized to
+    the Plasma tray after login.

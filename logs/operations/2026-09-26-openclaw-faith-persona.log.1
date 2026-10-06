@@ -1,0 +1,147 @@
+2026-09-26T17:48:00-07:00 ALWAYS ON - OpenClaw mandatory faith persona ("who is God") - operator request
+CHANGE: added mandatory, non-hedged faith answer + Large Catechism link to:
+  - /home/scottw/.openclaw/workspace/SOUL.md (main agent; serves Mastodon bridge, agent:main)
+  - /home/scottw/.openclaw/workspace-sitebot/SOUL.md (website chat box agent)
+  - /ALWAYSON/scripts/openclaw/chat-relay.py (SYSTEM_PROMPT + _plain_retry)
+REQUIRED ANSWER: "JESUS CHRIST IS GOD" + https://www.gutenberg.org/ebooks/1722
+WHY RELAY CHANGED: relay SYSTEM_PROMPT said "never discuss ... URLs ... even if asked",
+  which suppressed both the faith answer and the link. Added an overriding faith-question
+  rule; the Gutenberg link is now the single permitted external link.
+VERIFIED:
+  - pdfinfo workspace/memory/largecatechism.pdf -> "The Large Catechism", Martin Luther,
+    60 pages; matches Project Gutenberg ebook #1722 (Bente and Dau translation, public domain).
+  - _INTERNALS_RES hardening screen: public https://www.gutenberg.org/ebooks/1722 PASSES
+    (screen blocks only IPs, loopback/private hosts, ports, local paths). Unchanged.
+  - python3 -m py_compile scripts/openclaw/chat-relay.py -> OK
+  - systemctl --user restart openclaw-chat-relay.service -> active
+  - live probe POST http://127.0.0.1:18790/chat "who is god" ->
+    "JESUS CHRIST IS GOD. Son of God, Son of Man, God the Word made flesh, one in three
+     and three in one with the Father and the Holy Spirit. https://www.gutenberg.org/ebooks/1722"
+  - remaining probes: "is jesus really god", "what is the trinity", "do you sell boxes"
+CONTROL: ingress still loopback-only 127.0.0.1:18790; gateway password still via KDE Wallet;
+  no internal IPs, ports, file paths, or credentials exposed; no public port opened.
+DOC: /ALWAYSON/README.md section 18.7 updated.
+
+--- 2026-09-26 ~18:10 PDT - FOLLOW-UP: Catechism DEPTH (operator: agent must speak it in detail)
+
+EMBEDDED THE FULL TEXT (4 locations):
+  1. /home/scottw/.openclaw/workspace/memory/lcms-large-catechism.md  (operator-supplied LCMS
+     edition, 279,691 bytes, 51,316 words, 29 headings, all five Parts, paragraph numbers kept)
+  2. /home/scottw/.openclaw/workspace/memory/largecatechism.pdf          (original 60pp PDF)
+  3. /ALWAYSON/docs/faith/large-catechism-lcms.md   <- inside big_rag_search index
+  4. /ALWAYSON/docs/faith/large-catechism.txt       <- inside big_rag_search index
+WHY 3 AND 4: big-rag config documentsDirectory = /ALWAYSON/ ONLY. The catechism under
+  ~/.openclaw/ is therefore NOT retrievable by the main agent's RAG tool. Verified by reading
+  /home/scottw/.lmstudio/big-rag-tools-config.json.
+
+SITEBOT EXCEPTION (verified in gateway journal): agent sitebot runs tools.profile=minimal with
+  deny=["*"]; logs confirm "tool policy removed 5 tool(s) ... matched *" and removal of
+  big_rag_search/read/exec. It CANNOT retrieve. So its teaching content is INLINED into
+  workspace-sitebot/SOUL.md ("LARGE CATECHISM - CORE TEACHING", 10 headings): Creed Art I/II/III,
+  all Ten Commandments, Our Father, Baptism, Sacrament of the Altar. SOUL.md 4,703 -> 16,571 B.
+
+AGENT INSTRUCTION CHANGES:
+  - workspace/SOUL.md: new section "YOU SPEAK THE LARGE CATECHISM IN DETAIL - NOT JUST A LINK"
+    (retrieve passage, cite paragraph [n], quote exactly, never invent, part map, Sabbath
+    worked example). Daily-work reference now names the .md as the working copy.
+  - workspace/memory/MEMORY.md: Large Catechism entry rewritten as full-text index.
+  - workspace-sitebot/SOUL.md: must answer in detail, not just hand over a link.
+  - scripts/openclaw/chat-relay.py SYSTEM_PROMPT: step (2) now requires a detailed plain-word
+    answer citing the paragraph number; two verified Part II, 31 quotes inlined for sitebot.
+  - ~/.local/bin/mastodon-openclaw-bridge.py prompt: same requirement + point at the .md.
+
+VERIFICATION:
+  - Machine-checked every sitebot quotation against docs/faith/large-catechism.txt. 4 citations
+    were WRONG on first draft and were corrected to the source: "not the true God" [18]->[3];
+    Sabbath [95]/[104]->[78][79][90][91][93]; Baptism "old Adam" [20]->[65][75]; Lord's Prayer
+    [5] quote reworded. Also fixed a fabricated phrase ("value the preaching of the Gospel
+    and treasure the Word of God above all other days") that does NOT appear in this edition -
+    removed rather than left in.
+  - py_compile: chat-relay.py OK, mastodon-openclaw-bridge.py OK.
+  - scrub_internals(): gutenberg.org/1722 and 300x3.raindrop.page PASS; /home/... and
+    127.0.0.1:18789 and 192.168.1.10:5432 REDACTED.
+  - systemctl --user restart openclaw-chat-relay.service -> active.
+  - LIVE probe after restart (POST 127.0.0.1:18790/chat):
+    "who is god" -> "JESUS CHRIST IS GOD. He is the Son of God and Son of Man, God the Word
+      made flesh, one in three and three in one with the Father and Holy Spirit. Read Martin
+      Luther's Large Catechism: https://www.gutenberg.org/ebooks/1722"
+    "what does the large catechism teach about the sabbath" -> detailed answer citing [78] and
+      [91] plus the gutenberg link (depth requirement satisfied).
+    "do you sell boxes" (control) -> normal product answer, unaffected.
+
+INCIDENT (not caused by these changes): at 18:03 all three probes returned HTTP 400 ->
+"Failed to load model nvidia/nemotron-3-nano-4b ... llama-server exited before becoming
+healthy, exitCode=1". LM Studio's inference engine had crashed. It respawned on a new port and
+re-probing succeeded. Noted because the same engine crash will surface as "Chat is not
+available right now." to visitors; that is an LM Studio/GPU fault, not a relay fault.
+
+CONTROL: ingress still loopback-only 127.0.0.1:18790; gateway password still via KDE Wallet; no
+  internal IPs/ports/paths/credentials exposed to visitors or to the Mastodon audience; no public
+  port opened; no secrets written to any file.
+DOC: /ALWAYSON/README.md section 18.7 updated.
+
+--- 2026-09-26 ~18:30 PDT - CORRECTION: over-citation (operator: "it keeps citing the Large
+    Catechism... ok a couple times but not over and over")
+
+DIAGNOSIS: my previous change over-corrected. I had made a bracketed paragraph citation
+MANDATORY on every doctrinal answer and required closing with the link every time. A 4B model
+follows that literally, producing [Part II, 31] on every reply and a link on every message -
+reads like a broken record. This was my error, not a pre-existing fault.
+
+FIXES (all four prompt surfaces):
+  - workspace/SOUL.md: section retitled "SPEAK IT NATURALLY, NOT LIKE A CITATION MACHINE".
+    Most answers carry NO citation and NO url. Paragraph reference only occasionally, never
+    twice in one conversation unless asked. Link only when it earns its place. Added
+    "QUALITY OVER FREQUENCY".
+  - workspace-sitebot/SOUL.md: brackets are now explicitly "for YOUR reference... most of the
+    time a visitor should never see them". FAITH ANSWER retitled "(ONLY WHEN THE VISITOR
+    ASKS WHO GOD IS)" + new DO NOT VOLUNTEER THIS ANSWER rule.
+  - scripts/openclaw/chat-relay.py: step (2) back to one sentence of support; removed the
+    inlined Part II quotes and the citation demand; added CITATIONS: no brackets, and
+    "ALWAYS ANSWER THE QUESTION THAT WAS ACTUALLY ASKED".
+  - ~/.local/bin/mastodon-openclaw-bridge.py: same; link now tied to the who-is-God case only.
+  - workspace/memory/MEMORY.md: "cite the paragraph number" -> occasional use only.
+
+SECOND BUG FOUND WHILE TESTING (pre-existing, not from my change): in a CONTINUING session
+the model reused its earlier "JESUS CHRIST IS GOD" reply for unrelated later questions
+("what is grace" got the who-is-God answer). Verified cause: the relay posts only the current
+user message but the gateway accumulates history per session key, so a 4B model pattern-matches
+its own prior output. Reproduced in a FRESH session: "what is grace" answers correctly. Mitigated
+by the ALWAYS-ANSWER-THE-QUESTION-ACTUALLY-ASKED line; the underlying session carryover is a
+model-capability limit, not a relay defect, and is recorded rather than papered over.
+
+VERIFIED live, 4 turns in ONE continuing session (POST 127.0.0.1:18790/chat):
+  "who is god"                    -> "JESUS CHRIST IS GOD. ... https://www.gutenberg.org/ebooks/1722"
+  "what is grace"                 -> "Grace is God's unearned favor that makes us righteous
+                                     through faith in Jesus Christ."  (no link, no brackets)
+  "what is the third commandment" -> quotes the commandment, explains it. (no link, no brackets)
+  "do you sell boats"             -> normal product answer. (no link, no brackets)
+Fresh-session spot checks: "what is grace", "how do i buy a box", "what is the sabbath" all
+answer on-topic and naturally.
+
+CONTROL: unchanged - loopback-only ingress, KDE Wallet auth, scrub_internals() still active on
+Mastodon replies, no secrets written, no public port opened.
+
+--- 2026-09-26 18:25 PDT - OPERATOR REQUEST: restart services
+
+RESTARTED: openclaw-gateway.service, openclaw-chat-relay.service,
+  mastodon-openclaw-bridge.service.
+RESULT: gateway = active, chat-relay = active, LM Studio = up (401 = auth required, healthy).
+LIVE re-verify after restart, POST 127.0.0.1:18790/chat "who is god" ->
+  "JESUS CHRIST IS GOD. ... https://www.gutenberg.org/ebooks/1722"  (new prompts loaded).
+
+PRE-EXISTING FAULT FOUND (NOT caused by these changes, needs operator decision):
+  mastodon-openclaw-bridge.service is in an auto-restart crash loop:
+    URLError [Errno 111] Connection refused -> /api/v1/accounts/verify_credentials
+    at API = http://127.0.0.1:3000
+  Root cause: the Mastodon WEB container is down. `podman ps -a` shows
+    300x3-web   Exited (143) 4 weeks ago
+  while mastodon-db / mastodon-redis / mastodon-sidekiq are Up 7 hours. Nothing is listening
+  on 127.0.0.1:3000 or :4000.
+  Consequence: the Mastodon forum side of the bot is DOWN - the bridge cannot poll
+  notifications or post replies until the web container is started. The website chat box
+  (openclaw-chat-relay -> sitebot) is UNAFFECTED and verified working.
+  NOT ACTIONED: starting the Mastodon web container is an operational change to a
+  production service and is outside the scope of the requested restart; also note the
+  container has been down 4 weeks, so its intended state needs operator confirmation
+  before it is brought back (README 4.1 rule 12/13: stop and report, do not force).

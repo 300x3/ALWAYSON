@@ -1,0 +1,256 @@
+# ALWAYS ON - operational journal
+# 2026-10-01 - ao-grafana / ao-metabase login outage: KWallet readiness gate
+# Session: Cline, coordination document E.
+# Host: scottw-ms7b44, kernel 7.0.0-38-generic, systemd --user, Podman rootless.
+#
+# SYMPTOM
+#   After the 15:08 reboot/login, ao-grafana.service and ao-metabase.service were
+#   both INACTIVE (failed). Both are in the ao-admin domain and both materialize
+#   secrets from KDE Wallet in an ExecStartPre.
+#
+#   $ systemctl --user is-active ao-grafana.service   -> inactive
+#   $ systemctl --user is-active ao-metabase.service  -> inactive
+#   $ journalctl --user -u ao-grafana.service
+#       15:08:20 Starting ao-grafana.service
+#       15:08:21 Failed with result 'exit-code'   (x5 attempts)
+#       15:08:25 Start request repeated too quickly.
+#       (grafana exits 1; metabase exits 3 = "KDE Wallet entry unavailable")
+#
+# EVIDENCE / MEASUREMENT
+#   $ pgrep -a kwalletd6
+#       3227 /usr/bin/kwalletd6                  # daemon ALREADY up at 15:08
+#   $ systemctl --user status ao-wallet-bridge.service
+#       OK: wallet-backed Mastodon env materialized   15:08:40
+#       OK: wallet-backed sales database env         15:08:40
+#   Grafana's first attempt was 15:08:20 -- ~20s BEFORE the wallet was usable.
+#   $ ls -la ~/.local/share/ao-secrets/reporting-grafana-admin.env.tmp
+#       -rw-rw-r-- 1 scottw scottw 0 ... 15:08:23     # 0 bytes, mode 0664
+#   A 0-byte .tmp proves the write block never ran, i.e. hasEntry returned false,
+#   i.e. the wallet was LOCKED -- not a missing file or a bad password.
+#
+# ROOT CAUSE
+#   fetch-kwallet-secret.sh gated on the WRONG QUESTION. It waited for:
+#       busctl --user list | grep -q 'org.kde.kwalletd6'
+#   which asks "is the daemon PRESENT on the bus". kwalletd6 is D-Bus-activated
+#   the instant anything touches it and appears LONG BEFORE the wallet is
+#   unlocked, so the predicate returned true immediately and the intended 60s
+#   wait never actually waited. The units then read a locked wallet, the
+#   ExecStartPre failed, and systemd exhausted its 5 fast restarts in ~5 seconds.
+#   fetch-reporting-env.sh (ao-metabase) was worse: it had NO wait at all.
+#
+# MORE
+# FIXES APPLIED (both scripts, unprivileged, no data touched)
+#   1. Replaced the readiness predicate with a real unlock test using the KWallet
+#      D-Bus method isOpen(handle). Retained the 60s / 30x2s retry budget.
+#      NOTE: isOpen has two overloads, isOpen(wallet,app) and isOpen(handle);
+#      dbus-python binds the proxy to the LAST declared signature, so the
+#      one-argument form must be used or it raises TypeError.
+#   2. Added the same wait to fetch-reporting-env.sh, which had none.
+#   3. Added `umask 077` to fetch-kwallet-secret.sh. It had none, so
+#      "$OUTPUT_FILE.tmp" was created 0664 and the secret was world-readable for
+#      the whole write block; only the final file got chmod 600. The sibling
+#      fetch-reporting-env.sh already had umask 077 -- the omission was an
+#      oversight, and check-secrets-exposure.sh could not see it because it
+#      inspects final files only.
+#   4. Added an EXIT trap to remove a stale .tmp on failure (installed AFTER the
+#      arg check and OUTPUT_FILE assignment, since `set -u` would abort the trap
+#      on the usage-error path).
+#
+# TESTS RUN (all with positive controls, per document B's methodology rules)
+#   $ bash -n <both scripts>                                  -> syntax OK
+#   $ fetch-kwallet-secret.sh                                 -> usage exit 1,
+#       no "unbound variable" from the trap
+#   $ fresh fetch output mode                                 -> 600
+#   $ negative control: gate against a missing daemon         -> FALSE (correct)
+#   $ positive control: failing fetch leaves no .tmp          -> no-CLEANED
+#   $ fetch-reporting-env.sh grafana <out>                    -> exit 0, mode 600
+#
+# RECOVERY + VERIFICATION
+#   $ rm -f ~/.local/share/ao-secrets/reporting-grafana-admin.env.tmp
+#       (0-byte file, contained no secret)
+#   $ systemctl --user restart ao-grafana.service   -> active; container Up
+#   $ systemctl --user restart ao-metabase.service  -> active; container Up
+#   $ curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3001/api/health
+#       200   {"database": "ok", "version": "11.6.0"}
+#   $ curl -s -u "admin:<value read from ao-admin/grafana-admin-password>" \
+#          http://127.0.0.1:3001/api/health
+#       200   # admin login authenticates with the wallet value
+#   $ curl -s --max-time 20 http://127.0.0.1:3002/api/health
+#       200   {"status":"ok"}
+#       NOTE: metabase first answered 503, which was only its 18.3s init
+#       ("Metabase Initialization COMPLETE in 18.3 s"), NOT a fault. Retried
+#       after init -> 200. Do not read an early 503 as a failure.
+#   $ systemctl --user list-units --all | grep -E '\bfailed\b'   -> empty
+#   $ bash /ALWAYSON/scripts/validation/check-secrets-exposure.sh
+#       OK: no secret-shaped content in tracked files   (exit 0)
+#   $ find ~/.local/share/ao-secrets/ -name '*.tmp'      -> empty
+#   $ stat -c '%a' on all materialized env files        -> 600, except the two
+#       the bridge deliberately sets 0640 for the ao-sales consumer ACL
+#       (mastodon.env, sales-db.env). Those are by design, via setfacl.
+#
+# SECRET HANDLING
+#   No secret value was printed, logged or journalled. Verification used key
+#   names, byte counts, file modes, HTTP status codes and sha/length reasoning
+#   only. The admin-login check passed the wallet value straight to curl from a
+#   shell variable that was unset immediately afterwards.
+#
+# NOT DONE (deliberately, needs operator approval)
+#   - ~/.bashrc LM_API_TOKEN duplicate (document B open finding 1). Untouched.
+#   - pkexec-post-deploy.sh password generation (B/A open finding 6). Untouched.
+#   - No Quadlet was edited and nothing was committed. The restart ordering gap
+#     between these units and ao-wallet-bridge.service remains, but fixing it in
+#     the Quadlets would mean a flat redeploy of two domains; the readiness-gate
+#     fix removes the dependency on that ordering instead, so it is left alone.
+#
+# JOURNALLED BY: Cline session, 2026-10-01 ~22:20 PDT
+
+# =========================================================================
+# ADDENDUM 2 - "FIX THE GAPS": closing the single-authority violations
+# Same session, ~16:30 PDT. Operator authorised fixing the gaps.
+#
+# GAP 1 - .bashrc held a byte-identical copy of a wallet-held token. CLOSED.
+#   Verified first that nothing consumes it: no hit in /etc/systemd/system,
+#   ~/.config/systemd/user, /ALWAYSON/quadlet, /ALWAYSON/scripts or
+#   ~/.config/containers. The only reference to the credential anywhere is
+#   ~/.openclaw/openclaw.json:130 listing "lmstudio-api-key" as a wallet-backed
+#   provider, i.e. the wallet path. NOT ROTATED - the wallet copy is the good
+#   one and rotating a working key adds risk for no gain.
+#     - line 129 removed (1 line; 137 -> 136); bash -n OK
+#     - ~/.bashrc            0644 -> 0600
+#     - ~/.bash_history      0644 -> 0600, 6 entries scrubbed
+#   SCRUBBING WAS A TWO-STEP PROCESS AND THE FIRST STEP WAS INCOMPLETE.
+#   My initial pass replaced only lines matching LM_API_TOKEN=<value> or
+#   LM_API_TOKEN="<value>". A verification sweep afterwards found the live
+#   token STILL present on 3 lines of .bash_history, in a different shape:
+#     timeout 15 curl -s -H "Authorization: Bearer <token>" http://127.0.0.1:1234/...
+#   A regex keyed on the variable NAME misses a bare token pasted into a curl
+#   header. Re-scrubbed by replacing the literal wallet value. Lesson: when
+#   scrubbing, match the VALUE, not the variable name.
+#
+#   I ALSO REINTRODUCED THE LEAK MYSELF. Backing up .bashrc and .bash_history
+#   before editing created two new files that still contained the token - and
+#   the .bashrc backup landed at 0644, i.e. exactly the world-readable problem
+#   being fixed. Both backups were chmod 600 and then scrubbed of the value.
+#   The value now exists in exactly ONE place: the wallet. Verified across
+#   .bashrc, .bash_history, both backups and .profile -> 0 files hold it.
+#
+# GAP 2 - world-readable files in ~/.openclaw. CLOSED.
+#   4 files were 0664. Confirmed first that mastodon-bridge.log has 0 keyword
+#   hits for password/token/secret/authorization, and that mastodon-bridge-state
+#   .json holds only lastNotificationId (str) and updatedAt (float) - no
+#   credential. Only scottw runs OpenClaw, so group/other read served no
+#   purpose. All 4 set to 0600; 0 world-readable files remain in ~/.openclaw.
+#   OpenClaw still running (5 processes) and state file still valid JSON.
+#
+# GAP 3 - provisioners could silently rotate a LIVE database role. CLOSED.
+#   provision-metaread.sh and provision-sales-reporting.sh read the wallet
+#   first, but on a MISSING entry fell through to openssl rand and then wrote
+#   the new value to the wallet. A typo'd folder, a wrong --wallet, or simply
+#   a LOCKED WALLET all read as "no entry" - and a locked wallet is exactly
+#   the condition this session spent all day fixing. The failure mode was
+#   therefore silent credential rotation of a running PostgreSQL role.
+#   Generation is now opt-in via --generate-new; without it the script exits 3
+#   and explains why. Reuse path unchanged, so normal operation is unaffected.
+#   Tests: bash -n both OK; wallet entry present -> reuse path proceeds (len 32);
+#   bad arg -> exit 2; positive control with a forced-empty wallet read ->
+#   exit 3 (refused) without the flag, exit 0 with it.
+#
+# GAP 4 - the ~130 stale /tmp/ao-* files. DELIBERATELY NOT TOUCHED. They
+#   belong to other sessions; the never-delete-another-session's-work rule
+#   applies. None held a secret.
+#
+# NOT CLOSED - stated plainly rather than papered over:
+#   - The locked-wallet readiness path still has no live test. KWallet has no
+#     lock(); closeAllWallets() re-unlocks via PAM on the next open(). The
+#     isOpen gate is proven against an unlocked wallet and a missing daemon
+#     only. It will first be exercised for real at the next login.
+#   - PID 9709 (node /usr/bin/cline) still holds LM_API_TOKEN in its
+#     environment, inherited before the .bashrc edit. It disappears when that
+#     process exits. Cannot be cleared from outside the process.
+#
+# STATE AFTER: ao-grafana and ao-metabase active, 0 failed units,
+# check-secrets-exposure.sh exit 0, wallet 18 folders / 39 entries unchanged,
+# Passwords/lmstudio-api-key still present at 35 chars (not rotated).
+# ADDENDUM - later the same session (follow-up work)
+#
+# 1. LOCK-BASED TEST OF THE GATE: ATTEMPTED, AND IT DOES NOT WORK.
+#    The locked-wallet path could not be tested directly. KWallet exposes no
+#    lock()/unlock() method; the only lever is closeAllWallets(). Calling it
+#    does NOT leave the wallet locked -- the next open() transparently re-unlocks
+#    via PAM, so the gate still returns TRUE. Measured:
+#       STEP 1: gate with wallet OPEN   -> TRUE
+#       STEP 2: closeAllWallets()
+#       STEP 3: gate with wallet CLOSED -> TRUE  (not FALSE)
+#    CONCLUSION: the locked path remains proven only by the 0-byte .tmp
+#    forensics, NOT by a live lock/unlock cycle. Do not report it as tested.
+#    Wallet verified fully intact afterwards: 18 unique folders, 39 ao-*+
+#    Passwords entries -- identical to the pre-test inventory.
+#
+# 2. TRAP: folderList RETURNS DUPLICATE ROWS. An uncounted enumeration reported
+#    "990 rows / 972 folders", which looks like catastrophic duplication.
+#    De-duplicating with set() gives the true 18. Count unique values, never
+#    rows. Recorded in README 14.1.4.
+#
+# 3. check-secrets-exposure.sh EXTENDED to cover the .tmp exposure class that
+#    it structurally could not see (it globbed only *.env/*.credential, so
+#    *.env.tmp was invisible -- exactly the bug fixed in item 3 above).
+#       $ bash scripts/validation/check-secrets-exposure.sh
+#       OK: no secret-shaped content in tracked files   (exit 0)
+#    NEGATIVE TESTS (planted violations, all correctly detected, all removed):
+#       0-byte orphan .env.tmp at 0600        -> flagged as leftover debris
+#       world-readable .env.tmp with a secret -> flagged on mode
+#       world-readable plain .env with secret -> flagged (no regression)
+#       baseline clean                        -> exit 0
+#    I introduced a bug while writing this: the first version applied the
+#    "leftover debris" branch to EVERY matched file and wrongly failed 4
+#    healthy files (payment.env, legacy-alwayson-folder.env, grafana-admin.env,
+#    photogrammetry-volume.env). Fixed by scoping the branch to *.tmp only.
+#
+# 4. README RECONCILED (README 3028-3029 and 3229-3276):
+#    - The line claiming ao-payment/ao-field/ao-ledger/ao-archive were
+#      "provisioned empty 2026-08-31" was WRONG and is now retracted in place.
+#      folderList does not return them. Verified absent, not merely empty.
+#    - Added the dbus-python overload trap (opposite error text from busctl).
+#    - Added the folderList duplicate-rows trap.
+#    - Added the isOpen-not-daemon-presence rule and this outage as the
+#      worked example.
+#    - Added the closeAllWallets/lock-test limitation.
+#
+# 5. pCloudDrive/PUBLIC FOLDER SCANNED (document B open finding 4 -- the first
+#    named prohibited path in rule 7, previously never scanned).
+#    Size: 50422 files total. The repo has 0 commits and no remote, so nothing
+#    has ever been committed or pushed from it.
+#    Method: files >2MB, node_modules/ and .git/ excluded -> 12998 candidate
+#    files, split into 6 chunks and scanned inside the 30s command ceiling.
+#    Full-tree background scans were repeatedly killed by that ceiling, which
+#    is why the work was chunked.
+#    RESULT: exactly ONE hit, in both chunks:
+#      ARCHIVED/300X3-FRONTEND/X-ARCHIVE/-GENERAL-FILE_ME/
+#        BACKEND DEVELOPMENT REPORT - UNFORMATTED
+#      lines 2082 and 2389: export MISTRAL_API_KEY=<redacted>
+#    CHARACTERISED WITHOUT PRINTING THE VALUE:
+#      len=24, prefix class "you...", sha256 8bedb84b4ace (first 12),
+#      matches placeholder markers ("your"/example/changeme) -> PLACEHOLDER,
+#      not a live credential.
+#      No entry matching MISTRAL exists anywhere in the wallet (presence check
+#      only, across all ao-* and Passwords folders), so there is no live
+#      credential for it to be.
+#      The two occurrences are byte-identical (same sha256).
+#    4 credential-shaped FILENAMES repo-wide were also checked: all are
+#    third-party vendor files inside an archived WordPress backup
+#    (cacert.pem, infusionsoft.pem) plus two Indonesian translation binaries
+#    (id_ID.mo). Public CA certs and translation files, not secrets.
+#    VERDICT: no live secret in the pCloud Public Folder. The one hit is a
+#    documentation placeholder and should still be scrubbed before that folder
+#    is ever shared -- flagged for the operator, not changed by me.
+#
+# 6. roundtrip / roundtrip2: confirmed STILL PRESENT in ao-mastodon (21
+#    entries, unchanged). NOT deleted -- deleting wallet entries is a write to
+#    the secret store and I did not treat B's "safe to delete" as sufficient
+#    authorisation. Left for explicit operator confirmation.
+#
+# 7. 130 pre-existing /tmp/ao-* files belong to EARLIER sessions (timestamps
+#    15:17-16:16, including /tmp/ao-G-*.md for a "document G" that does not
+#    exist in COORDINATION BETWEEN AI/). Zero were created after 22:00 today,
+#    so none are mine. Left untouched per the never-delete-another-session's-
+#    work rule. My own scratch files were all removed.

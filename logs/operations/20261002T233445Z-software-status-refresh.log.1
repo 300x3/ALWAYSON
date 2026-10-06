@@ -1,0 +1,30 @@
+=== ALWAYS ON software status refresh ===
+start (UTC) : 2026-10-02T23:34:45Z
+host        : scottw-ms7b44
+kernel      : 7.0.0-38-generic
+git HEAD    : a90609a4a89363d4b282ccb03a74c53f6ea40ef7
+script      : /ALWAYSON/scripts/build-update/provenance-log.py
+offline     : no
+backup      : /ALWAYSON/backups/software-status/20261002T233445Z
+wrote /ALWAYSON/docs/software-status.md
+wrote /ALWAYSON/data/build-update/update-plan.json: {'behind': 15, 'eligible': 6, 'excluded': 193}
+wrote /ALWAYSON/tmp/software-status.html
+plan        : 15 behind -> 6 eligible, 193 excluded by recorded rule
+  excluded  : ROS 2 lyrical (whole train) - no safe mechanical step exists for this source; needs a manual decision
+  excluded  : ao-ingress-payment - rule 7/14: production payment path
+  excluded  : ao-mastodon-streaming - deliberate decision on record: Mastodon streaming deliberately held
+  excluded  : ao-nodeodm - rule 10: photogrammetry drive verification
+  excluded  : ao-webodm-web - rule 10: photogrammetry drive verification
+  excluded  : ao-webodm-worker - rule 10: photogrammetry drive verification
+  excluded  : cline - no safe mechanical step exists for this source; needs a manual decision
+  excluded  : gh (GitHub CLI) - no safe mechanical step exists for this source; needs a manual decision
+  excluded  : pymavlink (mav* tools) - no safe mechanical step exists for this source; needs a manual decision
+released-hash: 38 container(s) with an upstream digest, 0 without
+cache        : 50 entries
+pdf: rendered via headless chrome
+
+rows        : 474
+end (UTC)   : 2026-10-02T23:37:35Z
+exit        : 0
+affirmation : no package installed, promoted, deployed or restarted.
+log         : /ALWAYSON/logs/operations/20261002T233445Z-software-status-refresh.log

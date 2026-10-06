@@ -1,0 +1,61 @@
+# ALWAYS ON operational journal — COMM session — 2026-10-04
+# Scope: re-verification of COMM-01..COMM-08 + new diagnosis for COMM-08.
+# No secret values printed: only key names, lengths, counts and non-secret config lines.
+# No operational change made. No file outside this session's section edited.
+
+## §15.4.11 — Cloudflare tunnel flap narrowed to the LOCAL PATH (COMM-08)
+systemctl --user show cloudflared-alwayson.service -p NRestarts -p ActiveState
+  ActiveState=active   NRestarts=1          <- unit state reports HEALTHY while flapping
+Flap counts by window (grep -c 'Lost connection with the edge'):
+  15 min ago: 0    1 hour ago: 26    6 hours ago: 121    24 hours ago: 384
+Rate = 384 events over 204 distinct minutes => ~16/hour, one flap ~every 4 min.
+  => NOT bursty. The "15 min ago: 0" sample is the misleading one.
+Registered tunnel connections by PoP (24h):
+  phx01 224, sjc01 59, sjc06 64, lax05 23, lax07 17, lax08 20, lax09 19, lax10 11, lax11 15
+  distinct edge IPs = 4      transport = http2 on all 452 registrations
+Loss counts per connection: connIndex 0/1/2/3 = 96/94/95/99 (near-identical)
+  14 timestamps in last 6h carry >=3 simultaneous losses.
+Route/reset/timeout signatures: 0
+=> CONCLUSION: 3 independent PoPs cannot drop 4 connections in the same second.
+   Fault is upstream of the PoP and common to all four => shared LOCAL path
+   (uplink/NAT/host network path). NOT Cloudflare edge, NOT Mastodon, NOT unit state.
+Prior session's attribution ("Cloudflare edge-to-tunnel hop") is RETRACTED — disproved above.
+Origin clean: mastodon-web 5xx=0, mastodon-sidekiq 'error delivering'=0, queue:push_public=0
+Public impact between flaps (curl -4 per IPv6 trap): 200 x8. This is recovery, NOT a fix;
+  the same probe returned 502 x5 during a burst. Do not report as resolved.
+
+## COMM-01 re-verification (no file edited; drift is in other sessions' files)
+All rows D1-D9 UNCHANGED vs live tree:
+  D1 config/mastodon/mastodon.env.example:7  LOCAL_DOMAIN=300x3.com
+  D2 scripts/operations/fetch-openclaw-mastodon-env.sh:17  MASTODON_SERVER=https://300x3.com
+  D3 same file:19  MASTODON_BOT_EMAIL=300x3@posteo.net
+  D6 config/mastodon/instance-policy.yaml:20 registrations "open with approval gate"
+     (line 20 confirmed — the earlier claim of line 24 was wrong and is now re-confirmed)
+  D8/D9 config/platform/version-matrix.yaml:41,51
+Runtime correct: deployed mastodon.env LOCAL_DOMAIN=mastodon.300x3.com
+D6 vs live service STILL CONTRADICTS:
+  /api/v1/instance -> registrations=False approval_required=False version=4.3.7
+D2 proven LIVE by reading the call path (scripts/mastodon/post.sh:17,19,21):
+  helper runs every invocation -> set -a sources it -> ${MASTODON_SERVER:-127.0.0.1:3000}
+  resolves to the apex storefront; the safe loopback fallback is unreachable DEAD CODE.
+
+## Items left untouched (no approval given, or belongs to another session)
+COMM-05 (MX absent; needs operator DNS/package/port decision)
+COMM-06 (needs operator's Konqueror session — will not fake a human verification)
+COMM-07 (public post + directory submission = external publication, needs approval)
+  Re-confirmed: 300x3.com MX answers=0. No publication performed.
+COMM-02/03/04 already Implemented in §19; re-read, not re-claimed.
+
+## Errors I made and corrected (recorded per protocol)
+1. Attributed the flap to the Cloudflare edge. Wrong; disproved by 9-PoP/4-IP topology.
+2. Misread burst-vs-steady from a 15-min window returning 0. Real rate ~16/hour.
+3. Chased "ERR failed to serve ... context canceled" as a cause. It is the flap's shadow.
+4. Parsed journalctl -o short-iso field $2 as seconds; it is the HOSTNAME. Produced the
+   absurd "1 distinct second in 24h from 384 events". Correct field is $1 -> 204 minutes.
+
+## Files changed (this session)
+agents/COORDINATION/15-sales-mastodon-openclaw-and-local-ai/section.md   (+109, new 15.4.11)
+agents/COORDINATION/proposals/comm-COMM-01.md                            (re-verification)
+agents/COORDINATION/proposals/comm-COMM-08.md                            (update + retraction)
+README.md                                                                (COMPILED, not hand-edited)
+compile.py --check => identical (idempotent)

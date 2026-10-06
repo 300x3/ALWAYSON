@@ -1,0 +1,150 @@
+# 2026-10-01 — Renamed Owner account aoadmin -> admin (operator-approved)
+
+README §19.3 / ST-13. Operator instruction: "make the account admin instead of
+aoadmin and link them." Approved with alias (alsoKnownAs) to preserve old links.
+
+## Why `aoadmin` existed — and why the README was WRONG about why
+
+README claimed "`admin` is a reserved username in Mastodon". That is **not
+hardcoded**. It comes from a per-instance **setting**:
+
+    /opt/mastodon/app/validators/unreserved_username_validator.rb
+      settings_reserves_username? -> Setting.reserved_usernames.include?(username)
+
+    $ rails runner
+    reserved_usernames=["admin","support","help","root","webmaster",
+                        "administrator","mod","moderator"]
+    includes 'admin' => true
+    Devise.pam_authentication=false        # so the PAM path is irrelevant here
+
+The name was freeable by editing the setting. No code change, no image change.
+
+## Change applied
+
+    1. Setting.reserved_usernames -= ["admin"]
+       ["admin","support",...] -> ["support","help","root","webmaster",
+                                   "administrator","mod","moderator"]
+    2. Account.update!(username: 'admin', also_known_as: [old_aoadmin_uri])
+       inside ActiveRecord::Base.transaction
+    3. uri/url updated separately (see trap below)
+
+Account id 117363090403638110 throughout - no new account created.
+
+## Verified live
+
+    id: https://mastodon.300x3.com/users/admin
+    preferredUsername: admin
+    alsoKnownAs: ['https://mastodon.300x3.com/users/aoadmin']
+    inbox: https://mastodon.300x3.com/users/admin/inbox
+    webfinger acct:admin@mastodon.300x3.com -> 200
+    webfinger acct:aoadmin@mastodon.300x3.com -> 404   (expected; alias is at actor level)
+
+Integrity: email still admin@300x3.com; followers preserved (bot still follows);
+0 accounts left pointing at the old aoadmin uri; exactly 1 local account named
+admin. mastodon-web/streaming/db/redis/sidekiq and the OpenClaw bridge all
+unchanged and active.
+
+## Why this also fixes the ghost profile
+
+Earlier finding: mastodon.social held a stale cached `admin@mastodon.300x3.com`
+(account id 117327389970897359) that did not exist in our DB, so a follow
+directed at it was delivered to an inbox with no local match and vanished. The
+real account now occupies `.../users/admin` again, so that handle resolves. The
+follow still has to be re-sent by the operator.
+
+## Traps
+
+- **`Account#update!(username:)` does NOT rewrite `uri`/`url`.** After the rename
+  the row read `username=admin` but `uri=.../users/aoadmin` — a split identity.
+  ActivityPub follows `uri`, not `username`, so federation would still have used
+  the old actor. Fixed with an explicit
+  `Account.where(id:).update_all(uri:, url:)`. **Always check `uri` after a rename.**
+- **`also_known_as` is the alias mechanism** (published as `alsoKnownAs` in the
+
+---
+
+# Follow-up — the rename left a STALE inbox_url; inbound follow silently lost
+
+The rename fixed `username`, `uri` and `url` but **not `inbox_url`**. A follow
+directed at the new handle was delivered by mastodon.social to the *old* inbox
+path, which 404s, so it vanished with no error on either side. Operator-reported
+symptom: the mastodon.social profile page shows "follow requested" forever.
+
+## Symptom
+
+- Operator sees "Requested" on the mastodon.social admin profile page.
+- Our side: `FollowRequest.count == 0`, no `Follow` row, **no inbox POST at all**
+  (last delivery 23:11:37, the bot follow).
+- The remote *sent* something; it never reached us.
+
+## Cause
+
+    $ rails runner   (admin account, id 117363090403638110)
+    username=admin
+    uri=https://mastodon.300x3.com/users/admin
+    url=https://mastodon.300x3.com/users/admin
+    inbox_url=https://mastodon.300x3.com/users/aoadmin/inbox   <-- STALE
+    outbox_url=""                                                <-- EMPTY
+    shared_inbox_url="https://mastodon.300x3.com/inbox"
+
+`shared_inbox_url` was populated, so delivery went to the **per-account** stale
+`inbox_url` rather than the shared `/inbox` that works.
+
+    $ curl -X POST .../users/aoadmin/inbox   -> 404   (dead path)
+    $ curl -X POST .../users/admin/inbox     -> 401   (alive; wants a signature)
+
+A 404 on the remote delivery target is silent from the sender's perspective.
+
+## Fix
+
+    Account.update!(inbox_url: "https://mastodon.300x3.com/users/admin/inbox",
+                    outbox_url: "https://mastodon.300x3.com/users/admin/outbox")
+
+Verified live: the actor document advertises the matching inbox/outbox, and
+`POST .../users/admin/inbox` returns 401 (alive) rather than 404.
+
+## Audit: all local accounts are now self-consistent
+
+    mastodon.internal  uri=/users/mastodon.internal  inbox matches
+    admin              uri=/users/admin              inbox matches
+    bot                uri=/users/bot                inbox matches
+
+`bot` and `mastodon.internal` have empty `outbox_url`; that is normal in
+Mastodon (outbox is optional) and their inboxes agree, so not a fault.
+
+## Traps — the general lesson
+
+- **A username/uri rename in Mastodon does NOT rewrite `inbox_url` or
+  `outbox_url`.** Same class as the `uri` trap above, one level deeper: I fixed
+  `uri`/`url` and stopped, without checking the sibling columns.
+- **Always cross-check `inbox_url` against `uri` after any account rename.** A
+  remote that cannot reach the inbox loses the activity *silently* — no NACK, no
+  local log line, because the POST never arrives.
+- **`shared_inbox_url` being set does not save you** — Mastodon prefers the
+  per-account inbox when one is present.
+- A 404 on an inbound POST is invisible to the sender. Only comparing "remote
+  says sent" against "our inbox log is empty" reveals it.
+- `Setting.reserved_usernames` is what made the rename possible; it is a
+  setting, not a hardcoded Mastodon restriction (README previously claimed
+  otherwise and has been corrected).
+
+## Not done
+
+- The follow still has to be re-sent by the operator; the delivery target is
+  correct as of now.
+- The stale `admin` cache on mastodon.social (id 117327389970897359) now points
+  at the correct URI, so it should re-resolve; purging it would require an
+  authenticated delete on a third-party server (operator approval).
+
+  actor document); it does not make the old *WebFinger handle* resolve. Remote
+  servers follow the alias when re-resolving, not by probing the old handle.
+- `users.username` and `accounts.acct` do not exist in 4.3 (use
+  `Account.find_by(username:, domain:)`); `Status#local_only` does not exist
+  either (the column is `local`).
+- A 404 from WebFinger means "not resolvable **now**", not "never existed" - a
+  remote server may still have cached the actor. Check the DB and the remote cache
+  before concluding an account never existed. (I got this wrong earlier.)
+
+## Files changed (UNCOMMITTED at time of writing)
+
+    README.md   (5 places: canonical accounts, ST-13, ST-14, federation-edge row)

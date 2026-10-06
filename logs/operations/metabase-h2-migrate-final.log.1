@@ -1,0 +1,326 @@
+Warning: environ value jdk-21.0.6+7 for key :java-version has been overwritten with 21.0.6
+2026-09-25 03:45:15,608 INFO metabase.util :: Maximum memory available to JVM: 7.8 GB
+2026-09-25 03:45:18,372 INFO util.encryption :: Saved credentials encryption is DISABLED for this Metabase instance. 🔓 
+ For more information, see https://metabase.com/docs/latest/operations-guide/encrypting-database-details-at-rest.html
+2026-09-25 03:45:23,719 INFO driver.impl :: [34mRegistered abstract driver :sql[0m  🚚
+2026-09-25 03:45:23,801 INFO driver.impl :: [34mRegistered abstract driver :sql-jdbc[0m (parents: [:sql]) 🚚
+2026-09-25 03:45:23,806 INFO metabase.util :: [32mLoad driver :sql-jdbc took 11.7 ms[0m
+2026-09-25 03:45:23,807 INFO driver.impl :: [34mRegistered driver :h2[0m (parents: [:sql-jdbc]) 🚚
+2026-09-25 03:45:24,651 INFO driver.impl :: [34mRegistered driver :mysql[0m (parents: [:sql-jdbc]) 🚚
+2026-09-25 03:45:24,683 INFO driver.impl :: [34mRegistered driver :postgres[0m (parents: [:sql-jdbc]) 🚚
+2026-09-25 03:45:25,488 INFO core.core :: 
+Metabase v0.54.1 (774e5a3) 
+
+Copyright © 2026 Metabase, Inc. 
+
+Metabase Enterprise Edition extensions are NOT PRESENT.
+2026-09-25 03:45:27,516 INFO driver.impl :: [34mRegistered abstract driver :metabase.driver.sql-jdbc.execute.legacy-impl/use-legacy-classes-for-read-and-set[0m  🚚
+2026-09-25 03:45:27,522 INFO driver.impl :: [34mRegistered abstract driver :metabase.driver.sql.query-processor.empty-string-is-null/empty-string-is-null[0m  🚚
+2026-09-25 03:45:27,953 INFO cmd.copy :: [34mSet up h2 source database and run migrations...[0m 
+2026-09-25 03:45:27,954 INFO db.setup :: [36mVerifying h2 Database Connection ...[0m
+2026-09-25 03:45:28,409 INFO db.setup :: Successfully verified H2 2.1.214 (2022-06-13) application database connection. ✅
+2026-09-25 03:45:28,410 INFO db.setup :: [36mChecking if a database downgrade is required...[0m
+2026-09-25 03:45:28,449 INFO liquibase.database :: Set default schema name to PUBLIC
+2026-09-25 03:45:29,120 INFO liquibase :: Parsed changelog file 'liquibase.yaml'
+2026-09-25 03:45:29,286 INFO db.setup :: Running Database Migrations...
+2026-09-25 03:45:29,286 INFO db.setup :: Setting up Liquibase...
+2026-09-25 03:45:29,291 INFO liquibase.database :: Set default schema name to PUBLIC
+2026-09-25 03:45:29,560 INFO liquibase :: Parsed changelog file 'liquibase.yaml'
+2026-09-25 03:45:29,574 INFO db.liquibase :: Updating liquibase table to reflect consolidated changeset filenames
+2026-09-25 03:45:29,609 INFO liquibase.lockservice :: Successfully acquired change log lock
+2026-09-25 03:45:29,610 INFO db.liquibase :: No migration lock found.
+2026-09-25 03:45:29,610 INFO db.liquibase :: Migration lock acquired.
+2026-09-25 03:45:29,678 INFO liquibase.lockservice :: Successfully released change log lock
+2026-09-25 03:45:29,679 INFO db.setup :: Liquibase is ready.
+2026-09-25 03:45:29,679 INFO db.liquibase :: Checking if Database has unrun migrations...
+2026-09-25 03:45:29,683 INFO liquibase.database :: Set default schema name to PUBLIC
+2026-09-25 03:45:29,897 INFO liquibase :: Parsed changelog file 'liquibase.yaml'
+2026-09-25 03:45:29,922 INFO liquibase.changelog :: Reading from "PUBLIC"."DATABASECHANGELOG"
+2026-09-25 03:45:30,199 INFO db.liquibase :: No unrun migrations found.
+2026-09-25 03:45:30,200 INFO db.setup :: Database Migrations Current ... ✅
+2026-09-25 03:45:30,229 INFO metabase.util :: [32mDatabase setup took 2.3 s[0m
+2026-09-25 03:45:30,230 INFO cmd.copy :: [32m[OK][0m
+2026-09-25 03:45:30,231 INFO cmd.copy :: [34mSet up postgres target database and run migrations...[0m 
+2026-09-25 03:45:30,232 INFO db.setup :: [36mVerifying postgres Database Connection ...[0m
+2026-09-25 03:45:30,891 INFO db.setup :: Successfully verified PostgreSQL 18.6 (Ubuntu 18.6-0ubuntu0.26.04.1) application database connection. ✅
+2026-09-25 03:45:30,891 INFO db.setup :: [36mChecking if a database downgrade is required...[0m
+2026-09-25 03:45:30,921 INFO liquibase.database :: Set default schema name to public
+2026-09-25 03:45:31,075 INFO liquibase :: Parsed changelog file 'liquibase.yaml'
+2026-09-25 03:45:31,079 INFO liquibase.changelog :: Creating database history table with name: public.databasechangelog
+2026-09-25 03:45:31,103 INFO db.setup :: Running Database Migrations...
+2026-09-25 03:45:31,103 INFO db.setup :: Setting up Liquibase...
+2026-09-25 03:45:31,112 INFO liquibase.database :: Set default schema name to public
+2026-09-25 03:45:31,298 INFO liquibase :: Parsed changelog file 'liquibase.yaml'
+2026-09-25 03:45:31,326 INFO db.liquibase :: Updating liquibase table to reflect consolidated changeset filenames
+2026-09-25 03:45:31,329 INFO liquibase.logging :: Successfully acquired change log lock
+2026-09-25 03:45:31,329 INFO db.liquibase :: No migration lock found.
+2026-09-25 03:45:31,330 INFO db.liquibase :: Migration lock acquired.
+2026-09-25 03:45:31,340 INFO liquibase.logging :: Successfully released change log lock
+2026-09-25 03:45:31,341 INFO db.setup :: Liquibase is ready.
+2026-09-25 03:45:31,341 INFO db.liquibase :: Checking if Database has unrun migrations...
+2026-09-25 03:45:31,356 INFO liquibase.database :: Set default schema name to public
+2026-09-25 03:45:31,496 INFO liquibase :: Parsed changelog file 'liquibase.yaml'
+2026-09-25 03:45:31,521 INFO liquibase.changelog :: Reading from public.databasechangelog
+2026-09-25 03:45:31,745 INFO db.liquibase :: Database has unrun migrations. Checking if migration lock is taken...
+2026-09-25 03:45:31,750 INFO liquibase.logging :: Successfully acquired change log lock
+2026-09-25 03:45:31,750 INFO db.liquibase :: No migration lock found.
+2026-09-25 03:45:31,751 INFO db.liquibase :: Migration lock acquired.
+2026-09-25 03:45:31,760 INFO liquibase.database :: Set default schema name to public
+2026-09-25 03:45:31,947 INFO liquibase :: Parsed changelog file 'liquibase.yaml'
+2026-09-25 03:45:31,966 INFO liquibase.changelog :: Reading from public.databasechangelog
+2026-09-25 03:45:32,061 INFO db.liquibase :: Running 474 migrations ...
+2026-09-25 03:45:32,193 INFO liquibase.changelog :: Reading from public.databasechangelog
+2026-09-25 03:45:32,348 INFO liquibase.command :: Using deploymentId: 0307932347
+2026-09-25 03:45:32,351 INFO liquibase.changelog :: Reading from public.databasechangelog
+2026-09-25 03:45:32,483 INFO liquibase.snapshot :: Creating snapshot
+2026-09-25 03:45:33,332 INFO liquibase.changelog :: SQL in file initialization/metabase_postgres.sql executed
+2026-09-25 03:45:33,340 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v00.00-000::qnkhuat ran successfully in 860ms
+2026-09-25 03:45:33,357 INFO liquibase.changelog :: Table action created
+2026-09-25 03:45:33,359 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v45.00-001::snoe ran successfully in 12ms
+2026-09-25 03:45:33,374 INFO liquibase.changelog :: Table query_action created
+2026-09-25 03:45:33,377 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v45.00-002::snoe ran successfully in 13ms
+2026-09-25 03:45:33,388 INFO liquibase.changelog :: Primary key added to query_action (action_id, card_id)
+2026-09-25 03:45:33,390 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v45.00-003::snoe ran successfully in 8ms
+2026-09-25 03:45:33,397 INFO liquibase.changelog :: Columns is_write(boolean) added to report_card
+2026-09-25 03:45:33,401 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v45.00-011::snoe ran successfully in 8ms
+2026-09-25 03:45:33,415 INFO liquibase.changelog :: Table http_action created
+2026-09-25 03:45:33,418 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v45.00-012::snoe ran successfully in 12ms
+2026-09-25 03:45:33,426 INFO liquibase.changelog :: Primary key added to http_action (action_id)
+2026-09-25 03:45:33,428 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v45.00-013::snoe ran successfully in 6ms
+2026-09-25 03:45:33,447 INFO liquibase.changelog :: Table app created
+2026-09-25 03:45:33,451 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v45.00-022::snoe ran successfully in 16ms
+2026-09-25 03:45:33,461 INFO liquibase.changelog :: Foreign key constraint added to app (dashboard_id)
+2026-09-25 03:45:33,465 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v45.00-023::snoe ran successfully in 7ms
+2026-09-25 03:45:33,470 INFO liquibase.changelog :: Columns is_app_page(boolean) added to report_dashboard
+2026-09-25 03:45:33,473 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v45.00-025::metamben ran successfully in 5ms
+2026-09-25 03:45:33,482 INFO liquibase.changelog :: Columns action_id(int) added to report_dashboardcard
+2026-09-25 03:45:33,484 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v45.00-026::snoe ran successfully in 7ms
+2026-09-25 03:45:33,493 INFO liquibase.changelog :: Foreign key constraint added to report_dashboardcard (action_id)
+2026-09-25 03:45:33,496 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v45.00-027::snoe ran successfully in 8ms
+2026-09-25 03:45:33,505 INFO liquibase.changelog :: Column report_dashboardcard.sizeX renamed to size_x
+2026-09-25 03:45:33,507 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v45.00-028::camsaul ran successfully in 4ms
+2026-09-25 03:45:33,513 INFO liquibase.changelog :: Column report_dashboardcard.sizeY renamed to size_y
+2026-09-25 03:45:33,515 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v45.00-029::camsaul ran successfully in 3ms
+2026-09-25 03:45:33,523 INFO liquibase.changelog :: Default value added to report_dashboardcard.size_x
+2026-09-25 03:45:33,526 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v45.00-030::camsaul ran successfully in 5ms
+2026-09-25 03:45:33,532 INFO liquibase.changelog :: Default value added to report_dashboardcard.size_y
+2026-09-25 03:45:33,534 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v45.00-031::camsaul ran successfully in 4ms
+2026-09-25 03:45:33,541 INFO liquibase.changelog :: Default value added to report_dashboardcard.created_at
+2026-09-25 03:45:33,543 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v45.00-032::camsaul ran successfully in 4ms
+2026-09-25 03:45:33,546 INFO liquibase.changelog :: Marking ChangeSet: "migrations/001_update_migrations.yaml::v45.00-033::camsaul" as ran despite precondition failure due to onFail='MARK_RAN': 
+          liquibase.yaml : DBMS Precondition failed: expected mysql,mariadb, got postgresql
+
+2026-09-25 03:45:33,553 INFO liquibase.changelog :: Default value added to report_dashboardcard.updated_at
+2026-09-25 03:45:33,555 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v45.00-034::camsaul ran successfully in 4ms
+2026-09-25 03:45:33,562 INFO liquibase.changelog :: Marking ChangeSet: "migrations/001_update_migrations.yaml::v45.00-035::camsaul" as ran despite precondition failure due to onFail='MARK_RAN': 
+          liquibase.yaml : DBMS Precondition failed: expected mysql,mariadb, got postgresql
+
+2026-09-25 03:45:33,585 INFO liquibase.changelog :: Table model_action created
+2026-09-25 03:45:33,589 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v45.00-036::snoe ran successfully in 16ms
+2026-09-25 03:45:33,597 INFO liquibase.changelog :: Unique constraint added to model_action(card_id, slug)
+2026-09-25 03:45:33,600 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v45.00-037::snoe ran successfully in 6ms
+2026-09-25 03:45:33,606 INFO liquibase.changelog :: Default value added to metabase_database.created_at
+2026-09-25 03:45:33,608 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v45.00-038::camsaul ran successfully in 4ms
+2026-09-25 03:45:33,612 INFO liquibase.changelog :: Marking ChangeSet: "migrations/001_update_migrations.yaml::v45.00-039::camsaul" as ran despite precondition failure due to onFail='MARK_RAN': 
+          liquibase.yaml : DBMS Precondition failed: expected mysql,mariadb, got postgresql
+
+2026-09-25 03:45:33,617 INFO liquibase.changelog :: Default value added to metabase_database.updated_at
+2026-09-25 03:45:33,618 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v45.00-040::camsaul ran successfully in 3ms
+2026-09-25 03:45:33,622 INFO liquibase.changelog :: Marking ChangeSet: "migrations/001_update_migrations.yaml::v45.00-041::camsaul" as ran despite precondition failure due to onFail='MARK_RAN': 
+          liquibase.yaml : DBMS Precondition failed: expected mysql,mariadb, got postgresql
+
+2026-09-25 03:45:33,629 INFO liquibase.changelog :: Custom SQL executed
+2026-09-25 03:45:33,630 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v45.00-042::camsaul ran successfully in 3ms
+2026-09-25 03:45:33,636 INFO liquibase.changelog :: NOT NULL constraint has been added to metabase_database.details
+2026-09-25 03:45:33,639 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v45.00-043::camsaul ran successfully in 6ms
+2026-09-25 03:45:33,655 INFO liquibase.changelog :: Table app_permission_graph_revision created
+2026-09-25 03:45:33,659 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v45.00-044::metamben ran successfully in 14ms
+2026-09-25 03:45:33,669 INFO liquibase.changelog :: Columns created_at(timestamp with time zone) added to collection
+2026-09-25 03:45:33,671 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v45.00-048::camsaul ran successfully in 4ms
+2026-09-25 03:45:33,678 INFO liquibase.changelog :: Custom SQL executed
+2026-09-25 03:45:33,679 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v45.00-049::camsaul ran successfully in 3ms
+2026-09-25 03:45:33,686 INFO liquibase.changelog :: Custom SQL executed
+2026-09-25 03:45:33,687 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v45.00-050::camsaul ran successfully in 5ms
+2026-09-25 03:45:33,692 INFO liquibase.changelog :: Marking ChangeSet: "migrations/001_update_migrations.yaml::v45.00-051::qnkhuat" as ran despite precondition failure due to onFail='MARK_RAN': 
+          liquibase.yaml : DBMS Precondition failed: expected mysql,mariadb, got postgresql
+
+2026-09-25 03:45:33,702 INFO liquibase.changelog :: Marking ChangeSet: "migrations/001_update_migrations.yaml::v45.00-052::qnkhuat" as ran despite precondition failure due to onFail='MARK_RAN': 
+          liquibase.yaml : DBMS Precondition failed: expected mysql,mariadb, got postgresql
+
+2026-09-25 03:45:33,715 INFO liquibase.changelog :: Marking ChangeSet: "migrations/001_update_migrations.yaml::v45.00-053::qnkhuat" as ran despite precondition failure due to onFail='MARK_RAN': 
+          liquibase.yaml : DBMS Precondition failed: expected mysql,mariadb, got postgresql
+
+2026-09-25 03:45:33,720 INFO liquibase.changelog :: Marking ChangeSet: "migrations/001_update_migrations.yaml::v45.00-054::qnkhuat" as ran despite precondition failure due to onFail='MARK_RAN': 
+          liquibase.yaml : DBMS Precondition failed: expected mysql,mariadb, got postgresql
+
+2026-09-25 03:45:33,725 INFO liquibase.changelog :: Marking ChangeSet: "migrations/001_update_migrations.yaml::v45.00-055::qnkhuat" as ran despite precondition failure due to onFail='MARK_RAN': 
+          liquibase.yaml : DBMS Precondition failed: expected mysql,mariadb, got postgresql
+
+2026-09-25 03:45:33,731 INFO liquibase.changelog :: Marking ChangeSet: "migrations/001_update_migrations.yaml::v45.00-056::qnkhuat" as ran despite precondition failure due to onFail='MARK_RAN': 
+          liquibase.yaml : DBMS Precondition failed: expected mysql,mariadb, got postgresql
+
+2026-09-25 03:45:33,735 INFO liquibase.changelog :: Marking ChangeSet: "migrations/001_update_migrations.yaml::v45.00-057::qnkhuat" as ran despite precondition failure due to onFail='MARK_RAN': 
+          liquibase.yaml : DBMS Precondition failed: expected mysql,mariadb, got postgresql
+
+2026-09-25 03:45:33,749 INFO liquibase.changelog :: Table implicit_action created
+2026-09-25 03:45:33,752 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v46.00-000::snoe ran successfully in 7ms
+2026-09-25 03:45:33,761 INFO liquibase.changelog :: Columns model_id(int) added to action
+2026-09-25 03:45:33,765 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v46.00-001::snoe ran successfully in 7ms
+2026-09-25 03:45:33,778 INFO liquibase.changelog :: Columns name(varchar(254)) added to action
+2026-09-25 03:45:33,780 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v46.00-002::snoe ran successfully in 8ms
+2026-09-25 03:45:33,787 INFO liquibase.changelog :: Columns description(text) added to action
+2026-09-25 03:45:33,791 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v46.00-003::snoe ran successfully in 6ms
+2026-09-25 03:45:33,797 INFO liquibase.changelog :: Columns parameters(text) added to action
+2026-09-25 03:45:33,798 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v46.00-004::snoe ran successfully in 3ms
+2026-09-25 03:45:33,813 INFO liquibase.changelog :: Columns parameter_mappings(text) added to action
+2026-09-25 03:45:33,817 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v46.00-005::snoe ran successfully in 10ms
+2026-09-25 03:45:33,829 INFO liquibase.changelog :: Columns visualization_settings(text) added to action
+2026-09-25 03:45:33,832 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v46.00-006::snoe ran successfully in 5ms
+2026-09-25 03:45:33,843 INFO liquibase.changelog :: Foreign key constraint added to action (model_id)
+2026-09-25 03:45:33,846 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v46.00-007::snoe ran successfully in 6ms
+2026-09-25 03:45:33,855 INFO liquibase.changelog :: Columns database_id(int) added to query_action
+2026-09-25 03:45:33,857 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v46.00-008::snoe ran successfully in 5ms
+2026-09-25 03:45:33,863 INFO liquibase.changelog :: Columns dataset_query(text) added to query_action
+2026-09-25 03:45:33,865 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v46.00-009::snoe ran successfully in 4ms
+2026-09-25 03:45:33,872 INFO liquibase.changelog :: Foreign key constraint added to query_action (database_id)
+2026-09-25 03:45:33,874 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v46.00-010::snoe ran successfully in 4ms
+2026-09-25 03:45:33,883 INFO liquibase.changelog :: Custom SQL executed
+2026-09-25 03:45:33,886 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v46.00-011::snoe ran successfully in 8ms
+2026-09-25 03:45:33,896 INFO liquibase.changelog :: Null constraint dropped from query_action.card_id
+2026-09-25 03:45:33,901 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v46.00-012::snoe ran successfully in 11ms
+2026-09-25 03:45:33,919 INFO liquibase.changelog :: Custom SQL executed
+2026-09-25 03:45:33,920 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v46.00-013::snoe ran successfully in 12ms
+2026-09-25 03:45:33,926 INFO liquibase.changelog :: Foreign key fk_query_action_ref_card_id dropped
+2026-09-25 03:45:33,928 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v46.00-014::snoe ran successfully in 4ms
+2026-09-25 03:45:33,935 INFO liquibase.changelog :: Column query_action.card_id dropped
+2026-09-25 03:45:33,937 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v46.00-015::snoe ran successfully in 5ms
+2026-09-25 03:45:33,944 INFO liquibase.changelog :: Custom SQL executed
+2026-09-25 03:45:33,946 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v46.00-016::snoe ran successfully in 5ms
+2026-09-25 03:45:33,953 INFO liquibase.changelog :: Column http_action.name dropped
+2026-09-25 03:45:33,956 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v46.00-017::snoe ran successfully in 5ms
+2026-09-25 03:45:33,963 INFO liquibase.changelog :: Column http_action.description dropped
+2026-09-25 03:45:33,965 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v46.00-018::snoe ran successfully in 4ms
+2026-09-25 03:45:33,974 INFO liquibase.changelog :: Column report_card.is_write dropped
+2026-09-25 03:45:33,976 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v46.00-019::snoe ran successfully in 4ms
+2026-09-25 03:45:33,982 INFO liquibase.changelog :: NOT NULL constraint has been added to query_action.database_id
+2026-09-25 03:45:33,985 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v46.00-020::snoe ran successfully in 3ms
+2026-09-25 03:45:33,989 INFO liquibase.changelog :: NOT NULL constraint has been added to query_action.dataset_query
+2026-09-25 03:45:33,991 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v46.00-021::snoe ran successfully in 3ms
+2026-09-25 03:45:33,997 INFO liquibase.changelog :: NOT NULL constraint has been added to query_action.dataset_query
+2026-09-25 03:45:34,001 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v46.00-022::snoe ran successfully in 7ms
+2026-09-25 03:45:34,013 INFO liquibase.changelog :: NOT NULL constraint has been added to action.model_id
+2026-09-25 03:45:34,015 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v46.00-023::snoe ran successfully in 5ms
+2026-09-25 03:45:34,024 INFO liquibase.changelog :: NOT NULL constraint has been added to action.name
+2026-09-25 03:45:34,029 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v46.00-024::snoe ran successfully in 7ms
+2026-09-25 03:45:34,037 INFO liquibase.changelog :: Table model_action dropped
+2026-09-25 03:45:34,040 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v46.00-025::snoe ran successfully in 6ms
+2026-09-25 03:45:34,046 INFO liquibase.changelog :: Columns dbms_version(text) added to metabase_database
+2026-09-25 03:45:34,051 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v46.00-026::metamben ran successfully in 7ms
+2026-09-25 03:45:34,057 INFO liquibase.changelog :: Columns last_used_at(timestamp with time zone) added to metabase_fieldvalues
+2026-09-25 03:45:34,059 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v46.00-027::snoe ran successfully in 5ms
+2026-09-25 03:45:34,080 INFO liquibase.changelog :: Table parameter_card created
+2026-09-25 03:45:34,082 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v46.00-028::tsmacdonald ran successfully in 15ms
+2026-09-25 03:45:34,091 INFO liquibase.changelog :: Unique constraint unique_dimension_field_id_name dropped from dimension
+2026-09-25 03:45:34,094 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v46.00-029::camsaul ran successfully in 6ms
+2026-09-25 03:45:34,102 INFO liquibase.changelog :: Custom SQL executed
+2026-09-25 03:45:34,103 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v46.00-030::camsaul ran successfully in 4ms
+2026-09-25 03:45:34,114 INFO liquibase.changelog :: Unique constraint added to dimension(field_id)
+2026-09-25 03:45:34,116 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v46.00-031::camsaul ran successfully in 7ms
+2026-09-25 03:45:34,127 INFO liquibase.changelog :: Unique constraint added to parameter_card(parameterized_object_id, parameterized_object_type, parameter_id)
+2026-09-25 03:45:34,129 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v46.00-032::tsmacdonald ran successfully in 4ms
+2026-09-25 03:45:34,134 INFO liquibase.changelog :: Index idx_parameter_card_parameterized_object_id created
+2026-09-25 03:45:34,136 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v46.00-033::tsmacdonald ran successfully in 4ms
+2026-09-25 03:45:34,142 INFO liquibase.changelog :: Index idx_parameter_card_card_id created
+2026-09-25 03:45:34,145 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v46.00-034::tsmacdonald ran successfully in 5ms
+2026-09-25 03:45:34,152 INFO liquibase.changelog :: Foreign key constraint added to parameter_card (card_id)
+2026-09-25 03:45:34,155 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v46.00-035::tsmacdonald ran successfully in 5ms
+2026-09-25 03:45:34,165 INFO liquibase.changelog :: Table app_permission_graph_revision dropped
+2026-09-25 03:45:34,168 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v46.00-036::metamben ran successfully in 9ms
+2026-09-25 03:45:34,175 INFO liquibase.changelog :: Column report_dashboard.is_app_page dropped
+2026-09-25 03:45:34,179 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v46.00-037::metamben ran successfully in 5ms
+2026-09-25 03:45:34,188 INFO liquibase.changelog :: Table app dropped
+2026-09-25 03:45:34,193 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v46.00-038::metamben ran successfully in 10ms
+2026-09-25 03:45:34,200 INFO liquibase.changelog :: Columns entity_id(char(21)) added to parameter_card
+2026-09-25 03:45:34,205 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v46.00-039::qnkhuat ran successfully in 8ms
+2026-09-25 03:45:34,215 INFO liquibase.changelog :: Default value added to report_dashboardcard.size_x
+2026-09-25 03:45:34,218 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v46.00-040::tsmacdonald ran successfully in 7ms
+2026-09-25 03:45:34,227 INFO liquibase.changelog :: Default value added to report_dashboardcard.size_y
+2026-09-25 03:45:34,230 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v46.00-041::tsmacdonald ran successfully in 7ms
+2026-09-25 03:45:34,241 INFO liquibase.changelog :: Index idx_query_execution_executor_id created
+2026-09-25 03:45:34,244 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v46.00-042::tsmacdonald ran successfully in 8ms
+2026-09-25 03:45:34,250 INFO liquibase.changelog :: Index idx_query_execution_context created
+2026-09-25 03:45:34,252 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v46.00-043::tsmacdonald ran successfully in 3ms
+2026-09-25 03:45:34,259 INFO liquibase.changelog :: Columns public_uuid(char(36)) added to action
+2026-09-25 03:45:34,261 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v46.00-045::calherries ran successfully in 6ms
+2026-09-25 03:45:34,267 INFO liquibase.changelog :: Default value dropped from report_dashboardcard.row
+2026-09-25 03:45:34,270 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v46.00-051::calherries ran successfully in 4ms
+2026-09-25 03:45:34,277 INFO liquibase.changelog :: Default value dropped from report_dashboardcard.col
+2026-09-25 03:45:34,285 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v46.00-052::calherries ran successfully in 10ms
+2026-09-25 03:45:34,295 INFO liquibase.changelog :: Default value dropped from report_dashboardcard.size_x
+2026-09-25 03:45:34,297 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v46.00-053::calherries ran successfully in 5ms
+2026-09-25 03:45:34,306 INFO liquibase.changelog :: Default value dropped from report_dashboardcard.size_y
+2026-09-25 03:45:34,309 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v46.00-054::calherries ran successfully in 5ms
+2026-09-25 03:45:34,314 INFO liquibase.changelog :: Columns made_public_by_id(int) added to action
+2026-09-25 03:45:34,316 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v46.00-055::calherries ran successfully in 3ms
+2026-09-25 03:45:34,321 INFO liquibase.changelog :: Index idx_action_public_uuid created
+2026-09-25 03:45:34,322 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v46.00-056::calherries ran successfully in 3ms
+2026-09-25 03:45:34,329 INFO liquibase.changelog :: parameter_card.parameter_id datatype was changed to varchar(36)
+2026-09-25 03:45:34,332 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v46.00-057::dpsutton ran successfully in 6ms
+2026-09-25 03:45:34,341 INFO liquibase.changelog :: Foreign key constraint added to action (made_public_by_id)
+2026-09-25 03:45:34,345 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v46.00-058::calherries ran successfully in 6ms
+2026-09-25 03:45:34,354 INFO liquibase.changelog :: Columns creator_id(int) added to action
+2026-09-25 03:45:34,358 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v46.00-059::tsmacdonald ran successfully in 7ms
+2026-09-25 03:45:34,369 INFO liquibase.changelog :: Index idx_action_creator_id created
+2026-09-25 03:45:34,372 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v46.00-060::tsmacdonald ran successfully in 6ms
+2026-09-25 03:45:34,382 INFO liquibase.changelog :: Foreign key constraint added to action (creator_id)
+2026-09-25 03:45:34,384 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v46.00-061::tsmacdonald ran successfully in 6ms
+2026-09-25 03:45:34,391 INFO liquibase.changelog :: Columns archived(boolean) added to action
+2026-09-25 03:45:34,393 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v46.00-062::tsmacdonald ran successfully in 5ms
+2026-09-25 03:45:34,398 INFO liquibase.changelog :: Table group_table_access_policy renamed to sandboxes
+2026-09-25 03:45:34,407 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v46.00-064::noahmoss ran successfully in 11ms
+2026-09-25 03:45:34,417 INFO liquibase.changelog :: Columns permission_id(int) added to sandboxes
+2026-09-25 03:45:34,419 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v46.00-065::noahmoss ran successfully in 6ms
+2026-09-25 03:45:34,428 INFO liquibase.changelog :: Columns entity_id(char(21)) added to action
+2026-09-25 03:45:34,431 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v46.00-070::calherries ran successfully in 6ms
+2026-09-25 03:45:34,437 INFO liquibase.changelog :: report_card.updated_at datatype was changed to timestamp with time zone
+2026-09-25 03:45:34,442 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v46.00-074::metamben ran successfully in 7ms
+2026-09-25 03:45:34,451 INFO liquibase.changelog :: Custom SQL executed
+2026-09-25 03:45:34,452 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v46.00-079::john-metabase ran successfully in 4ms
+2026-09-25 03:45:34,481 INFO liquibase.changelog :: Custom migration: class metabase.db.custom_migrations.SplitDataPermissions
+2026-09-25 03:45:34,481 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v46.00-080::noahmoss ran successfully in 25ms
+2026-09-25 03:45:34,490 INFO liquibase.changelog :: Foreign key fk_action_model_id dropped
+2026-09-25 03:45:34,493 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v46.00-084::qnkhuat ran successfully in 7ms
+2026-09-25 03:45:34,503 INFO liquibase.changelog :: Foreign key constraint added to action (model_id)
+2026-09-25 03:45:34,508 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v46.00-085::qnkhuat ran successfully in 9ms
+2026-09-25 03:45:34,553 INFO impl.StdSchedulerFactory :: Using default implementation for ThreadExecutor
+2026-09-25 03:45:34,574 INFO core.SchedulerSignalerImpl :: Initialized Scheduler Signaller of type: class org.quartz.core.SchedulerSignalerImpl
+2026-09-25 03:45:34,575 INFO core.QuartzScheduler :: Quartz Scheduler v.2.3.2 created.
+2026-09-25 03:45:34,579 INFO jdbcjobstore.JobStoreTX :: Using db table-based data access locking (synchronization).
+2026-09-25 03:45:34,581 INFO jdbcjobstore.JobStoreTX :: JobStoreTX initialized.
+2026-09-25 03:45:34,582 INFO core.QuartzScheduler :: Scheduler meta-data: Quartz Scheduler (v2.3.2) 'MetabaseScheduler' with instanceId 'f1f25525c3d01790307934555'
+  Scheduler class: 'org.quartz.core.QuartzScheduler' - running locally.
+  NOT STARTED.
+  Currently in standby mode.
+  Number of jobs executed: 0
+  Using thread pool 'org.quartz.simpl.SimpleThreadPool' - with 10 threads.
+  Using job-store 'org.quartz.impl.jdbcjobstore.JobStoreTX' - which supports persistence. and is clustered.
+
+2026-09-25 03:45:34,583 INFO impl.StdSchedulerFactory :: Quartz scheduler 'MetabaseScheduler' initialized from default resource file in Quartz package: 'quartz.properties'
+2026-09-25 03:45:34,583 INFO impl.StdSchedulerFactory :: Quartz scheduler version: 2.3.2
+2026-09-25 03:45:34,618 INFO core.QuartzScheduler :: Scheduler MetabaseScheduler_$_f1f25525c3d01790307934555 started.
+2026-09-25 03:45:34,638 INFO core.QuartzScheduler :: Scheduler MetabaseScheduler_$_f1f25525c3d01790307934555 shutting down.
+2026-09-25 03:45:34,639 INFO core.QuartzScheduler :: Scheduler MetabaseScheduler_$_f1f25525c3d01790307934555 paused.
+2026-09-25 03:45:34,640 INFO core.QuartzScheduler :: Scheduler MetabaseScheduler_$_f1f25525c3d01790307934555 shutdown complete.
+2026-09-25 03:45:34,642 INFO liquibase.changelog :: Custom migration: class metabase.db.custom_migrations.DeleteAbandonmentEmailTask
+2026-09-25 03:45:34,642 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v46.00-086::calherries ran successfully in 127ms
+2026-09-25 03:45:34,650 INFO liquibase.changelog :: Custom SQL executed
+2026-09-25 03:45:34,651 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v46.00-088::noahmoss ran successfully in 5ms
+2026-09-25 03:45:34,658 INFO liquibase.changelog :: Custom SQL executed
+2026-09-25 03:45:34,659 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v46.00-089::noahmoss ran successfully in 3ms
+2026-09-25 03:45:40,717 INFO liquibase.snapshot :: Creating snapshot
+2026-09-25 03:45:40,725 INFO liquibase.changelog :: Foreign key constraint added to sandboxes (permission_id)
+2026-09-25 03:45:40,728 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v46.00-090::noahmoss ran successfully in 6064ms
+2026-09-25 03:45:40,738 INFO liquibase.changelog :: Custom SQL executed
+2026-09-25 03:45:40,739 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v47.00-001::calherries ran successfully in 3ms
+2026-09-25 03:45:40,747 INFO liquibase.changelog :: Columns json_unfolding(boolean) added to metabase_field
+2026-09-25 03:45:40,751 INFO liquibase.changelog :: ChangeSet migrations/001_update_migrations.yaml::v47.00-002::calherries ran successfully in 6ms

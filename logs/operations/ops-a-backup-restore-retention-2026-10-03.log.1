@@ -1,0 +1,103 @@
+ALWAYS ON - operations journal
+Session: ops-a (branch ai-ops-a, worktree /tmp/ao-sessions/wt-ops-a)
+Date:    2026-10-03 (resumed after a stall; no memory of the earlier run)
+Scope:   README section 17 (backup/restore/monitoring). Section 19 NOT edited;
+         proposals written instead, per agents/COORDINATION/proposals/README.md
+
+## Commands run and their real output (rule 11)
+
+$ restic snapshots --json   # off-host repo, env from /run/user/1000/ao-restic.env
+count: 1
+  56bf1af5 2026-10-03T08:59:59-07:00 ['alwayson-offsite-proof']
+  ['/ALWAYSON/artifacts','/ALWAYSON/config']
+
+$ restic check --read-data-subset=1/10
+no errors were found
+
+$ restic snapshots --json   # LOCAL repo /var/backups/alwayson-restic
+Stat(<config/>) failed: stat /var/backups/alwayson-restic/config: permission denied
+Fatal: unable to open config file
+# Expected: the local repo is root-owned and backups run as root. Not a fault.
+
+$ for p in /ALWAYSON /var/backups/alwayson-restic …/ALWAYSON-BACKUPS; do stat -c %d; done
+/ALWAYSON -> 66306
+/var/backups/alwayson-restic -> 66306          # local repo shares the root disk
+…/PCLOUD_STORAGE/ALWAYSON-BACKUPS -> 2049      # off-host, separate media
+
+$ grep 'restic-run.sh' /ALWAYSON/logs/backup.log | tail -3
+03:24:50 snapshot=548d9910 result=OK
+10:40:03 snapshot=548d9910 result=OK
+15:12:25 snapshot=548d9910 result=OK            # identical ID, three runs
+$ journalctl -u ao-restic-backup.service --since 2026-10-03 | grep -o 'snapshot [0-9a-f]* saved'
+snapshot e79edfbf saved
+snapshot fbc25f93 saved                          # DISAGREES -> proposed as OPS-35
+
+$ logrotate -d config/host/logrotate-alwayson.conf 2>&1 | grep -c 'rotating pattern'
+5
+$ bash scripts/ops/install-log-retention.sh --dry-run
+DRY RUN -- no files will be written. … 5 rotating patterns … rc=0
+
+$ journalctl --disk-usage
+Archived and active journals take up 4G in the file system.
+$ grep -n '^#*SystemMaxUse' /etc/systemd/journald.conf
+27:#SystemMaxUse=                               # shipped caps all commented out
+
+$ podman logs ao-metabase | grep -i 'application database'
+Successfully verified PostgreSQL 18.6 … application database connection.
+$ podman exec ao-sales-db psql … "select rolname from pg_roles where rolname in ('metaread','sales_reporting_role')"
+sales_reporting_role                            # metaread absent
+$ ls /tmp/reporting-hub.sql
+No such file or directory                       # script reads it from the wrong path
+
+## Findings recorded (not fixed — stop conditions)
+
+1. Backup journal records a STALE snapshot ID for 3 consecutive runs. Cause:
+   `restic snapshots --latest 1` returns one snapshot PER PATH GROUP, not one
+   overall; `head -1` takes array position, not max(time). Reproduced on a
+   scratch repo. Fix applied in-tree; UNPROVEN on the live host (no run since).
+   -> proposals/ops-a-OPS-35.md (new item). Stays open on deployment evidence.
+
+2. Restore drill initially reported "identical: 63, changed: 0" because it
+   compared the restored tree with ITSELF ($live_root == restore target). A
+   test that cannot fail. Corrected: 59 identical, 4 changed, matching an
+   independent manual sha256sum comparison. -> proposals/ops-a-OPS-24.md
+
+3. logs/ is absent from the restic path set -> a restore has no operational
+   history. Not added: enlarging the approved nightly set is an operator call.
+   -> proposals/ops-a-OPS-07.md
+
+4. data/monitoring (269M) and 3 smaller data/ classes are in no path set.
+   -> proposals/ops-a-OPS-09.md
+
+5. metaread read-only role absent; provision-sales-reporting.sh reads
+   /tmp/reporting-hub.sql but the file is at config/platform/postgresql/, and
+   its `install A A` line is a no-op. NOT fixed: creating DB roles and reading
+   wallet credentials is a stop condition. Likely a PAY/SALES item.
+   -> proposals/ops-a-OPS-01.md
+
+## Fixed in-tree this session
+- logrotate-alwayson.conf: header said "Installed" while /etc/logrotate.d/alwayson
+  does not exist -> now "STAGED … NOT INSTALLED". Its comment also said the
+  subdirs "are NOT rotated" while four blocks below rotate them.
+- install-log-retention.sh: root guard blocked --dry-run, so the operator could
+  not inspect the policy without escalating first. Guard narrowed to the install
+  path only. Before: rc=1 "must run as root". After: rc=0, prints 5 patterns.
+- 17.5 log sizes refreshed: operations 572K -> 580K (append-only and live).
+
+## Not done, needs operator approval
+- pkexec install-log-retention.sh (OPS-25) — installs the policy; needs root.
+- Scheduling the restore drill monthly (OPS-24) — recurring job on backup data.
+- Scheduling off-site restic (OPS-31) — recurring privileged writer to the
+  live pCloud sync root.
+- Provisioning metaread / any new DB role (OPS-01) — credentials + privileges.
+
+## Housekeeping
+- Section 19 NOT edited. 11 proposals written: ops-a-OPS-01,07,08,09,10,11,
+  24,25,26,29,31,35 in agents/COORDINATION/proposals/.
+- README.md regenerated with agents/COORDINATION/tools/compile.py
+  ("wrote README.md from 21 sections"). Generated, not hand-edited.
+- Nothing committed — no commit requested this session.
+- NOTE for the next session: this runs in a git WORKTREE. /ALWAYSON is the
+  live tree and does NOT contain these staged files; measure it, not the
+  worktree, or numbers will be wrong. logs/ is gitignored, so this journal
+  was written to the LIVE tree at /ALWAYSON/logs/operations/ on purpose.

@@ -1,0 +1,25 @@
+## Not fixed / still open
+
+**NONE — CLOSED 2026-10-01 22:53 UTC.** The operator posted a mention from
+`300x3@mastodon.social`; it arrived and was processed.
+
+    TOTAL statuses:        9
+    from LOCAL accounts:   1
+    from REMOTE accounts:  8      <-- was 0 for the entire life of the bug
+
+- New status `id=117368106646301274`, uri
+  `.../statuses/117368106037492186`, created 2s after the inbox POST.
+- bot received 5 `mention` notifications; 6 mentions linked to remote statuses.
+- **Backlog drained:** 7 of the 8 carry `created_at` 21:18-21:28 — they had been
+  delivered and signature-verified all along, sitting unread in `queue:ingress`,
+  and were consumed on the 22:21 restart. Only 1 new ProcessingWorker job ran.
+- Independent `mastodon.social` actors also delivered 202s (22:45, 22:53 x2,
+  22:54), so the fix is not sender- or key-specific.
+- `mastodon-openclaw-bridge.service` active, `NRestarts=3` all at 15:09 (login,
+  pre-fix), no restart after the mention. A's fix unaffected.
+
+The local signed-replay probe could never have proven this: it 401'd with
+`Mastodon::PrivateNetworkAddressError` (the SSRF guard, working correctly).
+A local replay exercises only the signature path, never queue consumption —
+which is exactly where the fault was. Throwaway container `ao-fedtest` and all
+/tmp key material removed. `ALLOWED_PRIVATE_ADDRESSES` deliberately NOT set.
