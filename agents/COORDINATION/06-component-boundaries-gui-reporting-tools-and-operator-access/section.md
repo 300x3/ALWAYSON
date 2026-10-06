@@ -38,6 +38,35 @@ containers are also on `ao-admin`. Both are loopback-and-socket scoped, which is
 needs a public port. Measured listeners: Grafana `127.0.0.1:3001` and Metabase
 `127.0.0.1:3002`, loopback-bound only (`ss -ltn`).
 
+**Re-verified 2026-10-05, with one correction that belongs in §3.** Every claim above holds —
+both containers are on `ao-admin` *and* `ao-reporting-egress`, and `3001`/`3002` are
+loopback-only:
+
+```
+$ for c in ao-grafana ao-metabase; do podman inspect $c \
+    --format '{{.Name}} {{range $k,$v := .NetworkSettings.Networks}}{{$k}} {{end}}'; done
+ao-grafana  ao-admin ao-reporting-egress
+ao-metabase ao-admin ao-reporting-egress
+$ ss -ltn | grep -E ':(3001|3002)\s'
+LISTEN 0 4096  127.0.0.1:3001  0.0.0.0:*
+LISTEN 0 4096  127.0.0.1:3002  0.0.0.0:*
+$ podman inspect ao-metabase --format '{{range .Config.Env}}{{println .}}{{end}}' | grep MB_DB_HOST
+MB_DB_HOST=10.42.0.1
+```
+
+Metabase's `MB_DB_HOST` is `10.42.0.1` — **the equipment LAN address**, reached through
+`ao-postgres-reporting-bridge`, not a Podman gateway. §3.3.0.1 records the correction: the
+bridge's own comment and unit description both claim it exposes the ao-admin gateway, and it
+does not. The consequence for this subsection is that Metabase's reachability depends on
+`ao-reporting-egress` being `Internal=false`; `ao-admin` alone cannot reach it. Both networks
+are present, so the access path works as designed — but the *stated* reason for it does not,
+and a reader trying to tighten `ao-admin` should know that removing `ao-reporting-egress`
+would break Metabase's database connection, not `ao-admin` being insufficient.
+
+The Grafana path is unaffected by any of this: it uses a bind-mounted Unix socket
+(`/var/run/postgresql -> /var/run/postgresql rw=false`), so it does not traverse the bridge at
+all.
+
 **Metabase and Corda.** Metabase may report on approved Corda-derived business and
 provenance data only through a deliberate read-only reporting projection, approved views, a
 supported status interface, or ledger-ingestion audit and status records. It must not become
@@ -216,24 +245,97 @@ is **`PODMAN_SYSTEMD_UNIT`** — measured:
 $ for c in $(podman ps --format '{{.Names}}'); do u=$(podman inspect $c \
     --format '{{index .Config.Labels "PODMAN_SYSTEMD_UNIT"}}'); \
     printf '%-30s -> %s\n' "$c" "${u:-<none>}"; done
-ao-prometheus              -> ao-prometheus.service
-ao-grafana                 -> ao-grafana.service
-ao-metabase                -> ao-metabase.service
-ao-sim-fabrication-gz      -> ao-sim-fabrication-gz.service
-ao-sim-fabrication-foxglove -> ao-sim-fabrication-foxglove.service
-vigorous_shannon           -> <none>
-dreamy_rosalind            -> <none>
-relaxed_tharp              -> <none>
-confident_khayyam          -> <none>
-keen_bhabha                -> <none>
-ao-sqli3                   -> <none>
+ao-prometheus                  -> ao-prometheus.service
+ao-nodeodm                     -> ao-nodeodm.service
+ao-webodm-webapp               -> ao-webodm-web.service
+ao-webodm-worker               -> ao-webodm-worker.service
+ao-webodm-db                   -> ao-webodm-db.service
+mastodon-streaming             -> ao-mastodon-streaming.service
+ao-ingress-payment             -> ao-ingress-payment.service
+mastodon-web                   -> ao-mastodon-web.service
+mastodon-sidekiq               -> ao-mastodon-sidekiq.service
+ao-metabase                    -> ao-metabase.service
+vigorous_shannon               -> <none>
+dreamy_rosalind                -> <none>
+ao-sales-db                    -> ao-sales-db.service
+mastodon-db                    -> ao-mastodon-db.service
+ao-fabrication-db              -> ao-fabrication-db.service
+mastodon-redis                 -> ao-mastodon-redis.service
+ao-webodm-broker               -> ao-webodm-broker.service
+ao-sim-fabrication-foxglove    -> ao-sim-fabrication-foxglove.service
+relaxed_tharp                  -> <none>
+confident_khayyam              -> <none>
+ao-node-exporter               -> ao-node-exporter.service
+keen_bhabha                    -> <none>
+ao-sqli3                       -> <none>
+ao-grafana                     -> ao-grafana.service
+ao-sim-fabrication-gz          -> ao-sim-fabrication-gz.service
 ```
 
+**Correction 2026-10-05 — an earlier revision of this block showed only eleven of the
+twenty-five running containers while describing itself as the whole-container enumeration.**
+The eleven were the ones I had a reason to look at, not the ones the command returned, so the
+claim "rests on … the whole-container enumeration rather than on a hand-picked subset" was
+false at the moment I wrote it. The full output is the block above: **25 running, 19 managed,
+6 unmanaged**. The *conclusion* survives and is now stronger, because the fourteen containers
+the earlier block omitted are all accounted for and all managed:
+
+```
+$ podman ps -q | wc -l
+25
+$ for c in $(podman ps --format '{{.Names}}'); do u=$(podman inspect $c \
+    --format '{{index .Config.Labels "PODMAN_SYSTEMD_UNIT"}}'); \
+    [ -z "$u" ] && echo "$c"; done
+ao-sqli3
+confident_khayyam
+dreamy_rosalind
+keen_bhabha
+relaxed_tharp
+vigorous_shannon
+```
+
+**Why this matters beyond tidiness.** The omitted fourteen were not neutral filler — they
+include `ao-ingress-payment`, `ao-sales-db`, `ao-webodm-db`, `mastodon-db` and
+`ao-fabrication-db`, every one of which carries authoritative data. Had any of them *also*
+been unowned, the finding would have been materially worse than "six duplicate GUIs", and my
+truncated block could not have shown that. A partial enumeration cannot distinguish "six
+leftovers" from "six leftovers and an unowned database", because it never looks.
+
+This is the third instance of the same error class in this one subsection, and it is worth
+stating as a rule rather than a footnote: **a claim of completeness is itself a claim, and it
+is the one claim an enumeration cannot check for you.** The loop ran over `podman ps` output,
+so the command *was* fleet-wide — I then transcribed a filtered subset of its output into the
+section and attached the completeness claim to the transcription. Always paste the raw output
+and state the denominator (`podman ps -q | wc -l`) next to it, so a reader can see the ratio
+rather than trust it. Where a subset is genuinely intended, say so and give both counts.
+
 The **conclusion is unchanged** — exactly six running containers have no service owner,
-and they are the four Grafana duplicates and the two Foxglove duplicates. But it now
-rests on a key that returns a value, and on the whole-container enumeration rather than
-on a hand-picked subset. A reader should treat any ownership claim anywhere in this
-section that does not show `PODMAN_SYSTEMD_UNIT` as unproven.
+and they are the four Grafana duplicates and the two Foxglove duplicates. It now rests on a
+key that returns a value, and on an enumeration whose output matches its denominator. A
+reader should treat any ownership claim anywhere in this section that does not show
+`PODMAN_SYSTEMD_UNIT` as unproven.
+
+**Image pinning, measured the same way.** The managed/unmanaged split is not the same as the
+pinned/unpinned split, and §4.1 rule 9 is about the second:
+
+```
+$ podman inspect ao-grafana ao-sim-fabrication-foxglove \
+    vigorous_shannon dreamy_rosalind relaxed_tharp confident_khayyam \
+    keen_bhabha ao-sqli3 --format '{{.Name}} {{.ImageName}}'
+ao-grafana docker.io/grafana/grafana-oss@sha256:b739cda4b61ba3b90707578b643a22cd851fecf4498e6c6ec2d8f9d622a5d0b2
+ao-sim-fabrication-foxglove localhost/foxglove-bridge@sha256:9acc6d4df749ea10f3e97b4b6676a14d864dcb06781ffe7ad551736af0052c87
+vigorous_shannon localhost/foxglove-bridge:latest
+dreamy_rosalind localhost/foxglove-bridge:latest
+relaxed_tharp docker.io/grafana/grafana:11.6.0
+confident_khayyam docker.io/grafana/grafana:11.6.0
+keen_bhabha docker.io/grafana/grafana-oss:11.6.0
+ao-sqli3 docker.io/grafana/grafana-oss:11.6.0
+```
+
+Every managed container here is digest-pinned. **Every one of the six unowned ones is not** —
+four on a mutable version tag and two on `:latest`. So the unowned set is simultaneously the
+unpinned set, which raises the stakes on cleanup: these are the only containers on the host
+whose image content can change underneath them without a service restart.
 
 Beyond the YAML's staleness, `podman ps` shows **four Grafana containers that no Quadlet
 unit owns**, alongside the one sanctioned `ao-grafana`. All four are leftovers from
@@ -330,4 +432,75 @@ correct key is `PODMAN_SYSTEMD_UNIT`, and the self-check is to run it over the w
 container list and confirm that the containers you believe are managed actually come back
 with a service name. If every row is empty, the key is wrong, not the fleet.
 
+### 6.A.3.3 An unmanaged host listener serving the pCloud Public Folder (measured 2026-10-05)
+
+*Numbering note: an earlier revision of this file carried two subsections numbered
+`6.A.3.2`. This is the later of them and is renumbered `6.A.3.3` so the two do not collide —
+the first remains `6.A.3.2` (the unowned containers above), and no existing cross-reference
+points at this one.*
+
+**Found while enumerating listeners rather than containers.** §6.A.3 requires every GUI to have
+a documented listener policy, and the container inventory above is complete — but an
+`ss -ltnp` sweep of the host shows a listener that no container, unit or section accounts for.
+
+```
+$ ss -ltnp | grep -vE '127\.0\.0\.1|\[::1\]|Local'
+LISTEN 0 5    10.42.0.1:5432     0.0.0.0:*  users:(("socat",pid=5124,fd=5))
+LISTEN 0 5    0.0.0.0:8731       0.0.0.0:*  users:(("python3",pid=1010842,fd=3))
+LISTEN 0 32   169.254.248.253:53 0.0.0.0:*
+LISTEN 0 32   10.42.0.1:53       0.0.0.0:*
+LISTEN 0 4096 127.0.0.54:53      0.0.0.0:*
+LISTEN 0 1    0.0.0.0:4242       0.0.0.0:*  users:(("ReticulumMeshCh",pid=840861,fd=46))
+```
+
+Of the six, `10.42.0.1:5432` is the reporting bridge and `0.0.0.0:4242` is MeshChatX (both
+already documented elsewhere); `53` is `systemd-resolved`. **`0.0.0.0:8731` is neither, and it
+is not named in any section of this document.**
+
+It is a bare `python3 -m http.server` with its working directory set to the pCloud Public
+Folder:
+
+```
+$ ps -o pid,lstart,etime,args -p 1010842
+    PID   STARTED    ELAPSED COMMAND
+1010842  Thu Oct  1 20:09:45 2026  3-11:48:07 python3 -m http.server 8731
+$ ls -l /proc/1010842/cwd
+… -> /media/scottw/1TBSAMSUNGDATA/PCLOUD-PUBLIC/***CURRENT***
+$ ls -A '/media/scottw/1TBSAMSUNGDATA/PCLOUD-PUBLIC/***CURRENT***' | wc -l
+5
+```
+
+Two facts make this a conformance finding rather than a curiosity. First, `python3 -m
+http.server` binds `0.0.0.0` by default and **has no authentication of any kind**, so
+`--bind 127.0.0.1` is the only thing standing between this and a LAN-wide read. Second, the
+path it serves is the one path README §4.1 rule 5 and §4.2 name as *Public* — "Anything in the
+pCloud Public Folder, or linked in from it". Serving it over plain HTTP on every interface
+makes locally-served public material reachable by anything that can route to this host, which
+includes the Wi-Fi segment `192.168.87.0/24` that §3 notes is absent from that section's own
+address table. It answers:
+
+```
+$ curl -sI http://192.168.87.135:8731/ | head -2
+HTTP/1.0 200 OK
+Server: SimpleHTTP/0.6 Python/3.14.4
+```
+
+**This is a deliberate operator action most likely, and it is not mine to undo.** The elapsed
+time shows it has been running since 2026-10-01, so it is not a stray process from this
+session's work. It is also **not** a container, so it is absent from §5.1 group D and from every
+container inventory in this subsection — a useful reminder that the group-D row set does not
+cover host processes.
+
+**Not remediated, deliberately.** Stopping it is destructive to whatever the operator is
+serving, and re-binding it is a firewall/public-port decision requiring explicit operator
+approval (README §4.1 rules 6 and 13). Recorded here and reported; no action taken. If the
+intent was a local preview, the fix is `--bind 127.0.0.1`; if the intent was genuine LAN
+sharing, it should be a Quadlet with a declared listener policy per this subsection. **The
+SEC/NET groups own the boundary question.**
+
+**Trap worth naming.** `ss -ltnp` shows process names but only for processes this user owns, so
+the port→purpose mapping is *incomplete by construction* for system services — `53` and the
+socat's own `5432` appear inconsistently for the same reason. Never conclude a listener is
+unattributed because its `users:(…)` field is empty; match on the port and address instead.
+The converse also held here: `podman ps` would never have surfaced this listener at all.
 ---
