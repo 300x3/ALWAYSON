@@ -567,11 +567,16 @@ NO EVENT, NO POSTING
 |---|---|---|
 | Payment provider event received | — | None. This is **not** a posting. It only advances `CASH_PENDING`. |
 | Payment validated | — | Still not a posting; §11.2.2 gate 2 alone is insufficient |
-| Funds transfer verified | `CASH_*` DR / `RECEIVABLE` or `REVENUE` CR | **All three** §11.2.2 gates |
+| Funds transfer verified | `CASH_EU`/`CASH_US` DR / `RECEIVABLE_CUSTOMER` CR | **All three** §11.2.2 gates |
 | Entitlement issued | `RECEIVABLE_CUSTOMER` DR / `REVENUE_SALE` CR | Sale confirmed on the ledger |
-| Post-sale transfer authorised | `REVENUE_DIGITAL_TRANSFER` CR | `ao-sales` authorisation (§11.6) |
-| Refund approved | `REFUNDS_PAYABLE` CR / `CASH_*` DR | Explicit operator approval |
-| Archive replication cost | `EXPENSE_ARCHIVE` DR / `CASH_*` CR | Verified provider cost |
+| Post-sale transfer authorised | `CASH_EU`/`CASH_US` DR / `REVENUE_DIGITAL_TRANSFER` CR | `ao-sales` authorisation (§11.6) |
+| Refund approved | `CASH_EU`/`CASH_US` DR / `REFUNDS_PAYABLE` CR | Explicit operator approval |
+| Archive replication cost | `EXPENSE_ARCHIVE` DR / `CASH_EU`/`CASH_US` CR | Verified provider cost |
+
+Every row above names exactly two legs and they are the DR/CR pair required by the
+balance invariant, so each row is a balanced posting on its own. `CASH_PENDING` is
+named only in the "not a posting" rows and is deliberately **absent** from this table;
+`TAX_PAYABLE_<jurisdiction>` has no posting rule here — see §11.12, finding 3.
 
 **Corda is not a payment processor and does not create funds.** It cannot move
 money, initiate a refund, set a price, or decide tax. It records that an approved
@@ -757,6 +762,9 @@ $ getent passwd alwayson-ledger ; echo $?
 ```
 
 `alwayson-ledger` is the **home directory**; `ao-ledger` is the **username**.
+Two further claims in that same runbook block are also false — "linger enabled"
+and "systemd user unit installed" — and the consequence is that its step 5 cannot
+succeed even after the name is corrected. See **§11.10**.
 `/home/alwayson-ledger` is not readable by the operator's own `scottw` account,
 so a direct `ls` returns `Permission denied`. That refusal is correct behaviour,
 not a missing account — do not "fix" it by loosening the mode or by running the
@@ -775,6 +783,9 @@ already used `alwayson-ledger` for uid 994, so this same error is present there.
 3. **The encrypted worker config.** Produced by `corda-cli.sh config encrypt`
    from operator-held secrets and installed `0600`. It cannot be generated
    without the operator's key material.
+4. **Linger is not enabled for `ao-ledger`, and no `ao-ledger-core.service`
+   unit file exists.** Not credential work, but the runbook's start command
+   cannot succeed without them. Measured and detailed in §11.10.
 
 Until step 1 completes, the node cannot be created, the ledger is **not
 production-ready**, and no receipt, entitlement, or provenance record can be
@@ -950,3 +961,563 @@ credentials are a stop condition:
 4. Treat everything in `pending-ledger-submissions/` as **untrusted replay input**;
    the 20260824 entry with `producer_key_id: "test"` must not be auto-submitted
    when the gateway comes up.
+
+---
+
+## 11.10 Third-Pass Verification, 2026-10-04 (LEDGER session)
+
+§11.7, §11.8 and §11.9 were re-measured from scratch rather than trusted. Every
+inherited claim **reproduced** — see the ledger in
+`agents/COORDINATION/proposals/ledger-LEDGER-0*.md` for the raw command output.
+This pass adds one thing the previous two missed: **§11.7 understates the
+blockers.** It lists three. There are at least five, and the two added here are
+not credential work.
+
+### The bootstrap runbook's "State after scaffold" is wrong in two places
+
+`docs/runbooks/ledger-bootstrap.md` opens with a block asserting completed state.
+Two of its four assertions are false, and both were carried forward unchallenged
+by the first two passes, which checked only the account **name**:
+
+```text
+# Runbook line 4:  "- Service account `alwayson-ledger` (linger enabled)"
+$ loginctl show-user ao-ledger -p Linger
+Failed to get user: User ID 994 is not logged in or lingering
+
+$ loginctl list-users
+ UID USER   LINGER STATE
+1000 scottw yes    active
+1 users listed.
+
+# Runbook line 9:  "- systemd user unit installed: `ao-ledger-core.service` (**not started**)"
+$ systemctl --user show ao-ledger-core.service -p LoadState -p FragmentPath
+LoadState=not-found
+FragmentPath=
+
+$ systemctl --user list-unit-files | grep -iE 'ledger|corda'   # no output, rc=1
+$ systemctl list-unit-files          | grep -iE 'ledger|corda' # no output, rc=1
+$ find /etc/systemd /usr/lib/systemd ~/.config/systemd \
+       -iname '*ledger*' -o -iname '*corda*'                     # no output
+```
+
+**Finding A — linger is not enabled.** The runbook says it is. `ao-ledger` does
+not appear in `loginctl list-users` at all, and there is no runtime directory for
+it:
+
+```text
+$ ls -d /run/user/994
+ls: cannot access '/run/user/994': No such file or directory
+```
+
+**Finding B — no unit file exists anywhere.** The runbook's parenthetical
+"(**not started**)" implies an installed-but-stopped unit. That is the same
+`is-active` misreading §11.8 warns about, committed to a document: a reader is
+told to run `systemctl --user enable --now`, which cannot work because there is
+nothing to enable. Only two `ao-ledger` files exist in `quadlet/`, and both are
+`.network` files — no `.service` and no `.container`:
+
+```text
+$ find quadlet -iname '*ledger*'
+quadlet/networks/ao-ledger-core.network
+quadlet/networks/ao-ledger-ingest.network
+```
+
+### Why this matters more than a naming typo
+
+§11.7 records the wrong-account finding as "an agent could build the node under
+the wrong identity". Measured, it is worse: **the runbook's step 5 cannot
+succeed even after the name is corrected.**
+
+```bash
+# Runbook lines 33-35, as written:
+sudo -u alwayson-ledger env HOME=/home/alwayson-ledger \
+  XDG_RUNTIME_DIR=/run/user/$(id -u alwayson-ledger) \
+  systemctl --user enable --now ao-ledger-core.service
+```
+
+`id -u alwayson-ledger` exits 1 and prints nothing, so the substitution collapses:
+
+```text
+$ id -u alwayson-ledger
+id: 'alwayson-ledger': no such user        # stdout empty
+$ echo "XDG_RUNTIME_DIR=/run/user/$(id -u alwayson-ledger 2>/dev/null)"
+XDG_RUNTIME_DIR=/run/user/                 # trailing slash, no uid
+```
+
+Fixing only the name is still not enough, because `XDG_RUNTIME_DIR=/run/user/994`
+does not exist either (§Finding A). Without linger there is no `systemd --user`
+instance for `ao-ledger` at all, so `systemctl --user` under `sudo -u ao-ledger`
+has no bus to talk to.
+
+**So LEDGER-07 has a fourth blocker that is not a key ceremony:** enable
+linger for `ao-ledger`, and write the `ao-ledger-core.service` unit file. Neither
+is credential work, but enabling linger for a service account **creates a
+persistent background session that survives logout**, which is an access-control
+change to a service identity — I am not making it, and it needs operator sign-off.
+It is also **outside my ownership**: `docs/runbooks/` is not my file.
+
+The `quadlet/networks/ao-ledger-{core,ingest}.network` files *are* real and
+`Internal=true`, matching `config/platform/network-cidrs.yaml:8-9`. §11.7 is
+correct on that point, and the networks are definitions with no container
+attached — consistent with "the node was never built".
+
+### What I got wrong in this pass
+
+I intended to re-verify the inherited claims and found nothing new, because I
+began by checking the account **name** — the one thing two prior sessions had
+already found. Re-reading the runbook line by line instead of grepping it for
+the known-wrong token surfaced two assertions nobody had checked, including one
+that is self-refuting: the runbook tells you to enable a unit it also says is
+"not started", while `list-unit-files` shows no such unit. **A document that
+states completed state must be verified field by field; grepping it for the
+token you already know is wrong tells you nothing new.**
+---
+
+## 11.11 Fourth-Pass Verification, 2026-10-04 (LEDGER session)
+
+Three prior passes re-verified the *same* inherited claims and found the same
+blockers. This pass deliberately changed method: instead of re-running the
+recorded checks, I **executed the ledger scripts against a throwaway key in
+`/tmp`** and read what the tooling actually does, rather than what it says it
+does. That surfaced **four new defects**, none of which is credential work and
+none of which any prior pass found.
+
+The inherited claims all still reproduce — see
+`agents/COORDINATION/proposals/ledger-LEDGER-0*.md`. What was missing is that
+**"the ingest path has no signature verification" (§11.8/§11.9) undersells the
+problem.** The signature that exists is not verifiable by its intended recipient,
+the staging queue can silently destroy records, and the manifest carries none of
+the correlation identity §11.2.1 declares mandatory.
+
+### Finding A — the signature does not cover the signed file (NEW, most serious)
+
+`sign-manifest.sh:33` hashes the manifest, and `:36` signs the **digest**, then
+`:41-42` **rewrites the same file** to embed `producer_key_id` and `signature`.
+So the artifact that is signed and the artifact that is delivered are different
+bytes:
+
+```text
+$ B=$(sha256sum m.json | awk '{print $1}')   # before signing
+0c7ac6ba098c736c601112a352eb9a5e2b3dddb9c4d034316b7bc7364e7c9600
+$ bash scripts/ledger/sign-manifest.sh m.json /tmp/.../k.pem   # ephemeral throwaway key
+OK: detached signature at m.sig and embedded in manifest (digest 0c7ac6ba...)
+$ A=$(sha256sum m.json | awk '{print $1}')   # after signing
+d240030093a1acfd82e3b2908a4911b0beb271dbc9b8815c06326e2d1a76b76b
+DIFFERENT -- signature does not cover the delivered file
+```
+
+The signature is valid, but only over the *pre-signature* digest:
+
+```text
+$ openssl pkeyutl -verify -pubin -inkey <(openssl pkey -in k.pem -pubout) \
+    -rawin -in d.txt -sigfile sig.bin
+Signature Verified Successfully
+EXIT=0
+```
+
+**And the recipient cannot reproduce that digest.** Stripping the two injected
+fields does not round-trip, because `jq` re-serialises and the original came
+from `jq -n` with different key order/indentation:
+
+```text
+$ jq 'del(.producer_key_id,.signature)' m.json > re.json
+$ sha256sum re.json
+6efd1830b0957a7a9eb1ffcbb787cfc91900a84faf65f231694b578a2165e2b9
+DOES NOT ROUND-TRIP -- recipient cannot reproduce the signed digest
+```
+
+The digest is printed to stdout and stored **nowhere in the manifest**. So a
+gateway given only `manifest.json` has no way to verify it. Concretely, a field
+tampered after signing is undetectable from the file alone:
+
+```text
+$ jq '.local_storage_reference="refA_TAMPERED"' m.json > t.json
+signature UNCHANGED after content tamper
+```
+
+**Recommendation, for the operator.** Canonicalise: hash a fixed byte sequence
+of the *fields to be signed*, sign that, and store the signed digest **inside**
+the manifest as e.g. `signed_payload_sha256`. Verification then re-canonicalises
+and compares. This is `scripts/` — **not my file, report only, no fix applied.**
+
+### Finding B — the staging queue is keyed on filename and silently loses records
+
+§11.2 requires **idempotency and replay defence**. `submit-ledger-event.sh:10-11`
+stages by `$(date -u +%Y%m%d)/<basename of input>`, so the de-duplication key is
+whatever the caller happened to name the file. Two *different* signed manifests
+with the same filename collide:
+
+```text
+# 1st: telemetry_batch / field  -> staged
+after 1st: telemetry_batch/field
+# 2nd: map_product / mapping, same filename, submitted
+after 2nd, DIFFERENT manifest, SAME filename: map_product/mapping
+>>> first manifest is GONE. Silent data loss in the staging queue.
+```
+
+Also: `install` is used with no mode, so staged manifests land **`0755`** —
+world-readable — rather than the `0600` a ledger artifact should carry:
+
+```text
+$ stat -c '%a %U %n' .../20260824/manifest.json
+755 scottw /ALWAYSON/artifacts/pending-ledger-submissions/20260824/manifest.json
+```
+
+This also refines §11.9 Finding 4: the pre-existing `20260824` manifest is
+world-readable, which matters more once a replay tool exists. Recommend keying
+on `object_id` and `install -m 0600`.
+
+### Finding C — no idempotency key exists even in principle
+
+Two submissions of the *same* `object_id` both succeed and both stage (the file
+is overwritten in place, so the count stays at 1 — but nothing rejects the
+duplicate, and nothing records that it was seen). There is no replay ledger, no
+`correlation_id` uniqueness constraint, and no audit record of a submission
+attempt. §11.2 row 5–6 ("Idempotency", "Audit logging") is **entirely
+unimplemented**; the staged file is the only trace.
+
+### Finding D — the manifest carries none of the mandatory correlation tuple
+
+§11.2.1 names `serial_number + receipt_number + event_timestamp_utc` as *the*
+primary correlation tuple, and §11.3 lists `correlation_id`, `serial_number`,
+`receipt_number` in required Corda state. But `build-manifest.sh` emits:
+
+```text
+$ jq -r 'keys_unsorted|join(" ")' m.json
+object_id object_type origin_domain created_at_utc schema_version
+content_hash_sha256 content_size_bytes local_storage_reference ipfs_cid
+pcloud_archive_reference transaction_id authorization_policy_id
+producer_key_id signature
+
+correlation_id           false
+serial_number            false
+receipt_number           false
+event_timestamp_utc      false
+event_type               false
+```
+
+None of the §11.2.1 fields are present, and `transaction_id` is `null` unless
+the object type is `sales_receipt`. **§11.5's manifest format is missing them
+too** — so this is a specification gap, not just a script gap. A ledger built on
+today's manifest cannot be joined by the correlation tuple that §11.2.1 defines
+as the join key for reporting and reconciliation. Recommend adding the five
+fields to both §11.5 and `build-manifest.sh`, with the domain-appropriate ones
+required (not nullable).
+
+### What this means for LEDGER-03
+
+LEDGER-03 asks that ingest "accept only approved signed data, with
+authorization, idempotency, replay defence, and audit". Measured against the
+current tooling, **all five are absent**: authorization is a non-empty-string
+test (§11.8), signature verification is absent *and* the signature is
+unverifiable by the recipient (Finding A), idempotency is absent (Findings B,
+C), replay defence is absent, and audit is a directory listing. LEDGER-03
+cannot be closed by writing gateway code on top of this manifest format —
+**Findings A and D must be fixed in the format first.**
+
+### Housekeeping
+
+The ephemeral Ed25519 key and all test manifests were created under `mktemp -d`
+and have been removed. Three manifests I staged today
+(`m.json`, `manifest.json`, `collide.json`) were deleted;
+`artifacts/pending-ledger-submissions/` again contains **only** the pre-existing
+`20260824` directory. Nothing was signed with, or read from, any project or
+ledger key; no file outside my own section was modified; nothing was transmitted.
+
+### What I got wrong in this pass
+
+My first instinct was to re-run the recorded checks a fourth time, because that
+is what the previous three passes did and they all reproduced. That produces
+completeness, not information. The three findings that mattered came only from
+*running* the scripts with an input no prior pass had tried — a throwaway key, a
+filename collision, and a `keys_unsorted` dump. **Verifying that a recorded
+claim still holds is worth doing once; doing it again is how three passes in a
+row all concluded "nothing new".**
+
+---
+
+## 11.12 Fifth-Pass Verification, 2026-10-05 (LEDGER session)
+
+Four passes had re-measured the host. This pass audited the **documents I own for
+internal consistency**, which no prior pass did, and validated candidates against the
+real schema rather than reading it. All three findings are new and are proved by
+execution.
+
+### Method note — validate, don't read
+
+`jsonschema` 4.26.0 is available on this host, so a candidate manifest can be tested
+against `config/ledger/manifest-schema.json` for real:
+
+```text
+$ python3 -c 'import importlib.metadata as m; print(m.version("jsonschema"))'
+4.26.0
+```
+
+Reading the schema says it has `additionalProperties: false`; validating says which
+payloads are *rejected*. The second is evidence.
+
+### Finding A — §11.3.1's posting model has no carrier in the wire format
+
+§11.3.1 defines a posting leg as carrying `account_code`, `side`, `amount`, `currency`,
+and `correlation_id`, and §11.5 defines the manifest as the thing submitted to the
+gateway. **The manifest format cannot express a posting at all.** Validated:
+
+```text
+--- 11.3.1 posting leg (DR CASH_EU 10000 EUR): REJECTED
+     Additional properties are not allowed ('account_code', 'amount',
+     'correlation_id', 'currency', 'side' were unexpected)
+```
+
+None of those five fields appears anywhere in the schema:
+
+```text
+$ for k in account_code side amount currency correlation_id; do
+      printf '%-16s %s\n' "$k" "$(grep -c "\"$k\"" config/ledger/manifest-schema.json)"; done
+account_code     0
+side             0
+amount           0
+currency         0
+correlation_id   0
+```
+
+This is **worse than §11.11 Finding D**, which found that the correlation tuple is
+missing from the manifest. Finding D meant reporting could not join by the tuple. This
+means the accounting model §11.3.1 defines has **no object that could ever carry it** —
+so §11.3.1 is currently a specification with no implementation surface. §11.5 needs a
+posting-leg array, or a distinct posting object type; neither exists. This is a
+specification change to §11.5 and to `config/ledger/`, and §11.5 is mine but
+`config/ledger/manifest-schema.json` is **not** — so the schema half is reported, not
+done.
+
+### Finding B — corrections are unexpressible, so §11.3.1's immutability rule has no mechanism
+
+§11.3.1 requires that a correction be "a **new reversing transaction** referencing the
+original `transaction_id`", and that history is never edited or deleted. There is no way
+to represent a reversing transaction:
+
+```text
+--- 11.3.1 reversing transaction (object_type=reversal): REJECTED
+     'reversal' is not one of ['sales_receipt', 'telemetry_batch', 'map_product',
+      'vehicle_simulation', 'fabrication_simulation']
+
+--- 11.3.1 correction referencing original: REJECTED
+     Additional properties are not allowed ('transaction_ref' was unexpected)
+```
+
+So the rule is stated but has no object type and no reference field to implement it
+with. An implementer following the schema literally cannot correct a posting at all —
+they would have to edit or delete, which the same paragraph forbids. This is the
+sharpest form of the §11.2.5 minimization tension: `additionalProperties: false` is
+correct for PII minimization, but it also forbids every legitimate bookkeeping field.
+
+### Finding C — `TAX_PAYABLE_<jurisdiction>` is defined but unreachable
+
+The account table declares `TAX_PAYABLE_<jurisdiction>`, but **no row in the posting
+rule may post to it**. In the posting-rule table (§11.3.1) the code appears exactly
+once, and it is the account-table row that defines it — not a posting row. Measured
+before this section was added, so that no self-reference inflates the count:
+
+```text
+$ grep -n 'TAX_PAYABLE' agents/COORDINATION/11-ledger-provenance-archive-and-ipfs/section.md
+528:| `TAX_PAYABLE_<jurisdiction>` | Liability | Tax accrued and owed, per approved jurisdiction |
+```
+
+§11.3.1 also states "Corda … cannot … decide tax". Both can be true — Corda records
+accrued tax, it does not compute it — but as written the account is unreachable, so no
+tax accrual can ever be posted and no tax liability can appear in the §4.4 report. I
+have **not** invented a tax posting rule: tax rates, jurisdictions and accrual timing
+are pricing and financial-policy decisions belonging to §7.2 and the PAY group, and
+setting them is a money-movement-adjacent decision. **Reported, not decided.**
+
+### What I corrected in this pass
+
+Finding A also exposed two defects **inside §11.3.1 itself**, which are mine to fix and
+are fixed: the posting table used `CASH_*`, `RECEIVABLE` and `REVENUE`, none of which
+are account codes in the table directly above it (`RECEIVABLE` and `REVENUE` do not
+exist; the codes are `RECEIVABLE_CUSTOMER`, `REVENUE_SALE`, `REVENUE_DIGITAL_TRANSFER`).
+The "Funds transfer verified" row also offered "RECEIVABLE **or** REVENUE", which is
+ambiguous where the balance invariant requires one answer. The DR/CR columns of two
+rows were also presented credit-first. All five rows now name real codes in DR-then-CR
+order, each a balanced pair, and the shorthand defects are recorded here rather than
+silently repaired.
+
+### What I got wrong in this pass
+
+My first instinct was, again, to re-run the recorded host checks — that is what four
+prior passes did and all four reproduced. I stopped, because §11.11 had already written
+down the lesson and I was about to repeat the mistake it describes. The three findings
+came from asking a question nobody had asked: **not "is the host in the documented
+state?" but "does the specification I own agree with the artefacts it governs?"** The
+host was fine in all four passes. The documents were not, and no amount of
+`sha256sum -c` would have found it.
+
+Equally, I nearly reported Finding C as a defect and stopped one step short of asking
+*whose* decision a missing tax rule is. It is not mine. An agent that "helpfully"
+invents a tax accrual rule here would be making a pricing decision it has no authority
+to make (README §4.1 rule 14).
+---
+
+## 11.13 Sixth-Pass Verification, 2026-10-05 (LEDGER session)
+
+Five passes audited the host (§11.8–§11.11) and then my own documents (§11.12). This
+pass did something none of them did: it looked at the **artefacts that §11 specifies
+rules for**, and asked whether the staging queue still matches what §11.11 recorded.
+
+It does not. **§11.11's housekeeping claim is now false, and the reason is worse than
+the defect it documented.**
+
+### Finding A — RETRACTION: §11.11's housekeeping statement is superseded
+
+§11.11 (2026-10-04) recorded, in its Housekeeping section:
+
+> `artifacts/pending-ledger-submissions/` again contains **only** the pre-existing
+> `20260824` directory.
+
+That was true when written and is **no longer true**. Measured this pass:
+
+```text
+$ ls -la /ALWAYSON/artifacts/pending-ledger-submissions/
+drwxrwxr-x 4 scottw scottw 4096 Oct  5 07:52 .
+drwxr-x--- 8 scottw scottw 4096 Oct  4 08:55 ..
+drwxrwxr-x 2 scottw scottw 4096 Aug 23 18:58 20260824
+drwxrwxr-x 2 scottw scottw 4096 Oct  4 17:52 20261005
+```
+
+A **second** manifest exists, dated today, and it is **not tracked by Git**:
+
+```text
+$ git ls-files artifacts/pending-ledger-submissions/
+artifacts/pending-ledger-submissions/20260824/manifest.json      # 20261005 absent
+$ git check-ignore -v artifacts/pending-ledger-submissions/20261005/manifest.json ; echo $?
+1                                                                    # not ignored either
+```
+
+So it is an **untracked, unignored** working-tree artefact. Per the coordination
+rules I have **not deleted, moved, or modified it**, and I have **not** touched the
+tracked `20260824` manifest. It is another session's or the operator's uncommitted
+work; removing it would be rule 3 and a §4.1 rule 12 violation. **Reported, not
+removed.**
+
+### Finding B — the new manifest would be REJECTED by the schema it claims to satisfy
+
+This is the serious part. `build-manifest.sh` does not validate `origin_domain`
+(§11.9 Finding 3), so the value in the file is whatever the caller passed. The
+staged value is **`storefront`** — a domain that appears in **no** §11.1 table and
+**no** §11.5 enumeration:
+
+```text
+$ jq -r '{object_type,origin_domain,producer_key_id}' \
+    artifacts/pending-ledger-submissions/20261005/manifest.json
+{ "object_type": "sales_receipt", "origin_domain": "storefront", "producer_key_id": "testkey" }
+
+$ python3 -c "...Draft202012Validator(manifest-schema.json).iter_errors(m)..."
+REJECTED: 'storefront' is not one of ['sales', 'field', 'mapping', 'sim_vehicle', 'sim_fabrication']
+```
+
+**A `sales_receipt` — the one object type that §11.2.2 gates exist to protect — is
+sitting in the replay queue attributed to a domain that is not an authoritative
+producer at all.** Combined with `producer_key_id: "testkey"`, this is the second
+entry (after `20260824`'s `producer_key_id: "test"`) of the same class §11.9
+Finding 4 described. **Two of two queued manifests carry unverified key material,
+and now one of them also carries an out-of-model origin domain.**
+
+`submit-ledger-event.sh` cannot catch this, because it performs **no schema
+validation at all**:
+
+```text
+$ grep -nE 'jsonschema|manifest-schema|validat' scripts/ledger/submit-ledger-event.sh
+NO schema validation in submit script
+```
+
+§11.2.5 row 3 says schema validation is enforced by the *gateway*. Correct — but
+nothing validates on the way **in**, so an invalid manifest is written to durable
+storage and only ever rejected later, if a gateway ever exists. The queue is
+**write-anything, validate-never**.
+
+### Finding C — the staging queue is inside the restic backup set
+
+The restore drill already treats staged manifests as receipts. That makes them
+**backed-up data**, which changes the consequences of Finding B from "a local
+loose file" to "a record that survives in the backup set and will be restored":
+
+```text
+$ grep -n 'artifacts' scripts/backup/restic-run.sh
+restic backup ... '$AO_ROOT/artifacts' ...
+
+$ grep -n 'pending-ledger-submissions' scripts/restore/restore-restic-drill.sh
+receipts="$(find "$scratch_abs" -path '*pending-ledger-submissions*' -name 'manifest.json' ...)"
+echo "  pending-ledger-submission manifests found: $receipts"
+```
+
+The drill **counts** staged manifests and reports them as "Corda
+receipt/manifests". It never validates them. So a schema-invalid, unverified-key
+manifest is counted as a **receipt** during a restore drill. This is a §17.1
+interaction, so it belongs to **OPS** as well as LEDGER — reported, not edited.
+
+### Finding D — §11.5 and §11.1 name a smaller domain set than the ledger needs
+
+Comparing the three artefacts by machine rather than by eye:
+
+```text
+$ python3  # schema enum vs §11.1 authority table
+schema enum : ['field', 'mapping', 'sales', 'sim_fabrication', 'sim_vehicle']
+in §11.1 table but NOT submittable: ['archive', 'ledger', 'payment', 'sim-fabrication', 'sim-vehicle']
+```
+
+`payment` is an authoritative domain in §11.1 and the **source of the funds-transfer
+evidence** that §11.3.1 makes the *only* posting trigger, yet it has no
+`origin_domain` and so **cannot submit a manifest at all**. §11.1 also writes the
+domains as `ao-sim-vehicle` / `ao-sim-fabrication` while §11.5 and the schema use
+`sim_vehicle` / `sim_fabrication` — the two spellings differ, and the producer-key
+gap in §11.9 Finding 1 lists them under the `ao-` form. A gateway built by matching
+§11.1 names against the schema enum would match nothing.
+
+Additionally, §11.5's example omits two schema fields: `transaction_id` (which the
+schema makes **required** for `sales_receipt`) and `content_hash_sha256` (required
+for every object). An implementer copying §11.5 would produce a manifest that its
+own schema rejects:
+
+```text
+schema-only  (undocumented in §11.5): ['content_hash_sha256', 'transaction_id']
+doc-only     (not in schema)         : []
+```
+
+### What this means for the open items
+
+None of these change a status. They make the **replay path** more dangerous than
+§11.9 recorded, and they add three items that are **not** mine to fix:
+
+1. `config/ledger/manifest-schema.json` — add `payment` (and decide `archive`/
+   `ledger`), and reconcile the `sim_*` vs `ao-sim_*` naming. **Not my file.**
+2. `scripts/ledger/submit-ledger-event.sh` — validate against the schema *before*
+   staging. Cheap, unblocked, **not my file** (`scripts/`).
+3. `scripts/restore/restore-restic-drill.sh` — a counted "receipt" that is never
+   validated. **OPS** group (§17.1), **not my file**.
+
+LEDGER-03 stays open, and its blocker list grows by one item: **the replay queue
+must be treated as untrusted input and the invalid 20261005 entry quarantined by
+the operator.** I have not quarantined it.
+
+### What I got wrong in this pass
+
+I planned to audit §11.4 and §11.6, the two subsections no prior pass had read. I
+did read them — and they are fine. The finding came from somewhere I had not
+planned: I ran `ls` on the staging directory as a **closing sanity check** before
+writing up, and the listing had a directory in it that §11.11 said was not there.
+**I had been treating §11.11's housekeeping paragraph as settled fact because it
+was in my own section file.** Two of my five passes were about trusting records
+that had gone stale; the sixth was about trusting a record I had written myself
+four hours earlier.
+
+The lesson generalises past staleness: **a claim in your own document is still a
+claim, not a measurement.** The §11.11 note was written to clear me of suspicion
+about my own test artefacts, and it did its job — so well that I stopped checking
+entirely. Write down what you cleaned up, then *still* check.
+
+I also nearly wrote Finding B as "an invalid manifest is staged, someone should fix
+the validator." That misses the point: the validator is not the defect, the
+**missing `payment` origin_domain plus the unvalidated call-through** is. Adding a
+check without closing the model gap would reject more manifests without accepting
+the one that matters.
+
+---

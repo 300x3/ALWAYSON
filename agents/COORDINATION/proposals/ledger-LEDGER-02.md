@@ -15,6 +15,26 @@ evidence: |
   corda-combined-worker-5.2.2.0.jar: OK
 section: 11-ledger-provenance-archive-and-ipfs
 ---
+**Re-verified a third time, 2026-10-04.** All three checks re-run and
+reproduced: both PostgreSQL paths still closed to the agent account, JAR
+checksum `OK`, `ao-ledger` = uid 994. Still open, still operator-only.
+
+Additionally recorded in §11.10: the `cordadb` blocker is not the *only*
+non-credential gap on the path to a running node. Linger is not enabled for
+`ao-ledger` and no `ao-ledger-core.service` unit file exists, so even after the
+role password is set the node could not be started by the runbook's own
+procedure. The operator should know there are **two** things to fix, not one.
+
+**Re-verified a third time, 2026-10-04.** All three checks re-run and
+reproduced: both PostgreSQL paths still closed to the agent account, JAR
+checksum `OK`, `ao-ledger` = uid 994. Still open, still operator-only.
+
+Additionally recorded in §11.10: the `cordadb` blocker is not the *only*
+non-credential gap on the path to a running node. Linger is not enabled for
+`ao-ledger` and no `ao-ledger-core.service` unit file exists, so even after the
+role password is set the node could not be started by the runbook's own
+procedure. There are **two** things to fix, not one.
+
 **Stays open. Stopped — credential change is a hard stop condition.**
 
 The acceptance criteria require the `cordadb` owner role to have a working
@@ -50,3 +70,17 @@ session, agent sessions are **not** authorised to write ledger secrets at all.
 This is prerequisite to LEDGER-07's node build, and both sit behind LEDGER-01's
 key ceremony. Nothing here can be advanced by an agent without operator
 approval.
+---
+
+## Fifth pass, 2026-10-05 — unchanged, and one ordering note
+
+Not re-measured; four prior passes reproduced identically and a fifth adds nothing.
+
+Ordering note worth carrying to the operator, learned this pass from §11.12: the
+`cordadb` role password is **not** the next thing needed. Even with a working role, the
+gateway format itself cannot express an accounting posting (§11.12 Finding A) and
+cannot accept a correction (Finding B). Those are specification defects, fixable
+without credentials, and they sit *downstream* of nothing — they can be worked now,
+whereas the password and the key ceremony need approval.
+
+**Stays open.** No `ALTER ROLE`, no credential read, no privilege broadening.

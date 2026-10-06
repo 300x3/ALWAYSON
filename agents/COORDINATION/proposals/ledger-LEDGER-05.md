@@ -22,6 +22,24 @@ evidence: |
   inactive                       # exit 4  -- MISLEADING, see prose
 section: 11-ledger-provenance-archive-and-ipfs
 ---
+**Third independent run, 2026-10-04.** Reproduced again:
+
+```text
+$ bash /ALWAYSON/scripts/validation/check-ledger-ingest.sh
+PENDING: ledger-ingest gateway not deployed yet (Section 2.8 step 3 awaits Corda version approval)
+EXIT=3
+
+$ systemctl --user show ao-ledger-core.service -p LoadState -p FragmentPath
+LoadState=not-found
+FragmentPath=
+```
+
+The `LoadState` lesson in "What I got wrong" below cost me a re-check this
+session: I reached for `is-active` first, got `inactive` again, and had to
+re-run with `LoadState` to get an answer that means anything. Three sessions have
+now hit this same trap. **Closure still holds** — the script resolves, it runs
+unprivileged, and `EXIT=3` is a defined PENDING state.
+
 `check-ledger-ingest.sh` is resolved and deterministic, and it runs
 unprivileged — the acceptance criteria allowed either the script being resolved
 **or** a pending privileged command, and the script route is the one that
@@ -65,3 +83,17 @@ which reported the unit "could not be found" — that claim was correct.
 
 No §19 wording change needed beyond status; the acceptance criteria stand as
 written and are met.
+---
+
+## Fifth pass, 2026-10-05 — closure still holds; not re-measured
+
+Not re-run this pass. The probe result is unchanged and stable across four passes, and
+`check-ledger-ingest.sh` remains resolved and unprivileged — which is what the §19
+criteria actually require. Re-running it a fifth time would add nothing, per the §11.11
+lesson.
+
+Closure does not depend on the host staying in this state: the criteria are satisfied by
+the script being *resolved*, which is a property of the repository, not of whether the
+gateway exists.
+
+**LEDGER-05 remains closed.**
