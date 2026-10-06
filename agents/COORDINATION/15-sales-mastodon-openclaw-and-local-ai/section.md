@@ -526,6 +526,22 @@ local Mastodon accounts, whose registered addresses are `admin@300x3.com` and
 instance has open registration closed and no pending approvals, this is currently
 non-blocking for federation, but it is a real gap.
 
+**Outbound is also unconfigured, not merely undeliverable — added 2026-10-05.** The
+first pass above only tested *receiving*. Listing the **key names** of the live Mastodon
+environment (no values printed) shows there is no mail configuration at all:
+
+```console
+$ cut -d= -f1 ~/.local/share/ao-secrets/mastodon.env | sort | grep -iE 'smtp|mail|email'
+NO smtp/mail/email key present in live mastodon.env
+```
+
+The file holds 24 keys, all of them database, cache, TLS or tuning values. Mastodon
+therefore has no `SMTP_ADDRESS`/`SMTP_DOMAIN`/credentials, so it has **no way to submit
+mail either**. The practical consequence is wider than "reset mail is undeliverable":
+account recovery on this instance is not merely blocked at the receiving hop, there is no
+sending path to block. Any resolution chosen under COMM-05 must set **both** directions;
+fixing MX alone would leave outbound silent.
+
 Resolution requires an operator decision between the options in §19.1 COMM-05 and is
 **not** taken unilaterally here: pointing MX at a hosted relay, standing up a local MTA
 (both a new public listener on port 25 and a new package — rule 3 and rule 12), or
@@ -551,7 +567,7 @@ edited here.
 | D6 | `config/mastodon/instance-policy.yaml` | 20 | `registrations: "open with approval gate (approval_required: true)"` | `"closed"` | **Contradicted by the live instance** (`registrations=false`); see §15.4.2. |
 | D7 | `config/mastodon/instance-policy.yaml` | 18–19 | `admin@300x3.com`, `bot@300x3.com` | correct — matches the database | No change. |
 | D8 | `config/platform/version-matrix.yaml` | 41 | `local_domain: "mastodon.300x3.com"` | correct | Already reconciled 2026-10-01. Images are digest-pinned at v4.3.7, matching the running container. |
-| D9 | `config/platform/version-matrix.yaml` | 51 | note: `RAILS_FORCE_SSL/LOCAL_HTTPS are set false but are INERT … loopback proxy at https://127.0.0.1:3300` | only the `set false` → `set true` wording | **Second instance of the same §15.4.2 error.** The `3300` in this note is **correct** and must not be "fixed". |
+| D9 | `config/platform/version-matrix.yaml` | 51 | note: `RAILS_FORCE_SSL/LOCAL_HTTPS are set false but are INERT … loopback proxy at https://127.0.0.1:3300` | only the `set false` → `set true` wording | **Second instance of the same §15.4.2 error.** The `3300` in this note is **correct** and must not be "fixed". **Re-measured 2026-10-05: the values are actually `true`, so this row needs no edit at all** — see §15.4.13 Correction 1. |
 
 **Correction to D9, made 2026-10-04.** An earlier pass recorded D9 as carrying "an
 independent port typo: it cites the loopback proxy at port `3300` where the real origin is
@@ -971,3 +987,169 @@ the minutes-long window a tunnel connector needs. It does exclude "TLS to the ed
 broken" and "general outbound HTTPS is broken", which is useful. Diagnosing the local path
 and changing tunnel transport remain live network configuration and therefore a stop
 condition. Tracked as COMM-08; status Open.
+### 15.4.13 Independent Re-Verification, 2026-10-05 (liveness of §15.4.8–§15.4.12)
+
+Every claim in §15.4.8–§15.4.12 rests on measurements taken 2026-10-03/04. Re-measured
+from scratch on 2026-10-05 rather than trusting them. Most reproduce exactly. **Three do
+not, and all three corrections are mine.**
+
+**Correction 1 — `RAILS_FORCE_SSL`/`LOCAL_HTTPS` are set `true`, not "false".** §15.4.8
+row D9 and §15.4.2 both describe these variables as "set false but INERT". That is wrong
+in a way that matters, because "set false" implies a deliberate local override that is
+then defeated by the upstream default. There is no override — the live values are `true`:
+
+```console
+$ grep -E '^(RAILS_FORCE_SSL|LOCAL_HTTPS)=' ~/.local/share/ao-secrets/mastodon.env
+RAILS_FORCE_SSL=true
+LOCAL_HTTPS=true
+$ podman inspect mastodon-web --format '{{range .Config.Env}}{{println .}}{{end}}' \
+    | grep -E 'RAILS_FORCE_SSL|LOCAL_HTTPS'
+RAILS_FORCE_SSL=true
+LOCAL_HTTPS=true
+$ grep -n 'force_ssl' /ALWAYSON/config/mastodon/patches/production.rb
+config.force_ssl = ENV.fetch('RAILS_FORCE_SSL', 'true') == 'true'
+```
+
+The env-file key list contains no `RAILS_FORCE_SSL=false` anywhere. So the sequence is:
+the variable is explicitly `true`, the project patch reads it, and the upstream default
+agrees. Nothing is inert and nothing is overridden. The corrected D9 "should be" cell is
+therefore **no change at all** — the note's substance is right and only its description of
+the *mechanism* is wrong. This also means D9 has **no actionable edit**, which lowers the
+apparent size of the COMM-01 backlog by one row.
+
+**Correction 2 — port `3300` is real, confirmed a second time, independently.** §15.4.8
+already retracted the "3300 typo" claim; this pass re-derived it from scratch rather than
+re-reading the retraction. `mastodon-local-proxy.service` is live, is serving the actual
+Mastodon UI, and the proxy process is running exactly as the version-matrix note
+describes:
+
+```console
+$ ss -lntp | grep -E ':(3000|3300|4000)\b'
+LISTEN 127.0.0.1:3000 users:(("rootlessport",pid=8478,fd=5))
+LISTEN 127.0.0.1:3300 users:(("python3",pid=2385,fd=3))
+LISTEN 127.0.0.1:4000 users:(("rootlessport",pid=5967,fd=5))
+$ ps -p 2385 -o lstart,cmd --no-headers
+**Correction 3 — the flap is bursty, not steady. §15.4.11 said "NOT bursty" and that is
+wrong.** §15.4.11 measured 384 events across 204 distinct minutes and concluded a steady
+~16/hour, "one flap roughly every 4 minutes". Re-measured over a fresh 24 h window the
+count is higher and the *shape* is different: 444 events, and the minute-level gap
+histogram shows the events arrive in **consecutive-minute pairs**.
+
+```console
+$ for w in '15 min ago' '1 hour ago' '6 hours ago' '24 hours ago'; do
+    printf '%s: ' "$w"; journalctl --user -u cloudflared-alwayson.service --since "$w" \
+      | grep -c 'Lost connection with the edge'; done
+15 min ago: 6
+1 hour ago: 21
+6 hours ago: 90
+24 hours ago: 444
+$ # distinct flap-bearing minutes, then the gap between consecutive ones:
+distinct_flap_minutes=139
+60s x68   120s x2   180s x1   420s x3   480s x5   540s x4   600s x3   660s x2 ...
+median_gap=120s  max_gap=4020s
+```
+
+68 of the 138 gaps are **exactly 60 s**, i.e. a flap minute immediately followed by
+another flap minute. Aggregated by burst: **387 losses fall in 105 minutes that contain
+3+ simultaneous losses, against 53 losses in 34 singleton minutes.** That is the
+signature of a periodic multi-connection event, not an independent per-connection
+background error rate.
+
+Why this is not a cosmetic correction: §15.4.11's own advice was "do not sample a short
+window, the rate is steady". If the truth is bursty, that advice is actively harmful —
+during a quiet period a short sample reads 0 and a reader concludes the fault is over,
+which is exactly the false-recovery trap §15.4.12 already fell into once. I fell into it
+again in this very pass: at 15:03 UTC, `10 minutes ago` returned **0 flaps** while the
+preceding 15-minute window had returned 6.
+
+**The §15.4.11 conclusion survives, and the discriminator got stronger.** The PoP
+footprint widened from nine to **fourteen** distinct points of presence in 24 h, against
+still exactly **four** edge IPs, still 100 % `protocol=http2`, and the per-connection loss
+split is still near-uniform (112/111/109/108 across `connIndex` 0–3):
+
+```console
+$ journalctl --user -u cloudflared-alwayson.service --since '24 hours ago' -o cat \
+    | grep 'Registered tunnel connection' | grep -o 'location=[a-z0-9]*' | sort | uniq -c
+  2 lax01  22 lax05  19 lax07  14 lax08  13 lax09  15 lax10  21 lax11  2 lax13
+246 phx01  64 sjc01  80 sjc06  2 sjc07  1 sjc08  1 sjc10
+**The control experiment §15.4.11 asked for: run, and it came back inconclusive.** It
+compared a long-lived TLS handshake to the tunnel edge IP against a handshake to a
+non-tunnel destination, 110 ticks at 5 s, and correlated each tick with a 70 s window of
+tunnel journal entries:
+
+```console
+$ # 110 ticks, edge = 104.21.41.83:443, control = mastodon.social:443
+SUMMARY ticks=110 edge_ok=110 edge_fail=0 ctrl_ok=110 ctrl_fail=0 flaps_seen_in_windows=0
+```
+
+Both paths were perfect, **because zero flaps occurred during the window** — consistent
+with the bursty finding above. This is *not* the confirmation §15.4.11 requested, and I
+am not recording it as one. A probe with no events in it cannot discriminate anything: the
+result is identical to what a healthy network would have produced, which is precisely why
+"both green" must not be read as "fault absent". A second, longer probe was launched to
+try to catch a burst deliberately.
+
+**A bug in my own probe, worth recording because it nearly produced a false reading.** My
+first probe treated success as `grep -c 'Verify return code: 0'` being *exactly* `1`.
+The control returned `2` on every tick — the string legitimately appears twice (chain and
+leaf) — so every control tick was scored as a failure. I killed and rewrote it to accept
+`>= 1`. Had I not inspected a `ctrl_ok=2` line and taken it as a fault, I would have
+reported "the control path fails continuously while the edge path succeeds", inverting the
+conclusion. **A probe's expected value must be a range, not a point.** The same class of
+error as the empty-output-vs-zero-count mistake in the COMM-05 evidence.
+
+**Status of the other COMM items, re-verified 2026-10-05 (no new findings).**
+
+- **COMM-02** — remote `following` still returns `count= 2` (both local accounts); remote
+  `followers_count= 1`, listing only `bot`. §15.4.9 unchanged.
+- **COMM-03** — all nine moderation tables still `0`; remote actors still 9
+  `Application` / 1 `Person` / 1 `Service`; `settings` still holds only
+  `reserved_usernames`; both local users `approved=true`, `disabled=false`. D6 unchanged:
+  `registrations False approval_required False` against a policy file that says
+  "open with approval gate".
+- **COMM-04** — token length 43, `verify_credentials` HTTP 200 `acct=bot`
+  `id=117363090433277638`; both bridge copies still `sha256 486e7472…99c19`;
+  `ActiveState=active`, `NRestarts=0`.
+- **COMM-05** — still **no** MX (`answers=0`) and a **new** finding this pass: the live
+  `mastodon.env` contains **no SMTP, mail or email key at all**, so outbound is not
+  merely undeliverable, it is unconfigured. See §15.4.7.
+- **COMM-06** — `mastodon.social` still resolves both accounts
+  (`bot` id `117327405745705562`, `admin` id `117327389970897359`, 2 followers each);
+  10 distinct remote domains known locally. The Konqueror step remains the operator's.
+- **COMM-07** — `statuses` is still `0` (the 2026-10-01 wipe; the 126-row pre-wipe dump
+  is still present at `backups/mastodon-status-wipe-2026-10-01/`), both queues empty,
+  `joinmastodon.org` → 200. **No publication performed.**
+$ ... | grep -oE 'ip=[0-9.]+' | sort -u
+ip=198.41.192.107  ip=198.41.192.167  ip=198.41.200.13  ip=198.41.200.193
+$ ... | grep 'Registered tunnel connection' | grep -o 'protocol=[a-z0-9]*' | sort | uniq -c
+502 protocol=http2
+$ journalctl ... | grep 'Lost connection' | grep -oE 'connIndex=[0-9]' | sort | uniq -c
+112 connIndex=0  111 connIndex=1  109 connIndex=2  108 connIndex=3
+$ systemctl --user show cloudflared-alwayson.service -p NRestarts -p ActiveState
+ActiveState=active
+NRestarts=1
+```
+
+Fourteen independent metropolitan PoPs across three regions cannot all lose four
+unrelated connections inside the same second. The fault remains **upstream of the PoP and
+common to all four connections** — the shared local path. Origin is still clean
+(`mastodon-web` 5xx count over 30 m = 0, `error delivering` in `mastodon-sidekiq` = 0,
+both queues empty). And the operational trap is unchanged and still the most dangerous
+thing in this section: **`NRestarts=1` with `ActiveState=active` while the fault runs.**
+Thu Oct  1 15:08:14 2026 /usr/bin/python3 /ALWAYSON/scripts/operations/mastodon-local-proxy.py \
+    3300 3000 /ALWAYSON/secrets/mastodon/mastodon-local.crt .../mastodon-local.key
+$ systemctl --user show mastodon-local-proxy.service -p NRestarts
+NRestarts=0
+$ curl -sk -m 10 https://127.0.0.1:3300/ | grep -oiE '<title>[^<]*</title>'
+<title>Mastodon</title>
+$ curl -sk -m 10 https://127.0.0.1:3300/api/v1/instance   # -> version
+4.3.7
+```
+
+Two facts make this worth restating. First, `3300` answers **200** and returns the real
+Mastodon UI, while `https://127.0.0.1:3000/api/v1/instance` errors at the TLS layer —
+the ports are not interchangeable, so any "normalisation" of the matrix note to `3000`
+breaks the bridge (see §15.4.8). Second, this is the **Quadlet/copy trap again**: the
+live unit at `~/.config/containers/systemd/` is a *copy* of
+`/ALWAYSON/quadlet/operations/mastodon-local-proxy.service`. Editing the repo file alone
+will not change the running proxy.

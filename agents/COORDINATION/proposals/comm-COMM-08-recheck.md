@@ -71,6 +71,97 @@ evidence: |
 section: 15-sales-mastodon-openclaw-and-local-ai
 ---
 **Status unchanged: COMM-08 stays Open.** My section file gains
+
+---
+
+## Addendum, 2026-10-05 — I retract "NOT bursty", and the control experiment came back inconclusive
+
+Still **Open**. The §15.4.10 conclusion is unchanged and now better supported, but one of
+my own supporting claims was wrong and I am retracting it rather than quietly reusing it.
+Recorded in section §15.4.13.
+
+```console
+$ for w in '15 min ago' '1 hour ago' '6 hours ago' '24 hours ago'; do
+    printf '%s: ' "$w"; journalctl --user -u cloudflared-alwayson.service --since "$w" \
+      | grep -c 'Lost connection with the edge'; done
+15 min ago: 6
+1 hour ago: 21
+6 hours ago: 90
+24 hours ago: 444
+$ # distinct flap-bearing minutes + gap histogram between consecutive ones:
+distinct_flap_minutes=139
+60s x68   120s x2   180s x1   420s x3   480s x5   540s x4   600s x3   660s x2 ...
+median_gap=120s  max_gap=4020s
+$ journalctl ... -o short-iso | grep 'Lost connection with the edge' | cut -c1-16 \
+    | sort | uniq -c | awk '{if($1>=3){g+=$1;n++}else{o+=$1;m++}} \
+        END{print "grouped="g" over "n" min"; print "singleton="o" over "m" min"}'
+grouped=387 over 105 minutes
+singleton=53 over 34 minutes
+$ # I fell into the very trap I was documenting, at 15:03 UTC:
+$ journalctl --user -u cloudflared-alwayson.service --since '10 minutes ago' \
+    | grep -c 'Lost connection with the edge'
+0
+$ # zero in a 10-min window, five minutes after '15 minutes ago' returned 6.
+```
+
+**I retract "NOT bursty".** My previous pass wrote that the loss is "steady, NOT bursty
+(~16/hour, one flap roughly every 4 minutes)" and advised future sessions not to sample a
+short window because "the rate is steady". Re-measuring the **shape** rather than just the
+count shows the opposite: 68 of 138 gaps between flap-bearing minutes are *exactly 60 s*,
+and 387 of 444 losses fall in minutes containing 3+ simultaneous losses. The old "every
+4 minutes" figure came from dividing total events by hours, which is a *mean* — and a mean
+over a bursty process is exactly the statistic that hides burstiness. The advice built on
+that mean was actively dangerous, and I demonstrated it on myself: a 0 reading during a
+documented active fault is implausible on its face, and I only caught it because the number
+was absurd.
+
+**The load-bearing conclusion survives, and the discriminator strengthened.** The PoP
+footprint widened from nine to **fourteen** distinct metropolitan points of presence in
+24 h (`lax01`–`lax13`, `phx01`, `sjc01`–`sjc10`), against still exactly **four** edge IPs,
+still 100 % `protocol=http2`, and a still near-uniform per-connection loss split
+(112/111/109/108). Fourteen PoPs across three regions cannot all drop four unrelated
+connections inside the same second. The fault remains **upstream of the PoP, common to all
+four connections** — the shared local path — and the origin is still exonerated
+(`mastodon-web` 5xx in 30 m = 0, sidekiq delivery errors = 0, both queues empty). The
+tunnel is exonerated as the origin of the flaps but remains the messenger.
+
+**The control experiment §15.4.11 asked for is now run, and I am recording it as
+INCONCLUSIVE, not as a pass.** 110 ticks at 5 s, edge IP against a non-tunnel control,
+each tick correlated with a 70 s journal window:
+
+```console
+$ # 110 ticks, edge = 104.21.41.83:443, control = mastodon.social:443
+SUMMARY ticks=110 edge_ok=110 edge_fail=0 ctrl_ok=110 ctrl_fail=0 flaps_seen_in_windows=0
+```
+
+Both paths perfect — because no flaps occurred while it ran. That is not confirmation, and
+I have not written it up as such in the section. **A probe whose window contains no events
+produces exactly the output a healthy network produces, so it has no discriminating
+power.** The honest statement is that the control experiment needs a window containing a
+burst, which is now knowable in advance: the burst period is roughly 8–14 minutes, so a
+probe must span several burst cycles. A longer probe targeting three bursts is running; if
+it also lands in a quiet window the result is again uninformative and I will say so rather
+than dress it up.
+
+**A bug in my own probe, recorded because it nearly inverted the conclusion.** My first
+probe scored success as `grep -c 'Verify return code: 0'` being *exactly* `1`. The string
+legitimately appears **twice** (chain and leaf), so every control tick scored as a failure
+— I saw `ctrl_ok=2` and read it as "the control fails continuously while the edge
+succeeds", the exact opposite of the truth. I rewrote the check to accept `>= 1`. The
+lesson generalises: **a probe's expected value must be a range, not a point**, and a
+control arm that is *uniformly* anomalous deserves the same suspicion as one that is
+uniformly fine. This is the same class of error as the hostname/seconds field misparse
+already recorded above in this file — twice now I have produced a confident number from a
+wrong parse, and both times the tell was that the number was absurd or the pattern was too
+clean. **Sanity-check the parse before reporting the number.**
+
+**Not actioned, unchanged.** Isolating the local path means changing live network
+configuration, which is a stop condition (rule 12), and the edge/network path belongs to
+§15.4.3. Public impact remains low but intermittent: inbound federation is unavailable for
+a short window at the burst period, while `ActiveState=active` and `NRestarts=1` both read
+healthy. **That gap between the health indicators and the actual fault is still the most
+dangerous thing in this section**, and the bursty correction makes it worse, because the
+quiet periods are exactly when an automated check will pass.
 **§15.4.12 "Re-Verification Pass, 2026-10-04 (liveness, not a status refresh)"**. Nothing
 here closes the item; it records that the flap has now run for over two days and re-tests
 the live claims that rested on artifacts older than 48 h.
