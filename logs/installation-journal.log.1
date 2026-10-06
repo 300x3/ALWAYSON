@@ -1,0 +1,16 @@
+# ALWAYS ON installation journal (README Section 16.3, Section 4.1 rule 11)
+# Records commands, versions, significant output, and failures for every
+# install or change session.
+#
+# NOTE: this file was created 2026-10-02 during the Section 16.3 audit. Earlier
+# installation/change sessions recorded their output in
+# logs/installation/agent-install.log, which remains the de-facto install log
+# and is still appended to by the install procedure in README 11.1. That file
+# was NOT moved or renamed; this journal is the Section 16.3-named record and
+# forward entries go here as well.
+#
+# Format: <UTC timestamp> actor=<user> session=<name> <detail>
+# Never record a secret value here (Section 4.2). Record names, lengths and
+# sha256 equality only.
+2026-10-02T00:00:00+00:00 actor=scottw session=log-journals-audit Section 16.3 audit: created installation-journal.log. Did not move or rename logs/installation/agent-install.log (existing install record preserved per Section 4.1 rule 2).
+2026-10-03T01:05:53+00:00 actor=scottw script=bash Section 16.3 logs-journals audit: created installation-journal.log, backup.log, restore-test.log, meshchatx.log, gpu-runtime/; merged 2766-line operations journal from LOGS-JOURNALS/ to logs/ (verified identical); added ao_operation/ao_install/ao_backup_run/ao_restore_test to scripts/lib/common.sh; added scripts/validation/check-logs-journals.sh; corrected README 16.3 and added 18.7; no existing log renamed or deleted

@@ -1,0 +1,36 @@
+# ALWAYS ON MeshChatX application log (README Section 16.3)
+#
+# Created 2026-10-02 during the Section 16.3 audit.
+#
+# MeshChatX IS INSTALLED AND RUNNING on this host.
+#
+# RETRACTION: an earlier version of this header (written 2026-10-02 during the
+# Section 16.3 audit) claimed MeshChatX was NOT installed here. That was WRONG.
+# The audit searched for an "ao-field" unit, found none, and inferred the
+# software was absent. MeshChatX actually runs under its own unit namespace:
+#
+#   systemctl --user status reticulum-meshchatx.service
+#     active (running) since 2026-10-01 15:08:35 PDT, 17 processes
+#   systemctl --user list-units  also shows reticulum-meshchatx-watchdog.timer
+#   ExecStart=~/Applications/meshchatx-native/ReticulumMeshChatX --headless \
+#             --host 127.0.0.1 --port 18000 \
+#             --reticulum-config-dir ~/.reticulum \
+#             --storage-dir ~/.reticulum-meshchatx
+#
+# WHERE THE REAL LOG IS:
+#   ~/.reticulum-meshchatx/logs/meshchatx.log      3.4 MB, actively written
+#   ~/.reticulum-meshchatx/logs/meshchatx.log.1    5.2 MB rotation
+#   journald: journalctl --user -u reticulum-meshchatx.service  (19332 lines)
+#
+# The application writes that log itself, into its own storage dir, because
+# --storage-dir is where it keeps state (identities, session secret, mbtiles).
+# That directory is 907 MB of live application data and is NOT relocated to
+# /ALWAYSON/logs/. Doing so would move user data, not just logs.
+#
+# This file is a POINTER, not a second writer. Do not append events here and do
+# not let anything else write to the application's log -- two writers on one
+# file interleave badly and the app holds the handle.
+#
+# Do not fabricate entries to make this look "regularly updated".
+2026-10-02T00:00:00+00:00 actor=scottw note=log-created MeshChatX log pointer created during Section 16.3 audit.
+2026-10-02T18:20:00+00:00 actor=scottw note=RETRACTION Prior header claimed MeshChatX was not installed; that was wrong. Corrected after operator reported it in active use. Live log is ~/.reticulum-meshchatx/logs/meshchatx.log, service reticulum-meshchatx.service active since 2026-10-01.

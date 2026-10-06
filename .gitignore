@@ -1,6 +1,5 @@
 secrets/
 data/
-logs/
 tmp/
 backups/
 pcloud/
@@ -49,8 +48,6 @@ __pycache__/
 # The exclusion itself REMAINS for the rest of the folder: the narrative
 # handoffs still name the host, the operator account, versions and open
 # security findings, and this repository is PUBLIC.
-agents/HANDOFFS (BETWEEN AI AGENTS)/*
-!agents/HANDOFFS (BETWEEN AI AGENTS)/SESSION ASSIGNMENTS (AI WORKGROUPS)/
 
 # Runtime coordination folders that must never enter the index.
 .playwright-mcp/

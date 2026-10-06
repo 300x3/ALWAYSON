@@ -1,0 +1,5 @@
+2026-10-03T01:00:07+00:00
+NVIDIA GeForce GTX 1080, 580.178.04, 8192 MiB, 53
+kernel: 7.0.0-38-generic
+podman: podman version 5.7.0
+nvidia-container-toolkit: present

@@ -1,0 +1,12 @@
+# ALWAYS ON isolated restore-test journal (README Section 16.3)
+# Appended after every isolated restore test: source backup ID, operator,
+# result, and exceptions.
+#
+# Created 2026-10-02 during the Section 16.3 audit. It is empty of results
+# because every script under scripts/restore/ currently exits 3 with
+# "PENDING: ... requires completed backups plus isolated test-path
+# approval". No restore test has ever completed on this host, so there is no
+# prior result to carry over. This is an OPEN item, not a passing result.
+#
+# Format: <UTC timestamp> actor=<user> source=<backup id> result=<PASS|FAIL|EXCEPTION> <detail>
+# Never record a secret value (Section 4.2).
