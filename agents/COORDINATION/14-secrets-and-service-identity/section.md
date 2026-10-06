@@ -238,10 +238,132 @@ was changed without a refresh. **Not determined this pass** — the fetcher's `m
 branch and the file's mtime (`2026-10-01 15:08`, the same minute as the Mastodon units' start)
 are consistent with a fetch-then-edit, but that is an inference, not a measurement.
 
-**Not corrected by this session.** Writing either value changes TLS enforcement on a live
-public-facing service and touches secret-classified material; restarting `ao-mastodon-web`
-invalidates nothing but is still a live-service change. README §4.1 rules 12 and 14 — stopped
-for the operator.
+#### RETRACTED 2026-10-05 (second pass): the two values above do not diverge, and there is no TLS fault
+
+**The table above is retained only as a record of the mistake. Its conclusion is wrong and must
+not be carried into any operator decision.** The correction was found by asking a question the
+first pass never asked: *does anything actually read the wallet entry it was comparing against?*
+
+**Answer: nothing does.** `RAILS_FORCE_SSL` and `LOCAL_HTTPS` are not wallet-held values at all.
+They are **hardcoded literals in the fetcher**:
+
+    $ grep -rn 'RAILS_FORCE_SSL\|LOCAL_HTTPS' --include='*.sh' --include='*.container' --include='*.py' .
+    ./scripts/operations/fetch-mastodon-env.sh:42:  printf 'RAILS_FORCE_SSL=true\n'
+    ./scripts/operations/fetch-mastodon-env.sh:43:  printf 'LOCAL_HTTPS=true\n'
+
+Those two lines are the **only** occurrences in the entire repository. The wallet entry
+`kdewallet / ao-mastodon / mastodon-env` is referenced by **no** script, unit or config:
+
+    $ grep -rn 'mastodon-env' scripts/ quadlet/ systemd/ config/
+    → only script *filenames* (fetch-mastodon-env.sh) and two prose mentions in
+      deploy-mastodon.sh; never as `wallet-read-secret.py … ao-mastodon mastodon-env`
+
+`fetch-mastodon-env.sh` reads six per-key entries — `mastodon-secret-key-base`,
+`mastodon-otp-secret`, `mastodon-db-password`, and the three `ACTIVE_RECORD_ENCRYPTION_*`
+keys — and **prints the remaining ~17 lines as literals**. `RAILS_FORCE_SSL` and `LOCAL_HTTPS`
+are in that literal block.
+
+**So the correct reading is the reverse of what §14.1.3 asserted.** The env file's `true` is not
+a hand-edit drifting from the wallet; it is the *repository-controlled, intended* value,
+delivered by the fetcher that owns the file. The wallet entry's `false` is not a competing
+source of truth — it is an **orphaned blob nothing consumes**. There is no disagreement about
+TLS enforcement between two live authorities, because there is only one authority.
+
+**What this does and does not change.**
+
+- **Does:** withdraws the security finding. There is no "enforced posture and recorded posture
+  are opposite" condition, and no operator decision is owed on TLS grounds. The `git log -S`
+  history explains the literal: commit `5191928` (2026-09-25) introduced
+  `RAILS_FORCE_SSL=true`, and `7542394` (2026-09-30) added `ALTERNATE_DOMAINS` alongside it —
+  deliberate, with the commit message stating loopback now answers the 301 and public exposure
+  is unchanged.
+- **Does not:** the byte-identity claim in the table at the top of this subsection is still
+  simply **false** (1041 vs 1043 bytes, `07519ca502b612e6` vs `2dba7da35030466f`), and the
+  orphaned wallet entry is still a real, if lower-severity, finding — now recorded as stale
+  documentation rather than a TLS conflict. See §14.1.3.1.
+- **Unchanged and still true:** the six wallet-sourced values (all three 64-byte AR keys,
+  `SECRET_KEY_BASE`, `OTP_SECRET`, `DB_PASS`/`POSTGRES_PASSWORD`) do compare equal, and
+  §14.1.6's "every file is rewritten from the wallet on each refresh" holds **for those six
+  keys** — the fetcher regenerates the whole file from the wallet plus literals on every bridge
+  run. It is wrong only as a claim that the file mirrors the `mastodon-env` wallet entry.
+
+**What I got wrong, and the generalisable lesson.** I compared a file against a wallet entry and
+reported the difference as a policy conflict **without ever checking that anything consumed the
+wallet entry**. Had the operator acted on the first pass, the likely outcome would have been a
+change to TLS enforcement on a live public instance — an unnecessary, possibly harmful change
+manufactured from a stale blob. **A divergence between a live artifact and an unread store is
+not a finding until you have shown the store is read.** The cheap check is one grep for the
+entry name across the repo, and it should come *before* the comparison, not after.
+
+### 14.1.3.1 The orphaned `mastodon-env` wallet entry (downgraded from security finding)
+
+`kdewallet / ao-mastodon / mastodon-env` holds a 1043-byte full-bundle env snapshot that no
+component reads (proved above). It is stale relative to the file it was compared with, and it
+is the reason §14.1.3's byte-identity claim was ever made. It is a **documentation and
+hygiene defect**, not a credential exposure: the secrets inside it are the same six wallet-held
+values that are correctly stored, and the file it shadows is `0600`.
+
+**Not deleted by this session.** Deleting a wallet entry is a change to secret-classified
+material and outside this session's authority (brief stop conditions; README §4.1 rule 14).
+**Operator decision requested** — recommend deletion, or a one-line comment in
+`fetch-mastodon-env.sh` naming it as retired so the next auditor does not re-derive this
+finding from scratch. Note `deploy-mastodon.sh:46` still *tells the operator* that the file's
+values are in `mastodon-env`, which is now misleading and is the likely source of the confusion;
+that file is not mine to edit.
+
+### 14.1.3.2 The Mastodon containers disagree with each other — live, measured, and a real fault
+
+If §14.1.3's wallet-vs-file comparison is wrong, the question that matters is which value the
+**running containers** actually hold. Measured:
+
+    $ for c in mastodon-web mastodon-sidekiq mastodon-streaming; do
+        podman inspect $c --format '{{range .Config.Env}}{{println .}}{{end}}' | grep -E '^(RAILS_FORCE_SSL|LOCAL_HTTPS)='
+      done
+    mastodon-web       RAILS_FORCE_SSL=true   LOCAL_HTTPS=true
+    mastodon-sidekiq   RAILS_FORCE_SSL=true   LOCAL_HTTPS=true
+    mastodon-streaming RAILS_FORCE_SSL=false  LOCAL_HTTPS=false     ← disagrees
+
+All three units name the **same** `EnvironmentFile=%h/.local/share/ao-secrets/mastodon.env` and
+all three deployed copies are identical to the repository. So a single file is being read into
+three different environments. **This is a genuine inconsistency, and it is the finding the
+retracted table was reaching for but mis-located.**
+
+**Mechanism — a start-order race, measured to the second:**
+
+    mastodon-streaming created  2026-10-01 15:08:39.03
+    mastodon.env mtime           2026-10-01 15:08:40.24     ← 1.2s LATER
+    mastodon-web created         2026-10-01 15:08:57.25
+    mastodon-sidekiq created     2026-10-01 15:21:03.61
+
+`ao-wallet-bridge.service` is a `Type=oneshot` unit that runs `After=graphical-session.target`
+and materialises the env file; it then starts the sales stack from the same manager
+(`journalctl` at 15:08:40: `OK: wallet-backed Mastodon env materialized`). `mastodon-streaming`
+was created **1.2 seconds before** that write completed, so it captured the *previous* file
+content (`false`), while `mastodon-web` (18s later) and `mastodon-sidekiq` (12min later)
+captured the new content (`true`). **The mastodon units declare no ordering against the
+bridge** — `ao-mastodon-web.container` has `After=graphical-session.target ao-mastodon-db.service
+ao-mastodon-redis.service ao-sales-network.service` and **no** `Requires=`/`After=` on
+`ao-wallet-bridge.service`. Nothing enforces "materialise secrets, then start consumers".
+
+**Severity — lower than it looks, and I should say so plainly.** `mastodon-streaming` is the
+Node streaming API; `RAILS_FORCE_SSL` is a **Rails** setting and the streaming process does not
+read it, so `false` there has no HTTP-redirect effect. The inconsistency is real and should be
+fixed, but it is not an open-HTTP-port finding and must not be presented as one.
+`LOCAL_HTTPS=false` is the more meaningful half, as it governs the instance's own assumption
+about its scheme. **No restart performed** — restarting live Mastodon services is a stop
+condition, and would additionally drop in-flight streaming connections.
+
+**Not fixed by this session.** The fix is a dependency, not a value: add
+`Requires=ao-wallet-bridge.service` / `After=ao-wallet-bridge.service` to the three Mastodon
+consumer units so the file is written before anything reads it. That edits three quadlet
+units and restarts live public-facing services. Prepared, **not applied**, for the operator.
+
+### 14.1.3.3 Ordering defect in this subsection — corrected 2026-10-05
+
+`14.1.7.2` (the 2026-10-05 pass) had been written **above** `14.1.7.1` (the 2026-10-04 pass),
+so the file read newest-then-oldest. The two blocks are now in date order. No content was
+altered between them; only their order changed, and this note records why so a later pass does
+not "fix" it back.
 
 **`genenv` is non-destructive by rule.** It refuses to run when the env file already exists.
 Regenerating it would mint new `SECRET_KEY_BASE` / `OTP_SECRET` / `POSTGRES_PASSWORD`,
@@ -614,6 +736,73 @@ Cross-group: the *credential content* of this is PAY territory and the ST-12 row
 compiler's. The *delivery-mechanism* fault — silent fetch failure on a `0600` stale copy — is
 SEC's and is what §14.1.7 records.
 
+#### 14.1.7.1 Re-verification, 2026-10-04 (fourth pass)
+
+Every claim in this subsection was re-measured from scratch this pass rather than inherited.
+All of it still holds, which is worth recording because the numbers in §14.1.4, §14.1.6 and
+§14.1.7 were written by earlier passes and are the kind of figure that goes stale.
+
+    $ systemctl --user show ao-ingress-payment.service -p ActiveEnterTimestamp -p ExecStartPre
+    ActiveEnterTimestamp=Thu 2026-10-01 15:08:41 PDT 2026
+    ExecStartPre={ path=/ALWAYSON/scripts/operations/fetch-kwallet-secret.sh ;
+                   argv[]=… %h/.local/share/ao-secrets/payment.env payment-credentials ;
+                   ignore_errors=yes ; … }
+    $ stat -c '%n %y' ~/.local/share/ao-secrets/payment.env
+    payment.env 2026-09-30 23:18:29.786526608 -0700
+
+`ignore_errors=yes` is systemd's own rendering of the `-` prefix, so the silencing is confirmed
+from the unit's runtime state and not only from the quadlet source. The file is still ~16h older
+than the process reading it, and the unit is still `active`.
+
+    $ python3 … hasFolder(h,'sec-verify') for each ao-* folder
+    ao-payment False   ao-archive False
+    ao-sales True  ao-admin True  ao-mastodon True  ao-mapping True
+    ao-fabrication True  ao-sim-vehicle True  ao-sim-fabrication True
+
+Seven `ao-*` folders, `ao-payment` and `ao-archive` absent — unchanged. §14.1.4's count also
+re-verified: `folderList` returned **14274 raw rows / 18 unique folders** (7 are `ao-*`), and
+`ao-*` entries total **37**; with `Passwords` (2) that is the **39** §14.1.4 states.
+
+The `payment.env` DSN re-measured to the same conclusion, without printing the value:
+
+    $ sed -n 's|^PAYMENT_DSN=postgresql://[^:]*:\([^@]*\)@.*|\1|p' payment.env | wc -c
+    49
+    $ … | tr -d '\n' | sha256sum | cut -c1-12
+    03521083973b
+    $ cut -d= -f1 ~/.local/share/ao-secrets/payment.env
+    PAYMENT_DSN
+
+`PAYMENT_DSN` is the file's **only** key — the three webhook secrets are genuinely absent, so
+§14.1.7 step 4's narrower statement still holds. The role is `sales_migration_role`, a
+non-secret field. §14.1.6's legacy-file table also reproduced exactly, `03521083973b` /
+`6d174927d250` / `f0d6bb4481fd` SAME and `8c3319896c87` vs `4f090748460c` DIFFERENT.
+
+**What I got wrong this pass.** I wrote a regex `^([A-Za-z0-9_]+)=` to enumerate the legacy
+file's keys and it returned **zero pairs** — because three of the four key names contain hyphens
+(`mastodon-db-password`), and I had left the hyphen out of the character class. Taken at face
+value that reads as "the file is now empty", which would have been a false and alarming claim
+about a file holding live credentials. The correction is `^([A-Za-z0-9_-]+)=`. The lesson is
+narrower than "be careful with regexes": **a count of zero from a parser must be checked against
+an independent count before it is written down.** `wc -l` on the same file said 4 lines
+immediately. Had I asserted the zero, the next session would have recorded a security
+improvement that never happened.
+
+**Two further traps, both mine to record.**
+
+1. **`folderList` is unusable as a count.** It returned 14022 rows on one call and 14274 on the
+   next, minutes apart, on an unchanged wallet. §14.1.4 already says to de-duplicate; the
+   stronger statement is that the row count is not even stable, so only the de-duplicated set is
+   meaningful. Use `hasFolder` for existence questions — it is a direct boolean and is what
+   `kwallet-provision.sh:42` itself uses.
+2. **`entryList` returns `as`, `entriesList` returns `a{sv}`** — two different methods with
+   near-identical names. Calling `int()` on the first raises `TypeError`, because it is a list,
+   not a number. §14.1.4's signature table documents both correctly; this is a note that the
+   names are easy to confuse when scripting an audit.
+
+Nothing in this pass changed any credential, file mode, unit or wallet entry. The fault in
+§14.1.7 is **still live and still unreported by any service**, and the operator decisions in
+this subsection are still outstanding.
+
 #### 14.1.7.2 Current state 2026-10-05: provisioned and fetched, but the running adapter is still stale
 
 Re-measured from scratch. §14.1.7's finding was that the wallet source did not exist. **That
@@ -683,73 +872,6 @@ that a missing binary plus an unguarded pipeline is indistinguishable from a cle
 result unless you check the exit code and calibrate the probe against a known-positive and a
 known-negative input. The `hasFolder` control test is what caught it here.
 
-#### 14.1.7.1 Re-verification, 2026-10-04 (fourth pass)
-
-Every claim in this subsection was re-measured from scratch this pass rather than inherited.
-All of it still holds, which is worth recording because the numbers in §14.1.4, §14.1.6 and
-§14.1.7 were written by earlier passes and are the kind of figure that goes stale.
-
-    $ systemctl --user show ao-ingress-payment.service -p ActiveEnterTimestamp -p ExecStartPre
-    ActiveEnterTimestamp=Thu 2026-10-01 15:08:41 PDT 2026
-    ExecStartPre={ path=/ALWAYSON/scripts/operations/fetch-kwallet-secret.sh ;
-                   argv[]=… %h/.local/share/ao-secrets/payment.env payment-credentials ;
-                   ignore_errors=yes ; … }
-    $ stat -c '%n %y' ~/.local/share/ao-secrets/payment.env
-    payment.env 2026-09-30 23:18:29.786526608 -0700
-
-`ignore_errors=yes` is systemd's own rendering of the `-` prefix, so the silencing is confirmed
-from the unit's runtime state and not only from the quadlet source. The file is still ~16h older
-than the process reading it, and the unit is still `active`.
-
-    $ python3 … hasFolder(h,'sec-verify') for each ao-* folder
-    ao-payment False   ao-archive False
-    ao-sales True  ao-admin True  ao-mastodon True  ao-mapping True
-    ao-fabrication True  ao-sim-vehicle True  ao-sim-fabrication True
-
-Seven `ao-*` folders, `ao-payment` and `ao-archive` absent — unchanged. §14.1.4's count also
-re-verified: `folderList` returned **14274 raw rows / 18 unique folders** (7 are `ao-*`), and
-`ao-*` entries total **37**; with `Passwords` (2) that is the **39** §14.1.4 states.
-
-The `payment.env` DSN re-measured to the same conclusion, without printing the value:
-
-    $ sed -n 's|^PAYMENT_DSN=postgresql://[^:]*:\([^@]*\)@.*|\1|p' payment.env | wc -c
-    49
-    $ … | tr -d '\n' | sha256sum | cut -c1-12
-    03521083973b
-    $ cut -d= -f1 ~/.local/share/ao-secrets/payment.env
-    PAYMENT_DSN
-
-`PAYMENT_DSN` is the file's **only** key — the three webhook secrets are genuinely absent, so
-§14.1.7 step 4's narrower statement still holds. The role is `sales_migration_role`, a
-non-secret field. §14.1.6's legacy-file table also reproduced exactly, `03521083973b` /
-`6d174927d250` / `f0d6bb4481fd` SAME and `8c3319896c87` vs `4f090748460c` DIFFERENT.
-
-**What I got wrong this pass.** I wrote a regex `^([A-Za-z0-9_]+)=` to enumerate the legacy
-file's keys and it returned **zero pairs** — because three of the four key names contain hyphens
-(`mastodon-db-password`), and I had left the hyphen out of the character class. Taken at face
-value that reads as "the file is now empty", which would have been a false and alarming claim
-about a file holding live credentials. The correction is `^([A-Za-z0-9_-]+)=`. The lesson is
-narrower than "be careful with regexes": **a count of zero from a parser must be checked against
-an independent count before it is written down.** `wc -l` on the same file said 4 lines
-immediately. Had I asserted the zero, the next session would have recorded a security
-improvement that never happened.
-
-**Two further traps, both mine to record.**
-
-1. **`folderList` is unusable as a count.** It returned 14022 rows on one call and 14274 on the
-   next, minutes apart, on an unchanged wallet. §14.1.4 already says to de-duplicate; the
-   stronger statement is that the row count is not even stable, so only the de-duplicated set is
-   meaningful. Use `hasFolder` for existence questions — it is a direct boolean and is what
-   `kwallet-provision.sh:42` itself uses.
-2. **`entryList` returns `as`, `entriesList` returns `a{sv}`** — two different methods with
-   near-identical names. Calling `int()` on the first raises `TypeError`, because it is a list,
-   not a number. §14.1.4's signature table documents both correctly; this is a note that the
-   names are easy to confuse when scripting an audit.
-
-Nothing in this pass changed any credential, file mode, unit or wallet entry. The fault in
-§14.1.7 is **still live and still unreported by any service**, and the operator decisions in
-this subsection are still outstanding.
-
 ## 14.2 Credential rotation, revocation and recovery
 
 This subsection exists because §14.1.1 requires rotation, revocation, expiration and recovery
@@ -783,21 +905,30 @@ roles: TCP auth can fail while the socket still appears to work. Confirm with a 
 a socket, after changing a role password.
 
 **Verify the wallet and the file agree *after* the restart, not just that the file changed.**
-Step 3's "file mtime advanced" is a weak check, and §14.1.3 now supplies the reason it can pass
-while the service is wrong: `mastodon.env` was fetched correctly on 2026-10-01 and then holds
-`LOCAL_HTTPS=true` / `RAILS_FORCE_SSL=true` where the wallet says `false` for both. The mtime
-was legitimate; the content diverged afterwards. The check that catches this is to compare the
-delivered file against the wallet entry directly:
+Step 3's "file mtime advanced" is a weak check. §14.1.3.2 supplies a real, live example of a
+check that passes while the service is wrong — and, importantly, this is *not* the wallet-vs-file
+divergence the first pass of §14.1.3 alleged (that claim is retracted above): `mastodon.env` was
+materialised correctly, and the fault is that `mastodon-streaming` captured the **previous**
+file content because it was created 1.2s before the bridge's write completed. The mtime was
+legitimate and recent; the consumer still held stale values. The pass condition is therefore
+two-part, and the second half is the one that catches this:
 
-    # per-key, values never printed: compare lengths and a sha256 prefix
+    # (a) key names — the file is the shape the consumer expects
     $ sed 's/=.*/=/' ~/.local/share/ao-secrets/<file>.env | sort > /tmp/fk
     # … read the wallet entry the same way, strip values, sort …
     $ diff /tmp/fk /tmp/wk && echo 'key names identical'
     # then compare full-content sha256 — equality is the pass condition
 
-A rotation is complete when the wallet and every delivered copy hash equal **and** the
-consuming unit has restarted. "The file changed" is not sufficient, and neither is "the unit is
-active".
+    # (b) THE CHECK THAT MATTERS MOST: what the RUNNING process actually holds.
+    $ podman inspect <container> --format '{{range .Config.Env}}{{println .}}{{end}}' \
+        | sed 's/=.*/=/' | sort
+    # Compare against the file's key list. Config.Env is a creation-time snapshot,
+    # so a correct file beside a never-restarted container is still a stale service.
+
+A rotation is complete when the wallet and every delivered copy hash equal **and** the consuming
+unit has restarted **and** that container's `Config.Env` reflects the new file. "The file
+changed" is not sufficient, neither is "the unit is active", and — per §14.1.7.2 — neither is
+"the file on disk is correct".
 
 ### 14.2.2 Revocation
 
