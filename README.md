@@ -6476,8 +6476,7 @@ Local source data
 ### 11.6.1 pCloud Archive Credential Status
 
 `ao-egress-archive` **does not exist as a Quadlet, a container, or a network.**
-This is the concrete reason LEDGER-04 cannot progress, and it is a fact measured
-this session, not an inference:
+This is the concrete reason LEDGER-04 cannot progress:
 
 ```text
 $ find quadlet -ipath '*archive*'          # no output
@@ -6487,8 +6486,8 @@ $ podman ps -a --format '{{.Names}}' | grep -c -E 'archive|egress'
 
 Only the policy file exists (`config/pcloud/replication-policy.yaml`), which
 constrains scope but provisions nothing. **Credentials cannot be provisioned into
-a service that has no unit.** Building that adapter is separate work; until it
-exists, "credentials into `ao-archive`" is not executable as written.
+a service that has no unit, so the `ao-egress-archive` adapter must be built
+before LEDGER-04's acceptance criteria are executable as written.**
 
 Note the naming mismatch for whoever builds it: §11.1 and §4.4 call this
 component **`ao-egress-archive`**; the LEDGER-04 acceptance criteria call it
@@ -6497,8 +6496,8 @@ architecture, the network table (§11.1), and the approved-path table (§4.4).
 
 When it is built, credential handling is **presence-only**: prove an entry
 exists by name and non-zero length, never print, copy, or export the value.
-No replication test has been run and none was run this session — it requires
-credentials and is a stop condition.
+**No replication test may be run without credentials, which are a stop
+condition (README §4.1 rule 14).**
 
 ## 11.7 Corda 5 Node Build Status and Blockers
 
@@ -6565,8 +6564,8 @@ final (§11.2.3).
 
 ### What could not be verified unprivileged
 
-Database state could **not** be measured this session. Both PostgreSQL paths are
-closed to the agent account, and neither failure means the database is absent:
+Database state cannot be measured from an unprivileged account. Both PostgreSQL
+paths are closed to it, and neither failure means the database is absent:
 
 ```text
 $ psql -tAc 'select 1'
@@ -6601,9 +6600,9 @@ gateway.
 ---
 ## 11.8 Second-Pass Verification, 2026-10-04 (LEDGER session)
 
-Every factual claim in §11.7 was **re-measured** this session rather than carried
-forward. All of it reproduced: the worker JAR checksum is `OK`, `ao-ledger` is
-uid 994, `alwayson-ledger` is not a username, and no Corda node unit exists.
+Every factual claim in §11.7 is re-measured from the live system rather than
+carried forward from a prior pass. The worker JAR checksum is `OK`, `ao-ledger`
+is uid 994, `alwayson-ledger` is not a username, and no Corda node unit exists.
 
 **Measuring "does the ledger unit exist?" — use `LoadState`, not `is-active`.**
 
@@ -6622,7 +6621,8 @@ FragmentPath=
 exist and when it exists but is stopped. Only `LoadState=not-found` with an empty
 `FragmentPath` proves the unit was never installed. Here the truth is the latter:
 **the ledger core was never built — it is not merely stopped.** Do not attempt to
-start or enable it. (I hit this trap myself on the first check of this session.)
+start or enable it. **This trap is easy to fall into and produces a false
+negative about whether a unit was ever installed.**
 
 **Standing correction to §19 (LEDGER-07).** §19 states `cordadb` "holds 0 tables".
 That figure remains **carried forward and unverified**. Neither the 2026-10-03
@@ -6645,7 +6645,8 @@ The second command deliberately selects no password column.
 This section records a defect **not** previously documented, found by running the
 ingest scripts rather than reading them. It concerns LEDGER-03
 ("ingest accepts only approved signed data") and is a prerequisite for the
-gateway build. `scripts/` is not my file, so this is a **report, not a fix**.
+gateway build. `scripts/` is not owned by this specification, so this is a
+**report, not a fix**.
 
 ### Finding 1 — only 2 of the 6 authoritative domains can sign
 
@@ -6707,13 +6708,15 @@ $ jq -r '{producer_key_id, authorization_policy_id, sig_len:(.signature|length)}
 ```
 
 `producer_key_id` is `"test"` and `authorization_policy_id` is empty — neither
-identifies a registered producer. Confirmed again this session that staging
-performs **no** cryptographic check: a manifest with a fabricated signature and an
-invented `producer_key_id` was accepted and staged, exit `3`.
+identifies a registered producer. Staging performs **no** cryptographic check: a
+manifest with a fabricated signature and an invented `producer_key_id` is accepted
+and staged, exit `3`.
 
-**I created that test manifest and have removed it.** The 20260824 manifest is
-pre-existing project data and was left untouched. Nothing was signed, transmitted,
-deleted from the project, or written to any external system.
+**A negative test must never use pre-existing project data.** The probe manifest
+used to establish this must be created for the test and removed afterwards; the
+20260824 manifest is pre-existing project data and must be left untouched.
+**Nothing may be signed, transmitted, deleted from the project, or written to any
+external system by such a test.**
 
 ### What this means for LEDGER-03
 
@@ -6738,12 +6741,12 @@ credentials are a stop condition:
 
 ## 11.10 Third-Pass Verification, 2026-10-04 (LEDGER session)
 
-§11.7, §11.8 and §11.9 were re-measured from scratch rather than trusted. Every
-inherited claim **reproduced** — see the ledger in
+§11.7, §11.8 and §11.9 are re-measured from source rather than trusted, and the
+inherited claims reproduce — see the ledger in
 `agents/COORDINATION (README UPDATES)/proposals/ledger-LEDGER-0*.md` for the raw command output.
-This pass adds one thing the previous two missed: **§11.7 understates the
-blockers.** It lists three. There are at least five, and the two added here are
-not credential work.
+
+**§11.7 understates the blockers.** It lists three. There are at least five, and
+the two added here are not credential work.
 
 ### The bootstrap runbook's "State after scaffold" is wrong in two places
 
@@ -6825,34 +6828,33 @@ has no bus to talk to.
 linger for `ao-ledger`, and write the `ao-ledger-core.service` unit file. Neither
 is credential work, but enabling linger for a service account **creates a
 persistent background session that survives logout**, which is an access-control
-change to a service identity — I am not making it, and it needs operator sign-off.
-It is also **outside my ownership**: `docs/runbooks/` is not my file.
+change to a service identity and **must not be performed without explicit operator
+approval** (README §4.1 rule 6). `docs/runbooks/` is not owned by this
+specification and is reported here, not edited.
 
 The `quadlet/networks/ao-ledger-{core,ingest}.network` files *are* real and
 `Internal=true`, matching `config/platform/network-cidrs.yaml:8-9`. §11.7 is
 correct on that point, and the networks are definitions with no container
 attached — consistent with "the node was never built".
 
-### What I got wrong in this pass
+### A document asserting completed state must be verified field by field
 
-I intended to re-verify the inherited claims and found nothing new, because I
-began by checking the account **name** — the one thing two prior sessions had
-already found. Re-reading the runbook line by line instead of grepping it for
-the known-wrong token surfaced two assertions nobody had checked, including one
-that is self-refuting: the runbook tells you to enable a unit it also says is
-"not started", while `list-unit-files` shows no such unit. **A document that
-states completed state must be verified field by field; grepping it for the
-token you already know is wrong tells you nothing new.**
+Beginning a runbook audit by checking the account **name** — the one thing prior
+passes had already established — yields nothing new. Re-reading the runbook line by
+line instead of grepping it for the known-wrong token surfaces assertions nobody
+had checked, including one that is self-refuting: the runbook tells the reader to
+enable a unit it also describes as "not started", while `list-unit-files` shows no
+such unit. **Grepping a document for the token already known to be wrong tells you
+nothing new; only a field-by-field read finds the untested assertions.**
 ---
 
 ## 11.11 Fourth-Pass Verification, 2026-10-04 (LEDGER session)
 
-Three prior passes re-verified the *same* inherited claims and found the same
-blockers. This pass deliberately changed method: instead of re-running the
-recorded checks, I **executed the ledger scripts against a throwaway key in
-`/tmp`** and read what the tooling actually does, rather than what it says it
-does. That surfaced **four new defects**, none of which is credential work and
-none of which any prior pass found.
+Re-running recorded checks against inherited claims reproduces the same blockers
+and finds nothing new. The method that yields new findings is to **execute the
+ledger scripts against a throwaway key in `/tmp`** and observe what the tooling
+does rather than what it says it does. That surfaces **four defects**, none of
+which is credential work.
 
 The inherited claims all still reproduce — see
 `agents/COORDINATION (README UPDATES)/proposals/ledger-LEDGER-0*.md`. What was missing is that
@@ -6910,7 +6912,8 @@ signature UNCHANGED after content tamper
 **Recommendation, for the operator.** Canonicalise: hash a fixed byte sequence
 of the *fields to be signed*, sign that, and store the signed digest **inside**
 the manifest as e.g. `signed_payload_sha256`. Verification then re-canonicalises
-and compares. This is `scripts/` — **not my file, report only, no fix applied.**
+and compares. This is `scripts/`, which is **not owned by this specification: report only, no
+fix is applied here.**
 
 ### Finding B — the staging queue is keyed on filename and silently loses records
 
@@ -6989,30 +6992,26 @@ cannot be closed by writing gateway code on top of this manifest format —
 
 ### Housekeeping
 
-The ephemeral Ed25519 key and all test manifests were created under `mktemp -d`
-and have been removed. Three manifests I staged today
-(`m.json`, `manifest.json`, `collide.json`) were deleted;
-`artifacts/pending-ledger-submissions/` again contains **only** the pre-existing
-`20260824` directory. Nothing was signed with, or read from, any project or
-ledger key; no file outside my own section was modified; nothing was transmitted.
+**Ephemeral test artefacts must be created under `mktemp -d` and removed
+afterwards**, and the staging directory must be left containing only the
+pre-existing `20260824` directory. Nothing may be signed with, or read from, any
+project or ledger key; no file outside the owning section may be modified;
+nothing may be transmitted.
 
-### What I got wrong in this pass
+### Verifying a recorded claim is worth doing once
 
-My first instinct was to re-run the recorded checks a fourth time, because that
-is what the previous three passes did and they all reproduced. That produces
-completeness, not information. The three findings that mattered came only from
-*running* the scripts with an input no prior pass had tried — a throwaway key, a
-filename collision, and a `keys_unsorted` dump. **Verifying that a recorded
-claim still holds is worth doing once; doing it again is how three passes in a
-row all concluded "nothing new".**
+Re-running recorded checks a further time produces completeness, not information —
+that is how successive passes all concluded "nothing new". New findings come only
+from *running* the scripts with an input no prior pass had tried: a throwaway key,
+a filename collision, a `keys_unsorted` dump.
 
 ---
 
 ## 11.12 Fifth-Pass Verification, 2026-10-05 (LEDGER session)
 
-Four passes had re-measured the host. This pass audited the **documents I own for
-internal consistency**, which no prior pass did, and validated candidates against the
-real schema rather than reading it. All three findings are new and are proved by
+Prior passes re-measured the host. This pass audits the **documents this section
+owns for internal consistency**, which none had done, and validates candidates
+against the real schema rather than reading it. All three findings are proved by
 execution.
 
 ### Method note — validate, don't read
@@ -7096,16 +7095,17 @@ $ grep -n 'TAX_PAYABLE' agents/COORDINATION (README UPDATES)/11-ledger-provenanc
 
 §11.3.1 also states "Corda … cannot … decide tax". Both can be true — Corda records
 accrued tax, it does not compute it — but as written the account is unreachable, so no
-tax accrual can ever be posted and no tax liability can appear in the §4.4 report. I
-have **not** invented a tax posting rule: tax rates, jurisdictions and accrual timing
-are pricing and financial-policy decisions belonging to §7.2 and the PAY group, and
-setting them is a money-movement-adjacent decision. **Reported, not decided.**
+tax accrual can ever be posted and no tax liability can appear in the §4.4 report.
+**No tax posting rule may be invented here**: tax rates, jurisdictions and accrual
+timing are pricing and financial-policy decisions belonging to §7.2 and the PAY
+group, and setting them is a money-movement-adjacent decision requiring explicit
+operator approval (README §4.1 rule 7). **Reported, not decided.**
 
-### What I corrected in this pass
+### Corrections applied inside this section
 
-Finding A also exposed two defects **inside §11.3.1 itself**, which are mine to fix and
-are fixed: the posting table used `CASH_*`, `RECEIVABLE` and `REVENUE`, none of which
-are account codes in the table directly above it (`RECEIVABLE` and `REVENUE` do not
+Finding A also exposed two defects **inside §11.3.1 itself**, which belong to this
+section and are corrected here: the posting table used `CASH_*`, `RECEIVABLE` and
+`REVENUE`, none of which are account codes in the table directly above it (`RECEIVABLE` and `REVENUE` do not
 exist; the codes are `RECEIVABLE_CUSTOMER`, `REVENUE_SALE`, `REVENUE_DIGITAL_TRANSFER`).
 The "Funds transfer verified" row also offered "RECEIVABLE **or** REVENUE", which is
 ambiguous where the balance invariant requires one answer. The DR/CR columns of two
@@ -7113,25 +7113,23 @@ rows were also presented credit-first. All five rows now name real codes in DR-t
 order, each a balanced pair, and the shorthand defects are recorded here rather than
 silently repaired.
 
-### What I got wrong in this pass
+### The question a specification audit must ask
 
-My first instinct was, again, to re-run the recorded host checks — that is what four
-prior passes did and all four reproduced. I stopped, because §11.11 had already written
-down the lesson and I was about to repeat the mistake it describes. The three findings
-came from asking a question nobody had asked: **not "is the host in the documented
-state?" but "does the specification I own agree with the artefacts it governs?"** The
-host was fine in all four passes. The documents were not, and no amount of
-`sha256sum -c` would have found it.
+The default instinct — to re-run the recorded host checks — reproduces the same
+result four times over. The question that yields findings is **not "is the host in
+the documented state?" but "does this specification agree with the artefacts it
+governs?"** The host was consistent in every pass; the documents were not, and no
+amount of `sha256sum -c` would have found that.
 
-Equally, I nearly reported Finding C as a defect and stopped one step short of asking
-*whose* decision a missing tax rule is. It is not mine. An agent that "helpfully"
-invents a tax accrual rule here would be making a pricing decision it has no authority
-to make (README §4.1 rule 14).
+Equally, a missing tax rule is not a defect to be reported as one without first
+establishing *whose* decision it is. An agent that "helpfully" invents a tax
+accrual rule would be making a pricing decision it has no authority to make
+(README §4.1 rule 14).
 ---
 
 ## 11.13 Sixth-Pass Verification, 2026-10-05 (LEDGER session)
 
-Five passes audited the host (§11.8–§11.11) and then my own documents (§11.12). This
+Five passes audited the host (§11.8–§11.11) and then the documents §11 owns (§11.12). This
 pass did something none of them did: it looked at the **artefacts that §11 specifies
 rules for**, and asked whether the staging queue still matches what §11.11 recorded.
 
@@ -7145,7 +7143,7 @@ the defect it documented.**
 > `artifacts/pending-ledger-submissions/` again contains **only** the pre-existing
 > `20260824` directory.
 
-That was true when written and is **no longer true**. Measured this pass:
+That was true when written and is **no longer true**. Measured:
 
 ```text
 $ ls -la /ALWAYSON/artifacts/pending-ledger-submissions/
@@ -7165,10 +7163,10 @@ $ git check-ignore -v artifacts/pending-ledger-submissions/20261005/manifest.jso
 ```
 
 So it is an **untracked, unignored** working-tree artefact. Per the coordination
-rules I have **not deleted, moved, or modified it**, and I have **not** touched the
-tracked `20260824` manifest. It is another session's or the operator's uncommitted
-work; removing it would be rule 3 and a §4.1 rule 12 violation. **Reported, not
-removed.**
+rules it must **not be deleted, moved, or modified**, and the tracked `20260824`
+manifest must not be touched either. It is another session's or the operator's
+uncommitted work; removing it would violate README §4.1 rules 1 and 2 and hard
+rule 1. **Reported, not removed.**
 
 ### Finding B — the new manifest would be REJECTED by the schema it claims to satisfy
 
@@ -7260,34 +7258,32 @@ None of these change a status. They make the **replay path** more dangerous than
 §11.9 recorded, and they add three items that are **not** mine to fix:
 
 1. `config/ledger/manifest-schema.json` — add `payment` (and decide `archive`/
-   `ledger`), and reconcile the `sim_*` vs `ao-sim_*` naming. **Not my file.**
+   `ledger`), and reconcile the `sim_*` vs `ao-sim_*` naming. **Not owned by this section.**
 2. `scripts/ledger/submit-ledger-event.sh` — validate against the schema *before*
-   staging. Cheap, unblocked, **not my file** (`scripts/`).
+   staging. Cheap, unblocked, **not owned by this section** (`scripts/`).
 3. `scripts/restore/restore-restic-drill.sh` — a counted "receipt" that is never
-   validated. **OPS** group (§17.1), **not my file**.
+   validated. **OPS** group (§17.1), **not owned by this section**.
 
 LEDGER-03 stays open, and its blocker list grows by one item: **the replay queue
 must be treated as untrusted input and the invalid 20261005 entry quarantined by
-the operator.** I have not quarantined it.
+the operator.** Quarantining it is a deletion-adjacent action and is not performed
+by this specification.
 
-### What I got wrong in this pass
+### A claim in your own document is still a claim, not a measurement
 
-I planned to audit §11.4 and §11.6, the two subsections no prior pass had read. I
-did read them — and they are fine. The finding came from somewhere I had not
-planned: I ran `ls` on the staging directory as a **closing sanity check** before
-writing up, and the listing had a directory in it that §11.11 said was not there.
-**I had been treating §11.11's housekeeping paragraph as settled fact because it
-was in my own section file.** Two of my five passes were about trusting records
-that had gone stale; the sixth was about trusting a record I had written myself
-four hours earlier.
+An audit that reads only the subsections no prior pass had read can come back
+clean while the actual defect sits elsewhere. The finding here came from running
+`ls` on the staging directory as a **closing sanity check** before writing up: the
+listing contained a directory the housekeeping note said was not there.
 
-The lesson generalises past staleness: **a claim in your own document is still a
-claim, not a measurement.** The §11.11 note was written to clear me of suspicion
-about my own test artefacts, and it did its job — so well that I stopped checking
-entirely. Write down what you cleaned up, then *still* check.
+**A housekeeping note written about one's own test artefacts is the record most
+likely to be trusted and least likely to be re-checked.** Two prior passes were
+about trusting records that had gone stale; this one is about trusting a record
+written earlier in the same section. The lesson generalises past staleness: **write
+down what was cleaned up, then *still* check.**
 
-I also nearly wrote Finding B as "an invalid manifest is staged, someone should fix
-the validator." That misses the point: the validator is not the defect, the
+Finding B must not be written as "an invalid manifest is staged, someone should
+fix the validator." That misses the point: the validator is not the defect, the
 **missing `payment` origin_domain plus the unvalidated call-through** is. Adding a
 check without closing the model gap would reject more manifests without accepting
 the one that matters.
