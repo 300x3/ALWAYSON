@@ -3,14 +3,14 @@ item: LEDGER-06
 action: close
 evidence: |
   Added §11.3.1 "Accounting Model for the Authoritative Ledger" to
-  agents/COORDINATION (README UPDATES) (README UPDATES)/11-ledger-provenance-archive-and-ipfs/section.md
+  agents/COORDINATION (README UPDATES)/11-ledger-provenance-archive-and-ipfs/section.md
 
-  $ grep -n '^### 11.3.1' agents/COORDINATION (README UPDATES) (README UPDATES)/11-ledger-provenance-archive-and-ipfs/section.md
+  $ grep -n '^### 11.3.1' agents/COORDINATION (README UPDATES)/11-ledger-provenance-archive-and-ipfs/section.md
   484:### 11.3.1 Accounting Model for the Authoritative Ledger
 
-  $ python3 agents/COORDINATION (README UPDATES) (README UPDATES)/tools/compile.py
+  $ python3 agents/COORDINATION (README UPDATES)/tools/compile.py
   wrote README.md from 21 sections
-  $ python3 agents/COORDINATION (README UPDATES) (README UPDATES)/tools/compile.py --check
+  $ python3 agents/COORDINATION (README UPDATES)/tools/compile.py --check
   identical
 section: 11-ledger-provenance-archive-and-ipfs
 ---
@@ -20,7 +20,7 @@ present and still correctly placed inside `## 11.3` (not after the `## 11.4`
 heading, which was the error in my first attempt):
 
 ```text
-$ grep -n '^### 11.3.1\|^## 11.4' agents/COORDINATION (README UPDATES) (README UPDATES)/11-ledger-provenance-archive-and-ipfs/section.md
+$ grep -n '^### 11.3.1\|^## 11.4' agents/COORDINATION (README UPDATES)/11-ledger-provenance-archive-and-ipfs/section.md
 505:### 11.3.1 Accounting Model for the Authoritative Ledger
 617:## 11.4 Corda Does Not Store
 ```
@@ -34,7 +34,7 @@ present and still correctly placed inside `## 11.3` (not after the `## 11.4`
 heading, which was the error in my first attempt):
 
 ```text
-$ grep -n '^## 11.3 \|^### 11.3.1\|^## 11.4' agents/COORDINATION (README UPDATES) (README UPDATES)/11-ledger-provenance-archive-and-ipfs/section.md
+$ grep -n '^## 11.3 \|^### 11.3.1\|^## 11.4' agents/COORDINATION (README UPDATES)/11-ledger-provenance-archive-and-ipfs/section.md
 438:## 11.3 Corda Stores and Private Data
 505:### 11.3.1 Accounting Model for the Authoritative Ledger
 614:## 11.4 Corda Does Not Store

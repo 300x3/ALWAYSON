@@ -68,7 +68,7 @@ worth more than a patch to the wrong file.
 ## Fourth error, found 2026-10-04 on resume: I committed a section edit without recompiling
 
 The commit that added the third defect (`63b0129`) edited
-`agents/COORDINATION (README UPDATES) (README UPDATES)/02-platform-baseline/section.md` but did **not** recompile, so
+`agents/COORDINATION (README UPDATES)/02-platform-baseline/section.md` but did **not** recompile, so
 `README.md` — the document operators actually read — did not contain the correction.
 `compile.py --check` returned **`DIFFERS`** (rc=1), and the COORDINATION README says a
 `DIFFERS` means *"someone edited README.md directly — find them and stop rather than
@@ -81,7 +81,7 @@ is not a fix until it is compiled.
 
 Fixed in `d04e594`; `compile.py --check` now returns `identical` (rc=0). The cause was
 that I treated the commit as the last step instead of recompile-then-check-then-commit.
-Any session owning a section file should run `python3 agents/COORDINATION (README UPDATES) (README UPDATES)/tools/compile.py`
+Any session owning a section file should run `python3 agents/COORDINATION (README UPDATES)/tools/compile.py`
 before committing, every time.
 
 ## Third error, smaller: I quoted `apt-cache policy` for installed state

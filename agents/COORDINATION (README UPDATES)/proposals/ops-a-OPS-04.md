@@ -74,5 +74,5 @@ This closes the *ownership* question only. The drill still has no cadence —
 nothing schedules it, so §17.1's "Monthly" requirement is unmet, and that half
 stays with OPS-24.
 
-Files changed: `agents/COORDINATION (README UPDATES) (README UPDATES)/…/17-…/section.md` (§17.1.1 verified, no
+Files changed: `agents/COORDINATION (README UPDATES)/…/17-…/section.md` (§17.1.1 verified, no
 substantive edit needed beyond the line-number recheck).

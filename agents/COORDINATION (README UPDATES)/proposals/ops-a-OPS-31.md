@@ -52,5 +52,5 @@ recurring privileged job that writes backup media into the live pCloud sync
 root. That touches backup data and creates a recurring privileged action, so
 I stopped rather than doing it unasked.
 
-Files changed: `agents/COORDINATION (README UPDATES) (README UPDATES)/…/17-…/section.md` (§17 intro device-id
+Files changed: `agents/COORDINATION (README UPDATES)/…/17-…/section.md` (§17 intro device-id
 table and 3-2-1 status).

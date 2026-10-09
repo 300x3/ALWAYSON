@@ -34,10 +34,10 @@ __pycache__/
 # files were tracked and pushed by mistake on 2026-10-01 and have been
 # untracked here; see the note in the commit message. Untracking stops future
 # exposure but does NOT remove them from git history.
-# Moved 2026-10-10 to agents/handoffs/ when this material was consolidated
-# under agents/. The old name contained SPACES, which broke `git check-ignore`
-# whenever the path was quoted (git reads the quotes as part of the pattern).
-# The new path has no spaces.
+# Moved 2026-10-10 to agents/HANDOFFS (BETWEEN AI AGENTS)/ when the coordination
+# material was consolidated under agents/. The old name contained spaces, which
+# broke `git check-ignore` whenever the path was quoted. The new canonical name
+# has no spaces.
 #
 # 2026-10-10 (operator decision): the session runbooks are now TRACKED. They are
 # instructions for the AI sessions, they contain no host, account or credential

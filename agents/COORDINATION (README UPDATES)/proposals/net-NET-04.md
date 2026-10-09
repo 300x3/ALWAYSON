@@ -26,7 +26,7 @@ evidence: |
   21:authority_short: "v6"
 
   The misplaced sale-chain content was NOT lost; it already lives in section 3:
-  $ grep -n 'sale chain' agents/COORDINATION (README UPDATES) (README UPDATES)/03-high-level-architecture/section.md
+  $ grep -n 'sale chain' agents/COORDINATION (README UPDATES)/03-high-level-architecture/section.md
   202:The sale chain on the right of the following extract — customer picks to checkout,
   203:verified payment event, salesdb record, signed receipt manifest, and Corda state —
   204:is the same five-step chain drawn in ES.2. Payment intake is shown at the left,
@@ -72,7 +72,7 @@ figure and its five-step narrative are at §3.3.2 lines 202-210, with the image
 
 **What I got wrong.** My first search for the original was `git log` on the
 section file, which returned exactly one commit — `09be9ce`, the consolidation
-that created `agents/COORDINATION (README UPDATES) (README UPDATES)/`. That is correct and useless: the section
+that created `agents/COORDINATION (README UPDATES)/`. That is correct and useless: the section
 file has only ever had one version, so its history cannot contain the loss. The
 loss happened upstream, before the split into section files. Reason: I searched
 the history of the artefact I was editing rather than the history of the

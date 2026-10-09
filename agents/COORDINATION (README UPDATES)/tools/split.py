@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Split README.md into 'agents/COORDINATION (README UPDATES) (README UPDATES) (README UPDATES)/<nn-slug>/section.md', one per section.
+"""Split README.md into 'agents/COORDINATION (README UPDATES)/<nn-slug>/section.md', one per section.
 
 Lossless: compiling the parts back must reproduce README.md byte for byte.
 Run from the repository root:
-  python3 'agents/COORDINATION (README UPDATES) (README UPDATES) (README UPDATES)/tools/split.py'
+  python3 'agents/COORDINATION (README UPDATES)/tools/split.py'
 
-Path updated 2026-10-06: the source folder was renamed from agents/COORDINATION (README UPDATES) (README UPDATES)/.
+Path updated 2026-10-06: the source folder was renamed from agents/COORDINATION (README UPDATES)/.
 """
 import re, sys, pathlib
 

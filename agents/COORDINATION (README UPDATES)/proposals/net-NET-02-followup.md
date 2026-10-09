@@ -91,7 +91,7 @@ container". That was wrong in a way I did not notice at the time, and it is the
 same class of error as the two the revision above was written to fix: I added a
 heading and did not check what number was already there.
 
-  $ grep -n '^### 5\.1\.2' agents/COORDINATION (README UPDATES) (README UPDATES)/05-network-domains-and-controlled-external-access/section.md
+  $ grep -n '^### 5\.1\.2' agents/COORDINATION (README UPDATES)/05-network-domains-and-controlled-external-access/section.md
   162:### 5.1.2 The one dual-homed container, and why
   233:### 5.1.2 Local Browser Addresses
 
@@ -105,25 +105,25 @@ what it actually is: a footnote explaining a row of the table immediately above
 it. That choice is recorded in the section itself, so the next reader knows it
 was deliberate and does not "fix" it back.
 
-  $ grep -n '^### 5\.1\.2\|^### 5\.1\.3' agents/COORDINATION (README UPDATES) (README UPDATES)/05-network-domains-and-controlled-external-access/section.md
+  $ grep -n '^### 5\.1\.2\|^### 5\.1\.3' agents/COORDINATION (README UPDATES)/05-network-domains-and-controlled-external-access/section.md
   242:### 5.1.2 Local Browser Addresses
   (no §5.1.3; no duplicate)
 
-The compiler made this invisible for a while. `agents/COORDINATION (README UPDATES) (README UPDATES)/tools/compile.py`
+The compiler made this invisible for a while. `agents/COORDINATION (README UPDATES)/tools/compile.py`
 is 27 lines of plain concatenation with NO heading processing at all — it joins
 section files and writes the result. It cannot renumber, cannot detect a
 duplicate, and cannot warn:
 
-  $ grep -c 'def ' agents/COORDINATION (README UPDATES) (README UPDATES)/tools/compile.py
+  $ grep -c 'def ' agents/COORDINATION (README UPDATES)/tools/compile.py
   1
-  $ python3 agents/COORDINATION (README UPDATES) (README UPDATES)/tools/compile.py --check
+  $ python3 agents/COORDINATION (README UPDATES)/tools/compile.py --check
   DIFFERS
 
 So a duplicate heading is not caught by the toolchain. It is only caught by
 grepping. That is worth knowing for every other session too, and it is why I
 checked the whole tree rather than only my file:
 
-  $ grep -h '^#\{2,3\} ' agents/COORDINATION (README UPDATES) (README UPDATES)/*/section.md | sort | uniq -d
+  $ grep -h '^#\{2,3\} ' agents/COORDINATION (README UPDATES)/*/section.md | sort | uniq -d
   ## Note for the compiler
   ## Ordering
   ## What I got wrong

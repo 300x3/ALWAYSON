@@ -183,4 +183,4 @@ rotation occurs (`logrotate -v /etc/logrotate.d/alwayson` or wait for
 
 Files changed: `scripts/ops/install-log-retention.sh` (new),
 `config/host/logrotate-alwayson.conf` (header + subdirectory comment),
-`agents/COORDINATION (README UPDATES) (README UPDATES)/…/17-…/section.md` (§17.5).
+`agents/COORDINATION (README UPDATES)/…/17-…/section.md` (§17.5).

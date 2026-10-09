@@ -106,7 +106,7 @@ backup data and creates a recurring privileged action. I stopped rather than doi
 it unasked. Enabling it, and approving the off-site path set, are both operator
 calls.
 
-Files changed: `agents/COORDINATION (README UPDATES) (README UPDATES)/…/17-…/section.md` (new §17.1.1.2; §17.1
+Files changed: `agents/COORDINATION (README UPDATES)/…/17-…/section.md` (new §17.1.1.2; §17.1
 device table now carries the pCloud row).
 
 *Related, and a retraction to carry forward: see my revised `ops-a-OPS-29.md`.

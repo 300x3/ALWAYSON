@@ -62,4 +62,4 @@ the authoritative answer and should be what is journalled. Re-deriving the ID
 after the fact is what let a stale value survive three runs unnoticed.
 
 Files changed: `scripts/backup/restic-run.sh`,
-`agents/COORDINATION (README UPDATES) (README UPDATES)/…/17-…/section.md` (§17.1.4).
+`agents/COORDINATION (README UPDATES)/…/17-…/section.md` (§17.1.4).

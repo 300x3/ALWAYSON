@@ -44,7 +44,7 @@ evidence: |
   I found this by running the check the compiler session installed, which no earlier
   NET pass had run in this worktree:
 
-    $ python3 agents/COORDINATION (README UPDATES) (README UPDATES)/tools/compile.py --check
+    $ python3 agents/COORDINATION (README UPDATES)/tools/compile.py --check
     DIFFERS
     EXIT=1
 
@@ -52,7 +52,7 @@ evidence: |
   5.1 group B row) but did not recompile, so README.md still carried 2026-10-10
   where the section file said 2026-10-04:
 
-    $ git --no-pager show HEAD -- agents/COORDINATION (README UPDATES) (README UPDATES)/05-.../section.md
+    $ git --no-pager show HEAD -- agents/COORDINATION (README UPDATES)/05-.../section.md
     -Measured 2026-10-10.  §19 and this section previously recorded this adapter as
     +Measured 2026-10-04.  §19 and this section previously recorded this adapter as
 
@@ -67,7 +67,7 @@ evidence: |
   so the measured "3 days ago" is consistent with 2026-10-04 and 2026-10-10 is a
   future date. Recompiled; now agrees:
 
-    $ python3 agents/COORDINATION (README UPDATES) (README UPDATES)/tools/compile.py --check
+    $ python3 agents/COORDINATION (README UPDATES)/tools/compile.py --check
     identical
 
   Why it mattered: §19.1's NET-01 row and README both told readers the adapter was

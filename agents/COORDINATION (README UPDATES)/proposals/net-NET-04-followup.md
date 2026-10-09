@@ -88,13 +88,13 @@ confirmed independently rather than by citation.
 Both supersession marks in my §4.3.1 still point at things that exist:
 
   $ grep -n 'live-machinery path is enabled by anything shown here' \
-      agents/COORDINATION (README UPDATES) (README UPDATES)/10-simulation-architecture/section.md
+      agents/COORDINATION (README UPDATES)/10-simulation-architecture/section.md
   123:or live-machinery path is enabled by anything shown here.
 
 Rule numbering is internally consistent — §4.1 carries fifteen numbered rules
 and every cross-reference into it resolves to one of 1-15:
 
-  $ sed -n '5,31p' agents/COORDINATION (README UPDATES) (README UPDATES)/04-security-isolation-and-data-policy/section.md \
+  $ sed -n '5,31p' agents/COORDINATION (README UPDATES)/04-security-isolation-and-data-policy/section.md \
       | grep -o '^[0-9]*\.' | tr '\n' ' '
   1. 2. 3. 4. 5. 6. 7. 8. 9. 10. 11. 12. 13. 14. 15.
 
@@ -103,7 +103,7 @@ also exists in MY OTHER FILE, and I had been reading §4 without ever listing it
 headings. NET-04 is a §4 item, so this is squarely inside my assigned scope and
 I had not checked it:
 
-  $ grep -h '^#\{2,3\} ' agents/COORDINATION (README UPDATES) (README UPDATES)/*/section.md | sort | uniq -d
+  $ grep -h '^#\{2,3\} ' agents/COORDINATION (README UPDATES)/*/section.md | sort | uniq -d
   ## Note for the compiler
   ## Ordering
   ## What I got wrong

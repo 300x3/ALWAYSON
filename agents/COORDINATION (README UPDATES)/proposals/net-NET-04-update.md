@@ -10,7 +10,7 @@ evidence: |
   m = re.search(r'## 4\.3 Prohibited Paths\n(.*?)(\n## |\Z)', archive_text, re.DOTALL)
   archive_block = m.group(1).strip()
   archive_lines = [l for l in archive_block.split('\n') if l.strip()]
-  sec04_text = open('agents/COORDINATION (README UPDATES) (README UPDATES)/04-security-isolation-and-data-policy/section.md', encoding='utf-8').read()
+  sec04_text = open('agents/COORDINATION (README UPDATES)/04-security-isolation-and-data-policy/section.md', encoding='utf-8').read()
   m2 = re.search(r'### 4\.3\.1.*?```text\n(.*?)```', sec04_text, re.DOTALL)
   sec04_lines = [l for l in m2.group(1).strip().split('\n') if l.strip()]
   print(f"Archive: {len(archive_lines)} non-blank lines")

@@ -27,7 +27,7 @@ operation unsuitable.
 under the operator account `scottw` (uid 1000), with user-level Quadlet units in
 `~/.config/containers/systemd/`, exactly as §13.1 prescribes. The system/rootful store is
 not used by any workload. **This is a designation, measured 2026-10-03** — the commands and
-their output are in `agents/COORDINATION (README UPDATES) (README UPDATES)/proposals/plat-PLAT-01.md`.
+their output are in `agents/COORDINATION (README UPDATES)/proposals/plat-PLAT-01.md`.
 
 | Question | Measured answer |
 |---|---|

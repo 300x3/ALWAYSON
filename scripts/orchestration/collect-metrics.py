@@ -10,18 +10,36 @@ and the graph grows from it. It does not invent back-fill.
 import json, os, re, sys, datetime as dt
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-# DEPRECATED: section 19 source moved to README-ACTION_ITEMS/status-and-references.md
+# Section 19 source moved out of README.md to README-ACTION_ITEMS/status-and-references.md.
 SEC = os.path.join(ROOT, "README-ACTION_ITEMS/status-and-references.md")
 OUT = os.path.join(ROOT, "artifacts/dashboard/metrics/19-progress.jsonl")
 GROUPS = ["PLAT", "NET", "SEC", "LEDGER", "PAY", "COMM", "FIELD", "SIM", "OPS"]
 
+SEP = re.compile(r"^\|[\s:\-|]+\|$")
+
 def cl(x):
-    return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", "", x)).strip()
+    """Cell text to plain. The tracker is Markdown, so bold markers and code
+    ticks have to go as well as any stray HTML tag -- `**Open**` must compare
+    equal to "Open"."""
+    x = re.sub(r"<[^>]+>", "", x)
+    x = x.replace("**", "").replace("`", "")
+    return re.sub(r"\s+", " ", x).strip()
 
 def rows(seg):
+    """Six-column Markdown table rows, skipping the header and its separator.
+
+    The tracker was HTML (`<tr>`/`<td>`) when this was written. It became
+    Markdown when sections 19-20 moved to README-ACTION_ITEMS. The old HTML
+    regex matched nothing against Markdown, so `rows()` returned [] and every
+    run recorded open=0 done=0 for all nine groups -- which is what pinned the
+    dashboard at 36% and then at 0%. Measured 2026-10-09.
+    """
     out = []
-    for r in seg.split("<tr>"):
-        c = [cl(x) for x in re.findall(r"<td[^>]*>(.*?)</td>", r, re.S)]
+    for line in seg.splitlines():
+        s = line.strip()
+        if not s.startswith("|") or SEP.match(s):
+            continue
+        c = [cl(x) for x in s.strip("|").split("|")]
         if len(c) == 6:
             out.append(c)
     return out

@@ -2,7 +2,7 @@
 item: SEC-03
 action: close
 evidence: |
-  $ grep -rln -i 'break-glass\|rotation\|revocation' --include='*.md' agents/COORDINATION (README UPDATES) (README UPDATES)/16*/section.md agents/COORDINATION (README UPDATES) (README UPDATES)/17*/section.md
+  $ grep -rln -i 'break-glass\|rotation\|revocation' --include='*.md' agents/COORDINATION (README UPDATES)/16*/section.md agents/COORDINATION (README UPDATES)/17*/section.md
   (no match in §16/§17; only "Rotation: /etc/logrotate.d/" — logs, not credentials)
 
   $ grep -n 'restic backup' scripts/backup/restic-run.sh | head -1

@@ -65,11 +65,11 @@ evidence: |
 
   # README.md is COMPILED, never hand-edited. Proof this run's README delta is
   # only my own section, generated:
-  $ python3 agents/COORDINATION (README UPDATES) (README UPDATES)/tools/compile.py --check
+  $ python3 agents/COORDINATION (README UPDATES)/tools/compile.py --check
     DIFFERS                      # before recompile: committed README predates c2c5f51's section edits
-  $ python3 agents/COORDINATION (README UPDATES) (README UPDATES)/tools/compile.py
+  $ python3 agents/COORDINATION (README UPDATES)/tools/compile.py
     wrote README.md from 21 sections
-  $ python3 agents/COORDINATION (README UPDATES) (README UPDATES)/tools/compile.py --check
+  $ python3 agents/COORDINATION (README UPDATES)/tools/compile.py --check
     identical                    # after recompile: byte-identical to concatenation of sections
   $ git --no-pager diff -U0 -- README.md | grep '^@@'   # all hunks land in 3313..3710
   # section 15 occupies README lines 3140-3712 (computed from MANIFEST.md row order),

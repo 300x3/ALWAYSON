@@ -39,4 +39,4 @@ thing in `logs/`. That is an operator decision, and it is why this item is
 Also new in §17.5: the retention policy that OPS-25/OPS-26 previously left
 unowned, staged and parse-verified (see the OPS-26 proposal).
 
-Files changed: `agents/COORDINATION (README UPDATES) (README UPDATES)/…/17-…/section.md` (§17.5).
+Files changed: `agents/COORDINATION (README UPDATES)/…/17-…/section.md` (§17.5).

@@ -356,23 +356,20 @@ Logs are classified per §4.2 and are never a place to record secrets.
 ## 16.4 Document Coordination
 
 `README.md` is **compiled, not hand-edited**. The source of truth is
-`agents/COORDINATION (README UPDATES) (README UPDATES) (README UPDATES)/`, which holds one folder per section.
+`agents/COORDINATION (README UPDATES)/`, which holds one folder per section.
 Each session edits only its own file, so two sessions can never collide on the
 same 4,000-line document.
 
 | Path | Role |
 |---|---|
-| `agents/COORDINATION (README UPDATES) (README UPDATES) (README UPDATES)/MANIFEST.md` | The fixed section order the compiler concatenates in |
-| `agents/COORDINATION (README UPDATES) (README UPDATES) (README UPDATES)/<nn>-<slug>/section.md` | One README section, beginning with its own `# N. Title` heading |
-| `agents/COORDINATION (README UPDATES) (README UPDATES) (README UPDATES)/tools/split.py` | `README.md` → the section folders |
-| `agents/COORDINATION (README UPDATES) (README UPDATES) (README UPDATES)/tools/compile.py` | The section folders → `README.md`; `--check` verifies without writing |
+| `agents/COORDINATION (README UPDATES)/MANIFEST.md` | The fixed section order the compiler concatenates in |
+| `agents/COORDINATION (README UPDATES)/<nn>-<slug>/section.md` | One README section, beginning with its own `# N. Title` heading |
+| `agents/COORDINATION (README UPDATES)/tools/split.py` | `README.md` → the section folders |
+| `agents/COORDINATION (README UPDATES)/tools/compile.py` | The section folders → `README.md`; `--check` verifies without writing |
 
-**NOTE (2026-10-06 restructure):** the source folder was renamed from
-`agents/COORDINATION (README UPDATES) (README UPDATES)/` to `agents/COORDINATION (README UPDATES) (README UPDATES) (README UPDATES)/` during the
-restructure. Every path below in this section — and in `17-backup-restore-monitoring-and-completion-criteria`
-and `19-current-status-and-outstanding-work` — uses the renamed folder. The old
-`agents/COORDINATION (README UPDATES) (README UPDATES)/` paths are retired; `tools/supervise.py` refuses to run
-against them.
+**NOTE (2026-10-06):** earlier drafts of this section carried the source folder name with
+extra parentheses; the canonical, tracked name is `agents/COORDINATION (README UPDATES)/` and is used
+throughout this section. The earlier parenthesized forms are retired.
 
 **Rules.**
 

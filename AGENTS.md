@@ -28,12 +28,12 @@
 | Path | Purpose |
 |---|---|
 | `agents/AGENTS.md` | this file |
-| `agents/README.md` | compiled master doc (regenerate only via tools/compile.py) |
+| `README.md` | compiled master doc (regenerate only via tools/compile.py) |
 | `agents/COORDINATION (README UPDATES)/` | per-section rules + evidence (section.md per section, MANIFEST.md) |
-| `agents/HANDOFFS (BETWEEN AI AGENTS)/` | agent-to-agent handoff narratives (gitignored) |
+| `agents/HANDOFFS (BETWEEN AI AGENTS)/` | agent-to-agent handoff narratives (tracked) |
 | `agents/SESSION ASSIGNMENTS (AI WORKGROUPS)/` | per-session assignment sheets |
 | `agents/START_RESTART-AGENTIC_TEAM.md` | team restart entry point |
-| `agents/COORDINATION (README UPDATES)/tools/*` | split.py / compile.py / collect-metrics.py / render-dashboard.py |
+| `agents/COORDINATION (README UPDATES)/tools/` | split.py / compile.py (README <-> section round trip) |; `scripts/orchestration/` | collect-metrics.py / render-dashboard.py / supervise.py |
 | `logs/operations/rules-review-agents-folder-2026-10-06.log` | rules-review journal |
 
 ## Handoff rules

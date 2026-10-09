@@ -451,7 +451,7 @@ omitting it produces an unlabelled row in §19.1.** My own FIELD-15 proposal ren
 **empty Item cell** and the whole proposal body dumped into the criteria cell as raw markdown:
 
 ```bash
-$ for f in agents/COORDINATION (README UPDATES) (README UPDATES)/proposals/*.md; do a=$(grep -m1 '^action:' "$f" | sed 's/action: *//'); \
+$ for f in agents/COORDINATION (README UPDATES)/proposals/*.md; do a=$(grep -m1 '^action:' "$f" | sed 's/action: *//'); \
     [ "$a" = new ] && printf '%-22s title:%s\n' "$(basename $f)" "$(grep -cm1 '^title:' "$f")"; done
 field-FIELD-15.md   title:0        # <- mine
 ops-a-OPS-35.md     title:0

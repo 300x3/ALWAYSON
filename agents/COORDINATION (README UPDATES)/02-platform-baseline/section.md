@@ -115,7 +115,7 @@ of the **repository**. The package is on the host; the two install lists that wo
 a rebuild are `scripts/bootstrap/02-install-host-dependencies.sh` and
 `scripts/bootstrap/ao-bootstrap-privileged.sh`, both documented in **§12.3**, which belongs to the
 OPS-B session. Editing them here would be editing another group's requirement. **Referred to OPS-B
-with this evidence**; see `agents/COORDINATION (README UPDATES) (README UPDATES)/proposals/plat-PLAT-03.md`.
+with this evidence**; see `agents/COORDINATION (README UPDATES)/proposals/plat-PLAT-03.md`.
 
 ## 2.4 Baseline Verification Must Assert
 
@@ -166,7 +166,7 @@ because the tool now exists and `aa-status` still cannot read anything without p
 **Requirement.** The §12.3 verify block must exit non-zero when any check fails, and must name
 the expected value beside each observed one so a failure is readable without re-running it.
 The block as written cannot be closed by this session: §12.3 is owned by the OPS-B session.
-See `agents/COORDINATION (README UPDATES) (README UPDATES)/proposals/plat-PLAT-04.md`.
+See `agents/COORDINATION (README UPDATES)/proposals/plat-PLAT-04.md`.
 
 ## 2.5 Version Matrix Audit
 
@@ -236,7 +236,7 @@ $ systemctl --user list-unit-files 'ao-webodm*' | grep -c '^ao-'
 This matters because an earlier `PLAT-01` proposal cited the `wc -l` form as evidence of "no
 system-level units". The **conclusion was right** — there are none — but the command shown
 could not have produced the number reported. A citation that does not reproduce is not
-evidence, and it is corrected in `agents/COORDINATION (README UPDATES) (README UPDATES)/proposals/plat-PLAT-01.md`. Reach for
+evidence, and it is corrected in `agents/COORDINATION (README UPDATES)/proposals/plat-PLAT-01.md`. Reach for
 `grep -c '^ao-'`, or `--no-legend`, and always run a control pattern before believing a zero.
 
 **Remaining for `PLAT-02`:** the matrix is still hand-edited rather than captured by a

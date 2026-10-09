@@ -94,5 +94,5 @@ the ten thresholds stand, and `AoBackupStale` / `AoRestoreTestStale` /
 `AoRepositoryVerifyStale` still reference metric names nothing exports — so even
 once deployed, those three cannot fire.
 
-Files changed: `agents/COORDINATION (README UPDATES) (README UPDATES)/…/17-…/section.md` (§17.2.1 rewritten;
+Files changed: `agents/COORDINATION (README UPDATES)/…/17-…/section.md` (§17.2.1 rewritten;
 §17.2.2 and §17.2.3 unchanged and still accurate).

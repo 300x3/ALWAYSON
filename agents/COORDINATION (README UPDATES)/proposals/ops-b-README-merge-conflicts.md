@@ -3,11 +3,11 @@ item: OPS-13/17/33-README-merge
 action: resolve-conflicts
 files:
   - README.md
-  - agents/COORDINATION (README UPDATES) (README UPDATES)/12-host-installation-and-configuration/section.md
+  - agents/COORDINATION (README UPDATES)/12-host-installation-and-configuration/section.md
 evidence: |
   $ git status --short
   UU README.md
-  UU agents/COORDINATION (README UPDATES) (README UPDATES)/12-host-installation-and-configuration/section.md
+  UU agents/COORDINATION (README UPDATES)/12-host-installation-and-configuration/section.md
 
   $ git ls-files -u README.md
   100644 6cf7a8d8f31e98dffd8e0ba82e3b65ec65e39d3c 1	README.md
@@ -62,12 +62,12 @@ Take my side verbatim. No conflict.
 
 ## What is already done on my side
 
-`agents/COORDINATION (README UPDATES) (README UPDATES)/12-host-installation-and-configuration/section.md` is
+`agents/COORDINATION (README UPDATES)/12-host-installation-and-configuration/section.md` is
 **resolved** — markers removed, both sides' content kept, and my §12.3.1 rewritten
 so it credits the baseline verifier instead of duplicating it:
 
 ```console
-$ grep -c '<<<<<<<\|>>>>>>>\|^=======$' agents/COORDINATION (README UPDATES) (README UPDATES)/12-host-installation-and-configuration/section.md
+$ grep -c '<<<<<<<\|>>>>>>>\|^=======$' agents/COORDINATION (README UPDATES)/12-host-installation-and-configuration/section.md
 0
 ```
 

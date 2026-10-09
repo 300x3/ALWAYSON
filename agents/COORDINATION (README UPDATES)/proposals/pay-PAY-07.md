@@ -2,20 +2,20 @@
 item: PAY-07
 action: close
 evidence: |
-  $ grep -c '| \`18' agents/COORDINATION (README UPDATES) (README UPDATES)/MANIFEST.md
+  $ grep -c '| \`18' agents/COORDINATION (README UPDATES)/MANIFEST.md
   0
 
   # section 18 does not exist in the compiled document at all
 
-  $ sed -n '74,78p' agents/COORDINATION (README UPDATES) (README UPDATES)/07-public-storefront-and-payment-policy/section.md   (before edit)
+  $ sed -n '74,78p' agents/COORDINATION (README UPDATES)/07-public-storefront-and-payment-policy/section.md   (before edit)
   2. A purchase button routes to provider-hosted checkout (PayPal hosted button
      today; Zelle instructions and Coinbase/USDC flow per Section 18.4 as
 
-  $ python3 agents/COORDINATION (README UPDATES) (README UPDATES)/tools/compile.py
+  $ python3 agents/COORDINATION (README UPDATES)/tools/compile.py
   wrote README.md from 21 sections
   exit=0
 
-  $ git --no-pager diff --stat -- agents/COORDINATION (README UPDATES) (README UPDATES)/07-public-storefront-and-payment-policy/section.md README.md
+  $ git --no-pager diff --stat -- agents/COORDINATION (README UPDATES)/07-public-storefront-and-payment-policy/section.md README.md
    README.md                                          | 166 +++++++++++++++++++--
    .../section.md                                     | 166 +++++++++++++++++++--
   # README delta == section delta, so no other section drifted during recompile

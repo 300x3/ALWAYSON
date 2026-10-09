@@ -8,7 +8,7 @@ evidence: |
   ao-html-window's purpose is recorded two different ways.
 
   ES.2 says it is a public-facing egress window publishing to 300x3.com:
-  $ grep -n 'ao-html-window' agents/COORDINATION (README UPDATES) (README UPDATES)/es-executive-summary/section.md
+  $ grep -n 'ao-html-window' agents/COORDINATION (README UPDATES)/es-executive-summary/section.md
   73:| **`ao-html-window`** | adapter | **A public-facing (egress) window
      for viewing HTML content on the 300x3.com website.** ... It only ever
      needs to publish to 300x3.com ... | Outbound publication to 300x3.com

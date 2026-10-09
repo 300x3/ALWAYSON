@@ -61,4 +61,4 @@ job is a change in what the backup costs.
 Not done by me, deliberately: no path was added or removed. Enlarging the
 nightly set is the operator's call.
 
-Files changed: `agents/COORDINATION (README UPDATES) (README UPDATES)/…/17-…/section.md` (§17.4).
+Files changed: `agents/COORDINATION (README UPDATES)/…/17-…/section.md` (§17.4).

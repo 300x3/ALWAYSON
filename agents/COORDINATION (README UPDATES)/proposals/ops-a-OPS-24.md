@@ -129,4 +129,4 @@ Safety is by construction rather than by care: the script requires an explicit
 refusals are shown in the OPS-08 evidence above.
 
 Files changed: `scripts/restore/restore-restic-drill.sh` (new),
-`agents/COORDINATION (README UPDATES) (README UPDATES)/…/17-…/section.md` (§17.4).
+`agents/COORDINATION (README UPDATES)/…/17-…/section.md` (§17.4).

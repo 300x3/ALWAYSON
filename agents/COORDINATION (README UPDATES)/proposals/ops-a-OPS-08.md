@@ -5,9 +5,9 @@ evidence: |
   # §17.1.3 gained the two steps its acceptance criteria name ("preflight and
   # snapshot selection") and which it did not previously have. Verified by
   # reading back the section, not by intent:
-  $ grep -c 'Preflight' agents/COORDINATION (README UPDATES) (README UPDATES)/…/17-…/section.md
+  $ grep -c 'Preflight' agents/COORDINATION (README UPDATES)/…/17-…/section.md
   1
-  $ grep -c 'Select the snapshot explicitly' agents/COORDINATION (README UPDATES) (README UPDATES)/…/17-…/section.md
+  $ grep -c 'Select the snapshot explicitly' agents/COORDINATION (README UPDATES)/…/17-…/section.md
   1
 
   # the (label -> database, user) table the restore runbook now transcribes.
@@ -99,5 +99,5 @@ comes back with no operational history. That is a one-line change to an
 approved path list and enlarges what the nightly job copies, so it stays an
 operator decision (unrelated to this proposal, recorded for the next session).
 
-Files changed: `agents/COORDINATION (README UPDATES) (README UPDATES)/…/17-…/section.md` (§17.1.2 RPO/RTO
+Files changed: `agents/COORDINATION (README UPDATES)/…/17-…/section.md` (§17.1.2 RPO/RTO
 labelling, §17.1.3 rewrite).

@@ -239,7 +239,7 @@ each other, which no prior pass had asked.
 ## Sixth pass, 2026-10-05 — the staging queue is the untrusted input, and it has grown
 
 **Stays open.** This pass added **§11.13** to
-`agents/COORDINATION (README UPDATES) (README UPDATES)/11-ledger-provenance-archive-and-ipfs/section.md`.
+`agents/COORDINATION (README UPDATES)/11-ledger-provenance-archive-and-ipfs/section.md`.
 
 **§11.11's housekeeping claim is RETRACTED as superseded.** §11.11 recorded that
 `pending-ledger-submissions/` contained *only* `20260824`. It now contains a

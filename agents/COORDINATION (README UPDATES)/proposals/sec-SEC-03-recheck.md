@@ -9,7 +9,7 @@ evidence: |
   sections contain no credential material (only logrotate):
 
     $ grep -rln -i 'break-glass\|rotation\|revocation' \
-        agents/COORDINATION (README UPDATES) (README UPDATES)/16*/section.md agents/COORDINATION (README UPDATES) (README UPDATES)/17*/section.md
+        agents/COORDINATION (README UPDATES)/16*/section.md agents/COORDINATION (README UPDATES)/17*/section.md
     → only "Rotation: /etc/logrotate.d/" — logs, not credentials
 
   The backup gap claim in §14.2.4 still holds, re-read from the live script:

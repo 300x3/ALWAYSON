@@ -982,7 +982,7 @@ script it, and never let a value transit a shell argument or a log):
 
 **Procedure that is itself inside the backup set.** A credential-recovery runbook that lives
 only in an unbacked file does not satisfy §14.2. The procedure above is written into
-`agents/COORDINATION (README UPDATES) (README UPDATES)/14-secrets-and-service-identity/section.md`, which **is** covered by the
+`agents/COORDINATION (README UPDATES)/14-secrets-and-service-identity/section.md`, which **is** covered by the
 restic snapshot via `$AO_ROOT/config` and the repository, so the procedure survives a restore
 even though the secrets do not. The deliberate split is: **the procedure is backed up; the
 secrets are rotated, never restored.**

@@ -72,5 +72,5 @@ made. My "sensible" number was the wrong one. A retuned table must be diffed
 against its source, however confident it feels; and a threshold that looks loose
 deserves a question rather than a correction.
 
-Files changed: `agents/COORDINATION (README UPDATES) (README UPDATES)/…/17-…/section.md` (new §17.2.1.1;
+Files changed: `agents/COORDINATION (README UPDATES)/…/17-…/section.md` (new §17.2.1.1;
 §17.2.2 table corrected).

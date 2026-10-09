@@ -231,9 +231,23 @@ def main():
     # ---- approval questions: always rendered, derived from the log ----
     # DEPRECATED: old section 19 source; use the tracker
     sec = open(os.path.join(ROOT, "README-ACTION_ITEMS/status-and-references.md"), encoding="utf-8").read()
-    def cl(x): return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", "", x)).strip()
-    orows = [[cl(c) for c in re.findall(r"<td[^>]*>(.*?)</td>", r, re.S)]
-             for r in sec[sec.index("## 19.1"):sec.index("## 19.2")].split("<tr>")]
+    # Markdown, not HTML: the tracker moved out of README and became a pipe
+    # table. The previous <tr>/<td> regex silently matched nothing, so
+    # open_ids was empty and "Decisions needed from you" never populated --
+    # it always read "Nothing is blocked" regardless of the real state.
+    def cl(x):
+        x = re.sub(r"<[^>]+>", "", x).replace("**", "").replace("`", "")
+        return re.sub(r"\s+", " ", x).strip()
+
+    SEP = re.compile(r"^\|[\s:\-|]+\|$")
+    orows = []
+    for line in sec[sec.index("## 19.1"):sec.index("## 19.2")].splitlines():
+        s = line.strip()
+        if not s.startswith("|") or SEP.match(s):
+            continue
+        cells = [cl(x) for x in s.strip("|").split("|")]
+        if len(cells) == 6:
+            orows.append(cells)
     open_ids = {r[0] for r in orows
                 if len(r) == 6 and re.match(r"^[A-Z]+-\d+$", r[0]) and r[3] == "Open"}
     qs = []
@@ -290,12 +304,19 @@ def main():
         val = str(rec.get("answer", "")).strip()
         if not val:
             continue
-        when = str(rec.get("answered_at", ""))[:16].replace("T", " ")
+        # NOT `when`: that name holds the metrics snapshot timestamp used by
+        # @WHEN@ below. Reusing it here silently overwrote the snapshot label
+        # with the last answered decision's date, so the page claimed the
+        # numbers were a day old while showing current ones. Measured: the
+        # header read "snapshot 2026-10-08 21:29 UTC" over live 94/3 data.
+        awhen = str(rec.get("answered_at", ""))[:16].replace("T", " ")
         answered_rows.append(
             '<li class=answered><div class=ahead><span class=qid>%s</span>'
             '<span class=updwhen>answered %s</span></div>'
             '<div class=atext>%s</div></li>'
-            % (html.escape(item), html.escape(when), html.escape(val)))
+            % (html.escape(item), html.escape(awhen), html.escape(val)))
+
+
     if answered_rows:
         answered_panel = (
             '<div class=panel id=answered><h2>Decisions you have already given '
@@ -324,13 +345,17 @@ def main():
         for r in ups:
             lv = r.get("level", "info")
             who = html.escape(str(r.get("who", "team")))
-            when = html.escape(str(r.get("ts", ""))[:16].replace("T", " "))
+            # NOT `when` either, same reason as the answered loop above: this
+            # runs after it and would leave `when` holding the newest note's
+            # timestamp.
+            uwhen = html.escape(str(r.get("ts", ""))[:16].replace("T", " "))
             txt = html.escape(str(r.get("text", "")))
             items.append(
                 '<li class="upd %s"><div class=updhead><span class=who>%s</span>'
                 '<span class=updwhen>%s</span><span class=lvl>%s</span></div>'
                 '<div class=updtext>%s</div></li>'
-                % (lvl_class.get(lv, ""), who, when, html.escape(lv), txt))
+                % (lvl_class.get(lv, ""), who, uwhen, html.escape(lv), txt))
+
         updates = ('<div class=panel id=updates><h2>Team updates</h2>'
                    '<p class=note2>Standing progress channel. Decisions that need '
                    'you are in the panel below, not here.</p>'

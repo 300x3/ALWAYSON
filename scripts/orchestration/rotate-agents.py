@@ -2,15 +2,22 @@
 """Rotate ONE ALWAYS ON agent at a time through the 11 groups, 2 hours each.
 
 Operator instruction 2026-10-05: run one at a time for 2-hour periods on the
-free model. Two constraints drive this design:
+free model. REVISED 2026-10-08: "the free model" is now a per-group
+assignment of free Cline-provider ids -- see GROUP_MODEL in supervise.py.
+Two constraints drive this design:
 
-  1. The `stealth/space-bunny-alpha` model returns 404 on OpenRouter, so every
+  1. Every model must be VERIFIED before an agent is pointed at it. The
+     `stealth/space-bunny-alpha` model returned 404 on OpenRouter, so every
      agent spawned against it died at iteration 1 (measured 2026-10-05). The
-     only model verified working for agents is `poolside/laguna-s-2.1:free`.
-  2. That model has a DAILY quota. Running all 11 at once burns it in hours
-     and the whole team dies together. One agent at a time spends quota at
-     roughly 1/11 the rate, and the 2-hour cap bounds each group's share so a
-     chatty group cannot eat the day.
+     verified free ids today are cline-free/mimo-v2.6-flash,
+     cline-free/step-5-preview and cline-free/solar-mini4, each proven on
+     this host with a real edit-and-run task.
+  2. poolside/laguna-s-2.1:free is RETIRED. It had a daily quota that burned
+     out in hours and killed the whole team at once. The cline-free ids
+     measured totalCost:0 with no such wall, and they are deliberately split
+     across groups so each id is a separate bucket: one bucket running dry
+     costs at most its own groups instead of all eleven. One agent at a time
+     still bounds each group's share of a shift.
 
 How it runs: a systemd user timer fires every 2 hours and calls `rotate`.
 The script reads the rotation state (which group is current, when it started),

@@ -11,7 +11,7 @@ evidence: |
         3 egress networks non-internal by decision; registry matches host (14 = 11 + 3)
     EXIT=0
 
-  $ python3 agents/COORDINATION (README UPDATES) (README UPDATES)/tools/compile.py --check
+  $ python3 agents/COORDINATION (README UPDATES)/tools/compile.py --check
     identical
   (README.md still matches its own section files - the NET-03 regression of an
    earlier pass has not recurred.)

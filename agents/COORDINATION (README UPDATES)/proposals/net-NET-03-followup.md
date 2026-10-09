@@ -81,7 +81,7 @@ was false when checked.
 THE COMPILER DOES NOT CHECK ANYTHING. It is 27 lines, one function, and its
 entire job is concatenating section files in MANIFEST order:
 
-  $ cat agents/COORDINATION (README UPDATES) (README UPDATES)/tools/compile.py
+  $ cat agents/COORDINATION (README UPDATES)/tools/compile.py
   ...
   13	    rows = re.findall(r'^\| `([^`]+)` \|', (OUT / "MANIFEST.md").read_text(...), re.M)
   14	    parts = [(OUT / r / "section.md").read_text(...) for r in rows]
@@ -108,7 +108,7 @@ The first half is true. The second half was not verified and is FALSE. I edited
 identical" anyway, on the assumption that I had run it. The committed tree says
 otherwise:
 
-  $ python3 agents/COORDINATION (README UPDATES) (README UPDATES)/tools/compile.py --check    # at HEAD
+  $ python3 agents/COORDINATION (README UPDATES)/tools/compile.py --check    # at HEAD
   DIFFERS
   EXIT=1
 
@@ -134,9 +134,9 @@ verified the thing I had edited and wrote a claim about the thing I had not.
 WHAT I DID ABOUT IT. Recompiled, and confirmed the recompile is confined to my
 own section so that committing it cannot sweep in another session's prose:
 
-  $ python3 agents/COORDINATION (README UPDATES) (README UPDATES)/tools/compile.py
+  $ python3 agents/COORDINATION (README UPDATES)/tools/compile.py
   wrote README.md from 21 sections
-  $ python3 agents/COORDINATION (README UPDATES) (README UPDATES)/tools/compile.py --check
+  $ python3 agents/COORDINATION (README UPDATES)/tools/compile.py --check
   identical
 
   $ git --no-pager diff -U0 -- README.md | grep '^@@'
@@ -165,5 +165,5 @@ FOR THE COMPILER SESSION, since this is squarely its file: consider a
 section file. The three benign cross-file duplicates ("Note for the compiler",
 "Ordering", "What I got wrong") are a different class and would need scoping to
 numbered headings only. Until something like that exists, every session should
-run `grep -n '^#\{2,3\} ' agents/COORDINATION (README UPDATES) (README UPDATES)/<its-section>/section.md` and read
+run `grep -n '^#\{2,3\} ' agents/COORDINATION (README UPDATES)/<its-section>/section.md` and read
 it before committing. That check takes one second and would have caught mine.

@@ -23,5 +23,9 @@ Order is fixed. The compiler concatenates these in this order to produce `README
 | `15-sales-mastodon-openclaw-and-local-ai` | 15. Sales, Mastodon, OpenClaw, and Local AI |
 | `16-scripts-and-operational-standards` | 16. Scripts and Operational Standards |
 | `17-backup-restore-monitoring-and-completion-criteria` | 17. Backup, Restore, Monitoring, and Completion Criteria |
-| `19-current-status-and-outstanding-work` | 19. Current Status and Outstanding Work |
-| `20-status-references` | 20. Status References |
+
+<!-- RETIRED 2026-10-09: `19-current-status-and-outstanding-work` and
+     `20-status-references` were split out of the README into
+     `README-ACTION_ITEMS/status-and-references.md` (doc_id PROJECT-STATUS,
+     authoritative). Do NOT re-add rows for them here and do NOT rebuild them
+     into README.md. compile.py concatenates only the rows above. -->

@@ -9,7 +9,7 @@ evidence: |
   GAP 1 - §4.3.2 row 2 forbids what the architecture deliberately does.
 
     $ grep -n 'Any workload network to the public internet' \
-        agents/COORDINATION (README UPDATES) (README UPDATES)/04-security-isolation-and-data-policy/section.md
+        agents/COORDINATION (README UPDATES)/04-security-isolation-and-data-policy/section.md
     87:| Any workload network to the public internet | ... | Rules 6, §5.2 |
 
     $ podman network ls --format '{{.Name}} {{.Internal}}' | grep ao- | grep false
@@ -40,7 +40,7 @@ evidence: |
   GAP 2 - the live public ingress path is named by no prohibition at all.
 
     $ grep -n -i 'cloudflare' \
-        agents/COORDINATION (README UPDATES) (README UPDATES)/04-security-isolation-and-data-policy/section.md
+        agents/COORDINATION (README UPDATES)/04-security-isolation-and-data-policy/section.md
     (no output before §4.3.4)
 
     $ systemctl --user is-active cloudflared-alwayson.service
@@ -85,7 +85,7 @@ evidence: |
   Neither gap shows the recovered text was mis-transcribed. Both are a 2026-06 list
   meeting a 2026-10 architecture, the expected direction of drift.
 
-    $ python3 agents/COORDINATION (README UPDATES) (README UPDATES)/tools/compile.py --check
+    $ python3 agents/COORDINATION (README UPDATES)/tools/compile.py --check
     identical
 section: 04-security-isolation-and-data-policy
 ---

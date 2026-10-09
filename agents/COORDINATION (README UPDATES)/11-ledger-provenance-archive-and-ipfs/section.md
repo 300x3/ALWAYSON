@@ -968,7 +968,7 @@ credentials are a stop condition:
 
 §11.7, §11.8 and §11.9 were re-measured from scratch rather than trusted. Every
 inherited claim **reproduced** — see the ledger in
-`agents/COORDINATION (README UPDATES) (README UPDATES)/proposals/ledger-LEDGER-0*.md` for the raw command output.
+`agents/COORDINATION (README UPDATES)/proposals/ledger-LEDGER-0*.md` for the raw command output.
 This pass adds one thing the previous two missed: **§11.7 understates the
 blockers.** It lists three. There are at least five, and the two added here are
 not credential work.
@@ -1083,7 +1083,7 @@ does. That surfaced **four new defects**, none of which is credential work and
 none of which any prior pass found.
 
 The inherited claims all still reproduce — see
-`agents/COORDINATION (README UPDATES) (README UPDATES)/proposals/ledger-LEDGER-0*.md`. What was missing is that
+`agents/COORDINATION (README UPDATES)/proposals/ledger-LEDGER-0*.md`. What was missing is that
 **"the ingest path has no signature verification" (§11.8/§11.9) undersells the
 problem.** The signature that exists is not verifiable by its intended recipient,
 the staging queue can silently destroy records, and the manifest carries none of
@@ -1318,7 +1318,7 @@ once, and it is the account-table row that defines it — not a posting row. Mea
 before this section was added, so that no self-reference inflates the count:
 
 ```text
-$ grep -n 'TAX_PAYABLE' agents/COORDINATION (README UPDATES) (README UPDATES)/11-ledger-provenance-archive-and-ipfs/section.md
+$ grep -n 'TAX_PAYABLE' agents/COORDINATION (README UPDATES)/11-ledger-provenance-archive-and-ipfs/section.md
 528:| `TAX_PAYABLE_<jurisdiction>` | Liability | Tax accrued and owed, per approved jurisdiction |
 ```
 

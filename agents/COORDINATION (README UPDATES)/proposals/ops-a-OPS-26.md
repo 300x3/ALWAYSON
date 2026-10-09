@@ -106,4 +106,4 @@ are unbounded in principle.
 
 Files changed: `config/host/journald-alwayson.conf` (new),
 `config/host/logrotate-alwayson.conf` (four subdirectory blocks),
-`agents/COORDINATION (README UPDATES) (README UPDATES)/…/17-…/section.md` (§17.5).
+`agents/COORDINATION (README UPDATES)/…/17-…/section.md` (§17.5).

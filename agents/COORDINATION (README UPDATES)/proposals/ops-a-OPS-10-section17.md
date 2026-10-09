@@ -78,5 +78,5 @@ The cadence half of the item is unchanged and still honest: `restore-restic-dril
 has **no timer**, so §17.1's "Monthly" restore-test requirement is unmet and
 OPS-24 carries it.
 
-Files changed: `agents/COORDINATION (README UPDATES) (README UPDATES)/…/17-…/section.md` (§17.1.1),
+Files changed: `agents/COORDINATION (README UPDATES)/…/17-…/section.md` (§17.1.1),
 `scripts/restore/restore-restic-drill.sh` (new).

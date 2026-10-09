@@ -104,5 +104,5 @@ carries the nightly path set, it is a working proof, not a backup.
 **Enabling it is an operator decision** and was not done: it means a recurring
 privileged job writing to backup media inside the pCloud sync root.
 
-Files changed: `agents/COORDINATION (README UPDATES) (README UPDATES)/…/17-…/section.md` (§17 intro device table;
+Files changed: `agents/COORDINATION (README UPDATES)/…/17-…/section.md` (§17 intro device table;
 §17.1.1.1 corrected; new §17.1.1.2).

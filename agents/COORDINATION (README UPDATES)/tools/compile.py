@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Rebuild README.md from 'agents/COORDINATION (README UPDATES) (README UPDATES) (README UPDATES)/<nn-slug>/section.md'.
+"""Rebuild README.md from 'agents/COORDINATION (README UPDATES)/<nn-slug>/section.md'.
 
 Verifies the result is byte-identical to what split.py last produced.
 Run from the repository root:
-  python3 'agents/COORDINATION (README UPDATES) (README UPDATES) (README UPDATES)/tools/compile.py' [--check]
+  python3 'agents/COORDINATION (README UPDATES)/tools/compile.py' [--check]
 
-Path updated 2026-10-06: the source folder was renamed from agents/COORDINATION (README UPDATES) (README UPDATES)/.
+Path updated 2026-10-06: the source folder was renamed from agents/COORDINATION (README UPDATES)/.
 """
 import sys, pathlib, re
 
