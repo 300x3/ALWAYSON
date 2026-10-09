@@ -13,10 +13,14 @@ import json, os, re, html, datetime as dt
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 SRC = os.path.join(ROOT, "artifacts/dashboard/metrics/19-progress.jsonl")
 OUT = os.path.join(ROOT, "artifacts/dashboard/index.html")
-GROUPS = ["PLAT", "NET", "SEC", "LEDGER", "PAY", "COMM", "FIELD", "SIM", "OPS"]
+# ST is the component-status prefix the tracker carries alongside the nine work
+# groups; OTHER holds completed rows whose ID cell is an em dash. Both must be
+# listed here or the per-group table will not sum to the KPI total.
+GROUPS = ["PLAT", "NET", "SEC", "LEDGER", "PAY", "COMM", "FIELD", "SIM", "OPS",
+          "ST", "OTHER"]
 COL = {"PLAT": "#4c78a8", "NET": "#f58518", "SEC": "#e45756", "LEDGER": "#72b7b2",
        "PAY": "#54a24b", "COMM": "#eeca3b", "FIELD": "#b279a2", "SIM": "#ff9da6",
-       "OPS": "#9d755d"}
+       "OPS": "#9d755d", "ST": "#79706e", "OTHER": "#bab0ac"}
 
 # Items that cannot proceed without an operator decision. Kept here as data so
 # the dashboard derives the questions from the log instead of maintaining a
@@ -153,7 +157,9 @@ def main():
 
     rows = []
     for g in GROUPS:
-        o, d = last["open"][g], last["done"][g]
+        # .get(): records written before ST/OTHER existed carry only the nine
+        # work groups, and a missing key must read as zero rather than raise.
+        o, d = last["open"].get(g, 0), last["done"].get(g, 0)
         tot = o + d
         pct = (100.0 * d / tot) if tot else 0
         bar = '<div class="bar"><i style="width:%.0f%%"></i></div>' % pct
@@ -184,7 +190,7 @@ def main():
     def pct_series(g):
         out = []
         for r in recs:
-            o, d = r["open"][g], r["done"][g]
+            o, d = r["open"].get(g, 0), r["done"].get(g, 0)
             tot = o + d
             out.append(100.0 * d / tot if tot else 0.0)
         return out

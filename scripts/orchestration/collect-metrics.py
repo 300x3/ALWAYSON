@@ -13,10 +13,21 @@ ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 # Section 19 source moved out of README.md to README-ACTION_ITEMS/status-and-references.md.
 SEC = os.path.join(ROOT, "README-ACTION_ITEMS/status-and-references.md")
 OUT = os.path.join(ROOT, "artifacts/dashboard/metrics/19-progress.jsonl")
-GROUPS = ["PLAT", "NET", "SEC", "LEDGER", "PAY", "COMM", "FIELD", "SIM", "OPS"]
+# ST is the component-status prefix the tracker carries alongside the nine work
+# groups, and OTHER holds completed rows whose ID cell is an em dash. Both were
+# invisible to the old nine-prefix regex: 39 of the tracker's items were counted as
+# nothing, so the dashboard read 98 total against a real 138. Measured 2026-10-09.
+GROUPS = ["PLAT", "NET", "SEC", "LEDGER", "PAY", "COMM", "FIELD", "SIM", "OPS",
+          "ST", "OTHER"]
 
 SEP = re.compile(r"^\|[\s:\-|]+\|$")
-WID = re.compile(r"^(PLAT|NET|SEC|LEDGER|PAY|COMM|FIELD|SIM|OPS)-\d+$")
+# An item row is identified either by a work/component ID or by an em dash. Group-block
+# banners (**PLAT**), the header row and the status-vocabulary table are not items.
+ITEM = re.compile(r"^([A-Za-z]+)-\d+$|^\u2014$")
+# "Complete with verification pending" is explicitly "claimed done; evidence not yet
+# recorded" in the tracker's own vocabulary, so it is NOT counted as complete.
+DONE = re.compile(r"(?i)^complete")
+NOT_DONE = re.compile(r"(?i)^complete with verification pending$")
 
 def cl(x):
     """Cell text to plain. The tracker is Markdown, so bold markers and code
@@ -54,9 +65,25 @@ def rows(seg):
             # trailing detail column, so glue the overflow back together with
             # the pipe that was there in the first place.
             c = c[:5] + [" | ".join(c[5:])]
-        if len(c) == 6:
+        if len(c) == 6 and ITEM.match(c[0]):
             out.append(c)
     return out
+
+
+def group_of(ident):
+    """Which bucket an item belongs to. An em-dash row has no prefix, so it
+    lands in OTHER rather than being dropped."""
+    if ident == "\u2014":
+        return "OTHER"
+    pref = ident.split("-")[0].upper()
+    return pref if pref in GROUPS else "OTHER"
+
+
+def key_of(row):
+    """Identity for dedup. An ID is unique; an em-dash row has no ID, so two
+    different completed items would otherwise collapse into one. Disambiguate
+    on the item text."""
+    return row[0] if row[0] != "\u2014" else "\u2014|" + row[1].lower()
 
 
 def raw_work_ids(seg):
@@ -74,9 +101,13 @@ def raw_work_ids(seg):
         s = line.strip()
         if not s.startswith("|") or SEP.match(s):
             continue
-        first = cl(s.strip("|").split("|")[0])
-        if WID.match(first):
-            out.add(first)
+        c = [cl(x) for x in s.strip("|").split("|")]
+        if not c or not ITEM.match(c[0]):
+            continue
+        # Same identity rule as key_of(): an em-dash row is keyed on its item
+        # text, or nine distinct completed items would collapse into one and the
+        # guard would undercount by eight.
+        out.add(c[0] if c[0] != "\u2014" else "\u2014|" + (c[1].lower() if len(c) > 1 else ""))
     return out
 
 def main():
@@ -96,21 +127,34 @@ def main():
     # is done if it is in 19.2 OR its 19.1 status starts with Complete/
     # Implemented; everything else with a work ID is outstanding. Measured
     # 2026-10-09: 96 work items, 4 complete, 92 outstanding.
-    wid = WID
-    done_ids = {r[0] for r in d if wid.match(r[0])}
-    for r in o:
-        if wid.match(r[0]) and re.match(r"(?i)^(complete|implemented)", r[3]):
-            done_ids.add(r[0])
+    # Every item row in the tracker, in both logs, deduplicated. A row is done
+    # when it is in 19.2 (that section IS the completed log) or when its 19.1
+    # status says Complete -- excluding "Complete with verification pending",
+    # which the tracker's own vocabulary defines as "claimed done; evidence not
+    # yet recorded" and which is therefore still outstanding work.
+    #
+    # PAY-08/09/10 sit in BOTH logs: they are marked Complete in 19.1 and also
+    # carried in 19.2. They are the operator's "3 listed as complete in 19.1
+    # instead of 19.2" and must be counted once, as complete.
+    items = {}
+    for row in o:
+        items[key_of(row)] = {"grp": group_of(row[0]), "done": False, "src": "19.1"}
+    for row in d:
+        k = key_of(row)
+        items.setdefault(k, {"grp": group_of(row[0]), "done": False, "src": "19.2"})
+        items[k]["done"] = True
+        items[k]["src"] = "both" if items[k]["src"] == "19.1" else "19.2"
+    for row in o:
+        k = key_of(row)
+        if DONE.match(row[3]) and not NOT_DONE.match(row[3]):
+            items[k]["done"] = True
 
     rec = {"ts": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
            "open": {}, "done": {}}
     for g in GROUPS:
-        pref = g + "-"
-        ids = {r[0] for r in o if re.match(r"^%s\d+$" % pref, r[0])}
-        ids |= {r[0] for r in d if re.match(r"^%s\d+$" % pref, r[0])}
-        rec["done"][g] = sum(1 for i in ids if i in done_ids)
-        rec["open"][g] = len(ids) - rec["done"][g]
-
+        mine = [v for v in items.values() if v["grp"] == g]
+        rec["done"][g] = sum(1 for v in mine if v["done"])
+        rec["open"][g] = len(mine) - rec["done"][g]
 
     to, td = sum(rec["open"].values()), sum(rec["done"].values())
 
@@ -132,6 +176,8 @@ def main():
     # version built `work_ids` from the same filtered rows it then counted, so a
     # row dropped by the column test was missing from BOTH sides and the check
     # passed -- 96 == 96 while the tracker held 98. Measured 2026-10-09.
+    # Recount independently of `rows()` so the guard can actually fail: read
+    # every item-looking first cell straight off the raw lines.
     work_ids = raw_work_ids(seg191) | raw_work_ids(seg192)
     if to + td == 0 or not work_ids:
         print("REFUSED to record: parsed 0 work items from %s.\n"
