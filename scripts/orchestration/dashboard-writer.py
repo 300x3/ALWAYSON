@@ -123,6 +123,16 @@ class H(BaseHTTPRequestHandler):
         self.send_response(code)
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(b)))
+        # No cache headers at all before this. With none set the browser is
+        # free to heuristically cache the page, so a tab left open kept
+        # showing an old render indefinitely -- measured 2026-10-09: the page
+        # still read 36% complete while the server was answering 3%, because
+        # the tab was serving its own copy and never re-requesting. The
+        # operator cannot tell a stale tab from a broken dashboard.
+        self.send_header("Cache-Control",
+                         "no-store, no-cache, must-revalidate, max-age=0")
+        self.send_header("Pragma", "no-cache")
+        self.send_header("Expires", "0")
         self.end_headers()
         self.wfile.write(b)
 

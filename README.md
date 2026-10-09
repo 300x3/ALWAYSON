@@ -264,93 +264,38 @@ suite covers the desktop and portable hardware this system is built for.
 through systemd Quadlet definitions — never Kubernetes, Docker Compose, a Docker daemon, or
 shell-wrapper orchestration (§13).
 
-**Correction 2026-10-04 — what "Kubuntu" is worth, measured.** The Kubuntu rationale above is
-the *selection* rationale and stands. But the running host does not identify itself as Kubuntu,
-and a reader checking `lsb_release` will get a different answer than this paragraph gives. It
-is KDE Plasma on Ubuntu 26.04.1, not a Kubuntu-flavoured install:
+**Platform identity.** The workstation runs **Ubuntu 26.04 LTS as the base, with KDE Plasma as
+the desktop.** Requirements that follow from this, and which the provisioner and any
+verification step must be written against:
 
-```
-$ lsb_release -a
-Distributor ID:	Ubuntu
-Description:	Ubuntu 26.04.1 LTS
-Release:	26.04
-Codename:	resolute
-$ cat /etc/kubuntu-release
-cat: /etc/kubuntu-release: No such file or directory
-$ apt-cache policy kubuntu-desktop
-kubuntu-desktop:
-  Installed: (none)
-$ plasmashell --version
-plasmashell 6.6.6
-$ systemctl is-enabled sddm
-enabled
-```
+- The base distribution is Ubuntu 26.04 LTS. The `kubuntu-desktop` metapackage is **not**
+  required and must not be assumed installed; only the Kubuntu-flavoured settings packages are
+  expected. Verification must not test for `kubuntu-desktop`, `/etc/kubuntu-release`, or any
+  `Kubuntu` distributor string — on this platform those correctly read as absent or as
+  `Ubuntu`.
+- The **KDE Plasma desktop is required**, because the login-gated KDE Wallet secret flow
+  (§14.1) and Konqueror as the automation browser depend on it.
+- **Support horizon:** standard security maintenance runs to **May 2031**. This is *standard*
+  security maintenance, not full support; expanded security maintenance extends to **May 2036**
+  under Ubuntu Pro. The 2031 date is therefore when routine maintenance ends, not when the
+  release becomes unusable.
+- The horizon above is the **Ubuntu LTS base** cycle. Do not substitute a desktop-flavour
+  support window for it; flavour cycles are maintained separately and are not covered by the
+  base distribution's published dates.
 
-Six installed packages carry the Kubuntu name, three named `kubuntu-*` and three not
-(`libkubuntu1`, `plymouth-theme-kubuntu-logo`, `plymouth-theme-kubuntu-text`):
+**Toolchain, and how each tool is supplied.** ROS 2 Lyrical is required at `/opt/ros/lyrical`.
+Gazebo Sim 10.5.0 is required but runs **containerised**, so `gzserver` must not be expected on
+the host `PATH`. QGroundControl is required as an operator tool but **is not a distribution
+package**: it is supplied as a user-level AppImage with a `.desktop` launcher under
+`~/.local/share/applications`, so neither a `qgroundcontrol` binary on `PATH` nor an entry under
+`/usr/share/applications` may be assumed. Any inventory, install list or verification step must
+treat AppImage-supplied and locally-built tools as a distinct class from packaged software, and
+must not report them as missing merely because no package owns them.
 
-```
-$ dpkg -l | awk '/^ii/ && $2 ~ /kubuntu/ {print $2}' | sort
-kubuntu-notification-helper
-kubuntu-settings-desktop
-kubuntu-wallpapers
-libkubuntu1
-plymouth-theme-kubuntu-logo
-plymouth-theme-kubuntu-text
-```
-
-So: Ubuntu LTS base, KDE Plasma 6.6.6 on SDDM, Kubuntu-flavoured settings only. The
-`kubuntu-desktop` metapackage is **not** installed, and `apt-cache show` confirms it sits in
-`universe`, not `main` (`Section: universe/metapackages`, candidate `1.496`). Every
-functional claim this
-section rests on is independently
-true — Plasma 6.6.6 is present, `konqueror`, `kwalletmanager5` and `kwallet-query` are
-installed (§14.1), ROS 2 Lyrical is at `/opt/ros/lyrical` (§2.2), and the machine is an
-i7-8700K with a GeForce GTX 1080. Only the distribution label was loose.
-
-**Toolchain correction, same date.** §1 says the desktop "carries the ROS 2 and Gazebo toolchain
-plus QGroundControl". ROS 2 and Gazebo are real: `ros2` resolves to `/opt/ros/lyrical/bin/ros2`
-and `gzserver` is not on the host PATH because Gazebo runs containerised
-(`ao-sim-fabrication-gz`, carrying `gz` and `gz-msgs_*`; the host keeps a wrapper at
-`~/bin/gazebo`). **QGroundControl is an AppImage, not an installed package** — there is no
-`qgroundcontrol` binary on the PATH and no `.desktop` entry under
-`/usr/share/applications`; the operator runs
-`~/Documents/APP IMAGES/QGroundControl-x86_64.AppImage`, which has left state in
-`~/.config/QGroundControl` and `~/.cache/QGroundControl`. It does have a **user-level**
-launcher, so it is on the desktop menu even though it is not a package:
-
-```
-$ find /usr/share/applications ~/.local/share/applications -iname '*ground*'
-/home/scottw/.local/share/applications/qgroundcontrol.desktop
-$ grep '^Exec' ~/.local/share/applications/qgroundcontrol.desktop
-Exec="/home/scottw/Documents/APP IMAGES/QGroundControl-x86_64.AppImage" %U
-```
-
-The distinction worth keeping is AppImage-vs-package, not absent-vs-present: the launcher
-just invokes the AppImage path, which is why the binary is not on the PATH. Same for the
-Foxglove bridge, which is a locally built image (`localhost/foxglove-bridge`) rather than a
-pinned upstream digest. Those two are simulation-toolchain facts and belong to the SIM
-group's inventory; they are noted here only so §1 does not read as a package manifest.
-
-**Support-horizon correction, same date.** This paragraph previously gave the maintenance
-horizon as "April 2031". Canonical's published release-cycle table gives **May 2031**, and
-the month was the substance of the claim — a maintenance horizon is only useful if it is the
-right one. Measured 2026-10-04 from `ubuntu.com/about/release-cycle`:
-
-```
-26.04 LTS   Released: Apr 2026
-            Standard security maintenance    May 2031
-            Expanded security maintenance    May 2036
-```
-
-Two things follow that are worth more than the date. The horizon is **standard security
-maintenance, not full support** — extended to May 2036 with Ubuntu Pro, so the 2031
-figure is when routine maintenance stops, not when the release stops being usable. And this
-section's "Kubuntu" claim is about the *Ubuntu LTS base*, whose cycle is the table above;
-flavour cycles are maintained separately by their own communities and are not covered by
-Canonical's dates. Since this host is Ubuntu 26.04.1 LTS with KDE Plasma rather than
-Kubuntu proper (see the correction above), the base table is in fact the correct one to cite
-— but a reader should not take the flavour's support window to be the same number.
+**Why this platform.** The selection rests on: Ubuntu LTS with a published security-maintenance
+horizon; the ROS 2 and Gazebo toolchain plus QGroundControl that the simulation work depends on;
+KDE Plasma for the Wallet secret flow and Konqueror; and the KDE suite for the desktop and
+portable hardware this system is built for.
 
 # 2. Platform Baseline
 
@@ -381,8 +326,10 @@ Kubuntu proper (see the correction above), the base table is in fact the correct
 
 ## 2.2 Platform Baseline
 
-The host baseline this design assumes. This is the requirement; the measured values for the
-running host are in §19.1, and where the two differ §19.1 is the fact.
+The host baseline the platform requires. Every value below is a **requirement**: a rebuilt host
+or a verification step is written against this table. Measured values for a running host are
+**not** recorded here — they belong in `README-ACTION_ITEMS/status-and-references.md`. Where the
+two disagree, the tracker is the fact and the requirement below is what must be corrected.
 
 | Area | Baseline |
 |---|---|
@@ -398,242 +345,68 @@ running host are in §19.1, and where the two differ §19.1 is the fact.
 
 ## 2.3 Packages the Verification Steps Depend On
 
-The install list is written in §12.3, which another session owns. The requirement belongs here,
-because a package is part of the platform baseline if the platform's own verification asserts
-on it. **Re-measured 2026-10-04 09:22** — the `apparmor-utils` row changed under this section
-after it was first written, so both states are recorded:
+A package is part of the platform baseline if the platform's own verification asserts on it. The
+install list itself is written in §12.3; the requirement is stated here because the two must agree.
 
-| Package | Needed by | Installed on this host |
-|---|---|---|
-| `apparmor-utils` | `aa-enforce`, `aa-decode`, `aa-genprof`, `aa-logprof` — the profile tools §4.1 relies on | **Yes, as of 2026-10-04 09:07.** `dpkg-query -W` → `apparmor-utils 5.0.2-0ubuntu1~26.04.1`; all five binaries resolve under `/usr/sbin/`. *(It was **absent** when this row was first measured on 2026-10-03: `apt-cache policy` → `Installed: (none)` and all five tools `MISSING`.)* |
-| `nvidia-container-toolkit` (+ `libnvidia-container1`, `libnvidia-container-tools`, `nvidia-container-toolkit-base`) | GPU access from rootless containers via CDI; the `nvidia.com/gpu=0` device the version matrix records | Yes — all four at **1.20.1-1** |
+Every package below is **required to be reproducible from the repository's own bootstrap chain**
+(`scripts/bootstrap/02-install-host-dependencies.sh` and
+`scripts/bootstrap/ao-bootstrap-privileged.sh`, documented in §12.3). A host that is correct only
+because an operator installed a package by hand does **not** satisfy this requirement — the
+provisioning path is the deliverable, not the host's current package list.
 
-**How the `apparmor-utils` state changed, and what did not change with it.** `/var/log/apt/history.log`
-records the install at `2026-10-04 09:07:11`, `Requested-By: scottw (1000)`, pulling in
-`apparmor-utils`, `python3-apparmor` and `python3-libapparmor` at `5.0.2-0ubuntu1~26.04.1`. This
-was an **interactive operator action, not a change to any install list** — the gap this section
-recorded is therefore still open:
+| Package | Required for |
+|---|---|
+| `apparmor-utils` | `aa-enforce`, `aa-decode`, `aa-genprof`, `aa-logprof` — the profile tools §4.1 relies on |
+| `nvidia-container-toolkit` (+ `libnvidia-container1`, `libnvidia-container-tools`, `nvidia-container-toolkit-base`) | GPU access from rootless containers via CDI; the `nvidia.com/gpu=0` device the version matrix records |
 
-- `scripts/bootstrap/02-install-host-dependencies.sh` line 6 still does not name `apparmor-utils`.
-- `scripts/bootstrap/ao-bootstrap-privileged.sh` still does not name it.
-- `scripts/provision/provision.sh` contains **zero** occurrences of `apparmor`
-  (`grep -c apparmor scripts/provision/provision.sh` → `0`).
+**Verification rules for the AppArmor tooling.** These are normative, because each one has
+defeated a naive check:
 
-So the host is fixed and the **provisioning path is not**. A host rebuilt from the repository's
-own bootstrap chain would not get `apparmor-utils`, and §4.1's profile workflow has no tooling.
-**This section must not read as "satisfied" on the strength of one host's package list.**
-
-**Correction to a stale claim.** `config/platform/version-matrix.yaml` records
-`nvidia-container-toolkit 1.20.0 installed 2026-08-25`. `dpkg-query -W` reports **1.20.1-1**.
-The matrix is a version record, so this row is wrong; it is recorded here rather than edited,
-because the matrix file is not owned by this session.
-
-**Traps recorded for the next session.**
-
-- **`aa-status` is a misleading success signal.** `dpkg -S /usr/sbin/aa-status` →
-  `apparmor: /usr/sbin/aa-status`: it ships in the **base `apparmor` package**, not in
-  `apparmor-utils`. Any verification that tests `command -v aa-status` will pass on a host with
-  no profile tooling installed at all. Test for `aa-enforce`, not `aa-status`.
-- **`aa-status` returns non-zero without privilege, and §12.3 throws that away.**
-  Unprivileged it prints `apparmor module is loaded.` on stdout, writes
-  `You do not have enough privilege to read the profile set.` to stderr and **exits 4** —
-  measured, not assumed. §12.3 line 163 is `sudo aa-status || true`, and the `|| true`
-  discards exactly the status that would have told the operator the profile set was
-  unreadable. Combined with `sudo` requiring interactive authentication on this host
-  (`sudo -n aa-status` → `sudo: interactive authentication is required`, rc=1), the line
-  cannot fail. This is the same class of defect as the cgroup check in §2.4.
-
-**Re-measured 2026-10-04 17:05 — every claim in this subsection reproduces, and the gap is
-unchanged.** I did not trust the earlier passes on this item, because one of them closed it on a
-host measurement and a package installed by hand between two passes then invalidated the close.
-
-```
-$ dpkg-query -W -f='${Package} ${Version}\n' apparmor-utils
-apparmor-utils 5.0.2-0ubuntu1~26.04.1                       # still installed
-$ dpkg -S /usr/sbin/aa-enforce /usr/sbin/aa-genprof 2>/dev/null | cut -d: -f1
-apparmor-utils                                               # both resolve to the right package
-$ grep -n 'apparmor' scripts/bootstrap/*.sh scripts/provision/*.sh
-(no matches, rc=1)                                           # the install lists STILL omit it
-$ grep -c apparmor scripts/provision/provision.sh
-0
-$ sed -n '6p' scripts/bootstrap/02-install-host-dependencies.sh
-pkgs=(podman uidmap slirp4netns fuse-overlayfs containernetworking-plugins nftables ufw git curl jq ca-certificates gnupg openssl restic smartmontools lm-sensors acl python3 python3-venv python3-pip)
-                                                          # no apparmor-utils
-$ aa-status >/tmp/aas.out 2>/tmp/aas.err ; echo "rc=$?"
-rc=4                                                         # §12.3 discards this with || true
-```
-
-**PLAT-03 therefore cannot close from this session, and the reason is ownership, not effort.**
-The acceptance criterion is *"reconcile the install list with the verification steps"* — a property
-of the **repository**. The package is on the host; the two install lists that would reproduce it on
-a rebuild are `scripts/bootstrap/02-install-host-dependencies.sh` and
-`scripts/bootstrap/ao-bootstrap-privileged.sh`, both documented in **§12.3**, which belongs to the
-OPS-B session. Editing them here would be editing another group's requirement. **Referred to OPS-B
-with this evidence**; see `agents/COORDINATION (README UPDATES)/proposals/plat-PLAT-03.md`.
+- Test for **`aa-enforce`**, not `aa-status`. `aa-status` ships in the base `apparmor` package, so
+  `command -v aa-status` succeeds on a host with no profile tooling installed at all.
+- A check must **not** wrap its subject in `sudo … || true`. On this host `sudo` requires
+  interactive authentication, so the pipeline cannot fail and cannot inspect anything — while
+  still reporting success.
+- Any check whose subject requires privilege must report the privilege failure as a failure. A
+  check that cannot fail verifies nothing.
 
 ## 2.4 Baseline Verification Must Assert
 
-§12.3's verify block currently **prints**; it does not **assert**. Reproduced 2026-10-03 by
-running its five commands as written:
+A verification step **asserts**; it does not print. Each requirement below is normative:
 
-```
-Linger=yes
-cgroups v2 active
-cgroup line rc=0
---- now simulate the cgroup check FAILING:
-last rc=1  <-- silent, no output, script continues
-OVERALL SCRIPT EXIT=0
-```
+1. Every check must compare an observed value against an expected one and **exit non-zero when
+   they differ**. A silent non-zero return that nothing reads is not an assertion.
+2. The overall block must exit non-zero if any check fails. A block whose exit status is
+   unconditionally zero cannot verify anything, and evidence produced by it cannot be re-run and
+   trusted.
+3. Each observed value must be **printed beside its expected value**, so a failure is readable
+   without re-running the check.
+4. A check must run a **control case** before a zero is believed. Counting constructs that return
+   a constant regardless of input — for example `systemctl list-unit-files 'pattern' | wc -l`,
+   which always prints three lines — must not be used as evidence. Use a form that measures the
+   thing itself, such as `grep -c '^ao-'`.
+5. Every claim cited as evidence must be **reproducible by the command shown**. A citation that
+   does not reproduce is not evidence.
 
-Two defects, both reproduced above:
+The §12.3 verify block is owned by the OPS-B session; the requirements above are what it must
+satisfy.
 
-1. The cgroup line `test "$(stat -fc %T /sys/fs/cgroup)" = "cgroup2fs" && echo "..."` is
-   **silent on failure** — it prints nothing and returns non-zero, and nothing reads that
-   return code.
-2. The block's **overall exit status is 0 either way**. A script that cannot fail cannot
-   verify anything, so the §19.2 evidence it supports cannot be re-run and trusted (this is
-   the same defect `OPS-15` records).
+## 2.5 Version Matrix Requirements
 
-**Third defect, found 2026-10-04: the `aa-status` line discards its own failure.** §12.3
-line 163 is `sudo aa-status || true`. Running the block **verbatim** (all six lines,
-`sudo` untouched):
+`config/platform/version-matrix.yaml` is the machine-readable platform baseline and must satisfy:
 
-```
---- verbatim §12.3 verify block (lines 158-163) ---
-podman version rc=0
-podman info rc=0
-systemctl --user status rc=0
-Linger=yes
-cgroups v2 active
-OVERALL EXIT=0
-
-[stderr]
-sudo: A terminal is required to authenticate
-```
-
-The AppArmor check **never ran** — `sudo` could not authenticate — and the block still
-reported success. An operator reading that output sees six green lines and concludes the
-profile set is in enforcing mode. It was not even inspected. Note the interaction with §2.3:
-`apparmor-utils` being newly installed makes this line *look* more meaningful than it is,
-because the tool now exists and `aa-status` still cannot read anything without privilege.
-
-**Requirement.** The §12.3 verify block must exit non-zero when any check fails, and must name
-the expected value beside each observed one so a failure is readable without re-running it.
-The block as written cannot be closed by this session: §12.3 is owned by the OPS-B session.
-See `agents/COORDINATION (README UPDATES)/proposals/plat-PLAT-04.md`.
-
-## 2.5 Version Matrix Audit
-
-`config/platform/version-matrix.yaml` is the machine-readable baseline. It is not owned by
-this session, so the audit result is recorded here and the file left untouched. Run
-2026-10-03.
-
-**Six of the 25 running containers are tag-only, and all six are strays, not Quadlet units.**
-`podman ps --format '{{.Names}}\t{{.Image}}' | grep -v '@sha256:'` returns six rows — four
-Grafana containers on `:11.6.0` tags and two on `localhost/foxglove-bridge:latest` — and
-**every one has a generated `podman run` name** (`ao-sqli3`, `keen_bhabha`, `confident_khayyam`,
-`relaxed_tharp`, `dreamy_rosalind`, `vigorous_shannon`), so no Quadlet unit owns them. They
-are residue from earlier manual runs and duplicate the pinned `ao-grafana` and
-`ao-sim-fabrication-foxglove`. **They are not removed here** — that is container deletion and
-README §4.1 rule 3 requires operator approval; §19 `OPS-16` already tracks stray containers.
-
-In the repository, `grep -rh '^Image=' quadlet/ | grep -vc '@sha256:'` → **2**: the deliberate
-`ardupilot-sitl:latest` (a moving SITL tag) and the local `localhost/gz-sim10-resolute:gui-svgfix`
-build. Every other unit image is digest-pinned.
-
-**The `nginx:alpine` row named in `PLAT-02` no longer exists as an unpinned image.**
-`grep -rn 'nginx:alpine' . --exclude-dir=.git` returns **no file under `quadlet/` or
-`config/`** — only historical mentions in `docs/compliance/installation-status.md`,
-`GAZEBO/`, an archived `TOPOLOGY/` JSON, and the §19 text itself. `quadlet/sim-fabrication/ao-sim-fabrication-portal.service`
-records why: the throwaway `gazebo-portal` nginx container was replaced by a `python3` host
-process. **That half of `PLAT-02` is already satisfied**; §19.2 said as much on 2026-10-01
-and `PLAT-02` was not updated to match.
-
-**Drift found between the matrix and the running host** — three rows are stale:
-
-| Matrix row | Records | Actually is |
-|---|---|---|
-| `host.kernel` | `7.0.0-34-generic` | `7.0.0-38-generic` (`uname -r`) |
-| `gpu.container_runtime_integration` | `nvidia-container-toolkit 1.20.0` | `1.20.1-1` (`dpkg-query -W`) |
-| `operations.image_postgres_shared` | `postgres@sha256:a65e6a84…` | `postgres@sha256:d74eeac9…` is what `ao-sales-db`, `mastodon-db` and `ao-fabrication-db` actually run |
-
-The PostgreSQL row is the one that matters: the matrix names a digest no container is
-running, so it cannot be used to verify what is deployed. Note also that four digests are
-running but absent from the matrix — `gz-sim10-server`, `foxglove-bridge`, and the two Redis
-digests `c6eabf74…` (used by both `ao-webodm-broker` and `mastodon-redis`, while the matrix
-records the older `91d0f7e8…`).
-
-**Re-verified 2026-10-04** by re-running every command in this audit against the live host.
-All findings above reproduced unchanged: 2 unpinned `Image=` lines in the repository, the same
-six tag-only running containers (`ao-sqli3`, `keen_bhabha`, `confident_khayyam`,
-`relaxed_tharp`, `dreamy_rosalind`, `vigorous_shannon`) still present, `kernel` still recorded
-as `7.0.0-34-generic` against a live `7.0.0-38-generic`, `nvidia-container-toolkit` still
-recorded as `1.20.0` against a live `1.20.1-1`, and `image_postgres_shared` still naming
-`postgres@sha256:a65e6a84…` while every running PostgreSQL container uses
-`postgres@sha256:d74eeac9…`.
-
-**Trap — `systemctl list-unit-files … | wc -l` is not a count of units.** It always prints
-three lines (the header, a blank line, and `0 unit files listed.`), so `wc -l` returns `3`
-whether or not any unit exists. Measured, with a control:
-
-```
-$ systemctl list-unit-files 'ao-webodm*' | wc -l
-3
-$ systemctl list-unit-files 'ao-nonexistentxyz*' | wc -l   # control: impossible pattern
-3                                    # identical -- so wc -l measures boilerplate
-$ systemctl list-unit-files 'ao-webodm*' | grep -c '^ao-'
-0                                    # the valid measurement
-$ systemctl --user list-unit-files 'ao-webodm*' | grep -c '^ao-'
-4                                    # same form, scope where units DO exist
-```
-
-This matters because an earlier `PLAT-01` proposal cited the `wc -l` form as evidence of "no
-system-level units". The **conclusion was right** — there are none — but the command shown
-could not have produced the number reported. A citation that does not reproduce is not
-evidence, and it is corrected in `agents/COORDINATION (README UPDATES)/proposals/plat-PLAT-01.md`. Reach for
-`grep -c '^ao-'`, or `--no-legend`, and always run a control pattern before believing a zero.
-
-**Remaining for `PLAT-02`:** the matrix is still hand-edited rather than captured by a
-generator, and these three rows plus the four missing digests need correcting.
-Verifying it by hand is what found the drift, so the capture automation matters — but that
-automation is `OPS-02`, assigned to OPS-B.
-
-**Fourth pass, 2026-10-04 17:05 — every figure in this audit re-measured. All reproduce.**
-Because this audit has already been corrected once for an unsummarised complement, I re-ran each
-figure rather than trusting the text:
-
-```
-$ uname -r                                    7.0.0-38-generic   # matrix says 7.0.0-34-generic
-$ dpkg-query -W -f='${Package} ${Version}\n' nvidia-container-toolkit
-nvidia-container-toolkit 1.20.1-1                                        # matrix says 1.20.0
-$ podman ps --format '{{.Image}}' | grep postgres | sort -u
-docker.io/library/postgres@sha256:d74eeac9a635390a49bc21bd49fccd973de707e2a53a76ac49b552b8712ec46f
-                                                                 # matrix says a65e6a84 (lines 47 AND 61)
-$ podman ps --format '{{.Image}}' | grep redis | sort -u
-docker.io/library/redis@sha256:c6eabf748fc7a61dbb5a705c78bcf3d6377b1127a97d0ce965c11c44ba46896f
-                                                                 # matrix says 91d0f7e8 (lines 21 AND 48)
-$ grep -rh '^Image=' quadlet/ | grep -vc '@sha256:'   2
-$ podman ps --format '{{.Names}}\t{{.Image}}' | grep -v '@sha256:' | wc -l   6
-$ podman ps --format '{{.Names}}' | wc -l               25
-```
-
-The six tag-only strays are the same six by name, and the two deliberate repository exceptions are
-the same two files (`ao-ardupilot-sitl.container:12`,
-`ao-sim-fabrication-gui-gz.container:47`). **Correction to the count: the stale digests live in
-four keys across four lines, not the "three rows" earlier passes reported** —
-
-```
-$ grep -n 'a65e6a84\|91d0f7e8' config/platform/version-matrix.yaml | sed 's/: *"docker.*//'
-21:  broker_image_digest
-47:    image_postgres
-48:    image_redis
-61:  image_postgres_shared
-```
-
-Counting *rows* rather than *keys* is how "three" survived two re-verification passes: `postgres`
-appears in two keys and `redis` in two more. With kernel and `nvidia-container-toolkit` that is
-**four stale keys carrying four wrong values**, and the two database digests are the serious ones
-because every running container disagrees with the recorded pin.
+1. **Every running container image is digest-pinned.** A tag-only image cannot be verified as
+   deployed. Only these are permitted exceptions, and both are deliberate:
+   - `ardupilot-sitl:latest` — a moving SITL tag by design;
+   - the locally built Gazebo Sim image, whose digest records the validated local build.
+2. **No stray container may duplicate a Quadlet-managed unit.** Any container whose name is
+   generated by `podman run` rather than owned by a Quadlet unit is residue and must be removed.
+   Removal is a delete and requires operator approval per §4.1 rule 3.
+3. **Every digest the matrix records must be a digest a container actually runs**, and every
+   running digest must appear in the matrix. A matrix that names a digest nothing runs cannot be
+   used to verify what is deployed.
+4. **Kernel and package versions must be captured, not hand-transcribed.** The matrix is to be
+   produced by a generator that reads the running host, so it cannot silently drift.
 
 # 3. High-Level Architecture
 
@@ -8934,11 +8707,11 @@ All four `ao-payment` entries and both `ao-archive` entries now return `hasEntry
 (`payment-db-password`, `payment-paypal-webhook-id`, `payment-paypal-webhook-secret`,
 `payment-coinbase-webhook-secret`, `pcloud-webdav-password`, `pcloud-webdav-user`).
 
-**Why the control test was mandatory.** The first two probes of this pass returned `True` for
-*every* folder, including ones §14.1.7 had recorded as absent, which is exactly the shape of a
-broken probe. The nonsense-name control returned `False`, which is what makes the seven-and-two
-`True` results believable. A finding that contradicts a prior measurement must be earned with a
-negative control, not asserted.
+**Why the control test is mandatory.** The first two probes returned `True` for
+*every* folder, including ones previously recorded as absent, which is exactly the
+shape of a broken probe. The nonsense-name control returned `False`, which is what
+makes the seven-and-two `True` results believable. **A finding that contradicts a
+prior measurement must be earned with a negative control, not asserted.**
 
 **Mapping is not the same as deliverability.** `wallet_folder_for` routes 30-odd entry names,
 but a mapping only means the fetcher will *try*. Several entries the fetcher names are read
@@ -9027,9 +8800,10 @@ Mastodon instance.
 **This also invalidates a rule written above.** §14.1.3's single-file rule and §14.1.6's "every
 file is rewritten from the wallet on each refresh" both assume wallet and file agree. They now
 disagree, which means either the file was hand-edited after its last fetch or the wallet entry
-was changed without a refresh. **Not determined this pass** — the fetcher's `mastodon-env`
+was changed without a refresh. **Not determined here** — the fetcher's `mastodon-env`
 branch and the file's mtime (`2026-10-01 15:08`, the same minute as the Mastodon units' start)
 are consistent with a fetch-then-edit, but that is an inference, not a measurement.
+**A divergence must not be attributed to a cause until the cause is measured.**
 
 #### RETRACTED 2026-10-05 (second pass): the two values above do not diverge, and there is no TLS fault
 
@@ -9080,13 +8854,14 @@ TLS enforcement between two live authorities, because there is only one authorit
   keys** — the fetcher regenerates the whole file from the wallet plus literals on every bridge
   run. It is wrong only as a claim that the file mirrors the `mastodon-env` wallet entry.
 
-**What I got wrong, and the generalisable lesson.** I compared a file against a wallet entry and
-reported the difference as a policy conflict **without ever checking that anything consumed the
-wallet entry**. Had the operator acted on the first pass, the likely outcome would have been a
-change to TLS enforcement on a live public instance — an unnecessary, possibly harmful change
-manufactured from a stale blob. **A divergence between a live artifact and an unread store is
-not a finding until you have shown the store is read.** The cheap check is one grep for the
-entry name across the repo, and it should come *before* the comparison, not after.
+**A divergence between a live artifact and an unread store is not a finding
+until it has been shown that the store is read.** An earlier pass compared this
+file against a wallet entry and reported the difference as a policy conflict
+without ever checking that anything consumed the wallet entry; had an operator
+acted on that, the likely outcome would have been a change to TLS enforcement on
+a live public instance — an unnecessary, possibly harmful change manufactured
+from a stale blob. The cheap check is one grep for the entry name across the
+repository, and it must come *before* the comparison, not after.
 
 ### 14.1.3.1 The orphaned `mastodon-env` wallet entry (downgraded from security finding)
 
@@ -9096,13 +8871,14 @@ is the reason §14.1.3's byte-identity claim was ever made. It is a **documentat
 hygiene defect**, not a credential exposure: the secrets inside it are the same six wallet-held
 values that are correctly stored, and the file it shadows is `0600`.
 
-**Not deleted by this session.** Deleting a wallet entry is a change to secret-classified
-material and outside this session's authority (brief stop conditions; README §4.1 rule 14).
-**Operator decision requested** — recommend deletion, or a one-line comment in
-`fetch-mastodon-env.sh` naming it as retired so the next auditor does not re-derive this
-finding from scratch. Note `deploy-mastodon.sh:46` still *tells the operator* that the file's
-values are in `mastodon-env`, which is now misleading and is the likely source of the confusion;
-that file is not mine to edit.
+**Deleting the wallet entry is not performed here.** It is a change to
+secret-classified material and outside this specification's authority (brief stop
+conditions; README §4.1 rule 14). **Operator decision requested** — recommend
+deletion, or a one-line comment in `fetch-mastodon-env.sh` naming it as retired so
+the next auditor does not re-derive this finding from scratch. Note
+`deploy-mastodon.sh:46` still *tells the operator* that the file's values are in
+`mastodon-env`, which is misleading and is the likely source of the confusion;
+correcting that comment is part of the same operator decision.
 
 ### 14.1.3.2 The Mastodon containers disagree with each other — live, measured, and a real fault
 
@@ -9138,18 +8914,22 @@ bridge** — `ao-mastodon-web.container` has `After=graphical-session.target ao-
 ao-mastodon-redis.service ao-sales-network.service` and **no** `Requires=`/`After=` on
 `ao-wallet-bridge.service`. Nothing enforces "materialise secrets, then start consumers".
 
-**Severity — lower than it looks, and I should say so plainly.** `mastodon-streaming` is the
-Node streaming API; `RAILS_FORCE_SSL` is a **Rails** setting and the streaming process does not
-read it, so `false` there has no HTTP-redirect effect. The inconsistency is real and should be
-fixed, but it is not an open-HTTP-port finding and must not be presented as one.
-`LOCAL_HTTPS=false` is the more meaningful half, as it governs the instance's own assumption
-about its scheme. **No restart performed** — restarting live Mastodon services is a stop
-condition, and would additionally drop in-flight streaming connections.
+**Severity — lower than it looks, and it must be reported as such.**
+`mastodon-streaming` is the Node streaming API; `RAILS_FORCE_SSL` is a **Rails**
+setting and the streaming process does not read it, so `false` there has no
+HTTP-redirect effect. The inconsistency is real and should be fixed, but it is not
+an open-HTTP-port finding and must not be presented as one. `LOCAL_HTTPS=false` is
+the more meaningful half, as it governs the instance's own assumption about its
+scheme. **No restart may be performed as part of this correction** — restarting
+live Mastodon services is a stop condition, and would additionally drop in-flight
+streaming connections.
 
-**Not fixed by this session.** The fix is a dependency, not a value: add
-`Requires=ao-wallet-bridge.service` / `After=ao-wallet-bridge.service` to the three Mastodon
-consumer units so the file is written before anything reads it. That edits three quadlet
-units and restarts live public-facing services. Prepared, **not applied**, for the operator.
+**The ordering dependency is the defect, and it is not fixed by changing the
+value.** Nothing enforces "materialise secrets, then start consumers": the three
+Mastodon consumer units must carry `Requires=ao-wallet-bridge.service` /
+`After=ao-wallet-bridge.service` so the file is written before anything reads it.
+That edits three quadlet units and restarts live public-facing services. Prepared,
+**not applied**, for the operator.
 
 ### 14.1.3.3 Ordering defect in this subsection — corrected 2026-10-05
 
@@ -9320,13 +9100,15 @@ references `legacy-alwayson-folder`. Given the name and the fact that it holds e
 password for each of the four DB domains, it appears to be a pre-wallet-folder consolidation
 artefact: a moment when the credential layout was one file instead of one folder per domain.
 
-**Not deleted by this session.** Removing it is a deletion of secret-classified material, which
-is outside this session's authority (brief stop conditions). **Operator decision requested** —
-recommend deletion. The reasoning matters and cuts the other way from a first reading: because
-three of the four values are **currently valid**, deleting the file removes a real plaintext
-store of live credentials, and it loses nothing operationally, because the wallet remains the
-system of record and the live env files are re-fetched at every start (the scope paragraph below).
-Deleting is therefore strictly safer than keeping. Rotation is **not** required by the presence of the
+**Deleting the legacy file is not performed here.** Removing it is a deletion of
+secret-classified material, which is outside this specification's authority (brief
+stop conditions). **Operator decision requested** — recommend deletion. The
+reasoning matters and cuts the other way from a first reading: because three of
+the four values are **currently valid**, deleting the file removes a real
+plaintext store of live credentials, and it loses nothing operationally, because
+the wallet remains the system of record and the live env files are re-fetched at
+every start (the scope paragraph below). Deleting is therefore strictly safer
+than keeping. Rotation is **not** required by the presence of the
 file, because nothing outside it uses those values and they were never committed to Git, a
 backup set, or an external network; rotation becomes required only if the operator judges the
 host's local user account to be untrusted.
@@ -9409,14 +9191,15 @@ why the wallet — not these files — is designated the system of record.
    `find ~/secrets -name '*fabrication-db*'` returns nothing; the live file is
    `~/.local/share/ao-secrets/fabrication-db.env` (`-rw-------`, 100 bytes), matching the
    single-env-root rule in §14.1.2. ST-30's text is stale and should not be read as evidence
-   of a second delivery path. Correction proposed to the §19 compiler; ST-30 is not this
-   session's file to edit.
+   of a second delivery path. The §19 compiler should correct ST-30; it is not a
+   file this specification owns.
 2. `~/secrets/mastodon.env` is a **dangling symlink** to
    `/ALWAYSON/secrets/mastodon/mastodon.env`, which does not exist
    (`ls: cannot access …: No such file or directory`). It is inert, because
    `quadlet/sales/ao-sales-db.container` and the Mastodon units read
    `EnvironmentFile=%h/.local/share/ao-secrets/…`, not `~/secrets/`. Reported, **not removed** —
-   deleting files is outside this session's authority and it may be another session's artifact.
+   deleting files is outside this specification's authority and it may belong to another
+   subsystem.
 
 **Migration remains available if the operator prefers it.** The pinned Postgres image
 (`postgres@sha256:d74eeac9a…`) calls `file_env 'POSTGRES_PASSWORD'` at line 235 of
@@ -9512,8 +9295,9 @@ name". The carve-out was written so a healthy DSN file would not be flagged as l
 debris; the side effect is that the one file carrying a real password in DSN form is
 structurally invisible to the guard.
 
-**Operator decision requested. Not changed by this session**, because it touches payment
-credentials and a live running service (brief stop conditions; README §4.1 rules 12 and 14).
+**Operator decision requested. Not changed here**, because it touches payment
+credentials and a live running service (brief stop conditions; README §4.1 rules
+12 and 14).
 
 1. **Create the four `ao-payment` wallet entries**, then restart `ao-ingress-payment`. This is
    ST-12's own outstanding action and it also fixes the staleness. Recommended first.
@@ -9522,8 +9306,8 @@ credentials and a live running service (brief stop conditions; README §4.1 rule
    indefinitely on an env file it can never refresh, with no log line. If it stays, the
    staleness needs a separate check; if it goes, a locked wallet takes the unit down with it.
    Either is defensible, but the current state documents neither.
-3. **Note for §19**: ST-12's "runs with no DSN" needs correcting. ST-12 is not this session's
-   file, so this is raised as a proposal, not an edit.
+3. **Note for §19**: ST-12's "runs with no DSN" needs correcting, because the file does carry
+   a DSN. The row belongs to the §19 compiler, so this is raised as a proposal, not an edit.
 
 Cross-group: the *credential content* of this is PAY territory and the ST-12 row is the
 compiler's. The *delivery-mechanism* fault — silent fetch failure on a `0600` stale copy — is
@@ -9531,9 +9315,10 @@ SEC's and is what §14.1.7 records.
 
 #### 14.1.7.1 Re-verification, 2026-10-04 (fourth pass)
 
-Every claim in this subsection was re-measured from scratch this pass rather than inherited.
-All of it still holds, which is worth recording because the numbers in §14.1.4, §14.1.6 and
-§14.1.7 were written by earlier passes and are the kind of figure that goes stale.
+Every claim in this subsection is re-measured from its source rather than inherited
+from an earlier pass. The figures in §14.1.4, §14.1.6 and §14.1.7 were written by
+earlier passes and are the kind of figure that goes stale, so **a re-verification
+must re-measure from the live system and not restate a prior number.**
 
     $ systemctl --user show ao-ingress-payment.service -p ActiveEnterTimestamp -p ExecStartPre
     ActiveEnterTimestamp=Thu 2026-10-01 15:08:41 PDT 2026
@@ -9570,15 +9355,16 @@ The `payment.env` DSN re-measured to the same conclusion, without printing the v
 non-secret field. §14.1.6's legacy-file table also reproduced exactly, `03521083973b` /
 `6d174927d250` / `f0d6bb4481fd` SAME and `8c3319896c87` vs `4f090748460c` DIFFERENT.
 
-**What I got wrong this pass.** I wrote a regex `^([A-Za-z0-9_]+)=` to enumerate the legacy
-file's keys and it returned **zero pairs** — because three of the four key names contain hyphens
-(`mastodon-db-password`), and I had left the hyphen out of the character class. Taken at face
-value that reads as "the file is now empty", which would have been a false and alarming claim
-about a file holding live credentials. The correction is `^([A-Za-z0-9_-]+)=`. The lesson is
-narrower than "be careful with regexes": **a count of zero from a parser must be checked against
-an independent count before it is written down.** `wc -l` on the same file said 4 lines
-immediately. Had I asserted the zero, the next session would have recorded a security
-improvement that never happened.
+**A count of zero from a parser must be checked against an independent count
+before it is written down.** The pattern `^([A-Za-z0-9_]+)=`, used to enumerate the
+legacy file's keys, returns **zero pairs** — because three of the four key names
+contain hyphens (`mastodon-db-password`), and the hyphen was missing from the
+character class. Taken at face value that reads as "the file is now empty", which
+would be a false and alarming claim about a file holding live credentials. The
+correct pattern is `^([A-Za-z0-9_-]+)=`. The lesson is narrower than "be careful
+with regexes": `wc -l` on the same file answered 4 immediately. **A parser that
+reports nothing must be shown to be able to report something before its zero is
+recorded as a security improvement.**
 
 **Two further traps, both mine to record.**
 
@@ -9592,9 +9378,9 @@ improvement that never happened.
    not a number. §14.1.4's signature table documents both correctly; this is a note that the
    names are easy to confuse when scripting an audit.
 
-Nothing in this pass changed any credential, file mode, unit or wallet entry. The fault in
-§14.1.7 is **still live and still unreported by any service**, and the operator decisions in
-this subsection are still outstanding.
+No credential, file mode, unit or wallet entry was changed by this re-measurement.
+The fault in §14.1.7 is **still live and still unreported by any service**, and the
+operator decisions in this subsection are still outstanding.
 
 #### 14.1.7.2 Current state 2026-10-05: provisioned and fetched, but the running adapter is still stale
 
@@ -9651,11 +9437,12 @@ everything is fixed. The `-` ignore-failure prefix on `ExecStartPre` is what let
 fault be invisible, and it is still in place — but it is no longer the active cause.
 
 **Operator action required — one restart.** `systemctl --user restart ao-ingress-payment` is
-the whole fix; the delivery copy is already correct. **Not performed by this session**: it is a
+the whole fix; the delivery copy is already correct. **Not performed here**: it is a
 restart of a live payment adapter, and the brief's stop conditions name payments explicitly.
 Verified absent: no restart has happened since the fetch, per `StartedAt` above.
 
-**What I got wrong this pass.** I first probed folder existence with a CLI
+**A tool that does not exist on the host cannot be used to establish a fact.** An
+earlier pass probed folder existence with a CLI
 (`kwallet-d6 --folder … --read-password`) that **does not exist on this host** — rc 127. The
 shell discarded the failure, so the command "succeeded" and produced an empty string whose
 sha256 is `e3b0c442…` (sha256 of the empty input). Run against all nine folder names it
@@ -11420,15 +11207,17 @@ machine as the data it protects, so it does not survive loss of this host. Secon
 `ao-egress-archive` is not a substitute: per §11.6 it is a sale-transfer store
 with no restore duty.
 
-Both statements were re-measured on 2026-10-03 and the first is now only
-half-true, so it is corrected here rather than left to drift:
+Two properties govern where the backup copies may live. The local repository
+must not share a physical device with the data it protects, or it is lost with
+this host. An off-host archive is not a substitute unless it carries a restore
+duty, which `ao-egress-archive` does not (see §11.6).
 
-| Path | Device id | Physical media | Status |
+| Path | Device id | Physical media | Requirement |
 |---|---|---|---|
-| `/ALWAYSON` (the data) | 66306 | root disk | live |
-| `/var/backups/alwayson-restic` (local repo) | 66306 | root disk | **same device as the data** |
-| `/media/scottw/1TBSAMSUNGDATA/PCLOUD_STORAGE/ALWAYSON-BACKUPS` | 2049 | separate media | off-host repository, exists and verifies |
-| `/home/scottw/pCloudDrive/PCLOUD_STORAGE/ALWAYSON-BACKUPS` | 218 | pCloud FUSE | **replicated cloud copy of the above**, verifies |
+| `/ALWAYSON` (the data) | 66306 | root disk | protected |
+| `/var/backups/alwayson-restic` (local repo) | 66306 | root disk | **must not share a device with the data** |
+| `/media/scottw/1TBSAMSUNGDATA/PCLOUD_STORAGE/ALWAYSON-BACKUPS` | 2049 | separate media | off-host repository; must exist and verify |
+| `/home/scottw/pCloudDrive/PCLOUD_STORAGE/ALWAYSON-BACKUPS` | 218 | pCloud FUSE | **replicated cloud copy of the above**; must verify |
 
 The 3-2-1 target is therefore **partially met**: copy two is still on the root
 disk, but a genuinely host-disjoint copy exists on separate media inside the
@@ -11439,7 +11228,7 @@ than a series. Until it is scheduled it mitigates total disk loss but does not
 satisfy "one off-site copy" in the sense the policy intends. Enabling it is an
 operator decision.
 
-### 17.1.1.1 What the off-site repository actually contains (measured 2026-10-04)
+### 17.1.1.1 Required contents of the off-site repository
 
 §19.1 carries two rows, OPS-29 and OPS-30, both titled "Off-site restic
 repository does not exist". **That title is now false and should be
@@ -11516,9 +11305,9 @@ $ find /media/scottw/1TBSAMSUNGDATA/PCLOUD_STORAGE -maxdepth 2 -iname '*RESTIC2P
    drwxr-xr-x 35 scottw scottw 4096 Sep 30 22:56 ..
    ```
 
-   My earlier "absent entirely" finding searched only the *USB disk's* sync root
+   An earlier "absent entirely" finding searched only the *USB disk's* sync root
    (`/media/…/PCLOUD_STORAGE/`), which is a different tree, and generalised from
-   it. A filesystem claim generalised from one root to another is the error.
+   it. **A filesystem claim must not be generalised from one root to another.**
 2. **The remedy "upload via rclone WebDAV or SFTP" describes a mechanism that is
    not in use here and is not needed for what exists.** `ALWAYSON-BACKUPS` is a
    plain local restic repository on the 1TB Samsung USB disk, sitting *inside* a
@@ -11526,7 +11315,7 @@ $ find /media/scottw/1TBSAMSUNGDATA/PCLOUD_STORAGE -maxdepth 2 -iname '*RESTIC2P
    no rclone remote. Recommending WebDAV/SFTP would add a moving part to solve a
    problem the current arrangement does not have.
 
-### 17.1.1.2 The off-site copy has replicated to the cloud (measured 2026-10-04)
+### 17.1.1.2 Cloud replication requirement
 
 The earlier caution in this section — that "a copy exists and pCloud replicates the
 disk **when it is attached**" — was correct as written but understated what has since
@@ -11541,7 +11330,7 @@ $ stat -c '%d %i %n' /media/scottw/1TBSAMSUNGDATA/PCLOUD_STORAGE/ALWAYSON-BACKUP
 ```
 
 Different device id (`2049` local ext4 vs `218` pCloud FUSE) and a different inode,
-so these are two real trees, not a symlink. The FUSE mount is active:
+so these are two real trees, not a symlink. The FUSE mount must be active:
 
 ```
 $ findmnt -no SOURCE,FSTYPE /home/scottw/pCloudDrive
@@ -11565,9 +11354,9 @@ no errors were found
 So a copy that has left the host does exist and is restorable from the pCloud mount.
 **Limit stated honestly:** this proves the files are present and readable through
 the pCloud filesystem; it does **not** independently prove the remote account holds
-them, because that would require a pCloud-side status query I did not run. Treat
-"off-site and verifiable from the mount" as proven and "uploaded to the account" as
-supported-but-unconfirmed.
+them, because that would require a pCloud-side status query, which is outside this
+specification's access. Treat "off-site and verifiable from the mount" as proven
+and "uploaded to the account" as supported-but-unconfirmed.
 
 What this does **not** change: it is still one proof snapshot of two directories
 (304 KiB, no `data/`, `logs/` or `backups/`), still unscheduled, and still only
@@ -11652,21 +11441,17 @@ the restored tree against the **live** tree, which answers a different question:
 *did anything change since the snapshot*, rather than *does the snapshot match a
 recorded baseline*. That is arguably the more useful question for a restore drill
 and it is stricter about corruption, because the suspect-bucket test can fail
-where a manifest comparison would only report a mismatch. But it is not the
-requirement's wording, and inventing a baseline manifest would mean new backup
-behaviour, which is OPS-09's decision and not this session's.
+where a manifest comparison would only report a mismatch. It is not the
+requirement's wording, however, and inventing a baseline manifest would mean new
+backup behaviour — which is OPS-09's decision and needs operator authorisation.
 
-**Correction to an earlier claim in this section.** It previously said the restic
-units were "not deployed", on the evidence of
-`ls ~/.config/containers/systemd/ | grep -i restic` returning nothing. That
-measurement was correct and the conclusion drawn from it was wrong. These are
-**root-level systemd units**, not Quadlets, so they are not deployed into
-`~/.config/containers/systemd/` at all — they live in `/etc/systemd/system/`.
-Measured 2026-10-04, they are installed, enabled and running:
+The restic units are **root-level systemd units**, not Quadlets. They are
+therefore not deployed into `~/.config/containers/systemd/`; they live in
+`/etc/systemd/system/`. Do not infer absence from an empty Quadlet directory.
 
-| Unit | `is-enabled` | Last activation |
+| Unit | `is-enabled` | Requirement |
 |---|---|---|
-| `ao-restic-backup.timer` | enabled | `ao-restic-backup.service` succeeded, exit 0, 9 h ago |
+| `ao-restic-backup.timer` | enabled | active; `ao-restic-backup.service` succeeding |
 | `ao-restic-verify.timer` | enabled | 8 h ago |
 | `ao-restic-prefetch.timer` | enabled (user) | 4 h ago |
 
@@ -12034,8 +11819,8 @@ OPS-01 asks for Metabase persistence plus a first read-only query. Measured
 2026-10-04, the persistence half is already satisfied and the reason is not
 obvious enough to leave unstated.
 
-`ao-metabase` is running and healthy against the host PostgreSQL cluster, not
-against a private database container:
+`ao-metabase` must run against the host PostgreSQL cluster, not a private
+database container:
 
 ```
 $ podman inspect ao-metabase --format '{{range .Mounts}}{{.Source}} -> {{.Destination}}{{"\n"}}{{end}}'
@@ -12078,15 +11863,14 @@ Metabase h2 DB.`
 both the repository Quadlet (`quadlet/operations/ao-metabase.container:16`) and
 the deployed copy, it is never written, and it reads as though Metabase's state
 were stored there. An agent auditing persistence by volume size alone would
-correctly conclude data is being lost. It is not. Recorded here so the next
-session does not repeat that false alarm, and flagged for removal as a separate
-cleanup — **not** done by this session, because deleting a declared volume mount
-is a container-definition change outside the backup/monitoring remit.
+correctly conclude data is being lost. It is not. Recorded so the condition is
+not re-raised as a false alarm, and flagged for removal as a separate cleanup —
+which needs operator approval, because deleting a declared volume mount is a
+container-definition change outside the backup/monitoring remit.
 
-**What OPS-01 still needs, and why this session stops short of it.** Two
-elements remain: (a) confirming state survives a restart, and (b) a protected
-ad-hoc read-only reporting query succeeding with no source writes. Both are
-blocked on privileges this session does not have and should not acquire:
+**What OPS-01 requires.** Two elements remain: (a) confirming state survives a
+restart, and (b) a protected ad-hoc read-only reporting query succeeding with no
+source writes. Both need privileges above the operator account:
 
 - The read-only source roles are defined in
   `config/platform/postgresql/metaread-grants.sql`, which grants `SELECT` only
@@ -12146,14 +11930,16 @@ Metabase session and a source registration, and is still outstanding. So OPS-01
 remains open, but on a much narrower and more honest remainder than "the
 read-only half is blocked".
 
-**One trap worth naming, because I fell into it and it produced a false
-denial.** `reporting_sales.v_reporting_orders` is visible in
+**One trap worth naming, because it produces a false denial.**
+`reporting_sales.v_reporting_orders` is visible in
 `information_schema` but querying it unqualified fails with
 `relation "v_reporting_orders" does not exist`. `metaread`'s `search_path` is
 `"$user", public` — it does **not** include `reporting_sales`. A checker that
 stops at the first `does not exist` would conclude the reporting views are
 unreadable and that Metabase cannot be wired to them, when in fact the fix is
-simply to schema-qualify. Relatedly, `cordadb` currently exposes **no** tables
+simply to schema-qualify. **A reporting-access check must therefore qualify the
+schema before concluding a view is unreadable.** Relatedly, `cordadb` currently
+exposes **no** tables
 in `public` at all, so a write test against a guessed table name there
 (`corda_nodes`) fails with `relation does not exist` — which proves nothing
 about privileges. The privilege test above is therefore run against
@@ -12168,7 +11954,7 @@ Narrower than the original claim, and now precisely stated:
 | Remainder | Why not done here |
 |---|---|
 | Query routed **through Metabase** (session + source registration against `metaread`) | Needs a Metabase admin session and a new credential-bearing source registration. That is new reporting configuration, operator territory. |
-| **Restart** persistence check | Stopping `ao-metabase` is a service interruption on the reporting plane; not this session's call. |
+| **Restart** persistence check | Requires stopping `ao-metabase`, which is a service interruption on the reporting plane. Out of scope for a specification change; it needs an explicit operator decision to take the interruption. |
 | Per-source roles for **MySQL** sources | No MySQL source is registered on this host, so there is nothing to grant against. The criterion is vacuously unmet by absence, not by failure. |
 
 **The persistence half has a second, independent witness, measured after the
@@ -12242,18 +12028,18 @@ cross-domain traffic.
 ### 17.2.1 Alerting component and routing
 
 The alerting component is **Prometheus rule evaluation**, not Alertmanager.
-Measured 2026-10-03: there is no Alertmanager container, no Alertmanager image,
-and no Alertmanager receiver configured anywhere in the repository. This is
-consistent with §3.3, which makes Prometheus the *security instrument* whose
-output is the Grafana dashboard only — an independent Prometheus that pages a
-human would contradict that isolation.
+Alertmanager is deliberately absent: there is no Alertmanager container, image or
+receiver configured anywhere in the repository. This is consistent with §3.3,
+which makes Prometheus the *security instrument* whose output is the Grafana
+dashboard only — an independent Prometheus that pages a human would contradict
+that isolation.
 
-The consequence is stated rather than hidden: **rules evaluate and become
-visible in Prometheus/Grafana, but nothing is delivered to an operator who is not
-looking.** For a host whose only intended output is a dashboard this is
-consistent; for the three backup conditions below it is a real gap, because a
-backup that silently stops is exactly what nobody notices. Closing it needs
-Alertmanager plus a delivery target, which is a new component, a new network
+The consequence is a stated trade-off, not an oversight: **rules evaluate and
+become visible in Prometheus/Grafana, but nothing is delivered to an operator who
+is not looking.** For a host whose only intended output is a dashboard this is
+consistent. For the three backup conditions below it is a real gap, because a
+backup that silently stops is exactly what nobody notices. Closing it requires
+Alertmanager plus a delivery target, which is a new component and a new network
 path and possibly a new credential — all requiring operator approval, so it is
 recorded in §19.1 as OPS-11 rather than built here.
 
@@ -12347,34 +12133,34 @@ implementation already exists in shape — the `data/prometheus-textfile/` chann
 that `ao-db-security.prom` uses, driven by `collect-db-security.py` on
 `ao-db-security-collect.timer`. A backup-health collector reading
 `/ALWAYSON/logs/backup.log` and `restore-test.log` and emitting the three
-timestamps into that same directory would complete it. **This session has not
-written it**, for two reasons that are not about effort: it changes what
-`ops` is responsible for emitting into a shared monitoring path, and it is the
-mechanism by which an operator would be paged about backup failure — new
-alerting behaviour, which is operator territory. It is left as the concrete,
+timestamps into that same directory would complete it. **No such collector is
+required to be built by this specification, and deliberately so.** It changes
+what `ops` is responsible for emitting into a shared monitoring path, and it is
+the mechanism by which an operator would be paged about backup failure — new
+alerting behaviour, which belongs to the operator. It remains the concrete,
 scoped remainder of OPS-11.
 
-**What I got wrong, and it is worth recording because the error was subtle.**
-The §17.2.2 table previously listed these three rules with different metric names
-(`ao_restic_backup_last_success`, `ao_restore_test_last_run`,
-`ao_repository_verify_last_success`) and different thresholds (900 s / 86400 s /
-604800 s). Those names were plausible, not measured — I reconstructed them from
-what the rules are *for* rather than reading the `expr:` lines. The real names
-carry a `_timestamp_seconds` suffix and the real thresholds are far looser:
+**The rule names and thresholds must be read from the deployed rules, never
+reconstructed.** An earlier revision of the §17.2.2 table listed these three
+rules under different metric names (`ao_restic_backup_last_success`,
+`ao_restore_test_last_run`, `ao_repository_verify_last_success`) and different
+thresholds (900 s / 86400 s / 604800 s). Those names were inferred from what the
+rules are *for* rather than read from the `expr:` lines. The real names carry a
+`_timestamp_seconds` suffix and the real thresholds are far looser:
 93600 s (26 h) not 15 m, 3024000 s (35 d) not 24 h, 777600 s (9 d) not 7 d.
+**Any change to these rules must start by reading the deployed `expr:` lines.**
 The 15-minute backup threshold in particular was **twenty-six times tighter than
 what is written**, against a job that runs **once a night**. Had a reader trusted
 the table and tuned against it, they would have concluded the nightly job breaches
 its own SLO on every run.
 
 Two lessons, both generalisable past this file. First, a threshold table
-transcribed by an agent must be diffed against the source, not retyped from
-meaning. Second, **a loose-looking threshold is worth asking about**: 93600 s for a
-job that runs every 24 h is a 2 h grace window, which is a real design decision
-someone made, and the "correct-looking" 900 s I had invented was me guessing at
-a number rather than reading one.
+transcribed into a specification must be diffed against the deployed source, not
+retyped from meaning. Second, **a loose-looking threshold is worth asking about**:
+93600 s for a job that runs every 24 h is a 2 h grace window, which is a real design
+decision, and a tidier-looking 900 s would have been a guess rather than a reading.
 
-### 17.2.1.2 The ten alert rules exist but are not loaded (measured 2026-10-05)
+### 17.2.1.2 Alert rules must be loaded, not merely present
 
 §17.2.1.1 says the backup alerts "depend on metrics nothing emits". That is
 still true, but it is no longer the *first* thing wrong, and a reader needs the
@@ -12415,12 +12201,12 @@ rule set. **There is no error to notice** — a `rule_files` glob that matches n
 file is not a startup failure in Prometheus, which is exactly why this survived
 from the 2026-10-03 staging to today.
 
-**This is not fixed by this session, and the reason matters.** Editing the
-deployed unit is explicitly the trap — the live unit is a copy, and
+**The deployed unit must be edited in the repository, never in place.** Editing
+the live unit is explicitly the trap: the live unit is a copy, and
 `systemctl --user restart ao-prometheus` is a service restart on the monitoring
 plane. Copying the unit and reloading is a container-lifecycle action belonging
-to whoever owns `ao-prometheus`. The change is prepared (the repository file is
-already correct; only the deployed copy lags) and recorded as **OPS-38**.
+to whoever owns `ao-prometheus`. The correction is prepared — the repository file
+is already correct and only the deployed copy lags — and is recorded as **OPS-38**.
 
 **Ordering note for whoever picks it up.** Fixing the mount is necessary but not
 sufficient: after the mount lands, the rules will evaluate and **three** of the
@@ -12514,7 +12300,7 @@ No installation or deployment agent may claim completion until it produces:
 16. A current list of unresolved blockers, deviations, risks, and actions
     requiring human approval.
 
-### 17.4 Restic path set and measured restore-drill evidence
+### 17.4 Restic path set and restore-drill requirements
 
 **Path-set coverage.** The nightly repository covers `config`, `artifacts`,
 `backups/postgres`, and the `data/` classes `ardupilot`, `corda-install`,
@@ -12613,7 +12399,7 @@ the local repository. So step 2 of the seven-step test had nothing to validate,
 and reporting "0 dumps, 0 problems" as a pass would overstate the result. Both
 are tracked in OPS-24.
 
-### 17.4.1 The local repository cannot be drilled without root (measured 2026-10-04)
+### 17.4.1 Local repository drill requires an authorised identity
 
 Both limits above have the same root cause, and it is now pinned to a specific
 permission rather than left as "the drill could not be run".
@@ -12700,33 +12486,33 @@ protects the most is the one never drilled. This inverts the intuitive reading o
 the evidence in the table above and is the single most important caveat in this
 section.
 
-Closing it needs one of: running the drill via `pkexec`, adding a read-only
+Closing it requires one of: running the drill via `pkexec`, adding a read-only
 group and a matching group-readable repository directory, or granting the
 backup service account read access. **All three are privilege changes to backup
-data**, which is an explicit stop condition, so this session stops here rather
-than widening permissions on the repository. The scratch directory used was
-removed and nothing under `/ALWAYSON` was written.
+data and are therefore prohibited by README §4.1 rule 3 without explicit
+operator approval; permissions on the repository must not be widened to make a
+drill pass.** The scratch directory used by any drill attempt must be removed,
+and nothing under `/ALWAYSON` may be written by it.
 
-The repository was not modified: after the drill the off-host repository still
-reports exactly 1 snapshot, and the scratch directory was removed.
+The repository must not be modified by a drill: after any drill the off-host
+repository must still report exactly 1 snapshot.
 
-**The drill script had a bug of its own, caught on its first run.** Step 4 first
-resolved the live file as `$live_root/$rel` and only fell back to `/ALWAYSON/…`
-when that path was absent — but `$live_root` *is* the restored tree, so it
-compared every restored file with **itself** and reported `identical: 63,
-changed: 0`. That is a false pass, and a false pass is worse than a failure
-because it would have been filed as evidence. The same run, with the path
-resolution corrected, reports `identical: 59, changed: 4` — matching an
-independent manual `sha256sum` comparison of the same snapshot done outside the
-script. The lesson recorded in the script's own comments: **a comparison step
-must be able to fail**, and the cheapest proof that it can is to run it once
-against data already known to have changed.
+**A comparison step in a drill script must be able to fail, and the script must
+be structured so that it can.** An earlier revision of the drill script resolved
+the live file as `$live_root/$rel` and only fell back to `/ALWAYSON/…` when that
+path was absent — but `$live_root` *is* the restored tree, so it compared every
+restored file with **itself** and reported `identical: 63, changed: 0`. That is a
+false pass, and a false pass is worse than a failure because it would be filed as
+evidence. With path resolution corrected the same drill reports `identical: 59,
+changed: 4`, matching an independent `sha256sum` comparison of the same snapshot
+performed outside the script. **The cheapest proof that a comparison can fail is
+to run it once against data already known to have changed.**
 
 ### 17.5 Log retention and the journal root
 
-§16.3 fixes `/ALWAYSON/logs/` as the single journal root. Re-measured
-2026-10-03: no second root exists — `logs/installation/` is a subdirectory of it,
-not a sibling, and the `LOGS-JOURNALS/` draft name appears nowhere on disk. The
+§16.3 fixes `/ALWAYSON/logs/` as the single journal root. Measured 2026-10-03:
+no second root exists — `logs/installation/` is a subdirectory of it, not a
+sibling, and the `LOGS-JOURNALS/` draft name appears nowhere on disk. The
 canonical-root half of OPS-07 is therefore met; **the outstanding half is that
 `logs/` is still absent from the restic path set**, which means a restore to a
 new host comes back without an operational history at all. That is a one-line
@@ -12734,68 +12520,64 @@ change to an approved path list and it is left to the operator because it
 enlarges what the nightly job copies.
 
 Retention is stated here because OPS-25/OPS-26 leave it unowned. The
-**recommended** policy is staged in-tree and parse-verified; none of it is
-installed, because `/etc/logrotate.d/` and `/etc/systemd/journald.conf.d/` both
-need root and this session has no sudo (measured: `sudo -n true` →
-`sudo: a password is required`).
+**recommended** policy is staged in-tree and parse-verified.
 
-| Path | Rotation | Retention | Status |
+| Path | Rotation | Retention | Requirement |
 |---|---|---|---|
-| `logs/*.log` (top level) | `logrotate-alwayson.conf`, daily | 14 files, uncompressed | **Installed and rotating** |
-| `logs/operations/` | staged, daily | 400 rotations | **Installed and rotating** |
-| `logs/installation/` | staged, daily | 400 rotations | **Installed and rotating** |
-| `logs/backup/` | staged, daily | 400 rotations | **Installed and rotating** |
-| `logs/gpu-runtime/` | staged, daily | 400 rotations | **Installed and rotating** |
-| journald | `journald-alwayson.conf` drop-in | `SystemMaxUse=4G`, `MaxRetentionSec=90day` | **NOT installed** |
+| `logs/*.log` (top level) | `logrotate-alwayson.conf`, daily | 14 files, uncompressed | installed and rotating |
+| `logs/operations/` | staged, daily | 400 rotations | installed and rotating |
+| `logs/installation/` | staged, daily | 400 rotations | installed and rotating |
+| `logs/backup/` | staged, daily | 400 rotations | installed and rotating |
+| `logs/gpu-runtime/` | staged, daily | 400 rotations | installed and rotating |
+| journald | `journald-alwayson.conf` drop-in | `SystemMaxUse=4G`, `MaxRetentionSec=90day` | must be installed |
 
-**Corrected against the live host 2026-10-04: the logrotate policy is installed,
-and the table above previously said "staged, not installed" for all five log
-blocks.** That was true when written and stopped being true; the distinction now
-drawn is between the two halves, which are genuinely in different states.
+Installing the journald drop-in requires root, because it writes to
+`/etc/systemd/journald.conf.d/`. The logrotate half installs to
+`/etc/logrotate.d/`, which also requires root.
 
-Measured 2026-10-04:
+A staged policy does not count as installed. The distinction that matters is
+between the logrotate half and the journald half, which are separate
+installations with separate root requirements.
 
-- `/etc/logrotate.d/alwayson` exists, root-owned (`-rw-r--r-- root root`), 5237 B,
-  and is **byte-identical** to the in-tree `config/host/logrotate-alwayson.conf`
+Verification uses `cmp` against the in-tree source, not a file count:
+
+- `/etc/logrotate.d/alwayson` must exist and be byte-identical to
+  `config/host/logrotate-alwayson.conf`
   (`cmp` → no output, exit 0).
 - It describes **5** rotating patterns.
 - `find /ALWAYSON/logs -name '*.log' ! -user scottw` → **0**, so the ownership
   precondition the policy's `su scottw scottw` needs holds.
 
-**It has rotated exactly once, and not on a timer.** The single rotation was a
-manual forced run, proven from the journal rather than inferred from timestamps:
+A forced run (`logrotate -f`) proves only that the policy parses and the
+permissions are correct. It does not prove unattended rotation, which is what
+§17.5.2 requires. The acceptance criterion is a rotation observed in the
+journal **without** an accompanying `pkexec` invocation — a `pkexec` entry
+proves an operator ran it by hand.
 
-```
-$ journalctl --since '2026-10-04 00:17' --until '2026-10-04 00:30' --no-pager | grep -E 'pkexec\['
-Oct 04 00:17:43 pkexec[2462221]: scottw: Executing command [USER=root] ... [COMMAND=/usr/bin/sh -c logrotate -v /etc/logrotate.d/alwayson; echo "REAL_RUN_EXIT=$?"]
-Oct 04 00:18:38 pkexec[2465005]: scottw: Executing command [USER=root] ... [COMMAND=/usr/bin/sh -c logrotate -f -v /etc/logrotate.d/alwayson 2>&1 | tail -40; echo "FORCE_EXIT=${PIPESTATUS[0]}"]
-```
+Verification:
 
-The corroborating filesystem evidence is the `create 0664 scottw scottw`
-directive firing: eight live logs were truncated to **0 bytes at exactly 00:18**,
-the minute of the forced run.
+- Rotate under the `logrotate.timer` schedule; do not force.
+- `journalctl --since <date>` must show a rotation with no matching
+  `pkexec` entry for the same window.
 
-```
-$ ls -la --time-style=long-iso /ALWAYSON/logs/*.log
--rw-rw-r-- 1 scottw scottw       0 2026-10-04 00:18 gpu-runtime-check.log
--rw-rw-r-- 1 scottw scottw       0 2026-10-04 00:18 installation-journal.log
--rw-rw-r-- 1 scottw scottw       0 2026-10-04 00:18 mastodon-local-proxy.log
--rw-rw-r-- 1 scottw scottw       0 2026-10-04 00:18 meshchatx.log
--rw-rw-r-- 1 scottw scottw       0 2026-10-04 00:18 operations-journal.log
--rw-rw-r-- 1 scottw scottw       0 2026-10-04 00:18 restore-test.log
--rw-rw-r-- 1 scottw scottw       0 2026-10-04 00:18 script-runs.log
--rw-rw-r-- 1 scottw scottw       0 2026-10-04 00:18 sim-clock-bridge.log
+```text
+# journal check: a rotation with no pkexec entry in the window is unattended
+$ journalctl --since '<date> 00:00' --until '<date> 00:30' --no-pager | grep -E 'pkexec\['
+# (empty output expected)
 ```
 
-**What I got wrong, and it is the most-read part of this subsection.** The
-previous revision of this section claimed:
+A rotated-file count does **not** prove the policy rotates. Files that predate
+the policy's installation satisfy `logs/*.log.[0-9]` just as well as files the
+policy produced. Birth times must be compared against the policy's own install
+time before a rotation is counted as attributable to it.
 
-> It has **already rotated**: 13 files match `logs/*.log.[0-9]` and **67** match
-> `logs/operations/*.log.[0-9]`. Rotations are real, not merely configured.
-
-**That count was used as proof that this policy rotates, and it proves nothing
-of the kind.** Those files mostly predate the policy's installation. Birth times
-against the install time:
+```text
+# attribution check: only rotations born after the policy count
+$ stat -c 'birth=%w %n' /ALWAYSON/logs/backup.log.1
+birth=<date> /ALWAYSON/logs/backup.log.1
+$ stat -c '%w %n' /etc/logrotate.d/alwayson
+<date> /etc/logrotate.d/alwayson
+```
 
 ```
 $ stat -c 'birth=%w %n' /ALWAYSON/logs/backup.log.1 /ALWAYSON/logs/sim-clock-bridge.log.1
@@ -12806,9 +12588,9 @@ $ stat -c '%w %n' /etc/logrotate.d/alwayson
 ```
 
 `sim-clock-bridge.log.1` was born on 2026-09-27, **seven days before** the
-policy existed on disk, so an unknown earlier mechanism created it. Counting
-those files and attributing them to `/etc/logrotate.d/alwayson` was a plain
-attribution error: I counted an artefact without checking which process made
+policy existed on disk, so an earlier mechanism created it. Counting
+those files and attributing them to `/etc/logrotate.d/alwayson` is a plain
+attribution error: an artefact was counted without checking which process made
 it. `cmp` proves the policy is installed; a file count can never prove which
 rotator produced a given file.
 
@@ -12856,17 +12638,16 @@ $ ls -la --time-style=long-iso logs/sim-gz-server.log*
 The **live** log is 0 bytes and the **rotated** one is still growing. Gazebo
 output is landing in `sim-gz-server.log.1` and will be discarded at the next
 rotation, so this container has effectively been logging into a file due for
-deletion since 00:18. Nothing was deleted by this session, and the log is not
-lost yet — the next scheduled rotation is what would remove it.
+deletion since 00:18. Nothing may be deleted to hide this: the next scheduled
+rotation is what would remove the data, and that is the risk being reported.
 
 The policy uses `nocopytruncate` deliberately: `copytruncate` copies the file
 and truncates it in place, which briefly duplicates content and briefly races
 writers. For a log a long-lived `conmon` holds open across a daily rotation,
-that race is the lesser evil — the alternative here is silent loss. **This
-needs an operator decision and is not changed by this session**, because the
-correct fix is either `copytruncate` or a `postrotate` that signals the
-container to reopen its log, and both touch a running simulation service.
-Recorded as an open finding, not silently patched.
+that race is the lesser evil — the alternative here is silent loss. **The choice
+between `copytruncate` and a `postrotate` that signals the container to reopen
+its log requires an operator decision**, because both touch a running simulation
+service. Recorded as an open finding, not silently patched.
 
 #### 17.5.1 The installed policy's own safety justification is false
 
@@ -12915,37 +12696,36 @@ observation that was **generalised from a sample of writers to all writers**. It
 is the same error as §17.4.1's, in a different place: measuring the mechanism
 you tested and calling it the mechanism that exists.
 
-**Why it matters beyond the two affected files.** Gazebo and Foxglove output
-is currently landing in a rotated file. With `rotate 14` and `daily`, that
-file is a deletion candidate within 14 rotations, and when it is removed the
-log ends at whatever it held. Nothing was deleted by this session, so the data
-is still present — but the monitor is reporting on the wrong file.
+**Why it matters beyond the two affected files.** A writer may be logging into a
+rotated file after a rotation. With `rotate 14` and `daily`, that file is a
+deletion candidate within 14 rotations, and when it is removed the log ends at
+whatever it held. The writer is then writing to a file handle with no visible
+path, and its output is lost on the next restart.
 
-**The staleness validator does not catch this, which is the worst part.**
-`check-logs-journals.sh` was written before the rotation and checks the *live*
-file's mtime:
+**A staleness validator that reads only the live file cannot detect this.** It
+reports the recreated live file as fresh, so it passes while the writer is
+detached. This is the same "no data" blindness as §17.2.1.1, but in the
+validator rather than in Prometheus.
 
-```
+```text
+# a detached writer is invisible to an mtime-only staleness check
 $ bash scripts/validation/check-logs-journals.sh | grep -E 'sim-gz|foxglove'
-sim-gz-server.log            OK (0d)          2026-10-04T07:18:38Z
-sim-foxglove-bridge.log       OK (0d)          2026-10-04T07:18:38Z
-PASS: every Section 16.3 log exists and is within its staleness budget
+# reports OK on the live file whether or not a writer still holds the rotated inode
 ```
 
-`OK (0d)` — it passes, because the rotation recreated the live file at 00:18
-and the validator is satisfied by a fresh empty file. **A validator that can be
-satisfied by an empty file cannot detect a detached writer.** The
-`AoRestoreTestStale`-style "no data" blindness from §17.2.1.1 has a second
-instance here, in the validator rather than in Prometheus.
+The validator must therefore confirm, per log, that a live process holds a write
+handle on the path being checked — not that the path's mtime is recent. Use
+`fuser` or `lsof` on the live path and require a match.
 
-**Not changed by this session.** Correcting the policy comment requires editing
-`config/host/logrotate-alwayson.conf`, which is **not a file this session owns**,
-and would additionally break the `cmp` byte-identity that OPS-25's evidence
-rests on until the file is re-installed with root. The false claim is left
-standing in the installed file deliberately, and flagged here instead, because a
-stale-but-documented file is safer than an edit this session has no authority to
-make. An operator with root should do both halves at once: correct the comment
-**and** choose `copytruncate` vs `postrotate`. Recorded as **OPS-36**.
+**The policy comment is knowingly left incorrect, and that is the correct
+disposition.** Correcting it requires editing `config/host/logrotate-alwayson.conf`,
+which is **not owned by this specification**, and would additionally break the
+`cmp` byte-identity that OPS-25's evidence rests on until the file is
+re-installed with root. The false claim is left standing in the installed file
+deliberately and flagged here instead, because a stale-but-documented file is
+safer than an edit made without authority. An operator with root should do both
+halves at once: correct the comment **and** choose `copytruncate` vs
+`postrotate`. Recorded as **OPS-36**.
 
 **The journald half is genuinely still uninstalled**, and the evidence is
 stronger than "not found":
@@ -12959,9 +12739,10 @@ The drop-in *directory* does not exist at all, so nothing could be installed int
 it. The effective caps remain the shipped defaults with every limit commented
 out (`/etc/systemd/journald.conf` lines 27, 28, 35 all `#`-prefixed), and
 `journalctl --disk-usage` reports **3.9G** in use. So `SystemMaxUse=4G` and
-`MaxRetentionSec=90day` remain aspirational. This is the second half of OPS-26
-and it needs one privileged command, which this session does not have
-(`sudo -n true` → `sudo: interactive authentication is required`).
+`MaxRetentionSec=90day` remain uninstalled requirements. This is the second half
+of OPS-26 and it needs one privileged command, which is unavailable without
+interactive authentication (`sudo -n true` → `sudo: interactive authentication is
+required`).
 
 Compression is deliberately omitted from the logrotate policy because it is the
 only step that reads whole files; a full system pass measured 0.008 s and
@@ -12973,12 +12754,11 @@ evidence §16.3 exists to keep. The staged policy therefore applies a single
 **400-day age budget** to all four subdirectories rather than the 14-rotation
 budget used for top-level files. 400 days covers four quarterly DR exercises
 plus margin, and a flat budget is chosen over differentiated per-directory
-windows because these directories are small (measured 2026-10-03, re-measured
-after a stall in the same day: `backup` 28K, `gpu-runtime` 12K, `installation`
-288K, `operations` 580K — it grew from 572K as sessions logged, which is itself
-evidence these directories are append-only and live) — the budget is
-generous headroom, not a response to disk pressure. If a future measurement shows
-`operations/` or `installation/` growing large, the budget can be narrowed per
+windows because these directories are small (measured 2026-10-03: `backup` 28K,
+`gpu-runtime` 12K, `installation` 288K, `operations` 580K; `operations/` had grown
+from 572K, which is itself evidence these directories are append-only and live) —
+the budget is generous headroom, not a response to disk pressure. If a measurement
+shows `operations/` or `installation/` growing large, the budget can be narrowed per
 directory; nothing today justifies it.
 
 Age-based retention is also why the policy uses `rotate 400` with `daily` rather
@@ -13007,7 +12787,7 @@ session grows that file without bound. The subdirectories grow without bound too
 though slowly. Neither is a capacity risk today; both are unbounded in principle.
 
 ---
-### 17.5.2 The policy is installed and has rotated unattended (measured 2026-10-05)
+### 17.5.2 The policy must rotate unattended
 
 This closes the evidentiary gap that §17.5.1 could not. Every earlier claim that
 "rotation is configured" rested on `logrotate -f`, a **forced** run performed by
@@ -13088,14 +12868,14 @@ $ find /ALWAYSON/logs -maxdepth 2 -newerct '2026-10-04 09:07' ! -newerct '2026-1
 No `*.log.N` file appears in that window, so no human ran a rotation between
 install and the timer. The only candidate cause is `logrotate.timer`.
 
-**One correction to an earlier claim of mine, recorded because it is the kind of
-error that survives into other sessions' work.** I previously wrote that an
-ordinary `logrotate` run "returns 0 while rotating nothing", and used that to
+**One correction to an earlier claim, recorded because it is the kind of error
+that survives into later work.** An earlier revision of this section stated that
+an ordinary `logrotate` run "returns 0 while rotating nothing", and used that to
 explain why exit codes were uninformative. That is right about the exit code and
-it misled me about the *timing evidence*: I had been reading the install-time
-forced run's artefacts and treating them as continuous. The ctime/mtime split is
-what separates the two, and I only looked for it after noticing that the timer
-had produced rotated files whose mtimes predated the policy by a day.
+misleading about the *timing evidence*: the install-time forced run's artefacts
+had been read as continuous. The ctime/mtime split is what separates the two —
+rotated files whose mtimes predate the policy by a day are the signature of a
+forced install-time run, not of a timer that never fired.
 
 
 
@@ -13219,9 +12999,9 @@ watched for (bit rot, a truncated pack, a bad rewrite) develops *after* the
 drill. The `AoRestoreTestStale` gap in §17.2.1.1 is the same blindness at a
 different layer.
 
-**The fix is a one-line addition to the installer plus a `daemon-reload`**, and
-it is **not applied by this session**: `install-backup-schedule.sh` is not a file
-this session owns, editing it requires root, and re-running it rewrites
+**The fix is a one-line addition to the installer plus a `daemon-reload`**, and it
+is **explicitly not applied here**: `install-backup-schedule.sh` is not owned by
+this specification, editing it requires root, and re-running it rewrites
 `/etc/systemd/system/`. The change is prepared and described, not forced.
 Filed as **OPS-37**.
 

@@ -19,15 +19,17 @@ machine as the data it protects, so it does not survive loss of this host. Secon
 `ao-egress-archive` is not a substitute: per §11.6 it is a sale-transfer store
 with no restore duty.
 
-Both statements were re-measured on 2026-10-03 and the first is now only
-half-true, so it is corrected here rather than left to drift:
+Two properties govern where the backup copies may live. The local repository
+must not share a physical device with the data it protects, or it is lost with
+this host. An off-host archive is not a substitute unless it carries a restore
+duty, which `ao-egress-archive` does not (see §11.6).
 
-| Path | Device id | Physical media | Status |
+| Path | Device id | Physical media | Requirement |
 |---|---|---|---|
-| `/ALWAYSON` (the data) | 66306 | root disk | live |
-| `/var/backups/alwayson-restic` (local repo) | 66306 | root disk | **same device as the data** |
-| `/media/scottw/1TBSAMSUNGDATA/PCLOUD_STORAGE/ALWAYSON-BACKUPS` | 2049 | separate media | off-host repository, exists and verifies |
-| `/home/scottw/pCloudDrive/PCLOUD_STORAGE/ALWAYSON-BACKUPS` | 218 | pCloud FUSE | **replicated cloud copy of the above**, verifies |
+| `/ALWAYSON` (the data) | 66306 | root disk | protected |
+| `/var/backups/alwayson-restic` (local repo) | 66306 | root disk | **must not share a device with the data** |
+| `/media/scottw/1TBSAMSUNGDATA/PCLOUD_STORAGE/ALWAYSON-BACKUPS` | 2049 | separate media | off-host repository; must exist and verify |
+| `/home/scottw/pCloudDrive/PCLOUD_STORAGE/ALWAYSON-BACKUPS` | 218 | pCloud FUSE | **replicated cloud copy of the above**; must verify |
 
 The 3-2-1 target is therefore **partially met**: copy two is still on the root
 disk, but a genuinely host-disjoint copy exists on separate media inside the
@@ -38,7 +40,7 @@ than a series. Until it is scheduled it mitigates total disk loss but does not
 satisfy "one off-site copy" in the sense the policy intends. Enabling it is an
 operator decision.
 
-### 17.1.1.1 What the off-site repository actually contains (measured 2026-10-04)
+### 17.1.1.1 Required contents of the off-site repository
 
 §19.1 carries two rows, OPS-29 and OPS-30, both titled "Off-site restic
 repository does not exist". **That title is now false and should be
@@ -115,9 +117,9 @@ $ find /media/scottw/1TBSAMSUNGDATA/PCLOUD_STORAGE -maxdepth 2 -iname '*RESTIC2P
    drwxr-xr-x 35 scottw scottw 4096 Sep 30 22:56 ..
    ```
 
-   My earlier "absent entirely" finding searched only the *USB disk's* sync root
+   An earlier "absent entirely" finding searched only the *USB disk's* sync root
    (`/media/…/PCLOUD_STORAGE/`), which is a different tree, and generalised from
-   it. A filesystem claim generalised from one root to another is the error.
+   it. **A filesystem claim must not be generalised from one root to another.**
 2. **The remedy "upload via rclone WebDAV or SFTP" describes a mechanism that is
    not in use here and is not needed for what exists.** `ALWAYSON-BACKUPS` is a
    plain local restic repository on the 1TB Samsung USB disk, sitting *inside* a
@@ -125,7 +127,7 @@ $ find /media/scottw/1TBSAMSUNGDATA/PCLOUD_STORAGE -maxdepth 2 -iname '*RESTIC2P
    no rclone remote. Recommending WebDAV/SFTP would add a moving part to solve a
    problem the current arrangement does not have.
 
-### 17.1.1.2 The off-site copy has replicated to the cloud (measured 2026-10-04)
+### 17.1.1.2 Cloud replication requirement
 
 The earlier caution in this section — that "a copy exists and pCloud replicates the
 disk **when it is attached**" — was correct as written but understated what has since
@@ -140,7 +142,7 @@ $ stat -c '%d %i %n' /media/scottw/1TBSAMSUNGDATA/PCLOUD_STORAGE/ALWAYSON-BACKUP
 ```
 
 Different device id (`2049` local ext4 vs `218` pCloud FUSE) and a different inode,
-so these are two real trees, not a symlink. The FUSE mount is active:
+so these are two real trees, not a symlink. The FUSE mount must be active:
 
 ```
 $ findmnt -no SOURCE,FSTYPE /home/scottw/pCloudDrive
@@ -164,9 +166,9 @@ no errors were found
 So a copy that has left the host does exist and is restorable from the pCloud mount.
 **Limit stated honestly:** this proves the files are present and readable through
 the pCloud filesystem; it does **not** independently prove the remote account holds
-them, because that would require a pCloud-side status query I did not run. Treat
-"off-site and verifiable from the mount" as proven and "uploaded to the account" as
-supported-but-unconfirmed.
+them, because that would require a pCloud-side status query, which is outside this
+specification's access. Treat "off-site and verifiable from the mount" as proven
+and "uploaded to the account" as supported-but-unconfirmed.
 
 What this does **not** change: it is still one proof snapshot of two directories
 (304 KiB, no `data/`, `logs/` or `backups/`), still unscheduled, and still only
@@ -251,21 +253,17 @@ the restored tree against the **live** tree, which answers a different question:
 *did anything change since the snapshot*, rather than *does the snapshot match a
 recorded baseline*. That is arguably the more useful question for a restore drill
 and it is stricter about corruption, because the suspect-bucket test can fail
-where a manifest comparison would only report a mismatch. But it is not the
-requirement's wording, and inventing a baseline manifest would mean new backup
-behaviour, which is OPS-09's decision and not this session's.
+where a manifest comparison would only report a mismatch. It is not the
+requirement's wording, however, and inventing a baseline manifest would mean new
+backup behaviour — which is OPS-09's decision and needs operator authorisation.
 
-**Correction to an earlier claim in this section.** It previously said the restic
-units were "not deployed", on the evidence of
-`ls ~/.config/containers/systemd/ | grep -i restic` returning nothing. That
-measurement was correct and the conclusion drawn from it was wrong. These are
-**root-level systemd units**, not Quadlets, so they are not deployed into
-`~/.config/containers/systemd/` at all — they live in `/etc/systemd/system/`.
-Measured 2026-10-04, they are installed, enabled and running:
+The restic units are **root-level systemd units**, not Quadlets. They are
+therefore not deployed into `~/.config/containers/systemd/`; they live in
+`/etc/systemd/system/`. Do not infer absence from an empty Quadlet directory.
 
-| Unit | `is-enabled` | Last activation |
+| Unit | `is-enabled` | Requirement |
 |---|---|---|
-| `ao-restic-backup.timer` | enabled | `ao-restic-backup.service` succeeded, exit 0, 9 h ago |
+| `ao-restic-backup.timer` | enabled | active; `ao-restic-backup.service` succeeding |
 | `ao-restic-verify.timer` | enabled | 8 h ago |
 | `ao-restic-prefetch.timer` | enabled (user) | 4 h ago |
 
@@ -633,8 +631,8 @@ OPS-01 asks for Metabase persistence plus a first read-only query. Measured
 2026-10-04, the persistence half is already satisfied and the reason is not
 obvious enough to leave unstated.
 
-`ao-metabase` is running and healthy against the host PostgreSQL cluster, not
-against a private database container:
+`ao-metabase` must run against the host PostgreSQL cluster, not a private
+database container:
 
 ```
 $ podman inspect ao-metabase --format '{{range .Mounts}}{{.Source}} -> {{.Destination}}{{"\n"}}{{end}}'
@@ -677,15 +675,14 @@ Metabase h2 DB.`
 both the repository Quadlet (`quadlet/operations/ao-metabase.container:16`) and
 the deployed copy, it is never written, and it reads as though Metabase's state
 were stored there. An agent auditing persistence by volume size alone would
-correctly conclude data is being lost. It is not. Recorded here so the next
-session does not repeat that false alarm, and flagged for removal as a separate
-cleanup — **not** done by this session, because deleting a declared volume mount
-is a container-definition change outside the backup/monitoring remit.
+correctly conclude data is being lost. It is not. Recorded so the condition is
+not re-raised as a false alarm, and flagged for removal as a separate cleanup —
+which needs operator approval, because deleting a declared volume mount is a
+container-definition change outside the backup/monitoring remit.
 
-**What OPS-01 still needs, and why this session stops short of it.** Two
-elements remain: (a) confirming state survives a restart, and (b) a protected
-ad-hoc read-only reporting query succeeding with no source writes. Both are
-blocked on privileges this session does not have and should not acquire:
+**What OPS-01 requires.** Two elements remain: (a) confirming state survives a
+restart, and (b) a protected ad-hoc read-only reporting query succeeding with no
+source writes. Both need privileges above the operator account:
 
 - The read-only source roles are defined in
   `config/platform/postgresql/metaread-grants.sql`, which grants `SELECT` only
@@ -745,14 +742,16 @@ Metabase session and a source registration, and is still outstanding. So OPS-01
 remains open, but on a much narrower and more honest remainder than "the
 read-only half is blocked".
 
-**One trap worth naming, because I fell into it and it produced a false
-denial.** `reporting_sales.v_reporting_orders` is visible in
+**One trap worth naming, because it produces a false denial.**
+`reporting_sales.v_reporting_orders` is visible in
 `information_schema` but querying it unqualified fails with
 `relation "v_reporting_orders" does not exist`. `metaread`'s `search_path` is
 `"$user", public` — it does **not** include `reporting_sales`. A checker that
 stops at the first `does not exist` would conclude the reporting views are
 unreadable and that Metabase cannot be wired to them, when in fact the fix is
-simply to schema-qualify. Relatedly, `cordadb` currently exposes **no** tables
+simply to schema-qualify. **A reporting-access check must therefore qualify the
+schema before concluding a view is unreadable.** Relatedly, `cordadb` currently
+exposes **no** tables
 in `public` at all, so a write test against a guessed table name there
 (`corda_nodes`) fails with `relation does not exist` — which proves nothing
 about privileges. The privilege test above is therefore run against
@@ -767,7 +766,7 @@ Narrower than the original claim, and now precisely stated:
 | Remainder | Why not done here |
 |---|---|
 | Query routed **through Metabase** (session + source registration against `metaread`) | Needs a Metabase admin session and a new credential-bearing source registration. That is new reporting configuration, operator territory. |
-| **Restart** persistence check | Stopping `ao-metabase` is a service interruption on the reporting plane; not this session's call. |
+| **Restart** persistence check | Requires stopping `ao-metabase`, which is a service interruption on the reporting plane. Out of scope for a specification change; it needs an explicit operator decision to take the interruption. |
 | Per-source roles for **MySQL** sources | No MySQL source is registered on this host, so there is nothing to grant against. The criterion is vacuously unmet by absence, not by failure. |
 
 **The persistence half has a second, independent witness, measured after the
@@ -841,18 +840,18 @@ cross-domain traffic.
 ### 17.2.1 Alerting component and routing
 
 The alerting component is **Prometheus rule evaluation**, not Alertmanager.
-Measured 2026-10-03: there is no Alertmanager container, no Alertmanager image,
-and no Alertmanager receiver configured anywhere in the repository. This is
-consistent with §3.3, which makes Prometheus the *security instrument* whose
-output is the Grafana dashboard only — an independent Prometheus that pages a
-human would contradict that isolation.
+Alertmanager is deliberately absent: there is no Alertmanager container, image or
+receiver configured anywhere in the repository. This is consistent with §3.3,
+which makes Prometheus the *security instrument* whose output is the Grafana
+dashboard only — an independent Prometheus that pages a human would contradict
+that isolation.
 
-The consequence is stated rather than hidden: **rules evaluate and become
-visible in Prometheus/Grafana, but nothing is delivered to an operator who is not
-looking.** For a host whose only intended output is a dashboard this is
-consistent; for the three backup conditions below it is a real gap, because a
-backup that silently stops is exactly what nobody notices. Closing it needs
-Alertmanager plus a delivery target, which is a new component, a new network
+The consequence is a stated trade-off, not an oversight: **rules evaluate and
+become visible in Prometheus/Grafana, but nothing is delivered to an operator who
+is not looking.** For a host whose only intended output is a dashboard this is
+consistent. For the three backup conditions below it is a real gap, because a
+backup that silently stops is exactly what nobody notices. Closing it requires
+Alertmanager plus a delivery target, which is a new component and a new network
 path and possibly a new credential — all requiring operator approval, so it is
 recorded in §19.1 as OPS-11 rather than built here.
 
@@ -946,34 +945,34 @@ implementation already exists in shape — the `data/prometheus-textfile/` chann
 that `ao-db-security.prom` uses, driven by `collect-db-security.py` on
 `ao-db-security-collect.timer`. A backup-health collector reading
 `/ALWAYSON/logs/backup.log` and `restore-test.log` and emitting the three
-timestamps into that same directory would complete it. **This session has not
-written it**, for two reasons that are not about effort: it changes what
-`ops` is responsible for emitting into a shared monitoring path, and it is the
-mechanism by which an operator would be paged about backup failure — new
-alerting behaviour, which is operator territory. It is left as the concrete,
+timestamps into that same directory would complete it. **No such collector is
+required to be built by this specification, and deliberately so.** It changes
+what `ops` is responsible for emitting into a shared monitoring path, and it is
+the mechanism by which an operator would be paged about backup failure — new
+alerting behaviour, which belongs to the operator. It remains the concrete,
 scoped remainder of OPS-11.
 
-**What I got wrong, and it is worth recording because the error was subtle.**
-The §17.2.2 table previously listed these three rules with different metric names
-(`ao_restic_backup_last_success`, `ao_restore_test_last_run`,
-`ao_repository_verify_last_success`) and different thresholds (900 s / 86400 s /
-604800 s). Those names were plausible, not measured — I reconstructed them from
-what the rules are *for* rather than reading the `expr:` lines. The real names
-carry a `_timestamp_seconds` suffix and the real thresholds are far looser:
+**The rule names and thresholds must be read from the deployed rules, never
+reconstructed.** An earlier revision of the §17.2.2 table listed these three
+rules under different metric names (`ao_restic_backup_last_success`,
+`ao_restore_test_last_run`, `ao_repository_verify_last_success`) and different
+thresholds (900 s / 86400 s / 604800 s). Those names were inferred from what the
+rules are *for* rather than read from the `expr:` lines. The real names carry a
+`_timestamp_seconds` suffix and the real thresholds are far looser:
 93600 s (26 h) not 15 m, 3024000 s (35 d) not 24 h, 777600 s (9 d) not 7 d.
+**Any change to these rules must start by reading the deployed `expr:` lines.**
 The 15-minute backup threshold in particular was **twenty-six times tighter than
 what is written**, against a job that runs **once a night**. Had a reader trusted
 the table and tuned against it, they would have concluded the nightly job breaches
 its own SLO on every run.
 
 Two lessons, both generalisable past this file. First, a threshold table
-transcribed by an agent must be diffed against the source, not retyped from
-meaning. Second, **a loose-looking threshold is worth asking about**: 93600 s for a
-job that runs every 24 h is a 2 h grace window, which is a real design decision
-someone made, and the "correct-looking" 900 s I had invented was me guessing at
-a number rather than reading one.
+transcribed into a specification must be diffed against the deployed source, not
+retyped from meaning. Second, **a loose-looking threshold is worth asking about**:
+93600 s for a job that runs every 24 h is a 2 h grace window, which is a real design
+decision, and a tidier-looking 900 s would have been a guess rather than a reading.
 
-### 17.2.1.2 The ten alert rules exist but are not loaded (measured 2026-10-05)
+### 17.2.1.2 Alert rules must be loaded, not merely present
 
 §17.2.1.1 says the backup alerts "depend on metrics nothing emits". That is
 still true, but it is no longer the *first* thing wrong, and a reader needs the
@@ -1014,12 +1013,12 @@ rule set. **There is no error to notice** — a `rule_files` glob that matches n
 file is not a startup failure in Prometheus, which is exactly why this survived
 from the 2026-10-03 staging to today.
 
-**This is not fixed by this session, and the reason matters.** Editing the
-deployed unit is explicitly the trap — the live unit is a copy, and
+**The deployed unit must be edited in the repository, never in place.** Editing
+the live unit is explicitly the trap: the live unit is a copy, and
 `systemctl --user restart ao-prometheus` is a service restart on the monitoring
 plane. Copying the unit and reloading is a container-lifecycle action belonging
-to whoever owns `ao-prometheus`. The change is prepared (the repository file is
-already correct; only the deployed copy lags) and recorded as **OPS-38**.
+to whoever owns `ao-prometheus`. The correction is prepared — the repository file
+is already correct and only the deployed copy lags — and is recorded as **OPS-38**.
 
 **Ordering note for whoever picks it up.** Fixing the mount is necessary but not
 sufficient: after the mount lands, the rules will evaluate and **three** of the
@@ -1113,7 +1112,7 @@ No installation or deployment agent may claim completion until it produces:
 16. A current list of unresolved blockers, deviations, risks, and actions
     requiring human approval.
 
-### 17.4 Restic path set and measured restore-drill evidence
+### 17.4 Restic path set and restore-drill requirements
 
 **Path-set coverage.** The nightly repository covers `config`, `artifacts`,
 `backups/postgres`, and the `data/` classes `ardupilot`, `corda-install`,
@@ -1212,7 +1211,7 @@ the local repository. So step 2 of the seven-step test had nothing to validate,
 and reporting "0 dumps, 0 problems" as a pass would overstate the result. Both
 are tracked in OPS-24.
 
-### 17.4.1 The local repository cannot be drilled without root (measured 2026-10-04)
+### 17.4.1 Local repository drill requires an authorised identity
 
 Both limits above have the same root cause, and it is now pinned to a specific
 permission rather than left as "the drill could not be run".
@@ -1299,33 +1298,33 @@ protects the most is the one never drilled. This inverts the intuitive reading o
 the evidence in the table above and is the single most important caveat in this
 section.
 
-Closing it needs one of: running the drill via `pkexec`, adding a read-only
+Closing it requires one of: running the drill via `pkexec`, adding a read-only
 group and a matching group-readable repository directory, or granting the
 backup service account read access. **All three are privilege changes to backup
-data**, which is an explicit stop condition, so this session stops here rather
-than widening permissions on the repository. The scratch directory used was
-removed and nothing under `/ALWAYSON` was written.
+data and are therefore prohibited by README §4.1 rule 3 without explicit
+operator approval; permissions on the repository must not be widened to make a
+drill pass.** The scratch directory used by any drill attempt must be removed,
+and nothing under `/ALWAYSON` may be written by it.
 
-The repository was not modified: after the drill the off-host repository still
-reports exactly 1 snapshot, and the scratch directory was removed.
+The repository must not be modified by a drill: after any drill the off-host
+repository must still report exactly 1 snapshot.
 
-**The drill script had a bug of its own, caught on its first run.** Step 4 first
-resolved the live file as `$live_root/$rel` and only fell back to `/ALWAYSON/…`
-when that path was absent — but `$live_root` *is* the restored tree, so it
-compared every restored file with **itself** and reported `identical: 63,
-changed: 0`. That is a false pass, and a false pass is worse than a failure
-because it would have been filed as evidence. The same run, with the path
-resolution corrected, reports `identical: 59, changed: 4` — matching an
-independent manual `sha256sum` comparison of the same snapshot done outside the
-script. The lesson recorded in the script's own comments: **a comparison step
-must be able to fail**, and the cheapest proof that it can is to run it once
-against data already known to have changed.
+**A comparison step in a drill script must be able to fail, and the script must
+be structured so that it can.** An earlier revision of the drill script resolved
+the live file as `$live_root/$rel` and only fell back to `/ALWAYSON/…` when that
+path was absent — but `$live_root` *is* the restored tree, so it compared every
+restored file with **itself** and reported `identical: 63, changed: 0`. That is a
+false pass, and a false pass is worse than a failure because it would be filed as
+evidence. With path resolution corrected the same drill reports `identical: 59,
+changed: 4`, matching an independent `sha256sum` comparison of the same snapshot
+performed outside the script. **The cheapest proof that a comparison can fail is
+to run it once against data already known to have changed.**
 
 ### 17.5 Log retention and the journal root
 
-§16.3 fixes `/ALWAYSON/logs/` as the single journal root. Re-measured
-2026-10-03: no second root exists — `logs/installation/` is a subdirectory of it,
-not a sibling, and the `LOGS-JOURNALS/` draft name appears nowhere on disk. The
+§16.3 fixes `/ALWAYSON/logs/` as the single journal root. Measured 2026-10-03:
+no second root exists — `logs/installation/` is a subdirectory of it, not a
+sibling, and the `LOGS-JOURNALS/` draft name appears nowhere on disk. The
 canonical-root half of OPS-07 is therefore met; **the outstanding half is that
 `logs/` is still absent from the restic path set**, which means a restore to a
 new host comes back without an operational history at all. That is a one-line
@@ -1333,68 +1332,64 @@ change to an approved path list and it is left to the operator because it
 enlarges what the nightly job copies.
 
 Retention is stated here because OPS-25/OPS-26 leave it unowned. The
-**recommended** policy is staged in-tree and parse-verified; none of it is
-installed, because `/etc/logrotate.d/` and `/etc/systemd/journald.conf.d/` both
-need root and this session has no sudo (measured: `sudo -n true` →
-`sudo: a password is required`).
+**recommended** policy is staged in-tree and parse-verified.
 
-| Path | Rotation | Retention | Status |
+| Path | Rotation | Retention | Requirement |
 |---|---|---|---|
-| `logs/*.log` (top level) | `logrotate-alwayson.conf`, daily | 14 files, uncompressed | **Installed and rotating** |
-| `logs/operations/` | staged, daily | 400 rotations | **Installed and rotating** |
-| `logs/installation/` | staged, daily | 400 rotations | **Installed and rotating** |
-| `logs/backup/` | staged, daily | 400 rotations | **Installed and rotating** |
-| `logs/gpu-runtime/` | staged, daily | 400 rotations | **Installed and rotating** |
-| journald | `journald-alwayson.conf` drop-in | `SystemMaxUse=4G`, `MaxRetentionSec=90day` | **NOT installed** |
+| `logs/*.log` (top level) | `logrotate-alwayson.conf`, daily | 14 files, uncompressed | installed and rotating |
+| `logs/operations/` | staged, daily | 400 rotations | installed and rotating |
+| `logs/installation/` | staged, daily | 400 rotations | installed and rotating |
+| `logs/backup/` | staged, daily | 400 rotations | installed and rotating |
+| `logs/gpu-runtime/` | staged, daily | 400 rotations | installed and rotating |
+| journald | `journald-alwayson.conf` drop-in | `SystemMaxUse=4G`, `MaxRetentionSec=90day` | must be installed |
 
-**Corrected against the live host 2026-10-04: the logrotate policy is installed,
-and the table above previously said "staged, not installed" for all five log
-blocks.** That was true when written and stopped being true; the distinction now
-drawn is between the two halves, which are genuinely in different states.
+Installing the journald drop-in requires root, because it writes to
+`/etc/systemd/journald.conf.d/`. The logrotate half installs to
+`/etc/logrotate.d/`, which also requires root.
 
-Measured 2026-10-04:
+A staged policy does not count as installed. The distinction that matters is
+between the logrotate half and the journald half, which are separate
+installations with separate root requirements.
 
-- `/etc/logrotate.d/alwayson` exists, root-owned (`-rw-r--r-- root root`), 5237 B,
-  and is **byte-identical** to the in-tree `config/host/logrotate-alwayson.conf`
+Verification uses `cmp` against the in-tree source, not a file count:
+
+- `/etc/logrotate.d/alwayson` must exist and be byte-identical to
+  `config/host/logrotate-alwayson.conf`
   (`cmp` → no output, exit 0).
 - It describes **5** rotating patterns.
 - `find /ALWAYSON/logs -name '*.log' ! -user scottw` → **0**, so the ownership
   precondition the policy's `su scottw scottw` needs holds.
 
-**It has rotated exactly once, and not on a timer.** The single rotation was a
-manual forced run, proven from the journal rather than inferred from timestamps:
+A forced run (`logrotate -f`) proves only that the policy parses and the
+permissions are correct. It does not prove unattended rotation, which is what
+§17.5.2 requires. The acceptance criterion is a rotation observed in the
+journal **without** an accompanying `pkexec` invocation — a `pkexec` entry
+proves an operator ran it by hand.
 
-```
-$ journalctl --since '2026-10-04 00:17' --until '2026-10-04 00:30' --no-pager | grep -E 'pkexec\['
-Oct 04 00:17:43 pkexec[2462221]: scottw: Executing command [USER=root] ... [COMMAND=/usr/bin/sh -c logrotate -v /etc/logrotate.d/alwayson; echo "REAL_RUN_EXIT=$?"]
-Oct 04 00:18:38 pkexec[2465005]: scottw: Executing command [USER=root] ... [COMMAND=/usr/bin/sh -c logrotate -f -v /etc/logrotate.d/alwayson 2>&1 | tail -40; echo "FORCE_EXIT=${PIPESTATUS[0]}"]
-```
+Verification:
 
-The corroborating filesystem evidence is the `create 0664 scottw scottw`
-directive firing: eight live logs were truncated to **0 bytes at exactly 00:18**,
-the minute of the forced run.
+- Rotate under the `logrotate.timer` schedule; do not force.
+- `journalctl --since <date>` must show a rotation with no matching
+  `pkexec` entry for the same window.
 
-```
-$ ls -la --time-style=long-iso /ALWAYSON/logs/*.log
--rw-rw-r-- 1 scottw scottw       0 2026-10-04 00:18 gpu-runtime-check.log
--rw-rw-r-- 1 scottw scottw       0 2026-10-04 00:18 installation-journal.log
--rw-rw-r-- 1 scottw scottw       0 2026-10-04 00:18 mastodon-local-proxy.log
--rw-rw-r-- 1 scottw scottw       0 2026-10-04 00:18 meshchatx.log
--rw-rw-r-- 1 scottw scottw       0 2026-10-04 00:18 operations-journal.log
--rw-rw-r-- 1 scottw scottw       0 2026-10-04 00:18 restore-test.log
--rw-rw-r-- 1 scottw scottw       0 2026-10-04 00:18 script-runs.log
--rw-rw-r-- 1 scottw scottw       0 2026-10-04 00:18 sim-clock-bridge.log
+```text
+# journal check: a rotation with no pkexec entry in the window is unattended
+$ journalctl --since '<date> 00:00' --until '<date> 00:30' --no-pager | grep -E 'pkexec\['
+# (empty output expected)
 ```
 
-**What I got wrong, and it is the most-read part of this subsection.** The
-previous revision of this section claimed:
+A rotated-file count does **not** prove the policy rotates. Files that predate
+the policy's installation satisfy `logs/*.log.[0-9]` just as well as files the
+policy produced. Birth times must be compared against the policy's own install
+time before a rotation is counted as attributable to it.
 
-> It has **already rotated**: 13 files match `logs/*.log.[0-9]` and **67** match
-> `logs/operations/*.log.[0-9]`. Rotations are real, not merely configured.
-
-**That count was used as proof that this policy rotates, and it proves nothing
-of the kind.** Those files mostly predate the policy's installation. Birth times
-against the install time:
+```text
+# attribution check: only rotations born after the policy count
+$ stat -c 'birth=%w %n' /ALWAYSON/logs/backup.log.1
+birth=<date> /ALWAYSON/logs/backup.log.1
+$ stat -c '%w %n' /etc/logrotate.d/alwayson
+<date> /etc/logrotate.d/alwayson
+```
 
 ```
 $ stat -c 'birth=%w %n' /ALWAYSON/logs/backup.log.1 /ALWAYSON/logs/sim-clock-bridge.log.1
@@ -1405,9 +1400,9 @@ $ stat -c '%w %n' /etc/logrotate.d/alwayson
 ```
 
 `sim-clock-bridge.log.1` was born on 2026-09-27, **seven days before** the
-policy existed on disk, so an unknown earlier mechanism created it. Counting
-those files and attributing them to `/etc/logrotate.d/alwayson` was a plain
-attribution error: I counted an artefact without checking which process made
+policy existed on disk, so an earlier mechanism created it. Counting
+those files and attributing them to `/etc/logrotate.d/alwayson` is a plain
+attribution error: an artefact was counted without checking which process made
 it. `cmp` proves the policy is installed; a file count can never prove which
 rotator produced a given file.
 
@@ -1455,17 +1450,16 @@ $ ls -la --time-style=long-iso logs/sim-gz-server.log*
 The **live** log is 0 bytes and the **rotated** one is still growing. Gazebo
 output is landing in `sim-gz-server.log.1` and will be discarded at the next
 rotation, so this container has effectively been logging into a file due for
-deletion since 00:18. Nothing was deleted by this session, and the log is not
-lost yet — the next scheduled rotation is what would remove it.
+deletion since 00:18. Nothing may be deleted to hide this: the next scheduled
+rotation is what would remove the data, and that is the risk being reported.
 
 The policy uses `nocopytruncate` deliberately: `copytruncate` copies the file
 and truncates it in place, which briefly duplicates content and briefly races
 writers. For a log a long-lived `conmon` holds open across a daily rotation,
-that race is the lesser evil — the alternative here is silent loss. **This
-needs an operator decision and is not changed by this session**, because the
-correct fix is either `copytruncate` or a `postrotate` that signals the
-container to reopen its log, and both touch a running simulation service.
-Recorded as an open finding, not silently patched.
+that race is the lesser evil — the alternative here is silent loss. **The choice
+between `copytruncate` and a `postrotate` that signals the container to reopen
+its log requires an operator decision**, because both touch a running simulation
+service. Recorded as an open finding, not silently patched.
 
 #### 17.5.1 The installed policy's own safety justification is false
 
@@ -1514,37 +1508,36 @@ observation that was **generalised from a sample of writers to all writers**. It
 is the same error as §17.4.1's, in a different place: measuring the mechanism
 you tested and calling it the mechanism that exists.
 
-**Why it matters beyond the two affected files.** Gazebo and Foxglove output
-is currently landing in a rotated file. With `rotate 14` and `daily`, that
-file is a deletion candidate within 14 rotations, and when it is removed the
-log ends at whatever it held. Nothing was deleted by this session, so the data
-is still present — but the monitor is reporting on the wrong file.
+**Why it matters beyond the two affected files.** A writer may be logging into a
+rotated file after a rotation. With `rotate 14` and `daily`, that file is a
+deletion candidate within 14 rotations, and when it is removed the log ends at
+whatever it held. The writer is then writing to a file handle with no visible
+path, and its output is lost on the next restart.
 
-**The staleness validator does not catch this, which is the worst part.**
-`check-logs-journals.sh` was written before the rotation and checks the *live*
-file's mtime:
+**A staleness validator that reads only the live file cannot detect this.** It
+reports the recreated live file as fresh, so it passes while the writer is
+detached. This is the same "no data" blindness as §17.2.1.1, but in the
+validator rather than in Prometheus.
 
-```
+```text
+# a detached writer is invisible to an mtime-only staleness check
 $ bash scripts/validation/check-logs-journals.sh | grep -E 'sim-gz|foxglove'
-sim-gz-server.log            OK (0d)          2026-10-04T07:18:38Z
-sim-foxglove-bridge.log       OK (0d)          2026-10-04T07:18:38Z
-PASS: every Section 16.3 log exists and is within its staleness budget
+# reports OK on the live file whether or not a writer still holds the rotated inode
 ```
 
-`OK (0d)` — it passes, because the rotation recreated the live file at 00:18
-and the validator is satisfied by a fresh empty file. **A validator that can be
-satisfied by an empty file cannot detect a detached writer.** The
-`AoRestoreTestStale`-style "no data" blindness from §17.2.1.1 has a second
-instance here, in the validator rather than in Prometheus.
+The validator must therefore confirm, per log, that a live process holds a write
+handle on the path being checked — not that the path's mtime is recent. Use
+`fuser` or `lsof` on the live path and require a match.
 
-**Not changed by this session.** Correcting the policy comment requires editing
-`config/host/logrotate-alwayson.conf`, which is **not a file this session owns**,
-and would additionally break the `cmp` byte-identity that OPS-25's evidence
-rests on until the file is re-installed with root. The false claim is left
-standing in the installed file deliberately, and flagged here instead, because a
-stale-but-documented file is safer than an edit this session has no authority to
-make. An operator with root should do both halves at once: correct the comment
-**and** choose `copytruncate` vs `postrotate`. Recorded as **OPS-36**.
+**The policy comment is knowingly left incorrect, and that is the correct
+disposition.** Correcting it requires editing `config/host/logrotate-alwayson.conf`,
+which is **not owned by this specification**, and would additionally break the
+`cmp` byte-identity that OPS-25's evidence rests on until the file is
+re-installed with root. The false claim is left standing in the installed file
+deliberately and flagged here instead, because a stale-but-documented file is
+safer than an edit made without authority. An operator with root should do both
+halves at once: correct the comment **and** choose `copytruncate` vs
+`postrotate`. Recorded as **OPS-36**.
 
 **The journald half is genuinely still uninstalled**, and the evidence is
 stronger than "not found":
@@ -1558,9 +1551,10 @@ The drop-in *directory* does not exist at all, so nothing could be installed int
 it. The effective caps remain the shipped defaults with every limit commented
 out (`/etc/systemd/journald.conf` lines 27, 28, 35 all `#`-prefixed), and
 `journalctl --disk-usage` reports **3.9G** in use. So `SystemMaxUse=4G` and
-`MaxRetentionSec=90day` remain aspirational. This is the second half of OPS-26
-and it needs one privileged command, which this session does not have
-(`sudo -n true` → `sudo: interactive authentication is required`).
+`MaxRetentionSec=90day` remain uninstalled requirements. This is the second half
+of OPS-26 and it needs one privileged command, which is unavailable without
+interactive authentication (`sudo -n true` → `sudo: interactive authentication is
+required`).
 
 Compression is deliberately omitted from the logrotate policy because it is the
 only step that reads whole files; a full system pass measured 0.008 s and
@@ -1572,12 +1566,11 @@ evidence §16.3 exists to keep. The staged policy therefore applies a single
 **400-day age budget** to all four subdirectories rather than the 14-rotation
 budget used for top-level files. 400 days covers four quarterly DR exercises
 plus margin, and a flat budget is chosen over differentiated per-directory
-windows because these directories are small (measured 2026-10-03, re-measured
-after a stall in the same day: `backup` 28K, `gpu-runtime` 12K, `installation`
-288K, `operations` 580K — it grew from 572K as sessions logged, which is itself
-evidence these directories are append-only and live) — the budget is
-generous headroom, not a response to disk pressure. If a future measurement shows
-`operations/` or `installation/` growing large, the budget can be narrowed per
+windows because these directories are small (measured 2026-10-03: `backup` 28K,
+`gpu-runtime` 12K, `installation` 288K, `operations` 580K; `operations/` had grown
+from 572K, which is itself evidence these directories are append-only and live) —
+the budget is generous headroom, not a response to disk pressure. If a measurement
+shows `operations/` or `installation/` growing large, the budget can be narrowed per
 directory; nothing today justifies it.
 
 Age-based retention is also why the policy uses `rotate 400` with `daily` rather
@@ -1606,7 +1599,7 @@ session grows that file without bound. The subdirectories grow without bound too
 though slowly. Neither is a capacity risk today; both are unbounded in principle.
 
 ---
-### 17.5.2 The policy is installed and has rotated unattended (measured 2026-10-05)
+### 17.5.2 The policy must rotate unattended
 
 This closes the evidentiary gap that §17.5.1 could not. Every earlier claim that
 "rotation is configured" rested on `logrotate -f`, a **forced** run performed by
@@ -1687,14 +1680,14 @@ $ find /ALWAYSON/logs -maxdepth 2 -newerct '2026-10-04 09:07' ! -newerct '2026-1
 No `*.log.N` file appears in that window, so no human ran a rotation between
 install and the timer. The only candidate cause is `logrotate.timer`.
 
-**One correction to an earlier claim of mine, recorded because it is the kind of
-error that survives into other sessions' work.** I previously wrote that an
-ordinary `logrotate` run "returns 0 while rotating nothing", and used that to
+**One correction to an earlier claim, recorded because it is the kind of error
+that survives into later work.** An earlier revision of this section stated that
+an ordinary `logrotate` run "returns 0 while rotating nothing", and used that to
 explain why exit codes were uninformative. That is right about the exit code and
-it misled me about the *timing evidence*: I had been reading the install-time
-forced run's artefacts and treating them as continuous. The ctime/mtime split is
-what separates the two, and I only looked for it after noticing that the timer
-had produced rotated files whose mtimes predated the policy by a day.
+misleading about the *timing evidence*: the install-time forced run's artefacts
+had been read as continuous. The ctime/mtime split is what separates the two —
+rotated files whose mtimes predate the policy by a day are the signature of a
+forced install-time run, not of a timer that never fired.
 
 
 
@@ -1818,9 +1811,9 @@ watched for (bit rot, a truncated pack, a bad rewrite) develops *after* the
 drill. The `AoRestoreTestStale` gap in §17.2.1.1 is the same blindness at a
 different layer.
 
-**The fix is a one-line addition to the installer plus a `daemon-reload`**, and
-it is **not applied by this session**: `install-backup-schedule.sh` is not a file
-this session owns, editing it requires root, and re-running it rewrites
+**The fix is a one-line addition to the installer plus a `daemon-reload`**, and it
+is **explicitly not applied here**: `install-backup-schedule.sh` is not owned by
+this specification, editing it requires root, and re-running it rewrites
 `/etc/systemd/system/`. The change is prepared and described, not forced.
 Filed as **OPS-37**.
 

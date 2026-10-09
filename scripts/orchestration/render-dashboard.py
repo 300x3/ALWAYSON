@@ -374,6 +374,8 @@ body{margin:0;background:#f6f7f9;color:#1b1f24;font:14px/1.45 "DejaVu Sans",syst
 @media (max-width:1250px){.cols{grid-template-columns:1fr}}
 h1{font-size:19px;margin:0 0 2px}
 .sub{color:#5b6472;font-size:12.5px;margin-bottom:14px}
+.reloadat{color:#7a8494;font-variant-numeric:tabular-nums}
+.reloadat.held{color:#c8873a;font-weight:600}
 .cards{display:flex;gap:12px;margin-bottom:14px}
 .card{background:#fff;border:1px solid #dfe3e8;border-radius:8px;padding:10px 16px;min-width:150px}
 .card .k{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#6b7280}
@@ -466,7 +468,7 @@ li.answered .qid{color:#14532d}
  <button class=ghost id=ctlstop>Stop everything</button>
  <span class=status id=ctlst>checking&hellip;</span>
 </div>
-<div class=sub>outstanding (19.1) vs completed (19.2) per work group &middot; snapshot @WHEN@ UTC</div>
+<div class=sub>outstanding (19.1) vs completed (19.2) per work group &middot; snapshot @WHEN@ UTC &middot; <span class=reloadat id=reloadat>auto-reload in 60s</span></div>
 <div class=cards>
  <div class="card o"><div class=k>Outstanding</div><div class=v>@OPEN@</div></div>
  <div class="card d"><div class=k>Completed</div><div class=v>@DONE@</div></div>
@@ -496,7 +498,12 @@ li.answered .qid{color:#14532d}
   }
   function mark(saved){
     document.querySelectorAll('input.ans').forEach(function(inp){
-      if(inp.value.trim()) inp.classList.add('saved');
+      if(inp.value.trim()){
+        inp.classList.add('saved');
+        // record what the server now holds, so the auto-reload guard can tell
+        // "saved" from "typed since the last save" and never discard a decision
+        inp.setAttribute('data-saved', inp.value);
+      }
     });
     st.textContent=saved; st.className='status ok';
   }
@@ -574,12 +581,62 @@ li.answered .qid{color:#14532d}
   });
   document.getElementById('ctlstop').addEventListener('click',function(){
     ctlCall('/stop','stopping',
-      'Stop every agent session, the supervisor watcher, the metrics collector and the 30-minute loop?\n\n' +
+      'Stop every agent session, the supervisor watcher, the metrics collector and the 30-minute loop?\\n\\n' +
       'Work already committed in the worktrees is kept. Uncommitted work in /tmp is not.');
   });
   refreshCtl();
   setInterval(refreshCtl, 60000);
+
+  /* ---- auto-reload on the hourly metrics tick ----
+     The page is a static render of a snapshot. Nothing pushed updates to an
+     open tab, so a tab left up kept showing whatever it was given when it
+     loaded -- measured 2026-10-09, a tab still read 36% complete while the
+     server was correctly answering 3%. Reload on a slow timer so the numbers
+     track the collector.
+
+     Two guards, because a reload is destructive here:
+       1. Never reload while an answer field has unsaved text. Losing a typed
+          decision is far worse than a stale number.
+       2. Never reload while the mouse is over the page's controls region
+          either -- skipped; the dirty-field check is the one that matters,
+          and hovering a button mid-click is not distinguishable from reading.
+     The countdown label says when it will fire, so the reload is not a
+     surprise and does not look like the session died. */
+  var RELOAD_MS = 60000;
+  var el = document.getElementById('reloadat');
+  var dirty = function(){
+    var d = false;
+    document.querySelectorAll('input.ans').forEach(function(i){
+      if(i.value !== (i.getAttribute('data-saved') || '') && i.value.trim() !== '')
+        d = true;
+    });
+    return d;
+  };
+  if(el){
+    var left = RELOAD_MS;
+    el.textContent = 'auto-reload in ' + Math.round(left/1000) + 's';
+    setInterval(function(){
+      left -= 1000;
+      if(left <= 0){
+        if(dirty()){
+          // do not fire; leave the operator's text alone
+          el.textContent = 'auto-reload held: unsaved decision';
+          el.className = 'reloadat held';
+          left = RELOAD_MS;
+          return;
+        }
+        location.reload();
+        return;
+      }
+      el.textContent = 'auto-reload in ' + Math.round(left/1000) + 's';
+      el.className = 'reloadat';
+    }, 1000);
+  }
   document.querySelectorAll('input.ans').forEach(function(i){
+    // seed data-saved from the value rendered into the field, so a
+    // pre-filled (already-answered) row is "clean" and does not block the
+    // auto-reload
+    i.setAttribute('data-saved', i.value);
     if(i.value.trim()) i.classList.add('saved');
   });
 })();

@@ -141,11 +141,11 @@ All four `ao-payment` entries and both `ao-archive` entries now return `hasEntry
 (`payment-db-password`, `payment-paypal-webhook-id`, `payment-paypal-webhook-secret`,
 `payment-coinbase-webhook-secret`, `pcloud-webdav-password`, `pcloud-webdav-user`).
 
-**Why the control test was mandatory.** The first two probes of this pass returned `True` for
-*every* folder, including ones §14.1.7 had recorded as absent, which is exactly the shape of a
-broken probe. The nonsense-name control returned `False`, which is what makes the seven-and-two
-`True` results believable. A finding that contradicts a prior measurement must be earned with a
-negative control, not asserted.
+**Why the control test is mandatory.** The first two probes returned `True` for
+*every* folder, including ones previously recorded as absent, which is exactly the
+shape of a broken probe. The nonsense-name control returned `False`, which is what
+makes the seven-and-two `True` results believable. **A finding that contradicts a
+prior measurement must be earned with a negative control, not asserted.**
 
 **Mapping is not the same as deliverability.** `wallet_folder_for` routes 30-odd entry names,
 but a mapping only means the fetcher will *try*. Several entries the fetcher names are read
@@ -234,9 +234,10 @@ Mastodon instance.
 **This also invalidates a rule written above.** §14.1.3's single-file rule and §14.1.6's "every
 file is rewritten from the wallet on each refresh" both assume wallet and file agree. They now
 disagree, which means either the file was hand-edited after its last fetch or the wallet entry
-was changed without a refresh. **Not determined this pass** — the fetcher's `mastodon-env`
+was changed without a refresh. **Not determined here** — the fetcher's `mastodon-env`
 branch and the file's mtime (`2026-10-01 15:08`, the same minute as the Mastodon units' start)
 are consistent with a fetch-then-edit, but that is an inference, not a measurement.
+**A divergence must not be attributed to a cause until the cause is measured.**
 
 #### RETRACTED 2026-10-05 (second pass): the two values above do not diverge, and there is no TLS fault
 
@@ -287,13 +288,14 @@ TLS enforcement between two live authorities, because there is only one authorit
   keys** — the fetcher regenerates the whole file from the wallet plus literals on every bridge
   run. It is wrong only as a claim that the file mirrors the `mastodon-env` wallet entry.
 
-**What I got wrong, and the generalisable lesson.** I compared a file against a wallet entry and
-reported the difference as a policy conflict **without ever checking that anything consumed the
-wallet entry**. Had the operator acted on the first pass, the likely outcome would have been a
-change to TLS enforcement on a live public instance — an unnecessary, possibly harmful change
-manufactured from a stale blob. **A divergence between a live artifact and an unread store is
-not a finding until you have shown the store is read.** The cheap check is one grep for the
-entry name across the repo, and it should come *before* the comparison, not after.
+**A divergence between a live artifact and an unread store is not a finding
+until it has been shown that the store is read.** An earlier pass compared this
+file against a wallet entry and reported the difference as a policy conflict
+without ever checking that anything consumed the wallet entry; had an operator
+acted on that, the likely outcome would have been a change to TLS enforcement on
+a live public instance — an unnecessary, possibly harmful change manufactured
+from a stale blob. The cheap check is one grep for the entry name across the
+repository, and it must come *before* the comparison, not after.
 
 ### 14.1.3.1 The orphaned `mastodon-env` wallet entry (downgraded from security finding)
 
@@ -303,13 +305,14 @@ is the reason §14.1.3's byte-identity claim was ever made. It is a **documentat
 hygiene defect**, not a credential exposure: the secrets inside it are the same six wallet-held
 values that are correctly stored, and the file it shadows is `0600`.
 
-**Not deleted by this session.** Deleting a wallet entry is a change to secret-classified
-material and outside this session's authority (brief stop conditions; README §4.1 rule 14).
-**Operator decision requested** — recommend deletion, or a one-line comment in
-`fetch-mastodon-env.sh` naming it as retired so the next auditor does not re-derive this
-finding from scratch. Note `deploy-mastodon.sh:46` still *tells the operator* that the file's
-values are in `mastodon-env`, which is now misleading and is the likely source of the confusion;
-that file is not mine to edit.
+**Deleting the wallet entry is not performed here.** It is a change to
+secret-classified material and outside this specification's authority (brief stop
+conditions; README §4.1 rule 14). **Operator decision requested** — recommend
+deletion, or a one-line comment in `fetch-mastodon-env.sh` naming it as retired so
+the next auditor does not re-derive this finding from scratch. Note
+`deploy-mastodon.sh:46` still *tells the operator* that the file's values are in
+`mastodon-env`, which is misleading and is the likely source of the confusion;
+correcting that comment is part of the same operator decision.
 
 ### 14.1.3.2 The Mastodon containers disagree with each other — live, measured, and a real fault
 
@@ -345,18 +348,22 @@ bridge** — `ao-mastodon-web.container` has `After=graphical-session.target ao-
 ao-mastodon-redis.service ao-sales-network.service` and **no** `Requires=`/`After=` on
 `ao-wallet-bridge.service`. Nothing enforces "materialise secrets, then start consumers".
 
-**Severity — lower than it looks, and I should say so plainly.** `mastodon-streaming` is the
-Node streaming API; `RAILS_FORCE_SSL` is a **Rails** setting and the streaming process does not
-read it, so `false` there has no HTTP-redirect effect. The inconsistency is real and should be
-fixed, but it is not an open-HTTP-port finding and must not be presented as one.
-`LOCAL_HTTPS=false` is the more meaningful half, as it governs the instance's own assumption
-about its scheme. **No restart performed** — restarting live Mastodon services is a stop
-condition, and would additionally drop in-flight streaming connections.
+**Severity — lower than it looks, and it must be reported as such.**
+`mastodon-streaming` is the Node streaming API; `RAILS_FORCE_SSL` is a **Rails**
+setting and the streaming process does not read it, so `false` there has no
+HTTP-redirect effect. The inconsistency is real and should be fixed, but it is not
+an open-HTTP-port finding and must not be presented as one. `LOCAL_HTTPS=false` is
+the more meaningful half, as it governs the instance's own assumption about its
+scheme. **No restart may be performed as part of this correction** — restarting
+live Mastodon services is a stop condition, and would additionally drop in-flight
+streaming connections.
 
-**Not fixed by this session.** The fix is a dependency, not a value: add
-`Requires=ao-wallet-bridge.service` / `After=ao-wallet-bridge.service` to the three Mastodon
-consumer units so the file is written before anything reads it. That edits three quadlet
-units and restarts live public-facing services. Prepared, **not applied**, for the operator.
+**The ordering dependency is the defect, and it is not fixed by changing the
+value.** Nothing enforces "materialise secrets, then start consumers": the three
+Mastodon consumer units must carry `Requires=ao-wallet-bridge.service` /
+`After=ao-wallet-bridge.service` so the file is written before anything reads it.
+That edits three quadlet units and restarts live public-facing services. Prepared,
+**not applied**, for the operator.
 
 ### 14.1.3.3 Ordering defect in this subsection — corrected 2026-10-05
 
@@ -527,13 +534,15 @@ references `legacy-alwayson-folder`. Given the name and the fact that it holds e
 password for each of the four DB domains, it appears to be a pre-wallet-folder consolidation
 artefact: a moment when the credential layout was one file instead of one folder per domain.
 
-**Not deleted by this session.** Removing it is a deletion of secret-classified material, which
-is outside this session's authority (brief stop conditions). **Operator decision requested** —
-recommend deletion. The reasoning matters and cuts the other way from a first reading: because
-three of the four values are **currently valid**, deleting the file removes a real plaintext
-store of live credentials, and it loses nothing operationally, because the wallet remains the
-system of record and the live env files are re-fetched at every start (the scope paragraph below).
-Deleting is therefore strictly safer than keeping. Rotation is **not** required by the presence of the
+**Deleting the legacy file is not performed here.** Removing it is a deletion of
+secret-classified material, which is outside this specification's authority (brief
+stop conditions). **Operator decision requested** — recommend deletion. The
+reasoning matters and cuts the other way from a first reading: because three of
+the four values are **currently valid**, deleting the file removes a real
+plaintext store of live credentials, and it loses nothing operationally, because
+the wallet remains the system of record and the live env files are re-fetched at
+every start (the scope paragraph below). Deleting is therefore strictly safer
+than keeping. Rotation is **not** required by the presence of the
 file, because nothing outside it uses those values and they were never committed to Git, a
 backup set, or an external network; rotation becomes required only if the operator judges the
 host's local user account to be untrusted.
@@ -616,14 +625,15 @@ why the wallet — not these files — is designated the system of record.
    `find ~/secrets -name '*fabrication-db*'` returns nothing; the live file is
    `~/.local/share/ao-secrets/fabrication-db.env` (`-rw-------`, 100 bytes), matching the
    single-env-root rule in §14.1.2. ST-30's text is stale and should not be read as evidence
-   of a second delivery path. Correction proposed to the §19 compiler; ST-30 is not this
-   session's file to edit.
+   of a second delivery path. The §19 compiler should correct ST-30; it is not a
+   file this specification owns.
 2. `~/secrets/mastodon.env` is a **dangling symlink** to
    `/ALWAYSON/secrets/mastodon/mastodon.env`, which does not exist
    (`ls: cannot access …: No such file or directory`). It is inert, because
    `quadlet/sales/ao-sales-db.container` and the Mastodon units read
    `EnvironmentFile=%h/.local/share/ao-secrets/…`, not `~/secrets/`. Reported, **not removed** —
-   deleting files is outside this session's authority and it may be another session's artifact.
+   deleting files is outside this specification's authority and it may belong to another
+   subsystem.
 
 **Migration remains available if the operator prefers it.** The pinned Postgres image
 (`postgres@sha256:d74eeac9a…`) calls `file_env 'POSTGRES_PASSWORD'` at line 235 of
@@ -719,8 +729,9 @@ name". The carve-out was written so a healthy DSN file would not be flagged as l
 debris; the side effect is that the one file carrying a real password in DSN form is
 structurally invisible to the guard.
 
-**Operator decision requested. Not changed by this session**, because it touches payment
-credentials and a live running service (brief stop conditions; README §4.1 rules 12 and 14).
+**Operator decision requested. Not changed here**, because it touches payment
+credentials and a live running service (brief stop conditions; README §4.1 rules
+12 and 14).
 
 1. **Create the four `ao-payment` wallet entries**, then restart `ao-ingress-payment`. This is
    ST-12's own outstanding action and it also fixes the staleness. Recommended first.
@@ -729,8 +740,8 @@ credentials and a live running service (brief stop conditions; README §4.1 rule
    indefinitely on an env file it can never refresh, with no log line. If it stays, the
    staleness needs a separate check; if it goes, a locked wallet takes the unit down with it.
    Either is defensible, but the current state documents neither.
-3. **Note for §19**: ST-12's "runs with no DSN" needs correcting. ST-12 is not this session's
-   file, so this is raised as a proposal, not an edit.
+3. **Note for §19**: ST-12's "runs with no DSN" needs correcting, because the file does carry
+   a DSN. The row belongs to the §19 compiler, so this is raised as a proposal, not an edit.
 
 Cross-group: the *credential content* of this is PAY territory and the ST-12 row is the
 compiler's. The *delivery-mechanism* fault — silent fetch failure on a `0600` stale copy — is
@@ -738,9 +749,10 @@ SEC's and is what §14.1.7 records.
 
 #### 14.1.7.1 Re-verification, 2026-10-04 (fourth pass)
 
-Every claim in this subsection was re-measured from scratch this pass rather than inherited.
-All of it still holds, which is worth recording because the numbers in §14.1.4, §14.1.6 and
-§14.1.7 were written by earlier passes and are the kind of figure that goes stale.
+Every claim in this subsection is re-measured from its source rather than inherited
+from an earlier pass. The figures in §14.1.4, §14.1.6 and §14.1.7 were written by
+earlier passes and are the kind of figure that goes stale, so **a re-verification
+must re-measure from the live system and not restate a prior number.**
 
     $ systemctl --user show ao-ingress-payment.service -p ActiveEnterTimestamp -p ExecStartPre
     ActiveEnterTimestamp=Thu 2026-10-01 15:08:41 PDT 2026
@@ -777,15 +789,16 @@ The `payment.env` DSN re-measured to the same conclusion, without printing the v
 non-secret field. §14.1.6's legacy-file table also reproduced exactly, `03521083973b` /
 `6d174927d250` / `f0d6bb4481fd` SAME and `8c3319896c87` vs `4f090748460c` DIFFERENT.
 
-**What I got wrong this pass.** I wrote a regex `^([A-Za-z0-9_]+)=` to enumerate the legacy
-file's keys and it returned **zero pairs** — because three of the four key names contain hyphens
-(`mastodon-db-password`), and I had left the hyphen out of the character class. Taken at face
-value that reads as "the file is now empty", which would have been a false and alarming claim
-about a file holding live credentials. The correction is `^([A-Za-z0-9_-]+)=`. The lesson is
-narrower than "be careful with regexes": **a count of zero from a parser must be checked against
-an independent count before it is written down.** `wc -l` on the same file said 4 lines
-immediately. Had I asserted the zero, the next session would have recorded a security
-improvement that never happened.
+**A count of zero from a parser must be checked against an independent count
+before it is written down.** The pattern `^([A-Za-z0-9_]+)=`, used to enumerate the
+legacy file's keys, returns **zero pairs** — because three of the four key names
+contain hyphens (`mastodon-db-password`), and the hyphen was missing from the
+character class. Taken at face value that reads as "the file is now empty", which
+would be a false and alarming claim about a file holding live credentials. The
+correct pattern is `^([A-Za-z0-9_-]+)=`. The lesson is narrower than "be careful
+with regexes": `wc -l` on the same file answered 4 immediately. **A parser that
+reports nothing must be shown to be able to report something before its zero is
+recorded as a security improvement.**
 
 **Two further traps, both mine to record.**
 
@@ -799,9 +812,9 @@ improvement that never happened.
    not a number. §14.1.4's signature table documents both correctly; this is a note that the
    names are easy to confuse when scripting an audit.
 
-Nothing in this pass changed any credential, file mode, unit or wallet entry. The fault in
-§14.1.7 is **still live and still unreported by any service**, and the operator decisions in
-this subsection are still outstanding.
+No credential, file mode, unit or wallet entry was changed by this re-measurement.
+The fault in §14.1.7 is **still live and still unreported by any service**, and the
+operator decisions in this subsection are still outstanding.
 
 #### 14.1.7.2 Current state 2026-10-05: provisioned and fetched, but the running adapter is still stale
 
@@ -858,11 +871,12 @@ everything is fixed. The `-` ignore-failure prefix on `ExecStartPre` is what let
 fault be invisible, and it is still in place — but it is no longer the active cause.
 
 **Operator action required — one restart.** `systemctl --user restart ao-ingress-payment` is
-the whole fix; the delivery copy is already correct. **Not performed by this session**: it is a
+the whole fix; the delivery copy is already correct. **Not performed here**: it is a
 restart of a live payment adapter, and the brief's stop conditions name payments explicitly.
 Verified absent: no restart has happened since the fetch, per `StartedAt` above.
 
-**What I got wrong this pass.** I first probed folder existence with a CLI
+**A tool that does not exist on the host cannot be used to establish a fact.** An
+earlier pass probed folder existence with a CLI
 (`kwallet-d6 --folder … --read-password`) that **does not exist on this host** — rc 127. The
 shell discarded the failure, so the command "succeeded" and produced an empty string whose
 sha256 is `e3b0c442…` (sha256 of the empty input). Run against all nine folder names it

@@ -31,90 +31,35 @@ suite covers the desktop and portable hardware this system is built for.
 through systemd Quadlet definitions — never Kubernetes, Docker Compose, a Docker daemon, or
 shell-wrapper orchestration (§13).
 
-**Correction 2026-10-04 — what "Kubuntu" is worth, measured.** The Kubuntu rationale above is
-the *selection* rationale and stands. But the running host does not identify itself as Kubuntu,
-and a reader checking `lsb_release` will get a different answer than this paragraph gives. It
-is KDE Plasma on Ubuntu 26.04.1, not a Kubuntu-flavoured install:
+**Platform identity.** The workstation runs **Ubuntu 26.04 LTS as the base, with KDE Plasma as
+the desktop.** Requirements that follow from this, and which the provisioner and any
+verification step must be written against:
 
-```
-$ lsb_release -a
-Distributor ID:	Ubuntu
-Description:	Ubuntu 26.04.1 LTS
-Release:	26.04
-Codename:	resolute
-$ cat /etc/kubuntu-release
-cat: /etc/kubuntu-release: No such file or directory
-$ apt-cache policy kubuntu-desktop
-kubuntu-desktop:
-  Installed: (none)
-$ plasmashell --version
-plasmashell 6.6.6
-$ systemctl is-enabled sddm
-enabled
-```
+- The base distribution is Ubuntu 26.04 LTS. The `kubuntu-desktop` metapackage is **not**
+  required and must not be assumed installed; only the Kubuntu-flavoured settings packages are
+  expected. Verification must not test for `kubuntu-desktop`, `/etc/kubuntu-release`, or any
+  `Kubuntu` distributor string — on this platform those correctly read as absent or as
+  `Ubuntu`.
+- The **KDE Plasma desktop is required**, because the login-gated KDE Wallet secret flow
+  (§14.1) and Konqueror as the automation browser depend on it.
+- **Support horizon:** standard security maintenance runs to **May 2031**. This is *standard*
+  security maintenance, not full support; expanded security maintenance extends to **May 2036**
+  under Ubuntu Pro. The 2031 date is therefore when routine maintenance ends, not when the
+  release becomes unusable.
+- The horizon above is the **Ubuntu LTS base** cycle. Do not substitute a desktop-flavour
+  support window for it; flavour cycles are maintained separately and are not covered by the
+  base distribution's published dates.
 
-Six installed packages carry the Kubuntu name, three named `kubuntu-*` and three not
-(`libkubuntu1`, `plymouth-theme-kubuntu-logo`, `plymouth-theme-kubuntu-text`):
+**Toolchain, and how each tool is supplied.** ROS 2 Lyrical is required at `/opt/ros/lyrical`.
+Gazebo Sim 10.5.0 is required but runs **containerised**, so `gzserver` must not be expected on
+the host `PATH`. QGroundControl is required as an operator tool but **is not a distribution
+package**: it is supplied as a user-level AppImage with a `.desktop` launcher under
+`~/.local/share/applications`, so neither a `qgroundcontrol` binary on `PATH` nor an entry under
+`/usr/share/applications` may be assumed. Any inventory, install list or verification step must
+treat AppImage-supplied and locally-built tools as a distinct class from packaged software, and
+must not report them as missing merely because no package owns them.
 
-```
-$ dpkg -l | awk '/^ii/ && $2 ~ /kubuntu/ {print $2}' | sort
-kubuntu-notification-helper
-kubuntu-settings-desktop
-kubuntu-wallpapers
-libkubuntu1
-plymouth-theme-kubuntu-logo
-plymouth-theme-kubuntu-text
-```
-
-So: Ubuntu LTS base, KDE Plasma 6.6.6 on SDDM, Kubuntu-flavoured settings only. The
-`kubuntu-desktop` metapackage is **not** installed, and `apt-cache show` confirms it sits in
-`universe`, not `main` (`Section: universe/metapackages`, candidate `1.496`). Every
-functional claim this
-section rests on is independently
-true — Plasma 6.6.6 is present, `konqueror`, `kwalletmanager5` and `kwallet-query` are
-installed (§14.1), ROS 2 Lyrical is at `/opt/ros/lyrical` (§2.2), and the machine is an
-i7-8700K with a GeForce GTX 1080. Only the distribution label was loose.
-
-**Toolchain correction, same date.** §1 says the desktop "carries the ROS 2 and Gazebo toolchain
-plus QGroundControl". ROS 2 and Gazebo are real: `ros2` resolves to `/opt/ros/lyrical/bin/ros2`
-and `gzserver` is not on the host PATH because Gazebo runs containerised
-(`ao-sim-fabrication-gz`, carrying `gz` and `gz-msgs_*`; the host keeps a wrapper at
-`~/bin/gazebo`). **QGroundControl is an AppImage, not an installed package** — there is no
-`qgroundcontrol` binary on the PATH and no `.desktop` entry under
-`/usr/share/applications`; the operator runs
-`~/Documents/APP IMAGES/QGroundControl-x86_64.AppImage`, which has left state in
-`~/.config/QGroundControl` and `~/.cache/QGroundControl`. It does have a **user-level**
-launcher, so it is on the desktop menu even though it is not a package:
-
-```
-$ find /usr/share/applications ~/.local/share/applications -iname '*ground*'
-/home/scottw/.local/share/applications/qgroundcontrol.desktop
-$ grep '^Exec' ~/.local/share/applications/qgroundcontrol.desktop
-Exec="/home/scottw/Documents/APP IMAGES/QGroundControl-x86_64.AppImage" %U
-```
-
-The distinction worth keeping is AppImage-vs-package, not absent-vs-present: the launcher
-just invokes the AppImage path, which is why the binary is not on the PATH. Same for the
-Foxglove bridge, which is a locally built image (`localhost/foxglove-bridge`) rather than a
-pinned upstream digest. Those two are simulation-toolchain facts and belong to the SIM
-group's inventory; they are noted here only so §1 does not read as a package manifest.
-
-**Support-horizon correction, same date.** This paragraph previously gave the maintenance
-horizon as "April 2031". Canonical's published release-cycle table gives **May 2031**, and
-the month was the substance of the claim — a maintenance horizon is only useful if it is the
-right one. Measured 2026-10-04 from `ubuntu.com/about/release-cycle`:
-
-```
-26.04 LTS   Released: Apr 2026
-            Standard security maintenance    May 2031
-            Expanded security maintenance    May 2036
-```
-
-Two things follow that are worth more than the date. The horizon is **standard security
-maintenance, not full support** — extended to May 2036 with Ubuntu Pro, so the 2031
-figure is when routine maintenance stops, not when the release stops being usable. And this
-section's "Kubuntu" claim is about the *Ubuntu LTS base*, whose cycle is the table above;
-flavour cycles are maintained separately by their own communities and are not covered by
-Canonical's dates. Since this host is Ubuntu 26.04.1 LTS with KDE Plasma rather than
-Kubuntu proper (see the correction above), the base table is in fact the correct one to cite
-— but a reader should not take the flavour's support window to be the same number.
+**Why this platform.** The selection rests on: Ubuntu LTS with a published security-maintenance
+horizon; the ROS 2 and Gazebo toolchain plus QGroundControl that the simulation work depends on;
+KDE Plasma for the Wallet secret flow and Konqueror; and the KDE suite for the desktop and
+portable hardware this system is built for.
