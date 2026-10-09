@@ -1,7 +1,7 @@
 # Proposals — how sessions record §19 changes without colliding
 
 Every group session writes one file here per item it closes. **Sessions never edit
-`19-current-status-and-outstanding-work/section.md` directly** — all eleven need to record
+`README-ACTION_ITEMS/status-and-references.md` directly** — all eleven need to record
 progress in §19, which makes it the single file where concurrent sessions collide. The
 twelfth (compiler) session merges these into §19.2.
 

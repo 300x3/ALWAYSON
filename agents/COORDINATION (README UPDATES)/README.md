@@ -17,7 +17,8 @@ sessions can never collide.**
 | `MANIFEST.md` | The fixed section order. The compiler concatenates in this order. |
 | `00-frontmatter/section.md` | Title block and the Contents table. |
 | `es-executive-summary/section.md` | ES.1 architecture corrections, ES.2 master topology, ES.3 record. |
-| `01-…` through `20-…` | One folder per numbered README section, named with its number and title. |
+| `01-…` through `17-…` | One folder per numbered README section, named with its number and title (1–17). |
+| `README-ACTION_ITEMS/status-and-references.md` | Sections 19–20: status log and references (split out of the README). |
 | `tools/split.py` | Splits `README.md` into these folders. |
 | `tools/compile.py` | Rebuilds `README.md` from these folders. `--check` verifies without writing. |
 
@@ -33,10 +34,10 @@ documents. That folder is narrative; this one is the build input.
 4. **Do not renumber `19.x` item IDs.** Work items are keyed by group prefix
    (`PLAT`, `NET`, `SEC`, `LEDGER`, `PAY`, `COMM`, `FIELD`, `SIM`, `OPS`) so a new item
    never collides. Add the next free number in its group.
-5. **Record new work in `19-current-status-and-outstanding-work/section.md`** — it is the
-   single status log. Do not create a parallel list.
+5. **Record new work in `README-ACTION_ITEMS/status-and-references.md`** — it is the
+   single authoritative status log. Do not create a parallel list.
 6. **Sections 1–16 are specification.** No status, history, revision or decision dates.
-   Everything current belongs in 17 or 19.
+   Everything current belongs in 17 or in the status-and-references tracker.
 7. **Commit only your section file.** Never `git add -A`; it sweeps in other sessions' work.
 
 ## Who does what

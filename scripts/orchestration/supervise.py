@@ -31,22 +31,80 @@ STUCK_MIN = 12
 MAX_NUDGES = 3
 TIMEOUT = 5400  # hard ceiling per session
 
-# Explicit model for every spawned session. Not the provider default, and NOT a
-# paid model. History of getting this wrong:
-#   1. The first default inherited the global state model
-#      (poolside/laguna-s-2.1:free), a free tier with a DAILY quota that killed
-#      seven sessions on 2026-10-03.
-#   2. It was then overridden to stealth/space-bunny-alpha, which 404s on
-#      OpenRouter ("No endpoints found") -- every spawned agent died at
-#      iteration 1. Measured 2026-10-05.
-# The operator's instruction is to run ONE agent at a time in 2-hour periods
-# on the free model, so quota exhaustion is the pacing constraint, not a
-# surprise. Single-agent operation halves the token burn versus pairs, and the
-# rotation spreads quota use across groups instead of spending it all in one
-# place. AO_MODEL still overrides this for deliberate experiments.
-MODEL = os.environ.get("AO_MODEL", "poolside/laguna-s-2.1:free")
+# ---------------------------------------------------------------------------
+# MODEL ASSIGNMENT -- operator instruction 2026-10-08: every workgroup agent
+# runs on a FREE Cline-provider model, assigned per group, and only on a model
+# proven to work on this host first.
+#
+# The old default was poolside/laguna-s-2.1:free, an OpenRouter free tier with
+# a DAILY quota that killed seven sessions on 2026-10-03 and paced every shift
+# after that. That model is retired. The `cline-free/*` models below are served
+# by the Cline provider itself: $0 cost (measured totalCost:0 on every run),
+# no OpenRouter daily-quota wall, and `--model` selects them per invocation.
+#
+# VERIFIED 2026-10-08 against cline 3.0.60 on this host. Each model was given a
+# real two-part task (fix a wrong-operator bug, overwrite a file, then run the
+# fix and report the output). "PASS" means it edited both files correctly and
+# reported finishReason=completed with totalCost=0:
+#
+#   cline-free/step-5-preview             PASS  StepFun flagship, sparse MoE
+#   cline-free/mimo-v2.6-flash            PASS  309B MoE, agentic coding
+#   cline-free/solar-mini4                PASS  compact 35B MoE
+#   cline-free/muse-spark-1.3-contributor FAIL  read-only: never edited either
+#                                                file, ran out of time in
+#                                                iteration 2. NOT ASSIGNED.
+#
+# The free list is a rotating promotion, so it is re-read from
+# https://api.cline.bot/api/v1/ai/cline/recommended-models rather than assumed.
+# If an id in GROUP_MODEL 404s at spawn, reassign from VERIFIED below -- do not
+# fall back to a paid model and do not "fix" it by pointing an agent at the
+# local nemotron: GPU time is reserved for the coordinator (~4.5 GiB of 8 GiB).
+# ---------------------------------------------------------------------------
+
+# Proven on this host, in preference order. AO_FALLBACK forces one for all.
+VERIFIED = [
+    "cline-free/mimo-v2.6-flash",
+    "cline-free/step-5-preview",
+    "cline-free/solar-mini4",
+]
+
+# Deliberate assignment, not a round-robin. The three approval-gated groups
+# (sec, ledger, pay) and spec do judgement-heavy review against acceptance
+# criteria, so they get the strongest verified model. The rest are split
+# across the remaining two on purpose: each free id is a separate quota bucket,
+# so concentrating all eleven on one id means one exhausted bucket takes the
+# whole team down again -- the exact failure mode of the old single-model setup.
+GROUP_MODEL = {
+    "plat":   "cline-free/mimo-v2.6-flash",
+    "net":    "cline-free/mimo-v2.6-flash",
+    "sec":    "cline-free/step-5-preview",
+    "ledger": "cline-free/step-5-preview",
+    "pay":    "cline-free/step-5-preview",
+    "comm":   "cline-free/solar-mini4",
+    "field":  "cline-free/mimo-v2.6-flash",
+    "sim":    "cline-free/solar-mini4",
+    "ops-a":  "cline-free/mimo-v2.6-flash",
+    "ops-b":  "cline-free/solar-mini4",
+    "spec":   "cline-free/step-5-preview",
+}
+
+FALLBACK = os.environ.get("AO_FALLBACK")  # force one verified id for every group
+MODEL = os.environ.get("AO_MODEL")        # deliberate experiment override
 PROVIDER = "cline"
 REASONING = os.environ.get("AO_REASONING", "medium")
+
+
+def model_for(g):
+    """The free Cline model this group runs on.
+
+    Precedence: AO_MODEL (explicit experiment) > AO_FALLBACK (force one) >
+    GROUP_MODEL (the assignment above) > first VERIFIED.
+    """
+    if MODEL:
+        return MODEL
+    if FALLBACK:
+        return FALLBACK
+    return GROUP_MODEL.get(g, VERIFIED[0])
 
 
 def prompt_path(g):
@@ -79,14 +137,18 @@ def spawn(g):
     env = dict(os.environ, AO_GROUP=g)
     cmd = ["cline", "--json", "--cwd", wt, "--timeout", str(TIMEOUT),
            "-t", str(TIMEOUT + 300), "--thinking", REASONING,
-           "--provider", PROVIDER, "--model", MODEL,
+           "--provider", PROVIDER, "--model", model_for(g),
            open(prompt_path(g)).read()]
     with open(log, "ab") as out:
         p = subprocess.Popen(cmd, stdout=out, stderr=subprocess.STDOUT,
                              start_new_session=True, env=env)
     open(os.path.join(d, "pid"), "w").write(str(p.pid))
     open(os.path.join(d, "nudges"), "w").write("0")
-    print("%-6s spawned pid=%d -> %s" % (g, p.pid, log))
+    # Record the model beside the pid. A spawn that reports only a pid cannot be
+    # audited later for which model actually ran, and "wrong model" has been the
+    # cause of two separate team-wide deaths here.
+    open(os.path.join(d, "model"), "w").write(model_for(g) + "\n")
+    print("%-6s spawned pid=%d model=%s -> %s" % (g, p.pid, model_for(g), log))
 
 
 def pid_alive(pid):
@@ -269,7 +331,7 @@ def nudge(g, reason):
         "  1. cd %s && git status --short && git log --oneline -3\n"
         "  2. Re-read your brief: %s\n"
         "  3. Re-read the acceptance criteria for your assigned items in "
-        "agents/COORDINATION (README UPDATES)/19-current-status-and-outstanding-work/section.md\n\n"
+        "README-ACTION_ITEMS/status-and-references.md\n\n"
         "Then continue the work. Do not start items you already completed - git status and\n"
         "your proposals directory show what is already done. If you were mid-way through an\n"
         "item, finish that one first.\n\n"
@@ -281,7 +343,7 @@ def nudge(g, reason):
     with open(os.path.join(d, "events.jsonl"), "ab") as out:
         p = subprocess.Popen(["cline", "--json", "--cwd", wt, "--timeout", str(TIMEOUT),
                               "-t", str(TIMEOUT + 300), "--thinking", REASONING,
-                              "--provider", PROVIDER, "--model", MODEL, msg],
+                              "--provider", PROVIDER, "--model", model_for(g), msg],
                              stdout=out, stderr=subprocess.STDOUT, start_new_session=True)
     open(os.path.join(d, "pid"), "w").write(str(p.pid))
     print("%-6s nudged #%d (pid %d) - %s" % (g, n, p.pid, reason))

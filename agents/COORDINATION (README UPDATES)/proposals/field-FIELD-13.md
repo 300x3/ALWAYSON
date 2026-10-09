@@ -3,14 +3,14 @@ item: FIELD-13
 action: close
 evidence: |
   # every LoRaWAN mention in the source of truth, by section
-  $ grep -rc -i 'lorawan' agents/COORDINATION (README UPDATES) (README UPDATES)/*/section.md | grep -v ':0'
-  agents/COORDINATION (README UPDATES) (README UPDATES)/02-platform-baseline/section.md:1
-  agents/COORDINATION (README UPDATES) (README UPDATES)/09-field-and-lora-architecture/section.md:11
-  agents/COORDINATION (README UPDATES) (README UPDATES)/19-current-status-and-outstanding-work/section.md:4
-  agents/COORDINATION (README UPDATES) (README UPDATES)/es-executive-summary/section.md:1
+  $ grep -rc -i 'lorawan' agents/COORDINATION (README UPDATES)/*/section.md | grep -v ':0'
+  agents/COORDINATION (README UPDATES)/02-platform-baseline/section.md:1
+  agents/COORDINATION (README UPDATES)/09-field-and-lora-architecture/section.md:11
+  README-ACTION_ITEMS/status-and-references.md:4
+  agents/COORDINATION (README UPDATES)/es-executive-summary/section.md:1
 
   # the one contradiction outside my sections
-  $ grep -n -i 'lorawan' agents/COORDINATION (README UPDATES) (README UPDATES)/es-executive-summary/section.md
+  $ grep -n -i 'lorawan' agents/COORDINATION (README UPDATES)/es-executive-summary/section.md
   11: ... **LoRaWAN for communication only** — the public human side (§9.2.2). ...
 
   # §02 states the same rule correctly (compliant, no change needed)

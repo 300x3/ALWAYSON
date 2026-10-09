@@ -15,7 +15,7 @@
 | Current main host | ATX desktop - running Linux Kubuntu |
 | Peripheral host | Drone — Raspberry Pi 5 and Autopilot Module, running KaliOS |
 | Format rule | Tables and topology diagrams are primary; original detailed commands/evidence are retained in-place below for operational completeness |
-| Reading order | **ES.1** is the specification of intended architecture and **ES.2** is the master topology. **Sections 1–16 are specification**: the planned future state, stated once, with no status, history, revision, or decision in them. **Sections 17–19 carry everything current**: §17 backup/restore/monitoring, this document approved deviations, and §19 the single status log of components, outstanding work and verification evidence. §19.2 also carries verification evidence, and §20 is status references. Where §1–16 and §17–19 differ, §17–19 is the current fact and §1–16 is the requirement. Revision history for this document is in `docs/readme-change-log.md`, never in the body. |
+| Reading order | **ES.1** is the specification of intended architecture and **ES.2** is the master topology. **Sections 1–16 are specification**: the planned future state, stated once, with no status, history, revision, or decision in them. **Section 17** is the current backup/restore/monitoring and completion criteria. The current status log and references have been split into `README-ACTION_ITEMS/status-and-references.md`; no status, history, revision, or decision appears in the compiled README for those. Where §1–16 and §17 differ, §17 is the current fact and §1–16 is the requirement. Revision history for this document is in `docs/readme-change-log.md`, never in the body. |
 
 ## Contents
 
@@ -43,7 +43,4 @@
 | 16 | Scripts and Operational Standards | 68 |
 | 16.4 | Document Coordination | 71 |
 | 17 | Backup, Restore, Monitoring, and Completion Criteria | 70 |
-| 19 | Current Status and Outstanding Work | 72 |
-| 19.2 | Completed items and verification evidence | 74 |
-| 19.3 | Operator setup priorities | 77 |
-| 20 | Status References | 78 |
+

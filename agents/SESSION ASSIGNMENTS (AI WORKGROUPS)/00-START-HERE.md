@@ -36,7 +36,7 @@ items.
 
 **1. §19 is single-writer.** All eleven sessions record progress in §19, which makes it the
 one file where sessions collide. So sessions **do not edit**
-`agents/COORDINATION (README UPDATES)/19-current-status-and-outstanding-work/section.md`. They write
+`README-ACTION_ITEMS/status-and-references.md`. They write
 `agents/COORDINATION (README UPDATES)/proposals/<group>-<ITEM-ID>.md` and a twelfth compiler session merges
 those into §19.2. Never hand-edit README.md.
 
@@ -60,6 +60,31 @@ python3 scripts/orchestration/supervise.py stop               # kill everything
 
 Each session gets its own git worktree under `/tmp/ao-sessions/wt-<group>`, branched from
 `origin/main`, so concurrent sessions cannot collide on the filesystem.
+
+## Which model each session runs on
+
+**Revised 2026-10-08.** Every workgroup runs a **free Cline-provider model**, assigned per group
+in `supervise.py` (`GROUP_MODEL`). `poolside/laguna-s-2.1:free` is retired — its daily quota
+killed seven sessions on 2026-10-03. Do not reintroduce it.
+
+| Session | Model | Why |
+|---|---|---|
+| `PLAT`, `NET`, `FIELD`, `OPS-A` | `cline-free/mimo-v2.6-flash` | 309B MoE, agentic coding |
+| `COMM`, `SIM`, `OPS-B` | `cline-free/solar-mini4` | compact 35B MoE |
+| `SEC`, `LEDGER`, `PAY`, `SPEC` | `cline-free/step-5-preview` | strongest verified; these four make judgement calls that gate on operator approval |
+
+All four Cline free ids were tested on this host on 2026-10-08 with a real edit-and-run task.
+Three passed at `totalCost:0` and are assigned above. **`cline-free/muse-spark-1.3-contributor`
+failed** — it read files but edited neither and ran out of time in iteration 2 — so it is
+deliberately not assigned. Test any new id the same way before assigning it.
+
+The split is deliberate, not a round-robin: each free id is a separate quota bucket, so
+concentrating all eleven groups on one id would let a single exhausted bucket take the whole
+team down — the original failure mode. Overrides: `AO_MODEL=<id>` forces one model for all
+groups, `AO_FALLBACK=<verified id>` moves a failing bucket's groups elsewhere.
+
+Every spawn prints its model and records it in `/tmp/ao-sessions/<group>/model`; the
+`run_result` line in `events.jsonl` confirms what actually ran. Those two must agree.
 
 ### Cheaper first run
 

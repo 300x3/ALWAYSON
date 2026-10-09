@@ -10,7 +10,7 @@ Your brief: Field, radio and drones. **14 open items** assigned to you.
 
 ## Open work items assigned to you
 
-These live in `agents/COORDINATION (README UPDATES)/19-current-status-and-outstanding-work/section.md`.
+These live in `README-ACTION_ITEMS/status-and-references.md`.
 Open the file and read the full acceptance criteria for each before you start.
 
 - `FIELD-01` — RF characterization on both bands
@@ -46,7 +46,7 @@ your commit. Stage by path, every time.
 
 All eleven sessions need to record progress in §19, which makes it the one file where
 sessions collide. So you **do not** edit
-`agents/COORDINATION (README UPDATES)/19-current-status-and-outstanding-work/section.md`.
+`README-ACTION_ITEMS/status-and-references.md`.
 
 Instead write a proposal per item you close:
 

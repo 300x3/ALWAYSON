@@ -10,7 +10,8 @@ and the graph grows from it. It does not invent back-fill.
 import json, os, re, sys, datetime as dt
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-SEC = os.path.join(ROOT, "agents/COORDINATION (README UPDATES)/19-current-status-and-outstanding-work/section.md")
+# DEPRECATED: section 19 source moved to README-ACTION_ITEMS/status-and-references.md
+SEC = os.path.join(ROOT, "README-ACTION_ITEMS/status-and-references.md")
 OUT = os.path.join(ROOT, "artifacts/dashboard/metrics/19-progress.jsonl")
 GROUPS = ["PLAT", "NET", "SEC", "LEDGER", "PAY", "COMM", "FIELD", "SIM", "OPS"]
 

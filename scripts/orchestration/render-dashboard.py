@@ -60,6 +60,32 @@ DECISIONS = {
 ANSWERS_PATH = os.path.join(ROOT, "artifacts/dashboard/answers.json")
 CLAR_PATH = os.path.join(ROOT, "artifacts/dashboard/clarifications.json")
 STATE_PATH = os.path.join(ROOT, "artifacts/dashboard/decision-state.json")
+UPDATES_PATH = os.path.join(ROOT, "artifacts/dashboard/updates.jsonl")
+
+def load_updates(limit=40):
+    """Progress notes the team posts, newest first.
+
+    This is the dashboard's standing channel for REGULAR UPDATES, as distinct
+    from the "Decisions needed from you" panel below it, which is only for
+    things blocked on the operator. It is append-only JSONL so a note cannot be
+    lost by a concurrent write, and it is capped on read so the file cannot
+    grow without bound.
+
+    Written by scripts/orchestration/dashboard-note.py, which is what an agent
+    or the coordinator calls to report progress.
+    """
+    out = []
+    if os.path.exists(UPDATES_PATH):
+        for line in open(UPDATES_PATH, encoding="utf-8"):
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                out.append(json.loads(line))
+            except ValueError:
+                pass
+    out.sort(key=lambda r: r.get("ts", ""), reverse=True)
+    return out[:limit]
 
 def load_state():
     """Which decisions still need the operator. An answer that is sufficient to act
@@ -203,7 +229,8 @@ def main():
     graph = "".join(svg)
 
     # ---- approval questions: always rendered, derived from the log ----
-    sec = open(os.path.join(ROOT, "agents/COORDINATION (README UPDATES)/19-current-status-and-outstanding-work/section.md"), encoding="utf-8").read()
+    # DEPRECATED: old section 19 source; use the tracker
+    sec = open(os.path.join(ROOT, "README-ACTION_ITEMS/status-and-references.md"), encoding="utf-8").read()
     def cl(x): return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", "", x)).strip()
     orows = [[cl(c) for c in re.findall(r"<td[^>]*>(.*?)</td>", r, re.S)]
              for r in sec[sec.index("## 19.1"):sec.index("## 19.2")].split("<tr>")]
@@ -251,9 +278,67 @@ def main():
         questions = ('<div class=panel id=approvals><h2>Decisions needed from you</h2>'
                      '<p class=note2>Nothing is blocked on a decision right now.</p></div>')
 
+    # ---- answered decisions ----
+    # When nothing is outstanding the old page showed only "Nothing is blocked",
+    # which read as "the operator has not decided anything" when the truth was
+    # the opposite: 31 decisions were answered and simply left the queue. An
+    # agent cannot act on an authorisation it cannot see, so the answered set is
+    # listed here, newest first, collapsed by default.
+    answered_rows = []
+    for item in sorted(ANSWERS, key=lambda k: ANSWERS[k].get("answered_at", ""), reverse=True):
+        rec = ANSWERS[item]
+        val = str(rec.get("answer", "")).strip()
+        if not val:
+            continue
+        when = str(rec.get("answered_at", ""))[:16].replace("T", " ")
+        answered_rows.append(
+            '<li class=answered><div class=ahead><span class=qid>%s</span>'
+            '<span class=updwhen>answered %s</span></div>'
+            '<div class=atext>%s</div></li>'
+            % (html.escape(item), html.escape(when), html.escape(val)))
+    if answered_rows:
+        answered_panel = (
+            '<div class=panel id=answered><h2>Decisions you have already given '
+            '(%d)</h2>'
+            '<p class=note2>These are recorded in answers.json and are the '
+            'operator&rsquo;s standing authorisations. Sessions are expected to act '
+            'on them; none of these is waiting on anything.</p>'
+            '<ul class=answeredlist>%s</ul></div>'
+            % (len(answered_rows), "".join(answered_rows)))
+    else:
+        answered_panel = ""
+
     hist = ("history: %d hourly record%s%s" % (n, "" if n == 1 else "s",
             " — the graph fills in as the hourly job runs"
             if n == 1 else ""))
+
+    # ---- standing updates feed ----
+    # Deliberately separate from the approvals panel: that one is a queue of
+    # things WAITING on the operator, and mixing routine progress into it would
+    # hide the decisions that actually block work. This one is one-way: the team
+    # reports, the operator reads. No inputs, so nothing here can be mis-saved.
+    ups = load_updates()
+    if ups:
+        lvl_class = {"info": "", "done": "ok", "warn": "warn", "action": "action"}
+        items = []
+        for r in ups:
+            lv = r.get("level", "info")
+            who = html.escape(str(r.get("who", "team")))
+            when = html.escape(str(r.get("ts", ""))[:16].replace("T", " "))
+            txt = html.escape(str(r.get("text", "")))
+            items.append(
+                '<li class="upd %s"><div class=updhead><span class=who>%s</span>'
+                '<span class=updwhen>%s</span><span class=lvl>%s</span></div>'
+                '<div class=updtext>%s</div></li>'
+                % (lvl_class.get(lv, ""), who, when, html.escape(lv), txt))
+        updates = ('<div class=panel id=updates><h2>Team updates</h2>'
+                   '<p class=note2>Standing progress channel. Decisions that need '
+                   'you are in the panel below, not here.</p>'
+                   '<ul class=updates>%s</ul></div>' % "".join(items))
+    else:
+        updates = ('<div class=panel id=updates><h2>Team updates</h2>'
+                   '<p class=note2>No updates posted yet. The coordinator posts '
+                   'them with scripts/orchestration/dashboard-note.py.</p></div>')
 
     PAGE = """<!doctype html><html lang=en><meta charset=utf-8>
 <title>ALWAYS ON - section 19 progress</title><style>
@@ -323,6 +408,32 @@ button.ghost{background:#fff;color:#7a5c15}
 .status.ok{color:#15803d}
 .status.bad{color:#b91c1c}
 .ctl{display:flex;gap:9px;align-items:center;margin:0 0 14px}
+#updates{border-color:#c9d6e2;background:#fbfdff}
+#updates h2{font-size:15px;margin:0 0 4px;color:#1e4b6e}
+ul.updates{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:7px}
+li.upd{border-left:3px solid #c9d6e2;background:#fff;border-radius:0 4px 4px 0;
+ padding:7px 10px;font-size:13px;line-height:1.5}
+li.upd.ok{border-left-color:#15803d;background:#f4fbf6}
+li.upd.warn{border-left-color:#b45309;background:#fffaf2}
+li.upd.action{border-left-color:#7a5c15;background:#fffdf5}
+.updhead{display:flex;gap:9px;align-items:baseline;margin-bottom:3px}
+.upd .who{font-weight:700;font-size:12px;color:#1e4b6e;font-family:"DejaVu Sans Mono",monospace}
+.updwhen{color:#8b95a3;font-size:11px}
+.upd .lvl{font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:#6b7280;
+ background:#eef1f5;border-radius:8px;padding:1px 7px}
+li.upd.ok .lvl{background:#dcf3e4;color:#14532d}
+li.upd.warn .lvl{background:#fdecd2;color:#7c3d05}
+li.upd.action .lvl{background:#f6e9c6;color:#5c4409}
+.updtext{color:#24292f}
+#answered{border-color:#bfe0cd;background:#f7fcf9}
+#answered h2{font-size:15px;margin:0 0 4px;color:#14532d}
+ul.answeredlist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:7px;
+ max-height:30em;overflow:auto}
+li.answered{border-left:3px solid #bfe0cd;background:#fff;border-radius:0 4px 4px 0;
+ padding:6px 10px;font-size:12.5px;line-height:1.5}
+.ahead{display:flex;gap:9px;align-items:baseline}
+li.answered .qid{color:#14532d}
+.atext{color:#2c333b;margin-top:2px}
 </style><div class=wrap>
 <h1>ALWAYS ON &mdash; section 19 work items</h1>
 <div class=ctl>
@@ -341,6 +452,8 @@ button.ghost{background:#fff;color:#7a5c15}
 <thead><tr><th>Work group</th><th>Outstanding</th><th>Completed</th><th>Total</th>
 <th>Done</th><th>Items</th></tr></thead><tbody>@ROWS@</tbody></table></div>
 <div class=panel>@GRAPH@<div class=note>@HIST@</div></div>
+@UPDATES@
+@ANSWERS@
 @QUESTIONS@
 <script>
 // Save writes each non-empty answer to artifacts/dashboard/answers.json via a
@@ -458,6 +571,8 @@ button.ghost{background:#fff;color:#7a5c15}
             .replace("@ROWS@", "".join(rows))
             .replace("@GRAPH@", graph)
             .replace("@HIST@", hist)
+            .replace("@UPDATES@", updates)
+            .replace("@ANSWERS@", answered_panel)
             .replace("@QUESTIONS@", questions))
 
     os.makedirs(os.path.dirname(OUT), exist_ok=True)

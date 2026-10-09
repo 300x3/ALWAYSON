@@ -4,6 +4,39 @@ Work in `/ALWAYSON`. **Do not touch the shared tree's uncommitted files.** Local
 behind and dirty, with work belonging to other sessions — never rebase, stash, `checkout`,
 `clean` or `git add -A` it.
 
+## The dashboard is how the operator hears from you
+
+`http://127.0.0.1:8766/` is kept open, parked bottom-left of the main monitor by a KWin rule.
+It is served by `ao-dashboard.service` (`Restart=always`, enabled) and refreshed hourly by
+`ao-dashboard-refresh.timer`. **Post to it as you work — do not wait to be asked.**
+
+```bash
+python3 scripts/orchestration/dashboard-note.py "what you did"
+python3 scripts/orchestration/dashboard-note.py --who plat --level done "PLAT-03 closed with evidence"
+python3 scripts/orchestration/dashboard-note.py --who coordinator --level action "needs you now"
+python3 scripts/orchestration/dashboard-note.py --list 10
+```
+
+Levels: `info`, `done`, `warn`, `action`. Use `action` only for something the operator must look
+at immediately. Each note re-renders the page at once.
+
+The page has three panels. Keep them straight:
+
+1. **Team updates** — routine progress. Post here.
+2. **Decisions you have already given** — the operator's recorded authorisations from
+   `answers.json`. Sessions are expected to act on these; they are *not* waiting on anything.
+   All 31 historical decisions are answered (2026-10-04) and several are direct permission to
+   proceed, e.g. `PAY-01` "OK", `SEC-01` put the credentials in KDE Wallet, `OPS-30` set up the
+   pCloud KDE Wallet entry and the operator fills the password. Check this panel before you
+   report something as blocked.
+3. **Decisions needed from you** — only genuinely outstanding items. Derived from §19.1, so it
+   shrinks as items close. **An empty panel 3 does not mean nothing has been decided** — it means
+   nothing is currently blocked. Read panel 2 before saying the operator has not decided.
+
+Never post routine progress into the decisions panel, and never post a decision request as a
+plain `info` note — it would be read as status and missed.
+
+
 ## 1. Preflight
 
 ```bash
@@ -22,6 +55,40 @@ python3 scripts/orchestration/supervise.py watch
 ```
 
 Do not spawn all 11 until these two complete cleanly.
+
+### Models: free Cline ids, assigned per group — do not change them casually
+
+Revised 2026-10-08. Every group runs a **free Cline-provider model** chosen by `supervise.py`
+(`GROUP_MODEL`); `poolside/laguna-s-2.1:free` is retired. The assignment is evidence-based, not
+preference: all four Cline free ids were run through a real edit-and-run task on this host, three
+passed at `totalCost:0`, and `cline-free/muse-spark-1.3-contributor` **failed** (read files, edited
+nothing, timed out in iteration 2) so it is excluded.
+
+- `plat net field ops-a` → `cline-free/mimo-v2.6-flash`
+- `comm sim ops-b` → `cline-free/solar-mini4`
+- `sec ledger pay spec` → `cline-free/step-5-preview` (the approval-gated groups; a weaker model
+  here risks reporting "done" on work that was never actually changed)
+
+The three ids are separate quota buckets, so a spread-out assignment means one exhausted bucket
+costs at most its own groups. Do not "optimise" this by putting all eleven on the model you liked
+best — that rebuilds the single point of failure that killed the team before.
+
+**Verify the model actually ran, do not trust the spawn line:**
+
+```bash
+cat /tmp/ao-sessions/<group>/model                                  # requested
+tail -5 /tmp/ao-sessions/<group>/events.jsonl | grep -o '"model":{[^}]*}'   # actual
+```
+
+They must match. If they do not, delete `scripts/orchestration/__pycache__/` and respawn — a
+stale `.pyc` holds the old constants. A 404 naming a model means the id left the free promotion:
+re-read `curl -sS https://api.cline.bot/api/v1/ai/cline/recommended-models`, then reassign from a
+verified id after testing it. Never substitute a paid model, and never point a workgroup at the
+local nemotron — GPU time is reserved for the coordinator (~4.5 GiB of 8 GiB).
+
+Note the 2026-10-05 trap "`cline --json` ignores `--model`, edit globalState.json" is **retracted**
+and was wrong: `--model` is honoured in `--json` on 3.0.60 (measured). Do not edit
+`~/.cline/data/globalState.json` — that is the operator's own interactive config.
 
 ## 3. Run the rest
 
@@ -61,7 +128,7 @@ the sync. Then read its diff before restarting it.
 ## 4. After every group — the compiler pass
 
 Each session writes `agents/COORDINATION (README UPDATES)/proposals/<group>-<ITEM-ID>.md`. You merge them
-into `agents/COORDINATION (README UPDATES)/19-current-status-and-outstanding-work/section.md` §19.2 with the
+into the §19.2 rows of `README-ACTION_ITEMS/status-and-references.md` with the
 evidence, then:
 
 ```bash
