@@ -244,9 +244,10 @@ needs root and writes `/var/lib/systemd/linger/` — a host-level change, which
 README §4.1 rules 1 and 3 place with the operator. The stage reports the state
 and prints the exact command; it does not run it.
 
-**What I got wrong.** The checker's first revision reported
-`FAIL: linger is not enabled` — and exited 1 — for an account that **does not
-exist at all**. Measured: `loginctl show-user alwayson-ledger -p Linger` returns
+### A false FAIL is the worst kind of checker defect
+
+The checker's first revision reported `FAIL: linger is not enabled` — and exited 1 —
+for an account that **does not exist at all**. Measured: `loginctl show-user alwayson-ledger -p Linger` returns
 `Failed to look up user ... No such process`, but with `--value` it returns the
 literal string `unknown`, which the script compared against `yes`. And
 `/var/lib/systemd/linger/` is not proof of existence: `alwayson-ledger`,
@@ -511,9 +512,10 @@ so cannot be fetched unattended even in principle — a property of the vendors,
 not a gap in the provisioner, and the honest residue of OPS-17. Three (gh, bun,
 cline) are installable; the first two verify against a recorded `installed_sha256`.
 
-**What I got wrong.** The first revision tested "does this entry have a url?"
-**before** "is the file already installed?", and `continue`d out of the loop. The
-consequence, measured: `lm-studio`, `pcloud` and `nperf` were all reported
+### Check presence before reachability
+
+The first revision tested "does this entry have a url?" **before** "is the file already
+installed?", and `continue`d out of the loop. The consequence, measured: `lm-studio`, `pcloud` and `nperf` were all reported
 `MANUAL ... a human must place this file` while **all three exist on disk and all
 three hash to the manifest's own recorded `sha256`**. The report told the operator
 to go fetch files that were already installed and verified — "cannot be fetched
@@ -795,7 +797,7 @@ an executor**. Regenerating it is one `./scripts/build-update/refresh-install-lo
 
 **A trap worth recording for the next agent.** The validator defaults `AO_ROOT`
 to `/ALWAYSON`, so running it from a worktree validates **the live main-repo
-plan, not your worktree's** — silently, with a plausible-looking result. I hit
+plan, not your worktree's** — silently, with a plausible-looking result. This trap is easy to hit
 this: a first run reported 199 items and schema 1 while the worktree plan held
 224 items and schema 2. Always pass `AO_ROOT=$PWD`, and sanity-check the
 `plan :` line in the output against the file you meant. The same class of bug
@@ -966,7 +968,7 @@ path specifically, and that the drill-down survives the print stylesheet,
 because a PDF that hides it reintroduces the same dead end. Member names are
 HTML-escaped: they come from `.desktop` files on disk and are not trusted.
 
-The two apt roll-ups were still bare counts after that first pass — I checked
+The two apt roll-ups were still bare counts after that first pass — checked
 the rendered output rather than trusting the code, and `Ubuntu archive packages`
 and `ROS 2 lyrical (whole train)` carried no members. Both lists are already in
 `inv`, so both now attach theirs; the ROS one matters most because the train is

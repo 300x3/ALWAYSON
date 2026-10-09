@@ -216,7 +216,8 @@ blindly. `sqlite3` reports corruption as `DatabaseError('file is not a
 database')` or `'database disk image is malformed'` — sentences containing none
 of the usual "…failed" markers.
 
-**What I got wrong.** Because the fault list only matched `failed` /
+**A fault list that matches only some failure words is a false-negative generator.** Because the
+list matched only `failed` /
 `not a sqlite file` / `header read failed` / `open failed` / `read failed` /
 `snapshot failed` / `integrity`, a **corrupt database was classified `excluded`**
 — that is, an unreadable store was recorded as a *deliberate operator

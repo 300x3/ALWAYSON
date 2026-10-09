@@ -215,9 +215,9 @@ done
 public-facing egress to 300x3.com, and this row used to repeat that. The
 deployed unit and network file say otherwise: the network is `Internal=true`
 with no route off the host, and it serves the operator's own browser over
-loopback. ES.2 is not my file and I have not edited it; the divergence is
+loopback. ES.2 is not owned by this section and has not been edited; the divergence is
 recorded in `proposals/net-NET-05.md` for the executive-summary session and the
-operator. I corrected only my own row, to match the deployed unit.
+operator. Only the row this section owns was corrected, to match the deployed unit.
 
 `10.89.11.0/24` is deliberately unallocated and is reserved for
 `ao-egress-community`, which is **retired**. Verified 2026-10-03: no podman
@@ -509,10 +509,11 @@ absence of rate limiting is a latent gap rather than a live exposure. It must be
 implemented *before* any tunnel or relay route is enabled, or that enablement
 should be refused.
 
-**Not fixed here.** `scripts/payment/` and `quadlet/payment/` are not my files,
-and this is payment processing: an explicit stop condition in my brief and
-README §4.1 rules 14 and 15. I measured, corrected my own row, and stopped. I
-have not edited the adapter, the unit, the relay, or the credential.
+**Not fixed here.** `scripts/payment/` and `quadlet/payment/` are not owned by this
+section, and this is payment processing: an explicit stop condition under README §4.1
+rules 14 and 15. The measurement was taken, the row this section owns was corrected, and
+work stopped there. **The adapter, the unit, the relay and the credential must not be
+edited without explicit operator approval.**
 
 #### 5.2.3 The three `Internal=false` networks are a prohibition boundary, and §4.3 now says which rule governs them
 
@@ -532,9 +533,9 @@ instances of one thing. §5.1 group A already splits them:
 The distinction matters because §4.3.2 said *"Any workload network to the public
 internet"* with no exception, which would have prohibited two of these three by
 name. §4.3.4 gap 1 records that and restates the rule as the outbound
-restriction that is actually intended and actually held. **I have not changed
-the isolation posture of any network** — no network was created, removed,
-re-CIDRed, or re-flagged; the registry is untouched.
+restriction that is actually intended and actually held. **The isolation posture of no
+network was changed** — no network was created, removed, re-CIDRed, or re-flagged; the
+registry is untouched.
 
 The remaining honesty point, unchanged and still true: **non-internal means
 anything else attached can reach the internet.** `ao-sales` and

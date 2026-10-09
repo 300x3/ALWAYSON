@@ -156,7 +156,7 @@ Rows 6 and 9 are blocked on an external account or licence confirmation.
 
 This is recorded as **OPEN**. Building rows 2, 7 or 8 would require opening a
 public ingress, which is a §4.1 rule 6 stop condition and is reserved to the
-operator; this session built none of them. This extends, and does not contradict,
+operator; none of them was built. This extends, and does not contradict,
 the 2026-10-01 note in PAY-05: the three preconditions recorded there still hold,
 and the remaining six rows are blocked for the per-row reasons above.
 
@@ -225,15 +225,14 @@ real PayPal `PAYMENT.CAPTURE.COMPLETED` payload the money is at
 comes back `None` and the amount is silently lost. For Coinbase the
 money-bearing reference is `charge.id`, which `normalize()` also does not read;
 it falls through to the top-level **event** id, so the adapter records the event
-that arrived rather than the charge being reconciled. A 2026-10-04 correction to
-an earlier statement in this session: that reference is **not** empty, because a
-real Coinbase payload does carry a top-level `id`, so the adapter does not reject
-it with 400. The reference it records is simply the wrong one, which breaks
-reconciliation without looking like a failure.
+that arrived rather than the charge being reconciled. **Correction 2026-10-04:** that
+reference is **not** empty, because a real Coinbase payload does carry a top-level `id`, so
+the adapter does not reject it with 400. The reference it records is simply the wrong one,
+which breaks reconciliation without looking like a failure.
 
 These are payment-verification defects. Correcting them changes how money-bearing
 events are accepted, so the fix is prepared and reported for operator approval
-rather than applied by this session.
+rather than applied here.
 
 ### 7.2.1 Prepared verifier correction, proven offline 2026-10-04
 
@@ -285,7 +284,7 @@ DRY-RUN (no DSN): event provider=coinbase type=charge:confirmed
 
 **This is prepared, not applied.** Approving it changes which money-bearing
 events are trusted to create business state — README §4.1 rule 14 and the first
-stop condition of this session's brief. Deployment also needs
+stop condition. Deployment also needs
 `PAYPAL_WEBHOOK_ID` and `COINBASE_WEBHOOK_SECRET` as real configuration, and
 `COINBASE_WEBHOOK_SECRET` is currently provisioned but read by nothing. The
 operator decision requested is narrower than "fix the verifier": it is whether to
@@ -364,8 +363,7 @@ http=401
 
 That 401 is *correct* only by accident: the Coinbase path is gated by
 `verify_paypal()`, so it rejects a bad signature and would equally reject a good
-Coinbase signature. `payment_provider_events` remains at **0 rows**, so no probe
-this session created business state.
+Coinbase signature. `payment_provider_events` remains at **0 rows**, so no probe created business state.
 
 **Conclusion unchanged:** PAY-02's acceptance criterion is not met. Nothing in
 this section was applied to the live adapter.
@@ -426,7 +424,7 @@ the ingest-side verifier must hash the manifest with those two fields removed.**
 
 Submission to `ao-ledger-ingest` is a separate gate and is **not** claimed here:
 the gateway is not deployed and `submit-ledger-event.sh` exits 3 at staging, so
-nothing left the host during this session.
+nothing left the host.
 
 **The Sales API does not exist.** §7.3 names a "Sales API and sales PostgreSQL"
 as the component that turns a verified event into order, receipt, fulfillment and
@@ -584,8 +582,9 @@ cleanly on the older file and has not been restarted since. The running adapter'
 DSN password does match the current wallet value (identical SHA-256 prefix), so
 the database path is consistent; the three webhook secrets simply are not loaded.
 
-**Not remediated by this session.** Rotating a live password, re-scoping a role, or
-restarting a payment unit are §4.1 rule 14 and rule 12 stop conditions. The
+**Not remediated here.** Rotating a live password, re-scoping a role, or restarting a
+payment unit are §4.1 rule 14 and rule 12 stop conditions and require explicit operator
+approval. The
 remediation proposed for operator approval is unchanged in shape: rotate
 `payment-db-password` to a value distinct from `sales-db-password`, grant a
 `sales_api_role` limited to the INSERT the adapter performs, and restart

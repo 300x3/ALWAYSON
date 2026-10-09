@@ -131,7 +131,7 @@ Pi5. PEOPLE-RADIO has no relationship to the drone.
 > 2026-10-05 entry was written on 2026-10-03/04 and **two of its claims are now known to be
 > wrong**: (1) the `umsgpack` fault is *not* demonstrably historical — the count quoted here
 > **reproduces in no retained log today**, so the evidence it rested on was rotation-fragile;
-> (2) the causal hypothesis I withdrew below is **re-supported** by fresh data. The
+> (2) the causal hypothesis withdrawn below is **re-supported** by fresh data. The
 > 2026-10-05 entry supersedes both. FIELD-05 is reopened.
 
 The `umsgpack` error named in FIELD-05 was classified as **historical and resolved**. It is not
@@ -162,7 +162,7 @@ meshchatx.log:   umsgpack=0  'No module named'=0
 `No module named 'umsgpack'` — the exact string quoted below — **occurs in no retained log.**
 The segment holding those errors has been overwritten by rotation since 2026-10-04. **Reason the
 earlier claim was wrong: a count taken from a rotated log filename is not durable evidence,
-and I treated it as though it were.** A grep count of 0 in the *current* file proves only that
+and is easily read as though it were.** A grep count of 0 in the *current* file proves only that
 the current file has none, which is a much weaker claim than "historical and resolved".
 
 All 12,364 occurrences were the identical line, and the block terminated immediately before a
@@ -210,7 +210,7 @@ $ grep -ch 'unrecoverable error' ~/.reticulum-meshchatx/logs/meshchatx.log{,.1,.
 ```
 
 **2026-10-05: the `0` on line two of that block was TRUE when written, and is no longer true.**
-It now reads **4**. The logs are binary to `grep`, so I re-checked with `grep -ac` to rule out a
+It now reads **4**. The logs are binary to `grep`, so the figure is re-checked with `grep -ac` to rule out a
 counting artefact — `grep -c` and `grep -ac` both return 4, so the increase is real, not a
 truncation effect. The four are new occurrences dated today; the withdrawal below was sound on
 2026-10-04 and is superseded by §9.2.3.1 because the association it denied has since held
@@ -224,7 +224,7 @@ The conclusion of the paragraph above still stands, and in fact hardens: a link 
 every *seven seconds* is even less a link one could prove a midflight mission update over.
 Only the period was wrong, not the judgement.
 
-**The causal hypothesis above is also not supported, and I withdraw it.** It rested on
+**The causal hypothesis above is also not supported, and is withdrawn.** It rested on
 "every occurrence is adjacent to a teardown". That is true of the 13 `[Errno 9]` persist
 failures, but those were in `meshchatx.log.1`/`.3`; the *current* log has 994 teardowns and
 **zero** persist failures, so the association does not hold in the log where the fault is
@@ -281,10 +281,10 @@ were wrong with it, and the second is the one that matters operationally.
 **1. The `umsgpack` evidence does not survive.** The 12,364 count and the string
 `No module named 'umsgpack'` reproduce in **no retained log** (counts above). The classification
 "historical packaging defect, never recurred" rested entirely on a count taken from a rotated
-filename, and rotation has since destroyed the segment it referred to. I cannot now prove the
+filename, and rotation has since destroyed the segment it referred to. It cannot now be proved from the current file; the
 `umsgpack` fault ever stopped, only that its evidence is gone.
 
-**2. The persist fault is still happening, today.** On 2026-10-04 I withdrew the
+**2. The persist fault is still happening, today.** A withdrawal recorded on 2026-10-04 covered the
 shared-file-descriptor explanation, on the grounds that the current log had 994 `DRONE-RADIO`
 teardowns and **zero** persist failures. That reading was correct on the day — but the zero was a
 *count from an earlier point in a live log*, and the current log is still being appended to. It
@@ -319,33 +319,37 @@ oldest first: `.3` 2, `.2` 13, `.1` 9, current 4.
 **Why this is the same defect and not a new one.** `[Errno 9] Bad file descriptor` on a persist
 write, firing in the same second as an interface teardown, is consistent with **the ratchet
 state file's descriptor being closed as a side effect of the `DRONE-RADIO` reset** — the
-hypothesis I withdrew. The withdrawal was sound on the evidence available on 2026-10-04; it is
-superseded because that evidence was a snapshot of a file still being written to. It is
-reinstated as the **leading hypothesis, not a proven mechanism**: I have not traced the code
-path, and no stack trace is logged.
+hypothesis withdrawn on 2026-10-04. That withdrawal was sound on the evidence available at
+the time; it is superseded because that evidence was a snapshot of a file still being
+written to. The hypothesis is reinstated as the **leading hypothesis, not a proven
+mechanism**: the code path has not been traced and no stack trace is logged.
 
 **The operational consequence, which is the point.** The persistence subsystem is failing daily
 and **downstream of the same broken board** that blocks FIELD-01/02/03/06. One board repair may
-clear both. That is a stronger result than the closure I gave on 2026-10-04, where I noted this
+clear both. That is a stronger result than the closure recorded on 2026-10-04, which noted this
 error and then wrote it off as "a different bug, not covered by closing FIELD-05" — which left a
 real daily fault with no open item against it.
 
-**Why I got it wrong, in the form that generalises.** Two different mistakes, both from trusting
-a count more than its scope. First, the `umsgpack` figure came from a **rotated** log filename, and
-rotation has since destroyed the segment it described — a `grep -c` against a file that will be
-overwritten answers "what is in this file now", which I read as "what is true of the fault". The
-tell was available and I recorded it: the count lived in `meshchatx.log.2` in one pass and
-`meshchatx.log.3` in the next. **A count that moves when you rename the file is not measuring the
-fault.** Second, the "zero persist failures" I used to withdraw the teardown hypothesis was a
-count of a **live, still-growing** log — correct that day, superseded today, and I nearly
-dismissed today's four as a measurement artefact.
+### A count must be trusted only as far as its scope
 
-**On the binary-grep worry, checked rather than assumed:** these logs *are* binary to `grep`
-(`binary file matches`), which is a real trap for anyone counting here. I tested whether it
-explained the discrepancy and it does not — `grep -c` and `grep -ac` both return 4 on the current
-log. So use `grep -a` for safety, but the numbers above are not a truncation effect.
+Two distinct mistakes arise from trusting a count more than its scope:
 
-**Nothing was changed.** Read-only inspection. No service restart, no file touched.
+1. **A count taken from a rotated log filename.** Rotation destroys the segment it
+   described, so a `grep -c` against a file that will be overwritten answers "what is
+   in this file now" — not "what is true of the fault". The tell is that the count
+   moves when the file is renamed: the `umsgpack` figure lived in `meshchatx.log.2` in
+   one pass and `meshchatx.log.3` in the next. **A count that moves when you rename
+   the file is not measuring the fault.**
+2. **A count of a live, still-growing log**, read as a stable zero. It is correct only
+   on the day it was taken and is superseded later; today's non-zero result must not
+   be dismissed as a measurement artefact.
+
+**On the binary-grep worry, checked rather than assumed:** these logs *are* binary to
+`grep` (`binary file matches`), which is a real trap for anyone counting here. It does
+**not** explain the discrepancy — `grep -c` and `grep -ac` both return 4 on the current
+log. Use `grep -a` for safety, but a count difference here is not a truncation effect.
+
+**Read-only inspection.** No service restart, no file touched.
 
 ## 9.3 Operational Security
 
@@ -402,7 +406,7 @@ Reachability is proven by the successful TCP connects above; the *mechanism* (th
 it rather than merely not being loaded) remains unverified from an unprivileged session.
 
 **Re-verified 2026-10-04 15:09 — the decision stands, the caveat is now better characterised.**
-Both connects still succeed and the listener is unchanged. I also confirmed the blocker is a
+Both connects still succeed and the listener is unchanged. The blocker is also confirmed as a
 **privilege wall and not a missing file**, which sharpens what is left to check:
 
 ```bash
@@ -425,7 +429,7 @@ So there are **two** distinct things a privileged reviewer must supply, not one:
 
 Point 2 is the more useful finding. Even with full root, "reviewed against field-domain firewall
 policy" could not be completed as written, because the policy is unwritten. Closing that gap is
-a documentation task in a section this session does not own; it is reported rather than edited.
+a documentation task in a section that does not own it; it is reported rather than edited.
 
 ## 9.4 Radio Profile Requirements
 
@@ -538,7 +542,7 @@ factor of ~1.3 (PEOPLE) to ~2.6 (DRONE). This is a documentation mismatch, not a
 fault, and **not urgent**.
 
 **Correction to an earlier draft of this table.** It first read 0.240 s / 1,502 packets per
-hour, from a spreadsheet-style estimate that I could not reproduce. The numbers above replace
+hour, from a spreadsheet-style estimate that could not be reproduced. The numbers above replace
 it. The error mattered in principle — a wrong airtime figure is exactly the kind of number
 that gets quoted into a regulatory argument — so it is recorded here rather than quietly
 swapped.
@@ -602,7 +606,7 @@ architecture. Approved wording is:
 
 This rule is applied in this section, and both radio profiles already carry
 `frequency_plan: "US915 hybrid-channel raw LoRa (NOT LoRaWAN)"`. One contradiction remains
-outside the sections this session owns and is reported rather than edited:
+outside the owning section and is reported rather than edited:
 `es-executive-summary/section.md:11` calls `PEOPLE-RADIO` a "LoRaWAN for communication only"
 path, and §9.2.2 below inherited that phrasing. Those lines belong to their owning sessions.
 
@@ -788,7 +792,7 @@ $ timeout 5 bash -c 'exec 3<>/dev/tcp/192.168.87.135/4242' && echo lan-OK
 lan-OK
 ```
 
-**The firewall mechanism is still unverifiable from here**, and I confirmed this is a privilege
+**The firewall mechanism is still unverifiable from an unprivileged account**, and this is a privilege
 wall rather than a missing file — there is no field-domain firewall policy to review at all:
 
 ```bash
@@ -802,10 +806,10 @@ $ find /tmp/ao-sessions/wt-field/config -iname '*firewall*' -o -iname '*ufw*'
 (no output)
 ```
 
-**One measurement note, and a correction to my own first claim about it.** `grep` reports
-`meshchatx.log.2` as a **binary file**, which I initially took to mean a bare `grep -c` would
+**One measurement note, and a correction to the first claim made about it.** `grep` reports
+`meshchatx.log.2` as a **binary file**, which was initially taken to mean a bare `grep -c` would
 silently under-count it and that quoted totals would disagree between sessions. **That is
-wrong, and I checked it before leaving it in the record:**
+wrong, and that was checked before the figure was left in the record:**
 
 ```bash
 $ for f in ~/.reticulum-meshchatx/logs/meshchatx.log{,.1,.2,.3}; do
@@ -823,9 +827,9 @@ source of disagreement between sessions is the genuine one: **the current log gr
 per 7 seconds**, so any total is stale within minutes. Quote a total with its timestamp or
 quote none.
 
-Reason I got it wrong: I inferred a counting error from an unrelated warning line instead of
+The reasoning error: a counting error was inferred from an unrelated warning line instead of
 running the comparison. The `-a` flag was already the right instinct for *reading* the file, but
-I projected it onto `-c` where it makes no difference.
+Applying it to `-c` as well makes no difference.
 
 ### 9.5.8 Second re-verification 2026-10-04 15:59 — all six blockers still live
 
@@ -913,9 +917,9 @@ spreadingfactor = 7
 txpower = 17
 ```
 
-**Two corrections to how I have been quoting these totals.** First, §9.5.7's own advice — *quote
-a total with its timestamp or quote none* — is what I have done here; the 14,281 figure is only
-true at 15:59 and is already wrong. Second, my first pass in this pass used `grep -ah` on the
+**Two corrections to how these totals are quoted.** First, §9.5.7's own advice — *quote
+a total with its timestamp or quote none* — applies here: the 14,281 figure is only
+true at 15:59 and is already wrong. Second, an earlier pass used `grep -ah` on the
 glob while §9.5.7 used a per-file loop; the two agree (`4063+7800+2389+29 = 14281`), so the
 totals are not sensitive to that choice, but the **`-a` flag is** — see §9.5.7, where a file
 that `grep` calls binary is still counted correctly without it.
@@ -943,7 +947,7 @@ meshchatx.log    [2026-10-04 07:25:38] .. [2026-10-04 17:52:43]  detect-fail=515
                                                          # total 16,240 (was 14,281 at 15:59)
 ```
 
-**New this pass — the port opens, proved by watching the file descriptors.** §9.5.2 argued
+**The port does open, proved by watching the file descriptors.** §9.5.2 argued
 the port opens because the error is `Errno 9` rather than `EACCES`/`EBUSY`. That is
 inference from an error string. It can now be observed directly: `DRONE-RADIO`'s descriptor
 is repeatedly created and destroyed on the retry cycle, while `PEOPLE-RADIO`'s descriptor is
@@ -1000,17 +1004,16 @@ current log (0 lines, zero errors). There is still zero RF telemetry — `RSSI`,
 is still absent. The live radio settings are unchanged (915 MHz / 125 kHz / SF7 / 17 dBm and
 917 MHz / 250 kHz / SF7 / 17 dBm), so §9.4.1's profile-vs-live comparison stands.
 
-#### What I got wrong this pass, and the reason
+### A device node's `mtime` measures access, not enumeration
 
-**I announced a hardware event that had not happened.** The first `ls -la /dev/ttyUSB*` in
-this pass showed `Oct 4 17:42` on both nodes, at almost exactly the moment I was logging in,
-and I recorded it as "the USB devices were re-enumerated at 17:42 today — right now". That
-would have been a significant claim: a fresh enumeration would have meant someone had
-re-plugged the hardware and the radio still failed.
+An earlier pass read `Oct 4 17:42` from `ls -la /dev/ttyUSB*` and recorded it as "the USB
+devices were re-enumerated at 17:42 today". That would have been a significant claim — a
+fresh enumeration would have meant someone had re-plugged the hardware and the radio
+still failed — and it was false.
 
-It was false. `mtime` on a device node moves when the node is **accessed**, and my own
-commands were reading them. `ctime` — the creation/change time — is what answers this
-question, and it has not moved since 2026-10-01 23:53:
+**`mtime` on a device node moves when the node is *accessed***, and the inspecting
+commands themselves were reading it. **`ctime` is the field that answers an enumeration
+question**, and it has not moved since 2026-10-01 23:53:
 
 ```bash
 $ stat -c '%n mtime=%y ctime=%z' /dev/ttyUSB0 /dev/ttyUSB1
@@ -1018,21 +1021,21 @@ $ stat -c '%n mtime=%y ctime=%z' /dev/ttyUSB0 /dev/ttyUSB1
 /dev/ttyUSB1 mtime=2026-10-04 17:51:20 ctime=2026-10-01 23:53:34
 ```
 
-**Reason: I read a timestamp field without knowing what it measured, and the coincidence
-with my own session start made the wrong reading feel like a discovery.** The generalisable
-form, which joins the rotated-log-filename lesson in FIELD-05: *a number that appears to
-corroborate what you expected is the most dangerous kind of evidence here.* Verify that the
-field means what you think it means before you build a finding on it.
+**The generalisable rule: a number that appears to corroborate what was expected is the
+most dangerous kind of evidence.** The wrong reading here felt like a discovery because it
+coincided with the session's own start time. **Verify that a field means what you think it
+means before building a finding on it** — this joins the rotated-log-filename lesson in
+FIELD-05.
 
-**Nothing was touched.** No radio, no serial port, no firewall, no config file, no restart of
-the Reticulum stack. All six blockers in §9.5.5 remain live.
+**Nothing may be touched.** No radio, no serial port, no firewall, no config file, no
+restart of the Reticulum stack. All six blockers in §9.5.5 remain live.
 
 ### 9.5.10 Fourth re-verification 2026-10-05 07:56 — the `DRONE-RADIO` fault narrows to the
 ### board's own firmware, with every hardware alternative excluded
 
 §9.5.2 concluded the fault "is the radio board, not the port, the symlink or permissions". That
-conclusion was reached without enumerating the remaining hardware causes, and **this pass closes
-that gap.** The exclusion is by measurement, and it is what an operator needs in order to know
+conclusion was reached without enumerating the remaining hardware causes, and **this
+re-verification closes that gap.** The exclusion is by measurement, and it is what an operator needs in order to know
 whether to reseat a cable, replace a board, or stop looking at this host at all.
 
 `DRONE-RADIO` is still down with zero successful detections and the failure signature is
@@ -1123,10 +1126,10 @@ damaged or charge-only cable, or the board needing a power cycle — and it is *
 or repairable from this host.** `DRONE-RADIO` is correctly configured and correctly addressed;
 there is nothing in the software configuration to change.
 
-**This is a stop condition, and I stopped.** "Live radio, serial or network configuration" is on
-the operator-approval list. I did not `udevadm trigger`, did not cycle the USB bus, did not open
+**This is a stop condition and must stop here.** "Live radio, serial or network configuration" is on
+the operator-approval list. No `udevadm trigger`, no USB bus cycle, no opening of
 either port for a manual probe, and did not restart the Reticulum stack. The MAC in
-`radio-ids.txt` dates from 2026-09-21 and I did not re-read it from hardware, because that means
+`radio-ids.txt` dates from 2026-09-21 and it was not re-read from hardware, because that means
 opening a serial port the running service owns.
 **Nothing was touched.** No radio, no serial port, no firewall, no config file. Every blocker in
 §9.5.5 still requires physical repair or operator action.
@@ -1167,11 +1170,15 @@ serial is unique" is closed by this.
 firewall change, no config edit, no restart. `PEOPLE-RADIO` is up with zero error lines today
 (`grep -c 'PEOPLE-RADIO'` on the current log → `0`).
 
-**What I got wrong this pass.** I queried `journalctl -k --since '2026-10-04'` and `dmesg` to test
-whether the USB link had flapped, and got **empty output from both** — which reads exactly like
-"nothing happened". It is not evidence of that. `dmesg` is unreadable for this user, and the
-`--since` window genuinely contained no kernel messages, while the *unfiltered* query showed the
-eight lines that do exist, all from Oct 01. The lesson is the one from FIELD-05's rotated logs and
-my own §9.5.9 timestamp error, now for the third time in this section: **an empty result from a
-query whose scope I did not verify is not a negative finding.** I got the right answer only after
-running the unfiltered query and reading what it returned.
+### An empty result from an unverified query scope is not a negative finding
+
+`journalctl -k --since '2026-10-04'` and `dmesg` both return **empty output** when testing
+whether the USB link flapped, which reads exactly like "nothing happened". It is not
+evidence of that: `dmesg` is unreadable for this user, and the `--since` window genuinely
+contained no kernel messages — while the *unfiltered* query shows the eight lines that do
+exist, all from Oct 01.
+
+**This is the third instance of one failure in this section** (after FIELD-05's rotated logs
+and the §9.5.9 timestamp error): an empty result from a query whose scope was not verified is
+not a negative finding. **Run the unfiltered query and read what it returns before
+recording an absence.**

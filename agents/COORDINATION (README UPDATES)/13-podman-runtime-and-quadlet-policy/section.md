@@ -94,7 +94,7 @@ $ ls -la /var/lib/containers/storage/ | head -4
 -rw-r--r-- 1 root root 114688 Sep 30 20:26 db.sql          # world-READABLE
 drwx------ 2 root root   4096 Aug 26 19:13 overlay-images  # the 0700 parts are the CHILDREN
 $ stat -c '%A %n' /var/lib/containers/storage/overlay-images/
-drwx------                                                 # <- what I generalised upward
+drwx------                                                 # <- generalised upward from here
 ```
 
 So the **top level and `db.sql` are readable by uid 1000 with no `sudo` at all**, and the store
@@ -154,7 +154,8 @@ distinct image IDs and is fully enumerable by the operator — measured 2026-10-
 
 **Correction, 2026-10-04 17:05: "of which 50 are named" was wrong — the figure is 30.** The `100`
 count is right and reproduces exactly, but the breakdown attached to it was written without being
-measured. `--quiet` emits bare image IDs, so it cannot answer the naming question at all; I had
+measured. `--quiet` emits bare image IDs, so it cannot answer the naming question at all; the
+image-name-to-digest mapping had to
 to ask it with `--format`:
 
 ```

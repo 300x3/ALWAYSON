@@ -196,12 +196,14 @@ Three consequences, all measured:
    routes out. The reachability that does exist is specific to the two containers that also
    hold `ao-reporting-egress`, and it is an egress-NAT fact, not an `ao-admin` fact.
 
-**What I got wrong earlier, and why.** This section previously described the reporting bridge
-as the container-to-host-PostgreSQL mechanism and cited §3.3.0.1 for it without checking what
-address it bound. The error class is assuming a mechanism from a name: "reporting bridge" +
-"ao-admin" implied the Podman gateway, and I never ran `ss -ltnp` to see the actual bind
-address. The gateway it claims to expose and the address it exposes differ by two subnets and
-an entire security boundary.
+### Never assume a mechanism from a name
+
+An earlier revision of this section described the reporting bridge as the
+container-to-host-PostgreSQL mechanism and cited §3.3.0.1 for it without checking what
+address it bound. The error class is **assuming a mechanism from a name**: "reporting
+bridge" + "ao-admin" implied the Podman gateway, and no `ss -ltnp` was run to see the
+actual bind address. **The gateway a name claims to expose and the address it exposes
+can differ by two subnets and an entire security boundary.**
 
 **Decision (operator, 2026-09-30): the collector runs on the HOST and pushes into
 `a_fab`.** The host already reaches the equipment LAN. A host-side collector polls each
@@ -341,10 +343,10 @@ and a security argument that assumes it is would be wrong by three. The `Interna
 guarantee that §3.3.0.1 relies on — no default route, no NAT, no way off the subnet — holds
 for `ao-fabrication` and the ten others, and **not** for these three.
 
-**Correction to my own text, immediately after writing it.** The first draft of this
-paragraph said the block was "contiguous and gap-free" and that `10.42.0.0/24` was the only
-non-`ao-` addressing on the host. **Both statements are wrong**, and I am recording that
-because they are the kind of claim that survives into someone else's security argument.
+**Two claims in the first draft of this paragraph were wrong, and the correction is
+recorded because it is the kind of claim that survives into someone else's security
+argument.** The block was described as "contiguous and gap-free" and `10.42.0.0/24` as
+the only non-`ao-` addressing on the host. Neither held:
 
 1. The block is **not** gap-free. Fourth octet counting is misleading here because every
    subnet is `10.89.<n>.0/24`, so the varying octet is the **third**:
@@ -372,10 +374,12 @@ inet 169.254.248.253/16 scope link   noprefixroute  eno1
 `10.42.0.0/24` is the wired equipment LAN on `eno1`; `192.168.87.0/24` is a **Wi-Fi**
 network on `wlp3s0`, and the `169.254.0.0/16` link-local is autoconfigured.
 
-**Correction to that correction — the Wi-Fi address is not undocumented.** I wrote that §3
-describes the host as having only the equipment LAN, and having just recompiled the README I
-checked whether that was true elsewhere in the document rather than only in my own section.
-It is not: the Wi-Fi address appears in at least two other sections.
+**Correction to the correction — the Wi-Fi address is not undocumented.** A preceding
+revision stated that §3 describes the host as having only the equipment LAN. Checking that
+against the rest of the document rather than only against this section shows it is
+false: **the Wi-Fi address appears in at least two other sections.** A negative claim
+about what a document contains must be checked across the whole document, not only in
+the section making the claim.
 
 ```
 README.md:2173  | Host address | `192.168.87.135/24` on `wlp3s0` |
@@ -387,7 +391,7 @@ So the accurate statement is narrower: the Wi-Fi interface is documented elsewhe
 not a gap in the project record — a meaningfully different thing, and the difference
 matters for whether anyone needs to act. MeshChatX binding `0.0.0.0` while the host holds a
 Wi-Fi address looks like a genuine exposure question, but it belongs to the COMM/NET groups
-and I am recording the pointer rather than opening it.
+and the pointer is recorded here rather than the question opened.
 
 The substantive point stands unchanged: `Internal=true` constrains a *container's* view, and
 nothing in it constrains what the host's own interfaces reach. §3.3.0.1's "no route off the

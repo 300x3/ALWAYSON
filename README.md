@@ -606,12 +606,14 @@ Three consequences, all measured:
    routes out. The reachability that does exist is specific to the two containers that also
    hold `ao-reporting-egress`, and it is an egress-NAT fact, not an `ao-admin` fact.
 
-**What I got wrong earlier, and why.** This section previously described the reporting bridge
-as the container-to-host-PostgreSQL mechanism and cited §3.3.0.1 for it without checking what
-address it bound. The error class is assuming a mechanism from a name: "reporting bridge" +
-"ao-admin" implied the Podman gateway, and I never ran `ss -ltnp` to see the actual bind
-address. The gateway it claims to expose and the address it exposes differ by two subnets and
-an entire security boundary.
+### Never assume a mechanism from a name
+
+An earlier revision of this section described the reporting bridge as the
+container-to-host-PostgreSQL mechanism and cited §3.3.0.1 for it without checking what
+address it bound. The error class is **assuming a mechanism from a name**: "reporting
+bridge" + "ao-admin" implied the Podman gateway, and no `ss -ltnp` was run to see the
+actual bind address. **The gateway a name claims to expose and the address it exposes
+can differ by two subnets and an entire security boundary.**
 
 **Decision (operator, 2026-09-30): the collector runs on the HOST and pushes into
 `a_fab`.** The host already reaches the equipment LAN. A host-side collector polls each
@@ -751,10 +753,10 @@ and a security argument that assumes it is would be wrong by three. The `Interna
 guarantee that §3.3.0.1 relies on — no default route, no NAT, no way off the subnet — holds
 for `ao-fabrication` and the ten others, and **not** for these three.
 
-**Correction to my own text, immediately after writing it.** The first draft of this
-paragraph said the block was "contiguous and gap-free" and that `10.42.0.0/24` was the only
-non-`ao-` addressing on the host. **Both statements are wrong**, and I am recording that
-because they are the kind of claim that survives into someone else's security argument.
+**Two claims in the first draft of this paragraph were wrong, and the correction is
+recorded because it is the kind of claim that survives into someone else's security
+argument.** The block was described as "contiguous and gap-free" and `10.42.0.0/24` as
+the only non-`ao-` addressing on the host. Neither held:
 
 1. The block is **not** gap-free. Fourth octet counting is misleading here because every
    subnet is `10.89.<n>.0/24`, so the varying octet is the **third**:
@@ -782,10 +784,12 @@ inet 169.254.248.253/16 scope link   noprefixroute  eno1
 `10.42.0.0/24` is the wired equipment LAN on `eno1`; `192.168.87.0/24` is a **Wi-Fi**
 network on `wlp3s0`, and the `169.254.0.0/16` link-local is autoconfigured.
 
-**Correction to that correction — the Wi-Fi address is not undocumented.** I wrote that §3
-describes the host as having only the equipment LAN, and having just recompiled the README I
-checked whether that was true elsewhere in the document rather than only in my own section.
-It is not: the Wi-Fi address appears in at least two other sections.
+**Correction to the correction — the Wi-Fi address is not undocumented.** A preceding
+revision stated that §3 describes the host as having only the equipment LAN. Checking that
+against the rest of the document rather than only against this section shows it is
+false: **the Wi-Fi address appears in at least two other sections.** A negative claim
+about what a document contains must be checked across the whole document, not only in
+the section making the claim.
 
 ```
 README.md:2173  | Host address | `192.168.87.135/24` on `wlp3s0` |
@@ -797,7 +801,7 @@ So the accurate statement is narrower: the Wi-Fi interface is documented elsewhe
 not a gap in the project record — a meaningfully different thing, and the difference
 matters for whether anyone needs to act. MeshChatX binding `0.0.0.0` while the host holds a
 Wi-Fi address looks like a genuine exposure question, but it belongs to the COMM/NET groups
-and I am recording the pointer rather than opening it.
+and the pointer is recorded here rather than the question opened.
 
 The substantive point stands unchanged: `Internal=true` constrains a *container's* view, and
 nothing in it constrains what the host's own interfaces reach. §3.3.0.1's "no route off the
@@ -1388,9 +1392,9 @@ done
 public-facing egress to 300x3.com, and this row used to repeat that. The
 deployed unit and network file say otherwise: the network is `Internal=true`
 with no route off the host, and it serves the operator's own browser over
-loopback. ES.2 is not my file and I have not edited it; the divergence is
+loopback. ES.2 is not owned by this section and has not been edited; the divergence is
 recorded in `proposals/net-NET-05.md` for the executive-summary session and the
-operator. I corrected only my own row, to match the deployed unit.
+operator. Only the row this section owns was corrected, to match the deployed unit.
 
 `10.89.11.0/24` is deliberately unallocated and is reserved for
 `ao-egress-community`, which is **retired**. Verified 2026-10-03: no podman
@@ -1682,10 +1686,11 @@ absence of rate limiting is a latent gap rather than a live exposure. It must be
 implemented *before* any tunnel or relay route is enabled, or that enablement
 should be refused.
 
-**Not fixed here.** `scripts/payment/` and `quadlet/payment/` are not my files,
-and this is payment processing: an explicit stop condition in my brief and
-README §4.1 rules 14 and 15. I measured, corrected my own row, and stopped. I
-have not edited the adapter, the unit, the relay, or the credential.
+**Not fixed here.** `scripts/payment/` and `quadlet/payment/` are not owned by this
+section, and this is payment processing: an explicit stop condition under README §4.1
+rules 14 and 15. The measurement was taken, the row this section owns was corrected, and
+work stopped there. **The adapter, the unit, the relay and the credential must not be
+edited without explicit operator approval.**
 
 #### 5.2.3 The three `Internal=false` networks are a prohibition boundary, and §4.3 now says which rule governs them
 
@@ -1705,9 +1710,9 @@ instances of one thing. §5.1 group A already splits them:
 The distinction matters because §4.3.2 said *"Any workload network to the public
 internet"* with no exception, which would have prohibited two of these three by
 name. §4.3.4 gap 1 records that and restates the rule as the outbound
-restriction that is actually intended and actually held. **I have not changed
-the isolation posture of any network** — no network was created, removed,
-re-CIDRed, or re-flagged; the registry is untouched.
+restriction that is actually intended and actually held. **The isolation posture of no
+network was changed** — no network was created, removed, re-CIDRed, or re-flagged; the
+registry is untouched.
 
 The remaining honesty point, unchanged and still true: **non-internal means
 anything else attached can reach the internet.** `ao-sales` and
@@ -1961,8 +1966,8 @@ which files are provisioned. Reading the `grafana` database's `datasource` table
 `postgres` superuser role on the host cluster, which no non-interactive route currently reaches.
 
 So §5.1 group D (18 rows, counted) is the current statement, and the YAML is a lagging subset
-of it. Reconciling the YAML is **not** mine to do — it is a config file outside the three
-section files I own, and the `ao-egress-community` name/CIDR question is an existing §19.1
+of it. Reconciling the YAML is **not** in scope here — it is a config file outside the three
+section files §6 owns, and the `ao-egress-community` name/CIDR question is an existing §19.1
 item belonging to another group. This subsection records the gap so the next reader is not
 misled.
 
@@ -2018,10 +2023,10 @@ ao-sim-fabrication-gz          -> ao-sim-fabrication-gz.service
 
 **Correction 2026-10-05 — an earlier revision of this block showed only eleven of the
 twenty-five running containers while describing itself as the whole-container enumeration.**
-The eleven were the ones I had a reason to look at, not the ones the command returned, so the
-claim "rests on … the whole-container enumeration rather than on a hand-picked subset" was
-false at the moment I wrote it. The full output is the block above: **25 running, 19 managed,
-6 unmanaged**. The *conclusion* survives and is now stronger, because the fourteen containers
+The eleven were a hand-picked subset with a reason to be looked at, not what the
+command returned, so the claim "rests on … the whole-container enumeration rather than on
+a hand-picked subset" was false when written. The full output is the block above:
+**25 running, 19 managed, 6 unmanaged**. The *conclusion* survives and is now stronger, because the fourteen containers
 the earlier block omitted are all accounted for and all managed:
 
 ```
@@ -2048,8 +2053,9 @@ leftovers" from "six leftovers and an unowned database", because it never looks.
 This is the third instance of the same error class in this one subsection, and it is worth
 stating as a rule rather than a footnote: **a claim of completeness is itself a claim, and it
 is the one claim an enumeration cannot check for you.** The loop ran over `podman ps` output,
-so the command *was* fleet-wide — I then transcribed a filtered subset of its output into the
-section and attached the completeness claim to the transcription. Always paste the raw output
+so the command *was* fleet-wide — but a filtered subset of its output was transcribed into
+the section, and the completeness claim was attached to the transcription rather than to
+the command. Always paste the raw output
 and state the denominator (`podman ps -q | wc -l`) next to it, so a reader can see the ratio
 rather than trust it. Where a subset is genuinely intended, say so and give both counts.
 
@@ -2171,7 +2177,7 @@ Enumerate by *label presence*, not by image string — but **look the key up fir
 instinct is `io.podman.annotations.quadlet`, and on this host it is simply not set on
 anything: a query using it returns an empty string for all twenty-five running containers,
 including every genuinely managed one. An empty result from that key looks like a finding
-("nothing has an owner!") and is indistinguishable from "I asked the wrong question." The
+("nothing has an owner!") and is indistinguishable from "the wrong question was asked." The
 correct key is `PODMAN_SYSTEMD_UNIT`, and the self-check is to run it over the whole
 container list and confirm that the containers you believe are managed actually come back
 with a service name. If every row is empty, the key is wrong, not the fleet.
@@ -2407,7 +2413,7 @@ Rows 6 and 9 are blocked on an external account or licence confirmation.
 
 This is recorded as **OPEN**. Building rows 2, 7 or 8 would require opening a
 public ingress, which is a §4.1 rule 6 stop condition and is reserved to the
-operator; this session built none of them. This extends, and does not contradict,
+operator; none of them was built. This extends, and does not contradict,
 the 2026-10-01 note in PAY-05: the three preconditions recorded there still hold,
 and the remaining six rows are blocked for the per-row reasons above.
 
@@ -2476,15 +2482,14 @@ real PayPal `PAYMENT.CAPTURE.COMPLETED` payload the money is at
 comes back `None` and the amount is silently lost. For Coinbase the
 money-bearing reference is `charge.id`, which `normalize()` also does not read;
 it falls through to the top-level **event** id, so the adapter records the event
-that arrived rather than the charge being reconciled. A 2026-10-04 correction to
-an earlier statement in this session: that reference is **not** empty, because a
-real Coinbase payload does carry a top-level `id`, so the adapter does not reject
-it with 400. The reference it records is simply the wrong one, which breaks
-reconciliation without looking like a failure.
+that arrived rather than the charge being reconciled. **Correction 2026-10-04:** that
+reference is **not** empty, because a real Coinbase payload does carry a top-level `id`, so
+the adapter does not reject it with 400. The reference it records is simply the wrong one,
+which breaks reconciliation without looking like a failure.
 
 These are payment-verification defects. Correcting them changes how money-bearing
 events are accepted, so the fix is prepared and reported for operator approval
-rather than applied by this session.
+rather than applied here.
 
 ### 7.2.1 Prepared verifier correction, proven offline 2026-10-04
 
@@ -2536,7 +2541,7 @@ DRY-RUN (no DSN): event provider=coinbase type=charge:confirmed
 
 **This is prepared, not applied.** Approving it changes which money-bearing
 events are trusted to create business state — README §4.1 rule 14 and the first
-stop condition of this session's brief. Deployment also needs
+stop condition. Deployment also needs
 `PAYPAL_WEBHOOK_ID` and `COINBASE_WEBHOOK_SECRET` as real configuration, and
 `COINBASE_WEBHOOK_SECRET` is currently provisioned but read by nothing. The
 operator decision requested is narrower than "fix the verifier": it is whether to
@@ -2615,8 +2620,7 @@ http=401
 
 That 401 is *correct* only by accident: the Coinbase path is gated by
 `verify_paypal()`, so it rejects a bad signature and would equally reject a good
-Coinbase signature. `payment_provider_events` remains at **0 rows**, so no probe
-this session created business state.
+Coinbase signature. `payment_provider_events` remains at **0 rows**, so no probe created business state.
 
 **Conclusion unchanged:** PAY-02's acceptance criterion is not met. Nothing in
 this section was applied to the live adapter.
@@ -2677,7 +2681,7 @@ the ingest-side verifier must hash the manifest with those two fields removed.**
 
 Submission to `ao-ledger-ingest` is a separate gate and is **not** claimed here:
 the gateway is not deployed and `submit-ledger-event.sh` exits 3 at staging, so
-nothing left the host during this session.
+nothing left the host.
 
 **The Sales API does not exist.** §7.3 names a "Sales API and sales PostgreSQL"
 as the component that turns a verified event into order, receipt, fulfillment and
@@ -2835,8 +2839,9 @@ cleanly on the older file and has not been restarted since. The running adapter'
 DSN password does match the current wallet value (identical SHA-256 prefix), so
 the database path is consistent; the three webhook secrets simply are not loaded.
 
-**Not remediated by this session.** Rotating a live password, re-scoping a role, or
-restarting a payment unit are §4.1 rule 14 and rule 12 stop conditions. The
+**Not remediated here.** Rotating a live password, re-scoping a role, or restarting a
+payment unit are §4.1 rule 14 and rule 12 stop conditions and require explicit operator
+approval. The
 remediation proposed for operator approval is unchanged in shape: rotate
 `payment-db-password` to a value distinct from `sales-db-password`, grant a
 `sales_api_role` limited to the INSERT the adapter performs, and restart
@@ -3060,7 +3065,7 @@ $ grep -n webodm scripts/backup/dump-all-postgres.sh
 18:  bash "$C" mapping ao-webodm-db webodm_dev postgres || { echo "FAIL: webodm"; fail=1; }
 
 $ podman inspect ao-webodm-webapp --format '{{range .Config.Env}}{{println .}}{{end}}' \
-    | grep -vi 'password\|secret\|key' | grep -i database
+    | grep -vi 'password|secret|key' | grep -i database
 WO_DATABASE_HOST=ao-webodm-db
 ```
 
@@ -3160,7 +3165,7 @@ the correct arrangement for a shared mapping volume.
 `find "$M" -maxdepth 4 -type d -perm -0002` and reported "empty", concluding no directory is
 world-writable. That conclusion was **not sound**: `find` also emitted
 `Permission denied` for 8 of the 10 top-level subtrees, and the exit status was 1. The empty
-result meant "none of the two subtrees this session can read", not "none on the drive".
+result meant "none of the two readable subtrees", not "none on the drive".
 Re-measured honestly:
 
 ```bash
@@ -3188,7 +3193,7 @@ drwxrws---  7 scottw     ao-mapping        4096 Aug 23 18:31 webodm
 
 **Correction, 2026-10-04 — see §8.5.2.** The setgid paragraph above reads as if setgid makes the
 ownership arrangement correct. It does not. Setgid propagates the *parent's group*, and on this
-drive that group is `alwayson-mapping`, a group the operator is not in. The depth-2 audit I could
+drive that group is `alwayson-mapping`, a group the operator is not in. The depth-2 audit that could
 not perform here is explained there, together with a measured root cause (group membership) that
 this section previously reported only as "unverified".
 
@@ -3215,7 +3220,7 @@ currently no on-drive copy.
    short of its own specification. A green validator run is therefore **not** evidence that §8.2
    holds, and must not be cited as such.
 2. Creating the missing directories would change live storage on the photogrammetry drive,
-   which is outside what this session may do unprompted. **Not created.** FIELD-10 stays
+   which is outside what may be done unprompted. **Not created.** FIELD-10 stays
    **open** with this evidence attached — the validation has now been *run and failed*, which is
    strictly more progress than the prior "unvalidated" state.
 
@@ -3352,7 +3357,7 @@ the repair remains `sudo usermod -aG alwayson-mapping scottw` — **not** a mode
 for why loosening to `777` would be a regression against §8.2.
 
 **FIELD-15 — new: the proposal compiler silently requires a `title:` key on `action: new`, and
-omitting it produces an unlabelled row in §19.1.** My own FIELD-15 proposal rendered with an
+omitting it produces an unlabelled row in §19.1.** The FIELD-15 proposal rendered with an
 **empty Item cell** and the whole proposal body dumped into the criteria cell as raw markdown:
 
 ```bash
@@ -3382,9 +3387,9 @@ row = (... % (item, esc(p.get("title", "")), esc(p.get("body"))))
 
 `p.get("title", "")` returns `""` for a missing key, and `proposals/README.md` never documents
 `title:` as a field (`grep -n 'title:' proposals/README.md` → no match). **So this is a
-documentation gap in a shared file, not a mistake unique to my proposal** — four other sessions
-hit it identically. **The `new` action cannot render a usable row without it.** I have added
-`title:` to my own proposal; the other five belong to their own sessions and I report rather
+documentation gap in a shared file, not a mistake unique to one proposal** — four others
+hit it identically. **The `new` action cannot render a usable row without it.** `title:` was
+added to the FIELD-15 proposal; the other five belong to their own sections and are reported rather
 than edit them. This is a **cross-session finding for the compiler session**, not a FIELD item,
 so no new FIELD ID is taken for it.
 
@@ -3691,7 +3696,7 @@ $ [ -r $M/webodm ] && [ -x $M/webodm ]   # accessible
 **This confirms and sharpens §8.5.2's ordering claim with a number.** The repair is
 `usermod -aG alwayson-mapping scottw` followed by the ten `mkdir`s — two steps, in that order,
 and the first is privileged. `sudo -n true` returns "interactive authentication is required",
-so this session cannot perform either step. §8.2's tree cannot be satisfied by the operator's
+so neither step can be performed here. §8.2's tree cannot be satisfied by the operator's
 own account until that group membership exists.
 
 **Two findings the compiler should not lose.**
@@ -3710,8 +3715,8 @@ cannot create, read or inspect it would convert a documented deviation into an u
 The group fix must land first. This is now an ordering constraint with a measured gate, not a
 caution.
 
-**I could not confirm my own probe file is gone, and I am not going to claim it is.** A
-`touch` inside `incoming/` reported `setting times: Permission denied` and I cannot `stat`,
+**The probe file cannot be confirmed gone, and that is not claimed.** A
+`touch` inside `incoming/` reported `setting times: Permission denied` and `stat` is refused,
 `ls` or `rm` the path afterwards — the directory is unreadable to me. **Treat a possible
 zero-byte `/media/scottw/500GBPHOTOGRAM/incoming/.fieldprobe` as present until an operator
 checks and removes it.** See housekeeping in the proposals.
@@ -3857,7 +3862,7 @@ Pi5. PEOPLE-RADIO has no relationship to the drone.
 > 2026-10-05 entry was written on 2026-10-03/04 and **two of its claims are now known to be
 > wrong**: (1) the `umsgpack` fault is *not* demonstrably historical — the count quoted here
 > **reproduces in no retained log today**, so the evidence it rested on was rotation-fragile;
-> (2) the causal hypothesis I withdrew below is **re-supported** by fresh data. The
+> (2) the causal hypothesis withdrawn below is **re-supported** by fresh data. The
 > 2026-10-05 entry supersedes both. FIELD-05 is reopened.
 
 The `umsgpack` error named in FIELD-05 was classified as **historical and resolved**. It is not
@@ -3888,7 +3893,7 @@ meshchatx.log:   umsgpack=0  'No module named'=0
 `No module named 'umsgpack'` — the exact string quoted below — **occurs in no retained log.**
 The segment holding those errors has been overwritten by rotation since 2026-10-04. **Reason the
 earlier claim was wrong: a count taken from a rotated log filename is not durable evidence,
-and I treated it as though it were.** A grep count of 0 in the *current* file proves only that
+and is easily read as though it were.** A grep count of 0 in the *current* file proves only that
 the current file has none, which is a much weaker claim than "historical and resolved".
 
 All 12,364 occurrences were the identical line, and the block terminated immediately before a
@@ -3936,7 +3941,7 @@ $ grep -ch 'unrecoverable error' ~/.reticulum-meshchatx/logs/meshchatx.log{,.1,.
 ```
 
 **2026-10-05: the `0` on line two of that block was TRUE when written, and is no longer true.**
-It now reads **4**. The logs are binary to `grep`, so I re-checked with `grep -ac` to rule out a
+It now reads **4**. The logs are binary to `grep`, so the figure is re-checked with `grep -ac` to rule out a
 counting artefact — `grep -c` and `grep -ac` both return 4, so the increase is real, not a
 truncation effect. The four are new occurrences dated today; the withdrawal below was sound on
 2026-10-04 and is superseded by §9.2.3.1 because the association it denied has since held
@@ -3950,7 +3955,7 @@ The conclusion of the paragraph above still stands, and in fact hardens: a link 
 every *seven seconds* is even less a link one could prove a midflight mission update over.
 Only the period was wrong, not the judgement.
 
-**The causal hypothesis above is also not supported, and I withdraw it.** It rested on
+**The causal hypothesis above is also not supported, and is withdrawn.** It rested on
 "every occurrence is adjacent to a teardown". That is true of the 13 `[Errno 9]` persist
 failures, but those were in `meshchatx.log.1`/`.3`; the *current* log has 994 teardowns and
 **zero** persist failures, so the association does not hold in the log where the fault is
@@ -4007,10 +4012,10 @@ were wrong with it, and the second is the one that matters operationally.
 **1. The `umsgpack` evidence does not survive.** The 12,364 count and the string
 `No module named 'umsgpack'` reproduce in **no retained log** (counts above). The classification
 "historical packaging defect, never recurred" rested entirely on a count taken from a rotated
-filename, and rotation has since destroyed the segment it referred to. I cannot now prove the
+filename, and rotation has since destroyed the segment it referred to. It cannot now be proved from the current file; the
 `umsgpack` fault ever stopped, only that its evidence is gone.
 
-**2. The persist fault is still happening, today.** On 2026-10-04 I withdrew the
+**2. The persist fault is still happening, today.** A withdrawal recorded on 2026-10-04 covered the
 shared-file-descriptor explanation, on the grounds that the current log had 994 `DRONE-RADIO`
 teardowns and **zero** persist failures. That reading was correct on the day — but the zero was a
 *count from an earlier point in a live log*, and the current log is still being appended to. It
@@ -4045,33 +4050,37 @@ oldest first: `.3` 2, `.2` 13, `.1` 9, current 4.
 **Why this is the same defect and not a new one.** `[Errno 9] Bad file descriptor` on a persist
 write, firing in the same second as an interface teardown, is consistent with **the ratchet
 state file's descriptor being closed as a side effect of the `DRONE-RADIO` reset** — the
-hypothesis I withdrew. The withdrawal was sound on the evidence available on 2026-10-04; it is
-superseded because that evidence was a snapshot of a file still being written to. It is
-reinstated as the **leading hypothesis, not a proven mechanism**: I have not traced the code
-path, and no stack trace is logged.
+hypothesis withdrawn on 2026-10-04. That withdrawal was sound on the evidence available at
+the time; it is superseded because that evidence was a snapshot of a file still being
+written to. The hypothesis is reinstated as the **leading hypothesis, not a proven
+mechanism**: the code path has not been traced and no stack trace is logged.
 
 **The operational consequence, which is the point.** The persistence subsystem is failing daily
 and **downstream of the same broken board** that blocks FIELD-01/02/03/06. One board repair may
-clear both. That is a stronger result than the closure I gave on 2026-10-04, where I noted this
+clear both. That is a stronger result than the closure recorded on 2026-10-04, which noted this
 error and then wrote it off as "a different bug, not covered by closing FIELD-05" — which left a
 real daily fault with no open item against it.
 
-**Why I got it wrong, in the form that generalises.** Two different mistakes, both from trusting
-a count more than its scope. First, the `umsgpack` figure came from a **rotated** log filename, and
-rotation has since destroyed the segment it described — a `grep -c` against a file that will be
-overwritten answers "what is in this file now", which I read as "what is true of the fault". The
-tell was available and I recorded it: the count lived in `meshchatx.log.2` in one pass and
-`meshchatx.log.3` in the next. **A count that moves when you rename the file is not measuring the
-fault.** Second, the "zero persist failures" I used to withdraw the teardown hypothesis was a
-count of a **live, still-growing** log — correct that day, superseded today, and I nearly
-dismissed today's four as a measurement artefact.
+### A count must be trusted only as far as its scope
 
-**On the binary-grep worry, checked rather than assumed:** these logs *are* binary to `grep`
-(`binary file matches`), which is a real trap for anyone counting here. I tested whether it
-explained the discrepancy and it does not — `grep -c` and `grep -ac` both return 4 on the current
-log. So use `grep -a` for safety, but the numbers above are not a truncation effect.
+Two distinct mistakes arise from trusting a count more than its scope:
 
-**Nothing was changed.** Read-only inspection. No service restart, no file touched.
+1. **A count taken from a rotated log filename.** Rotation destroys the segment it
+   described, so a `grep -c` against a file that will be overwritten answers "what is
+   in this file now" — not "what is true of the fault". The tell is that the count
+   moves when the file is renamed: the `umsgpack` figure lived in `meshchatx.log.2` in
+   one pass and `meshchatx.log.3` in the next. **A count that moves when you rename
+   the file is not measuring the fault.**
+2. **A count of a live, still-growing log**, read as a stable zero. It is correct only
+   on the day it was taken and is superseded later; today's non-zero result must not
+   be dismissed as a measurement artefact.
+
+**On the binary-grep worry, checked rather than assumed:** these logs *are* binary to
+`grep` (`binary file matches`), which is a real trap for anyone counting here. It does
+**not** explain the discrepancy — `grep -c` and `grep -ac` both return 4 on the current
+log. Use `grep -a` for safety, but a count difference here is not a truncation effect.
+
+**Read-only inspection.** No service restart, no file touched.
 
 ## 9.3 Operational Security
 
@@ -4128,7 +4137,7 @@ Reachability is proven by the successful TCP connects above; the *mechanism* (th
 it rather than merely not being loaded) remains unverified from an unprivileged session.
 
 **Re-verified 2026-10-04 15:09 — the decision stands, the caveat is now better characterised.**
-Both connects still succeed and the listener is unchanged. I also confirmed the blocker is a
+Both connects still succeed and the listener is unchanged. The blocker is also confirmed as a
 **privilege wall and not a missing file**, which sharpens what is left to check:
 
 ```bash
@@ -4151,7 +4160,7 @@ So there are **two** distinct things a privileged reviewer must supply, not one:
 
 Point 2 is the more useful finding. Even with full root, "reviewed against field-domain firewall
 policy" could not be completed as written, because the policy is unwritten. Closing that gap is
-a documentation task in a section this session does not own; it is reported rather than edited.
+a documentation task in a section that does not own it; it is reported rather than edited.
 
 ## 9.4 Radio Profile Requirements
 
@@ -4264,7 +4273,7 @@ factor of ~1.3 (PEOPLE) to ~2.6 (DRONE). This is a documentation mismatch, not a
 fault, and **not urgent**.
 
 **Correction to an earlier draft of this table.** It first read 0.240 s / 1,502 packets per
-hour, from a spreadsheet-style estimate that I could not reproduce. The numbers above replace
+hour, from a spreadsheet-style estimate that could not be reproduced. The numbers above replace
 it. The error mattered in principle — a wrong airtime figure is exactly the kind of number
 that gets quoted into a regulatory argument — so it is recorded here rather than quietly
 swapped.
@@ -4328,7 +4337,7 @@ architecture. Approved wording is:
 
 This rule is applied in this section, and both radio profiles already carry
 `frequency_plan: "US915 hybrid-channel raw LoRa (NOT LoRaWAN)"`. One contradiction remains
-outside the sections this session owns and is reported rather than edited:
+outside the owning section and is reported rather than edited:
 `es-executive-summary/section.md:11` calls `PEOPLE-RADIO` a "LoRaWAN for communication only"
 path, and §9.2.2 below inherited that phrasing. Those lines belong to their owning sessions.
 
@@ -4514,7 +4523,7 @@ $ timeout 5 bash -c 'exec 3<>/dev/tcp/192.168.87.135/4242' && echo lan-OK
 lan-OK
 ```
 
-**The firewall mechanism is still unverifiable from here**, and I confirmed this is a privilege
+**The firewall mechanism is still unverifiable from an unprivileged account**, and this is a privilege
 wall rather than a missing file — there is no field-domain firewall policy to review at all:
 
 ```bash
@@ -4528,10 +4537,10 @@ $ find /tmp/ao-sessions/wt-field/config -iname '*firewall*' -o -iname '*ufw*'
 (no output)
 ```
 
-**One measurement note, and a correction to my own first claim about it.** `grep` reports
-`meshchatx.log.2` as a **binary file**, which I initially took to mean a bare `grep -c` would
+**One measurement note, and a correction to the first claim made about it.** `grep` reports
+`meshchatx.log.2` as a **binary file**, which was initially taken to mean a bare `grep -c` would
 silently under-count it and that quoted totals would disagree between sessions. **That is
-wrong, and I checked it before leaving it in the record:**
+wrong, and that was checked before the figure was left in the record:**
 
 ```bash
 $ for f in ~/.reticulum-meshchatx/logs/meshchatx.log{,.1,.2,.3}; do
@@ -4549,9 +4558,9 @@ source of disagreement between sessions is the genuine one: **the current log gr
 per 7 seconds**, so any total is stale within minutes. Quote a total with its timestamp or
 quote none.
 
-Reason I got it wrong: I inferred a counting error from an unrelated warning line instead of
+The reasoning error: a counting error was inferred from an unrelated warning line instead of
 running the comparison. The `-a` flag was already the right instinct for *reading* the file, but
-I projected it onto `-c` where it makes no difference.
+Applying it to `-c` as well makes no difference.
 
 ### 9.5.8 Second re-verification 2026-10-04 15:59 — all six blockers still live
 
@@ -4639,9 +4648,9 @@ spreadingfactor = 7
 txpower = 17
 ```
 
-**Two corrections to how I have been quoting these totals.** First, §9.5.7's own advice — *quote
-a total with its timestamp or quote none* — is what I have done here; the 14,281 figure is only
-true at 15:59 and is already wrong. Second, my first pass in this pass used `grep -ah` on the
+**Two corrections to how these totals are quoted.** First, §9.5.7's own advice — *quote
+a total with its timestamp or quote none* — applies here: the 14,281 figure is only
+true at 15:59 and is already wrong. Second, an earlier pass used `grep -ah` on the
 glob while §9.5.7 used a per-file loop; the two agree (`4063+7800+2389+29 = 14281`), so the
 totals are not sensitive to that choice, but the **`-a` flag is** — see §9.5.7, where a file
 that `grep` calls binary is still counted correctly without it.
@@ -4669,7 +4678,7 @@ meshchatx.log    [2026-10-04 07:25:38] .. [2026-10-04 17:52:43]  detect-fail=515
                                                          # total 16,240 (was 14,281 at 15:59)
 ```
 
-**New this pass — the port opens, proved by watching the file descriptors.** §9.5.2 argued
+**The port does open, proved by watching the file descriptors.** §9.5.2 argued
 the port opens because the error is `Errno 9` rather than `EACCES`/`EBUSY`. That is
 inference from an error string. It can now be observed directly: `DRONE-RADIO`'s descriptor
 is repeatedly created and destroyed on the retry cycle, while `PEOPLE-RADIO`'s descriptor is
@@ -4726,17 +4735,16 @@ current log (0 lines, zero errors). There is still zero RF telemetry — `RSSI`,
 is still absent. The live radio settings are unchanged (915 MHz / 125 kHz / SF7 / 17 dBm and
 917 MHz / 250 kHz / SF7 / 17 dBm), so §9.4.1's profile-vs-live comparison stands.
 
-#### What I got wrong this pass, and the reason
+### A device node's `mtime` measures access, not enumeration
 
-**I announced a hardware event that had not happened.** The first `ls -la /dev/ttyUSB*` in
-this pass showed `Oct 4 17:42` on both nodes, at almost exactly the moment I was logging in,
-and I recorded it as "the USB devices were re-enumerated at 17:42 today — right now". That
-would have been a significant claim: a fresh enumeration would have meant someone had
-re-plugged the hardware and the radio still failed.
+An earlier pass read `Oct 4 17:42` from `ls -la /dev/ttyUSB*` and recorded it as "the USB
+devices were re-enumerated at 17:42 today". That would have been a significant claim — a
+fresh enumeration would have meant someone had re-plugged the hardware and the radio
+still failed — and it was false.
 
-It was false. `mtime` on a device node moves when the node is **accessed**, and my own
-commands were reading them. `ctime` — the creation/change time — is what answers this
-question, and it has not moved since 2026-10-01 23:53:
+**`mtime` on a device node moves when the node is *accessed***, and the inspecting
+commands themselves were reading it. **`ctime` is the field that answers an enumeration
+question**, and it has not moved since 2026-10-01 23:53:
 
 ```bash
 $ stat -c '%n mtime=%y ctime=%z' /dev/ttyUSB0 /dev/ttyUSB1
@@ -4744,21 +4752,21 @@ $ stat -c '%n mtime=%y ctime=%z' /dev/ttyUSB0 /dev/ttyUSB1
 /dev/ttyUSB1 mtime=2026-10-04 17:51:20 ctime=2026-10-01 23:53:34
 ```
 
-**Reason: I read a timestamp field without knowing what it measured, and the coincidence
-with my own session start made the wrong reading feel like a discovery.** The generalisable
-form, which joins the rotated-log-filename lesson in FIELD-05: *a number that appears to
-corroborate what you expected is the most dangerous kind of evidence here.* Verify that the
-field means what you think it means before you build a finding on it.
+**The generalisable rule: a number that appears to corroborate what was expected is the
+most dangerous kind of evidence.** The wrong reading here felt like a discovery because it
+coincided with the session's own start time. **Verify that a field means what you think it
+means before building a finding on it** — this joins the rotated-log-filename lesson in
+FIELD-05.
 
-**Nothing was touched.** No radio, no serial port, no firewall, no config file, no restart of
-the Reticulum stack. All six blockers in §9.5.5 remain live.
+**Nothing may be touched.** No radio, no serial port, no firewall, no config file, no
+restart of the Reticulum stack. All six blockers in §9.5.5 remain live.
 
 ### 9.5.10 Fourth re-verification 2026-10-05 07:56 — the `DRONE-RADIO` fault narrows to the
 ### board's own firmware, with every hardware alternative excluded
 
 §9.5.2 concluded the fault "is the radio board, not the port, the symlink or permissions". That
-conclusion was reached without enumerating the remaining hardware causes, and **this pass closes
-that gap.** The exclusion is by measurement, and it is what an operator needs in order to know
+conclusion was reached without enumerating the remaining hardware causes, and **this
+re-verification closes that gap.** The exclusion is by measurement, and it is what an operator needs in order to know
 whether to reseat a cable, replace a board, or stop looking at this host at all.
 
 `DRONE-RADIO` is still down with zero successful detections and the failure signature is
@@ -4849,10 +4857,10 @@ damaged or charge-only cable, or the board needing a power cycle — and it is *
 or repairable from this host.** `DRONE-RADIO` is correctly configured and correctly addressed;
 there is nothing in the software configuration to change.
 
-**This is a stop condition, and I stopped.** "Live radio, serial or network configuration" is on
-the operator-approval list. I did not `udevadm trigger`, did not cycle the USB bus, did not open
+**This is a stop condition and must stop here.** "Live radio, serial or network configuration" is on
+the operator-approval list. No `udevadm trigger`, no USB bus cycle, no opening of
 either port for a manual probe, and did not restart the Reticulum stack. The MAC in
-`radio-ids.txt` dates from 2026-09-21 and I did not re-read it from hardware, because that means
+`radio-ids.txt` dates from 2026-09-21 and it was not re-read from hardware, because that means
 opening a serial port the running service owns.
 **Nothing was touched.** No radio, no serial port, no firewall, no config file. Every blocker in
 §9.5.5 still requires physical repair or operator action.
@@ -4893,14 +4901,18 @@ serial is unique" is closed by this.
 firewall change, no config edit, no restart. `PEOPLE-RADIO` is up with zero error lines today
 (`grep -c 'PEOPLE-RADIO'` on the current log → `0`).
 
-**What I got wrong this pass.** I queried `journalctl -k --since '2026-10-04'` and `dmesg` to test
-whether the USB link had flapped, and got **empty output from both** — which reads exactly like
-"nothing happened". It is not evidence of that. `dmesg` is unreadable for this user, and the
-`--since` window genuinely contained no kernel messages, while the *unfiltered* query showed the
-eight lines that do exist, all from Oct 01. The lesson is the one from FIELD-05's rotated logs and
-my own §9.5.9 timestamp error, now for the third time in this section: **an empty result from a
-query whose scope I did not verify is not a negative finding.** I got the right answer only after
-running the unfiltered query and reading what it returned.
+### An empty result from an unverified query scope is not a negative finding
+
+`journalctl -k --since '2026-10-04'` and `dmesg` both return **empty output** when testing
+whether the USB link flapped, which reads exactly like "nothing happened". It is not
+evidence of that: `dmesg` is unreadable for this user, and the `--since` window genuinely
+contained no kernel messages — while the *unfiltered* query shows the eight lines that do
+exist, all from Oct 01.
+
+**This is the third instance of one failure in this section** (after FIELD-05's rotated logs
+and the §9.5.9 timestamp error): an empty result from a query whose scope was not verified is
+not a negative finding. **Run the unfiltered query and read what it returns before
+recording an absence.**
 # 10. Simulation Architecture
 
 ## 10.1 Vehicle Simulation
@@ -7055,7 +7067,7 @@ a filename collision, a `keys_unsorted` dump.
 
 ## 11.12 Fifth-Pass Verification, 2026-10-05 (LEDGER session)
 
-Prior passes re-measured the host. This pass audits the **documents this section
+Prior passes re-measured the host. This audit covers the **documents this section
 owns for internal consistency**, which none had done, and validates candidates
 against the real schema rather than reading it. All three findings are proved by
 execution.
@@ -7581,9 +7593,10 @@ needs root and writes `/var/lib/systemd/linger/` — a host-level change, which
 README §4.1 rules 1 and 3 place with the operator. The stage reports the state
 and prints the exact command; it does not run it.
 
-**What I got wrong.** The checker's first revision reported
-`FAIL: linger is not enabled` — and exited 1 — for an account that **does not
-exist at all**. Measured: `loginctl show-user alwayson-ledger -p Linger` returns
+### A false FAIL is the worst kind of checker defect
+
+The checker's first revision reported `FAIL: linger is not enabled` — and exited 1 —
+for an account that **does not exist at all**. Measured: `loginctl show-user alwayson-ledger -p Linger` returns
 `Failed to look up user ... No such process`, but with `--value` it returns the
 literal string `unknown`, which the script compared against `yes`. And
 `/var/lib/systemd/linger/` is not proof of existence: `alwayson-ledger`,
@@ -7848,9 +7861,10 @@ so cannot be fetched unattended even in principle — a property of the vendors,
 not a gap in the provisioner, and the honest residue of OPS-17. Three (gh, bun,
 cline) are installable; the first two verify against a recorded `installed_sha256`.
 
-**What I got wrong.** The first revision tested "does this entry have a url?"
-**before** "is the file already installed?", and `continue`d out of the loop. The
-consequence, measured: `lm-studio`, `pcloud` and `nperf` were all reported
+### Check presence before reachability
+
+The first revision tested "does this entry have a url?" **before** "is the file already
+installed?", and `continue`d out of the loop. The consequence, measured: `lm-studio`, `pcloud` and `nperf` were all reported
 `MANUAL ... a human must place this file` while **all three exist on disk and all
 three hash to the manifest's own recorded `sha256`**. The report told the operator
 to go fetch files that were already installed and verified — "cannot be fetched
@@ -8132,7 +8146,7 @@ an executor**. Regenerating it is one `./scripts/build-update/refresh-install-lo
 
 **A trap worth recording for the next agent.** The validator defaults `AO_ROOT`
 to `/ALWAYSON`, so running it from a worktree validates **the live main-repo
-plan, not your worktree's** — silently, with a plausible-looking result. I hit
+plan, not your worktree's** — silently, with a plausible-looking result. This trap is easy to hit
 this: a first run reported 199 items and schema 1 while the worktree plan held
 224 items and schema 2. Always pass `AO_ROOT=$PWD`, and sanity-check the
 `plan :` line in the output against the file you meant. The same class of bug
@@ -8303,7 +8317,7 @@ path specifically, and that the drill-down survives the print stylesheet,
 because a PDF that hides it reintroduces the same dead end. Member names are
 HTML-escaped: they come from `.desktop` files on disk and are not trusted.
 
-The two apt roll-ups were still bare counts after that first pass — I checked
+The two apt roll-ups were still bare counts after that first pass — checked
 the rendered output rather than trusting the code, and `Ubuntu archive packages`
 and `ROS 2 lyrical (whole train)` carried no members. Both lists are already in
 `inv`, so both now attach theirs; the ROS one matters most because the train is
@@ -8422,7 +8436,7 @@ $ ls -la /var/lib/containers/storage/ | head -4
 -rw-r--r-- 1 root root 114688 Sep 30 20:26 db.sql          # world-READABLE
 drwx------ 2 root root   4096 Aug 26 19:13 overlay-images  # the 0700 parts are the CHILDREN
 $ stat -c '%A %n' /var/lib/containers/storage/overlay-images/
-drwx------                                                 # <- what I generalised upward
+drwx------                                                 # <- generalised upward from here
 ```
 
 So the **top level and `db.sql` are readable by uid 1000 with no `sudo` at all**, and the store
@@ -8482,7 +8496,8 @@ distinct image IDs and is fully enumerable by the operator — measured 2026-10-
 
 **Correction, 2026-10-04 17:05: "of which 50 are named" was wrong — the figure is 30.** The `100`
 count is right and reproduces exactly, but the breakdown attached to it was written without being
-measured. `--quiet` emits bare image IDs, so it cannot answer the naming question at all; I had
+measured. `--quiet` emits bare image IDs, so it cannot answer the naming question at all; the
+image-name-to-digest mapping had to
 to ask it with `--format`:
 
 ```
@@ -10217,7 +10232,7 @@ Reconciled audit performed 2026-10-03. **The service runtime is correct** — th
 instance is genuinely `mastodon.300x3.com` and federation works. The drift is confined
 to documentation and helper artefacts, all of which emit the superseded apex
 `300x3.com`. The entries below are exact so the owning session can apply them without
-re-deriving the evidence; none of these files is owned by this session, so none was
+re-deriving the evidence; none of these files is owned by this section, so none was
 edited here.
 
 | # | File | Line | Currently | Should be | Consequence |
@@ -10375,12 +10390,12 @@ no delivery or fetch errors in 1,872 lines of `mastodon-sidekiq` logs. Queues ar
 fault is at the Cloudflare edge-to-tunnel hop, not in Mastodon, and it degrades **inbound**
 federation (remote servers pulling our objects) more than outbound delivery.
 
-The flap window observed during this pass ran 2026-10-04T06:21:47Z through
-19:54:01Z. It has not been diagnosed beyond that: this is the signature of a marginal or
-throttled tunnel edge connection, and distinguishing a Cloudflare-side incident from a local
-network fault needs evidence this session does not have. Changing tunnel transport, protocol,
-or edge routing is **live network configuration** and is therefore a stop condition; it is
-recorded for the operator and for the session owning §15.4.3, not actioned here.
+The flap window ran 2026-10-04T06:21:47Z through 19:54:01Z. It is not diagnosed beyond
+that: this is the signature of a marginal or throttled tunnel edge connection, and
+distinguishing a Cloudflare-side incident from a local network fault needs evidence not
+available here. **Changing tunnel transport, protocol, or edge routing is live network
+configuration and is therefore a stop condition** (README §4.1 rule 6); it is recorded for
+the operator and for the section owning §15.4.3, not actioned here.
 
 #### Trap: probe this host with `curl -4`, or IPv6 confounds every measurement
 
@@ -10409,9 +10424,9 @@ Use `curl -4` for every measurement against this host. Verified with `curl -4`: 
 probes returned 200 across the whole of a post-burst window, and IPv4 was what answered
 ### 15.4.11 The Flap Is Local-Path, Not Cloudflare-Edge (narrowed, 2026-10-04)
 
-§15.4.10 measured *that* the tunnel flaps and correctly declined to name a cause. This pass
-narrows it, because the connection topology discriminates between the two candidate causes
-and the evidence points one way.
+§15.4.10 measured *that* the tunnel flaps and correctly declined to name a cause. It is
+narrowed here, because the connection topology discriminates between the two candidate
+causes and the evidence points one way.
 
 **The discriminator: the four connections are not peers of one edge.** Over 24 hours the
 tunnel re-registered against **nine distinct Cloudflare PoPs**, yet always on the same four
@@ -10514,14 +10529,14 @@ the session that owns edge and network path. The diagnostic the operator needs i
 and read-only: compare edge-connection stability against a control long-lived TLS
 connection from this host to a fixed destination. If the control is stable while all four
 tunnel connections flap in lockstep across nine PoPs, the local path is confirmed and the
-tunnel is exonerated. I have not run that comparison because it is not required to record
-the finding, and running it well needs a deliberate observation window.
+tunnel is exonerated. That comparison has not been run, because it is not required to record
+the finding and running it well needs a deliberate observation window.
 ### 15.4.12 Re-Verification Pass, 2026-10-04 (liveness, not a status refresh)
 
-Re-measured the live claims in this section after the §15.4.11 tunnel finding, because
-several of them rest on artifacts whose age had grown past 48 h. Two things changed the
-picture: one of my own claims was wrong, and the tunnel fault in §15.4.11 is **still
-live**, not a historical episode.
+The live claims in this section are re-measured after the §15.4.11 tunnel finding, because
+several of them rest on artifacts whose age had grown past 48 h. Two things change the
+picture: an earlier claim was wrong, and the tunnel fault in §15.4.11 is **still live**,
+not a historical episode.
 
 **`statuses` is empty, and that is the operator's wipe, not data loss.** The table reads
 zero, which looks alarming. It reconciles exactly with ST-13's documented 2026-10-01
@@ -10546,8 +10561,9 @@ $ podman exec mastodon-db psql -U mastodon -d mastodon -At \
 
 An earlier draft of this subsection quoted that accounts listing with `head -3` and showed
 it starting at `admin`. It does not: there is a `-99` `mastodon.internal` tombstone row
-that sorts first. The point I was making — that `admin`, `bot` and the remote `300x3`
-account survive the wipe — is unaffected, but the transcript must be the real one.
+that sorts first. The point — that `admin`, `bot` and the remote `300x3` account survive
+the wipe — is unaffected, but **a transcript must be the real one, not a `head -3`
+fragment of it.**
 
 126 statuses were deleted from a 126-row pre-wipe dump, and the accounts and follow rows
 ST-13 says were preserved are still present (`follows = 4`, `accounts = 14`). Anyone
@@ -10556,9 +10572,10 @@ consequence: with zero statuses there is no local post for the federation queues
 so an empty `queue:push_public` no longer proves outbound delivery works — it only proves
 there is nothing to deliver.
 
-**The bridge is alive and polling; my first liveness measurement was wrong.** I sampled
-CPU ticks over 20 s, got `delta=0`, and read that as a stalled process. It is not. A 100 s
-sample shows steady consumption consistent with the 10 s poll loop:
+**The bridge is alive and polling; a short liveness sample is not evidence of a stall.**
+CPU ticks sampled over 20 s give `delta=0`, which reads as a stalled process. It is not — a
+100 s sample shows steady consumption consistent with the 10 s poll loop. **A zero delta on
+a short window measures the window, not the process:**
 
 ```console
 $ systemctl --user show mastodon-openclaw-bridge.service -p MainPID -p ActiveState -p NRestarts
@@ -10624,13 +10641,13 @@ ActiveState=active
 NRestarts=1
 ```
 
-Two corrections to what I wrote before the stall. First, **the `15 min ago: 0` sample I
-reported in the draft of this subsection was a quiet window, and I have now caught the flap
-mid-burst (`15 min ago: 7`).** That is exactly the trap §15.4.11 warns about, and it is
-the reason the short window must not be quoted on its own. Second, 381 in 24 h against 384
-previously is steady-state persistence, not decay — the fault has now run for over two days.
+Two corrections apply. First, **a `15 min ago: 0` sample is a quiet window, not the
+absence of a fault** — the flap was caught mid-burst at `15 min ago: 7`. That is exactly the
+trap §15.4.11 warns about, and it is the reason **a short window must never be quoted on
+its own**. Second, 381 in 24 h against 384 previously is steady-state persistence, not
+decay — the fault has now run for over two days.
 
-I also ran the cheap control comparison §15.4.11 said it had not done: a long-lived TLS
+The cheap control comparison §15.4.11 did not have is now available: a long-lived TLS
 handshake to the same Cloudflare edge address succeeds cleanly, and a control request to a
 non-tunnel external host is stable:
 
@@ -10681,8 +10698,8 @@ the *mechanism* is wrong. This also means D9 has **no actionable edit**, which l
 apparent size of the COMM-01 backlog by one row.
 
 **Correction 2 — port `3300` is real, confirmed a second time, independently.** §15.4.8
-already retracted the "3300 typo" claim; this pass re-derived it from scratch rather than
-re-reading the retraction. `mastodon-local-proxy.service` is live, is serving the actual
+already retracted the "3300 typo" claim; it is re-derived from the live system here rather
+than restated from that retraction. `mastodon-local-proxy.service` is live, is serving the actual
 Mastodon UI, and the proxy process is running exactly as the version-matrix note
 describes:
 
@@ -10721,9 +10738,10 @@ background error rate.
 Why this is not a cosmetic correction: §15.4.11's own advice was "do not sample a short
 window, the rate is steady". If the truth is bursty, that advice is actively harmful —
 during a quiet period a short sample reads 0 and a reader concludes the fault is over,
-which is exactly the false-recovery trap §15.4.12 already fell into once. I fell into it
-again in this very pass: at 15:03 UTC, `10 minutes ago` returned **0 flaps** while the
-preceding 15-minute window had returned 6.
+which is exactly the false-recovery trap §15.4.12 records. **It was hit again:** at 15:03
+UTC, `10 minutes ago` returned **0 flaps** while the preceding 15-minute window had
+returned 6. **A short window inside a bursty fault is a quiet interval, and a quiet
+interval is not a recovery.**
 
 **The §15.4.11 conclusion survives, and the discriminator got stronger.** The PoP
 footprint widened from nine to **fourteen** distinct points of presence in 24 h, against
@@ -10752,12 +10770,13 @@ result is identical to what a healthy network would have produced, which is prec
 "both green" must not be read as "fault absent". A second, longer probe was launched to
 try to catch a burst deliberately.
 
-**A bug in my own probe, worth recording because it nearly produced a false reading.** My
-first probe treated success as `grep -c 'Verify return code: 0'` being *exactly* `1`.
+### A probe that scores a success as a failure inverts the finding
+
+The first probe treated success as `grep -c 'Verify return code: 0'` being *exactly* `1`.
 The control returned `2` on every tick — the string legitimately appears twice (chain and
-leaf) — so every control tick was scored as a failure. I killed and rewrote it to accept
-`>= 1`. Had I not inspected a `ctrl_ok=2` line and taken it as a fault, I would have
-reported "the control path fails continuously while the edge path succeeds", inverting the
+leaf) — so **every control tick was scored as a failure**. The probe must accept `>= 1`.
+Had the `ctrl_ok=2` line not been inspected as a fault, the report would have read "the
+control path fails continuously while the edge path succeeds", inverting the
 conclusion. **A probe's expected value must be a range, not a point.** The same class of
 error as the empty-output-vs-zero-count mistake in the COMM-05 evidence.
 
@@ -10773,9 +10792,9 @@ error as the empty-output-vs-zero-count mistake in the COMM-05 evidence.
 - **COMM-04** — token length 43, `verify_credentials` HTTP 200 `acct=bot`
   `id=117363090433277638`; both bridge copies still `sha256 486e7472…99c19`;
   `ActiveState=active`, `NRestarts=0`.
-- **COMM-05** — still **no** MX (`answers=0`) and a **new** finding this pass: the live
-  `mastodon.env` contains **no SMTP, mail or email key at all**, so outbound is not
-  merely undeliverable, it is unconfigured. See §15.4.7.
+- **COMM-05** — still **no** MX (`answers=0`), and **the live `mastodon.env` contains no
+  SMTP, mail or email key at all**, so outbound is not merely undeliverable, it is
+  unconfigured. See §15.4.7.
 - **COMM-06** — `mastodon.social` still resolves both accounts
   (`bot` id `117327405745705562`, `admin` id `117327389970897359`, 2 followers each);
   10 distinct remote domains known locally. The Konqueror step remains the operator's.
@@ -11035,7 +11054,8 @@ blindly. `sqlite3` reports corruption as `DatabaseError('file is not a
 database')` or `'database disk image is malformed'` — sentences containing none
 of the usual "…failed" markers.
 
-**What I got wrong.** Because the fault list only matched `failed` /
+**A fault list that matches only some failure words is a false-negative generator.** Because the
+list matched only `failed` /
 `not a sqlite file` / `header read failed` / `open failed` / `read failed` /
 `snapshot failed` / `integrity`, a **corrupt database was classified `excluded`**
 — that is, an unreadable store was recorded as a *deliberate operator

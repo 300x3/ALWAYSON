@@ -155,7 +155,7 @@ $ grep -n webodm scripts/backup/dump-all-postgres.sh
 18:  bash "$C" mapping ao-webodm-db webodm_dev postgres || { echo "FAIL: webodm"; fail=1; }
 
 $ podman inspect ao-webodm-webapp --format '{{range .Config.Env}}{{println .}}{{end}}' \
-    | grep -vi 'password\|secret\|key' | grep -i database
+    | grep -vi 'password|secret|key' | grep -i database
 WO_DATABASE_HOST=ao-webodm-db
 ```
 
@@ -255,7 +255,7 @@ the correct arrangement for a shared mapping volume.
 `find "$M" -maxdepth 4 -type d -perm -0002` and reported "empty", concluding no directory is
 world-writable. That conclusion was **not sound**: `find` also emitted
 `Permission denied` for 8 of the 10 top-level subtrees, and the exit status was 1. The empty
-result meant "none of the two subtrees this session can read", not "none on the drive".
+result meant "none of the two readable subtrees", not "none on the drive".
 Re-measured honestly:
 
 ```bash
@@ -283,7 +283,7 @@ drwxrws---  7 scottw     ao-mapping        4096 Aug 23 18:31 webodm
 
 **Correction, 2026-10-04 — see §8.5.2.** The setgid paragraph above reads as if setgid makes the
 ownership arrangement correct. It does not. Setgid propagates the *parent's group*, and on this
-drive that group is `alwayson-mapping`, a group the operator is not in. The depth-2 audit I could
+drive that group is `alwayson-mapping`, a group the operator is not in. The depth-2 audit that could
 not perform here is explained there, together with a measured root cause (group membership) that
 this section previously reported only as "unverified".
 
@@ -310,7 +310,7 @@ currently no on-drive copy.
    short of its own specification. A green validator run is therefore **not** evidence that §8.2
    holds, and must not be cited as such.
 2. Creating the missing directories would change live storage on the photogrammetry drive,
-   which is outside what this session may do unprompted. **Not created.** FIELD-10 stays
+   which is outside what may be done unprompted. **Not created.** FIELD-10 stays
    **open** with this evidence attached — the validation has now been *run and failed*, which is
    strictly more progress than the prior "unvalidated" state.
 
@@ -447,7 +447,7 @@ the repair remains `sudo usermod -aG alwayson-mapping scottw` — **not** a mode
 for why loosening to `777` would be a regression against §8.2.
 
 **FIELD-15 — new: the proposal compiler silently requires a `title:` key on `action: new`, and
-omitting it produces an unlabelled row in §19.1.** My own FIELD-15 proposal rendered with an
+omitting it produces an unlabelled row in §19.1.** The FIELD-15 proposal rendered with an
 **empty Item cell** and the whole proposal body dumped into the criteria cell as raw markdown:
 
 ```bash
@@ -477,9 +477,9 @@ row = (... % (item, esc(p.get("title", "")), esc(p.get("body"))))
 
 `p.get("title", "")` returns `""` for a missing key, and `proposals/README.md` never documents
 `title:` as a field (`grep -n 'title:' proposals/README.md` → no match). **So this is a
-documentation gap in a shared file, not a mistake unique to my proposal** — four other sessions
-hit it identically. **The `new` action cannot render a usable row without it.** I have added
-`title:` to my own proposal; the other five belong to their own sessions and I report rather
+documentation gap in a shared file, not a mistake unique to one proposal** — four others
+hit it identically. **The `new` action cannot render a usable row without it.** `title:` was
+added to the FIELD-15 proposal; the other five belong to their own sections and are reported rather
 than edit them. This is a **cross-session finding for the compiler session**, not a FIELD item,
 so no new FIELD ID is taken for it.
 
@@ -786,7 +786,7 @@ $ [ -r $M/webodm ] && [ -x $M/webodm ]   # accessible
 **This confirms and sharpens §8.5.2's ordering claim with a number.** The repair is
 `usermod -aG alwayson-mapping scottw` followed by the ten `mkdir`s — two steps, in that order,
 and the first is privileged. `sudo -n true` returns "interactive authentication is required",
-so this session cannot perform either step. §8.2's tree cannot be satisfied by the operator's
+so neither step can be performed here. §8.2's tree cannot be satisfied by the operator's
 own account until that group membership exists.
 
 **Two findings the compiler should not lose.**
@@ -805,8 +805,8 @@ cannot create, read or inspect it would convert a documented deviation into an u
 The group fix must land first. This is now an ordering constraint with a measured gate, not a
 caution.
 
-**I could not confirm my own probe file is gone, and I am not going to claim it is.** A
-`touch` inside `incoming/` reported `setting times: Permission denied` and I cannot `stat`,
+**The probe file cannot be confirmed gone, and that is not claimed.** A
+`touch` inside `incoming/` reported `setting times: Permission denied` and `stat` is refused,
 `ls` or `rm` the path afterwards — the directory is unreadable to me. **Treat a possible
 zero-byte `/media/scottw/500GBPHOTOGRAM/incoming/.fieldprobe` as present until an operator
 checks and removes it.** See housekeeping in the proposals.

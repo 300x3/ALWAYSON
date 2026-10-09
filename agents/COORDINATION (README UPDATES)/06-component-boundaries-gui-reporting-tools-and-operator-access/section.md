@@ -217,8 +217,8 @@ which files are provisioned. Reading the `grafana` database's `datasource` table
 `postgres` superuser role on the host cluster, which no non-interactive route currently reaches.
 
 So §5.1 group D (18 rows, counted) is the current statement, and the YAML is a lagging subset
-of it. Reconciling the YAML is **not** mine to do — it is a config file outside the three
-section files I own, and the `ao-egress-community` name/CIDR question is an existing §19.1
+of it. Reconciling the YAML is **not** in scope here — it is a config file outside the three
+section files §6 owns, and the `ao-egress-community` name/CIDR question is an existing §19.1
 item belonging to another group. This subsection records the gap so the next reader is not
 misled.
 
@@ -274,10 +274,10 @@ ao-sim-fabrication-gz          -> ao-sim-fabrication-gz.service
 
 **Correction 2026-10-05 — an earlier revision of this block showed only eleven of the
 twenty-five running containers while describing itself as the whole-container enumeration.**
-The eleven were the ones I had a reason to look at, not the ones the command returned, so the
-claim "rests on … the whole-container enumeration rather than on a hand-picked subset" was
-false at the moment I wrote it. The full output is the block above: **25 running, 19 managed,
-6 unmanaged**. The *conclusion* survives and is now stronger, because the fourteen containers
+The eleven were a hand-picked subset with a reason to be looked at, not what the
+command returned, so the claim "rests on … the whole-container enumeration rather than on
+a hand-picked subset" was false when written. The full output is the block above:
+**25 running, 19 managed, 6 unmanaged**. The *conclusion* survives and is now stronger, because the fourteen containers
 the earlier block omitted are all accounted for and all managed:
 
 ```
@@ -304,8 +304,9 @@ leftovers" from "six leftovers and an unowned database", because it never looks.
 This is the third instance of the same error class in this one subsection, and it is worth
 stating as a rule rather than a footnote: **a claim of completeness is itself a claim, and it
 is the one claim an enumeration cannot check for you.** The loop ran over `podman ps` output,
-so the command *was* fleet-wide — I then transcribed a filtered subset of its output into the
-section and attached the completeness claim to the transcription. Always paste the raw output
+so the command *was* fleet-wide — but a filtered subset of its output was transcribed into
+the section, and the completeness claim was attached to the transcription rather than to
+the command. Always paste the raw output
 and state the denominator (`podman ps -q | wc -l`) next to it, so a reader can see the ratio
 rather than trust it. Where a subset is genuinely intended, say so and give both counts.
 
@@ -427,7 +428,7 @@ Enumerate by *label presence*, not by image string — but **look the key up fir
 instinct is `io.podman.annotations.quadlet`, and on this host it is simply not set on
 anything: a query using it returns an empty string for all twenty-five running containers,
 including every genuinely managed one. An empty result from that key looks like a finding
-("nothing has an owner!") and is indistinguishable from "I asked the wrong question." The
+("nothing has an owner!") and is indistinguishable from "the wrong question was asked." The
 correct key is `PODMAN_SYSTEMD_UNIT`, and the self-check is to run it over the whole
 container list and confirm that the containers you believe are managed actually come back
 with a service name. If every row is empty, the key is wrong, not the fleet.

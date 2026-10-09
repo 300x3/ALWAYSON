@@ -1237,7 +1237,7 @@ a filename collision, a `keys_unsorted` dump.
 
 ## 11.12 Fifth-Pass Verification, 2026-10-05 (LEDGER session)
 
-Prior passes re-measured the host. This pass audits the **documents this section
+Prior passes re-measured the host. This audit covers the **documents this section
 owns for internal consistency**, which none had done, and validates candidates
 against the real schema rather than reading it. All three findings are proved by
 execution.
