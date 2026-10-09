@@ -357,8 +357,8 @@ running; that correction is the reason this subsection exists.
 - **SIM-06 is partly satisfied and partly untested.** The image carries the SVG plugin and the
   media root is correct, but the GUI unit is `UnitFileState=generated` with no `[Install]`
   section, so it cannot autostart; `ActiveState=inactive`, `NRestarts=0`. A restart count of zero
-  on a unit that has never run is not evidence that rendering works. **The GUI has not been
-  started in this session and its render path remains unverified.**
+  on a unit that has never run is not evidence that rendering works. **The GUI unit cannot
+  autostart and its render path is unverified** — see the retraction in §10.9.
 
 **Still absent, confirmed.** No facility scheduler exists: a case-insensitive search for
 `scheduler` across `GAZEBO/`, `scripts/simulation/` and `quadlet/` returns only an unrelated
@@ -368,7 +368,7 @@ comment in `quadlet/sales/ao-mastodon-sidekiq.container`. SIM-12 stands.
 uses `GAZEBO/` (present, `12M` of meshes) and every path reference in the world, the boning
 file, the portal and the Quadlet units agrees on `/ALWAYSON/GAZEBO`. The implementation is
 therefore self-consistent, but §10.2 still says "verify its exact location with the operator",
-and this session cannot substitute for that confirmation.
+and §10.2 cannot substitute for that confirmation.
 
 ### 10.4 Verified state, 2026-10-04 (SIM session)
 
@@ -424,9 +424,10 @@ it does **not** deliver reset, so SIM-14 stays open on that limb.
 **63205 bytes** with sha256 `bce32f2a…`. Size *and* hash disagree, so the manifest cannot be
 repaired by editing a number. Repair requires re-export and re-signing with the
 `ao-sim-fabrication` producer key (present at `secrets/sim-fabrication/producer.pem`, 119 bytes,
-value not printed) via `scripts/ledger/build-manifest.sh`. Re-signing a provenance record with a
-ledger key is a stop condition for this session, so the change is prepared and left for the
-operator. Cosmetic with respect to the running world, which is valid and serving.
+value not printed) via `scripts/ledger/build-manifest.sh`. **Re-signing a provenance record with
+a ledger key requires explicit operator approval** (README §4.1 rules 5 and 7), so the change
+is prepared and left for the operator. Cosmetic with respect to the running world, which is
+valid and serving.
 
 **Unchanged from §10.3.** SIM-07 reproduces exactly: `packages.ros.org` presents
 `subject=… CN=*.osuosl.org` and `curl` returns HTTP `000`. Certificate verification must not be
@@ -458,8 +459,9 @@ identical after whitespace normalisation.
 
 Guards, each proved by making it fail: standoff drift → `--check` exits 1; a stated centroid
 disagreeing with `origin+extent/2` → refuses to generate; an XML comment containing `--` →
-refuses. **The last one I hit for real** — my first generated block contained the literal
-`--write` in a comment, and XML comments may not contain `--`, so the world stopped parsing.
+refuses. **The `--` guard is not theoretical** — a generated block containing the literal
+`--write` in a comment stops the world parsing, because XML comments may not contain
+`--`.
 
     $ python3 scripts/simulation/build-rl-objects.py --check     -> OK (exit 0)
     $ python3 scripts/simulation/build-boning-cameras.py --check  -> OK (exit 0)
@@ -473,8 +475,12 @@ the checkout in front of you, and `--check` reported on a file the caller was no
 
 Ten of the eleven worktrees still hold that defective copy, **and** they predate main's
 `SPECULAR`/`SHININESS` fix (`a05f018`), so `--write` from one of them strips every
-`<specular>` from the live world. This fired during this session: `/ALWAYSON`'s world was
+`<specular>` from the live world. **This has already fired:** `/ALWAYSON`'s world was
 rewritten at 13:12:01 and its `rl_objects` specular count fell from **9 to 0**.
+
+**A generator that writes to an absolute path must derive that path from the checkout in
+use, never from a hardcoded constant, and `--check` must report on the file it would
+actually write.**
 
 Restored and verified — `/ALWAYSON/GAZEBO/worlds/factory.world` is byte-identical to its
 committed state, `bce32f2a…`, 63205 bytes, 9 specular, `--check` OK, `gz sdf -k` Valid:
@@ -483,21 +489,23 @@ committed state, `bce32f2a…`, 63205 bytes, 9 specular, `--check` OK, `gz sdf -
     $ sha256sum /ALWAYSON/GAZEBO/worlds/factory.world
       bce32f2a7ff035b4022db82d9a90267ca829261d08038d3e26e5ff3fe5f51053
 
-**Nobody should run `build-rl-objects.py --write` from a worktree until this is fixed
-everywhere.** The remaining copies are in other sessions' trees; correcting them needs either
-each session fixing its own, or the operator's explicit approval for me to touch them.
+**`build-rl-objects.py --write` must not be run from a worktree until this is fixed
+everywhere.** The remaining defective copies are in other sessions' trees. Correcting a file
+outside the owning section's scope requires either that section's own fix or the operator's
+explicit approval — it must not be edited unilaterally.
 
 ### 10.6 SIM-14 is not closed, and a third generator defect (SIM-15)
 
-Re-audited 2026-10-04 against §19's actual acceptance text rather than against my own earlier
-verdicts. Two of my own conclusions were wrong.
+Re-audited 2026-10-04 against §19's actual acceptance text rather than against earlier
+verdicts. Two earlier conclusions were wrong, and both are retracted here.
 
 **SIM-14 stays Open. §19 asks for objects "addressable and resettable"; only addressable is
 delivered.** The `rl_objects` model does exist and §19.1's "That model does not exist" is
 retracted — but `/api/reset` returns **404** and the portal performs no reset, so placement
-cannot be returned to `home_pose` at run time. The portal field I corrected in §10.4 is what made
-this visible: `resettable_claimed` true beside `reset_available` **false**. I filed `close` on
-2026-10-03 while my own section file said the opposite.
+cannot be returned to `home_pose` at run time. The §10.4 portal correction is what makes
+this visible: `resettable_claimed` true beside `reset_available` **false**. A `close` was
+filed on 2026-10-03 while this section's own text said the opposite. **A closure must be argued from the acceptance text, never from a proxy
+property that merely correlates with it.**
 
     $ curl -s -o /dev/null -w '%{http_code}\n' -m 5 http://127.0.0.1:8765/api/reset   -> 404
     $ curl -s -m 5 .../api/status | python3 -c '...'
@@ -527,29 +535,40 @@ models in the world the live server has open. Measured on `/tmp/gen-test-sim`, n
 No content is lost and the world stays valid, so this is a review-integrity hazard rather than a
 runtime fault — which is why it survived so long unnoticed. It should replace the block in place.
 
-**A structural defect in this very subsection, found while auditing my own prose.** §10.5's
-heading had been inserted *mid-sentence*, splitting the SIM-07 paragraph and orphaning its tail
-("disabled to work around it. SIM-12 …") at the far end of §10.5, where it read as part of the
-generator hazard. Repaired. Worth noting for other sessions: a heading inserted into a section
-file produces no error anywhere — the compiler concatenates happily — so prose damage from a bad
-edit is only visible by reading the rendered README.
+**A heading inserted into a section file produces no error anywhere** — the compiler
+concatenates happily — so prose damage from a bad edit is only visible by reading the
+rendered README. An earlier revision of §10.5 had a heading inserted *mid-sentence*,
+splitting the SIM-07 paragraph and orphaning its tail ("disabled to work around it.
+SIM-12 …") at the far end of the subsection, where it read as part of the generator
+hazard. **A rendered README must be read after a structural edit to a section file.**
 
-**What I got wrong this session.** I first reported the GUI as verified on the strength of
-`ActiveState=active` plus a clean error grep. That is the exact mistake §10.3 warned about: a
-live process and an absence of errors is not proof that geometry renders. I only reached a real
-answer by capturing the window and diffing two captures. Smaller error: I ran `gz topic` inside
-the GUI container before checking `GZ_CONFIG_PATH`, and briefly read "cannot find any available
-'gz' command" as a missing toolchain when it was only an unset variable.
+### GUI verification: a live process is not a rendered geometry
 
-**The recurring error, stated once so it is not repeated: I re-ran my own old commands without
-re-deriving their assumptions, and briefly believed the wrong answer.** `/api/status` now returns
-`links` and `link_count` *nested* under `world`. My 2026-10-03 one-liner reads them at top level,
-so it now returns `[]` and `None`. I ran it unchanged, saw zero RL links, and for a moment
-concluded the model had vanished — when the model was fine and my query was stale. A measurement
-whose inputs may have drifted needs re-derivation, not just re-execution. I made the same class of
-error twice: verifying the arithmetic of SIM-09 last session and treating that as equivalent to
-having read the acceptance criteria, then verifying the existence of `rl_objects` for SIM-14 and
-treating that as equivalent to having met the criteria.
+`ActiveState=active` plus a clean error grep is **not** evidence that geometry renders —
+this is the mistake §10.3 already warns about. The only reliable answer comes from
+capturing the window and diffing two captures. Note also that `gz topic` run inside the
+GUI container fails with "cannot find any available 'gz' command" when
+`GZ_CONFIG_PATH` is merely unset; **check the environment variable before concluding a
+toolchain is missing.**
+
+### A measurement whose inputs may have drifted needs re-derivation, not re-execution
+
+This is the recurring error in this section and is stated once here so it is not
+repeated. Re-running a recorded command without re-deriving its assumptions returns a
+confident wrong answer. Concretely: `/api/status` returns `links` and `link_count`
+*nested* under `world`. A one-liner written before that change reads them at top level,
+so it returns `[]` and `None` — zero RL links against a model that is fine and a query
+that is stale.
+
+The same class of error recurs in two guises, both of which substitute a proxy for the
+criterion:
+
+- verifying the *arithmetic* of a closure and treating that as having read the
+  acceptance criteria;
+- verifying the *existence* of a field and treating that as having met the criteria.
+
+**A closure must be argued from the acceptance text, not from a property that merely
+correlates with it.**
 
 ### 10.7 SIM-15 fixed: the generator is position-idempotent, and `--check` now proves it
 
@@ -600,30 +619,39 @@ The **live** tree was never a target: `/ALWAYSON/GAZEBO/worlds/factory.world` is
 `5667873ca41968bea3e41b68dbc03321a22e8553059271ec65b522a0657e7b26` and `git -C /ALWAYSON status`
 is empty for both the world and the script. Every measurement above was taken on a scratch copy.
 
-**What I got wrong here, and it took three attempts.** My first guard asserted "a rewrite would be
-a no-op", which is worthless: replacing in place is a *fixed point* of relocation, so a world whose
-block had been moved to the end still reported OK. I only found this because I tested the guard
-against a deliberately broken world instead of assuming it worked — a passing test on the good world
-proves nothing about a check whose job is to catch the bad one. My first relocate implementation
-then computed the anchor offset on the unmodified string and applied it to the already-shortened
-one, splitting a comment into `<` and `!--` and producing a file Gazebo could not read
-(`Error Code 1: Unable to read file`); the second attempt's blanket `\n{3,}` collapse then ate
-blank lines across the whole document. The file was byte-compared against the committed world after
-every attempt, which is the only reason those showed up at all. Three errors, one class: I wrote
-the seam handling from intuition instead of measuring the committed file's actual spacing, and I
-validated on the happy path instead of on the broken case.
+### A guard must be tested against the case it exists to catch
+
+A guard asserting "a rewrite would be a no-op" is worthless: replacing in place is a
+*fixed point* of relocation, so a world whose block had merely been moved to the end
+still reports OK. **A passing test on the good world proves nothing about a check whose
+job is to catch the bad one.**
+
+Three further failure modes are recorded because each produced a file Gazebo could not
+read:
+
+- computing an anchor offset on the unmodified string and applying it to the
+  already-shortened one, which splits a comment into `<` and `!--`
+  (`Error Code 1: Unable to read file`);
+- a blanket `\n{3,}` collapse, which eats blank lines across the whole document rather
+  than at the seam;
+- writing seam handling from intuition instead of measuring the committed file's actual
+  spacing.
+
+**A rewritten world must be byte-compared against the committed world after every
+attempt**, and the seam must be derived from a measurement of the real file rather than
+assumed.
 
 ### 10.8 Second pass: the SIM-15 fix re-verified from scratch, and a wrong number in SIM-10
 
-Recorded 2026-10-04 in worktree `/tmp/ao-sessions/wt-sim`. §10.7 was written by the previous
-wave of this session and its fix was **uncommitted**. I re-derived every claim on a fresh
-scratch copy at `/tmp/verify15` rather than trusting the recorded output, because a handoff that
-says "verified" is a claim, not evidence.
+Recorded 2026-10-04 in worktree `/tmp/ao-sessions/wt-sim`. §10.7 was written earlier and
+its fix was **uncommitted**. Every claim here is re-derived on a fresh scratch copy at
+`/tmp/verify15` rather than trusting recorded output, because **a handoff that says
+"verified" is a claim, not evidence.**
 
-**SIM-15 confirmed on all three limbs, reproduced from scratch.** I reconstructed the original
-defect deliberately — moved the `rl_objects` block to just before `</world>`, exactly as the old
-`--write` did — and confirmed the region order inverted (`safety_zones` 544, `conveyor_loops`
-574, `elevation cameras` 1209, `rl_objects` 1285).
+**SIM-15 confirmed on all three limbs, reproduced from scratch.** The original defect is
+reconstructed deliberately — the `rl_objects` block moved to just before `</world>`, exactly
+as the old `--write` did — which confirms the region order inverted (`safety_zones` 544,
+`conveyor_loops` 574, `elevation cameras` 1209, `rl_objects` 1285).
 
 1. `--check` **catches** the reorder, which is the half the old guard could never do:
 
@@ -663,15 +691,16 @@ parts of `massing_fab.dae` as "anonymous `group_0`–`group_25`". Counted, there
 actually renders). The conclusion is unaffected — no semantic name anywhere and 33 of 34 parts
 cubic, both verified directly — but the count is wrong and the compiler should correct it.
 
-**What I got wrong this wave.** I wrote a catalogue-edit test whose `sed` pattern did not
-match the file, so the run reported "already current; nothing written" and I nearly recorded a
-passing test that had changed nothing. `x: 6.20` is not in `objects.yaml`; the line is
-`home_pose: [6.20, 2.10, ...]`. The tell was that the diff was empty *and* `--check` said OK
-after I had supposedly edited the catalogue — two results that cannot both be true. The
-underlying habit is the one already recorded twice in this section: I accepted a verification's
-verdict instead of confirming the verification had actually been set up. The corrected run,
-shown above, edits line 34 and confirms the edit took effect with `sed -n '34p'` before
-trusting the generator's output.
+### A verification must be confirmed to have been set up before its verdict is accepted
+
+A catalogue-edit test whose `sed` pattern does not match the file reports "already
+current; nothing written" and reads as a passing test that changed nothing. `x: 6.20` is
+not in `objects.yaml`; the line is `home_pose: [6.20, 2.10, ...]`.
+
+**The tell is two results that cannot both be true:** an empty diff *and* a `--check`
+that reports OK after an edit supposedly took effect. **A verification's verdict must not
+be accepted until the verification has been shown to have actually run** — here, by
+confirming the edit landed with `sed -n '34p'` before trusting the generator's output.
 
 ### 10.9 SIM-16: the running simulation is executing a world two commits out of date
 
@@ -718,31 +747,40 @@ boned poses, RL object presence — passes on the running server too. **Only the
 The building you see live is drawn with the old emissive material and the old mesh, which is
 exactly the appearance the commits `dc72f5c` → `c24f673` → `ec34c71` were iterating away from.
 
-**This retracts the visual half of my SIM-06 closure.** The `import` capture in the SIM-06
-proposal proves the GUI client renders *a* world; it cannot prove it renders *this* world, and it
-demonstrably did not. The GUI is running against the server above, so the screenshot shows
-`massing_fab.dae`. SIM-06 stays **closed on the client-build criteria** (unit starts, 18 plugins,
-ogre2 engine, 6762 distinct colours, no render errors) and the operator should re-shoot the
-visual after a restart. The restart itself is **not** mine to perform: it is a live service
-restart, so it needs the operator.
+**RETRACTION — the visual half of the SIM-06 closure does not hold.** The `import`
+capture in the SIM-06 proposal proves the GUI client renders *a* world; it cannot prove it
+renders *this* world, and it demonstrably did not. The GUI is running against the server
+above, so the screenshot shows `massing_fab.dae`. SIM-06 stays **closed on the
+client-build criteria** (unit starts, 18 plugins, ogre2 engine, 6762 distinct colours, no
+render errors) and the visual must be re-shot after a restart. **That restart is a live
+service restart and requires explicit operator approval** (README §4.1 rule 6).
 
 **A second, smaller instance of the same class: the portal cannot detect this.** `world_summary()`
 in `scripts/simulation/ao-sim-portal.py` parses the **file on disk** (line 209-223), and
 `objects_summary()` likewise. Neither asks the server what it loaded. So `/api/status` returns
 `link_count: 37` from the file while the server holds a different document — the portal will
 report "consistent" across a restart-induced divergence. The fix is to have the portal read
-`/world/factory/dynamic_pose/info` (which I confirmed is published and reachable from
+`/world/factory/dynamic_pose/info` (which is published and reachable from
 `ao-sim-fabrication-foxglove` via `gz topic -e -t /world/factory/dynamic_pose/info -n 1`, returning
 `rl_objects` plus per-link poses) and report loaded-vs-committed separately.
 
-**What I got wrong.** I had been reading the live world *file* and calling it "the simulation".
-Every previous wave of this section — including the §10.7/§10.8 generator verification — verified
-the repository, which was correct for those questions, but it created a habit of treating
-repository state as simulation state. They are different objects with a load boundary between
-them, and I never looked for that boundary. Contributing cause: `/world/factory/scene/info`
-returns 0 bytes to a plain subscriber and `/world/factory/generate_world_sdf` timed out at 20 s,
-so the obvious direct probes both failed and I fell back on the log. The log answer was sitting
-in the rotated file, one `grep` away.
+### The live world file is not the simulation
+
+Reading the live world *file* and calling it "the simulation" is the error this
+subsection is written to prevent. It makes every file-based check — including the
+§10.7/§10.8 generator verification — silent about what the server actually holds.
+Verification
+the repository, which was correct for those questions, but it creates a habit of treating
+repository state as simulation state. **They are different objects with a load boundary
+between them, and that boundary must be looked for explicitly.**
+
+Two contributing causes are recorded because both will recur:
+
+- `/world/factory/scene/info` returns 0 bytes to a plain subscriber and
+  `/world/factory/generate_world_sdf` times out at 20 s, so the obvious direct probes
+  both fail;
+- when the direct probe fails, the answer is in the log — and the useful log is the
+  **rotated** one, one `grep` away (see the traps below).
 
 **Traps for the next session.** `logs/sim-gz-server.log` is **empty**; the useful history is in
 `logs/sim-gz-server.log.1`. `gz topic -l` on the host returns nothing — the server advertises
@@ -773,11 +811,12 @@ now be made on evidence rather than on trust, and one of §10.9's claims is corr
 `podman ps` renders this as `Up 38 hours`, which reads like a recent start and is the reason a
 casual glance misses it. The uptime counter keeps counting; the world file does not get re-read.
 
-**The restart is safe, and I proved it without touching the live server.** A restart of a
-digest-pinned unit holding a `ro` bind mount is not destructive by construction — the container
-has no write access to the world — but "safe by construction" is an argument, not a measurement.
-So I loaded the *current* committed world in a throwaway container from the **same pinned digest**,
-on a **separate `GZ_PARTITION`**, with a bounded iteration count and `--rm` so it cleaned itself up:
+**"Safe by construction" is an argument, not a measurement.** A restart of a digest-pinned
+unit holding a `ro` bind mount is not destructive by construction — the container has no
+write access to the world — but that claim must be **demonstrated before a live restart is
+requested**, by loading the *current* committed world in a throwaway container from the
+**same pinned digest**, on a **separate `GZ_PARTITION`**, with a bounded iteration count and
+`--rm` so it cleans itself up:
 
     $ podman run --rm --name ao-sim-worldcheck \
         -e GZ_PARTITION=ao_sim_worldcheck_$$ -e GZ_SIM_RESOURCE_PATH=/ALWAYSON/GAZEBO/models \
@@ -794,16 +833,17 @@ pinned image; a restart will not fail and will not leave the simulation down. Th
 classes it does emit (`<gui><camera> can't be converted yet`, and `Ogre2Camera::SetVisibilityMask`
 reserved-bit notices from the eight cameras) are pre-existing and are not errors.
 
-Two safety properties I deliberately preserved, because getting either wrong would have violated a
-stop condition rather than merely been untidy:
+Two safety properties must be preserved, because getting either wrong violates a stop
+condition rather than merely being untidy:
 
 - **A separate `GZ_PARTITION`.** The live server advertises `alwayson_fabrication_sim` at
   `GZ_IP=10.89.5.10`. A second server on the same partition would have injected a duplicate
   publisher for every topic and every GUI client on the network would have attached to whichever
   answered first. A distinct partition makes the check invisible to the running system.
 - **No `--network` join to `ao-sim-fabrication`, and no control of the live unit.** The check ran
-  on the default network with no route to the domain. I did not restart, stop, signal or exec
-  into `ao-sim-fabrication-gz` beyond read-only `inspect`/`ps`/`cat` of `/proc/1`.
+  on the default network with no route to the domain. No restart, stop, signal or exec
+  into `ao-sim-fabrication-gz` may be performed beyond read-only
+  `inspect`/`ps`/`cat` of `/proc/1`.
 
 **Correction to §10.9: `camera_elev_arms` is NOT missing from the loaded world.** A naive
 read of the diff suggests the loaded world lacks the SIM-09 elevation camera, because the diff
@@ -818,10 +858,11 @@ file, which `diff` renders as a delete plus an insert elsewhere:
     $ # pose in both, identical:
     <pose>6.401 4.056 1.151 0 0.0000 -1.5708</pose>
 
-I nearly recorded SIM-09's fix as un-rendered on the live server. It is rendered. I had inferred
-a missing camera from a relocation hunk, which is the diff-shaped version of the same mistake
-§10.9 describes: reading a *representation* of the world and calling it the world. The correct
-check is presence-and-value counts per named entity, not hunk headers.
+**A relocation hunk is not a deletion.** Reading a unified-diff hunk header as a semantic
+removal leads to filing a false regression: an 80-line block (`542,621d541`) that is merely
+*relocated* reads as removed. SIM-09's fix **is** rendered on the live server. **The correct
+check is presence-and-value counts per named entity, not hunk headers** — this is the
+diff-shaped version of the same mistake §10.9 describes.
 
 **What actually differs between loaded and committed, measured.** 167 changed lines total, and
 they are confined to three things: the massing mesh URI, the massing material block, and the
@@ -851,18 +892,23 @@ the portal's view-only guarantee intact. The richer version, reading
 `/world/factory/dynamic_pose/info` as §10.9 proposed, needs a second hop and is not worth the
 complexity for a flag that a timestamp comparison gives directly.
 
-**Still the operator's call, and still not mine.** `systemctl --user restart
-ao-sim-fabrication-gz` is a live service restart. I have prepared and proved it; I have not run
-it. The exact command, once approved, is that one — no Quadlet edit is needed, because the world
-file is a bind mount and the restart picks up the committed file as-is.
+**The restart requires explicit operator approval.** `systemctl --user restart
+ao-sim-fabrication-gz` is a live service restart (README §4.1 rule 6). The exact command, once
+approved, is that one — no Quadlet edit is needed, because the world file is a bind mount and
+the restart picks up the committed file as-is.
 
-**What I got wrong this pass.** I read a unified-diff hunk header as a semantic deletion and
-nearly filed a false regression against my own SIM-09 closure. Contributing cause: I reached for
-`diff` output, which is optimised for humans skimming changes, when the question was "does entity
-X exist with value Y in both versions" — a question a counted grep answers directly. The deeper
-habit is the one already recorded in §10.5, §10.8 and §10.9: accepting a representation's shape
-as evidence about the thing. Three passes in a row have hit it in three different disguises,
-which is enough to call it this section's characteristic failure. **Check the value, not the
-hunk.**
+### This section's characteristic failure: accepting a representation as the thing
+
+Three successive passes hit the same class of error in three disguises — recorded in §10.5,
+§10.8 and here. It is worth naming as one failure:
+
+1. reading the live world *file* and calling it the simulation (§10.9);
+2. re-running a recorded command whose inputs had drifted (§10.5);
+3. reading a diff hunk header as a semantic deletion (this subsection).
+
+The contributing cause is reaching for a tool optimised for humans skimming changes — `diff`
+— when the question is "does entity X exist with value Y in both versions". **A counted grep
+answers that directly. Check the value, not the hunk, and never accept a representation's shape
+as evidence about the thing it represents.**
 
 ---
