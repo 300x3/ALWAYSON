@@ -149,7 +149,10 @@ take "pushed" as evidence:
 git fetch origin
 git rev-parse --short HEAD; git rev-parse --short origin/main
 curl -sS -o /dev/null -w '%{http_code}\n' https://raw.githubusercontent.com/300x3/ALWAYSON/main/README.md
-curl -sS https://raw.githubusercontent.com/300x3/ALWAYSON/main/README.md | grep -c '<ITEM-ID>'
+# Work items live in status-and-references.md since ebdf215 -- grep'ing README.md
+# for an ITEM-ID returns 0 on a healthy push (measured 2026-10-09, caused a
+# false alarm). Grep the tracker, not the README:
+curl -sS https://raw.githubusercontent.com/300x3/ALWAYSON/main/README-ACTION_ITEMS/status-and-references.md | grep -c '<ITEM-ID>'
 ```
 
 Report the SHA and the HTTP code.
