@@ -17,3 +17,11 @@
 {"ts": "2026-10-10T03:26:33+00:00", "who": "comm", "level": "info", "text": "Comm done iter 31: plan only, no commits (awaited approval). COMM-02/03/04 close-ready with evidence; COMM-01/05/06/07 blocked (owner/operator)."}
 {"ts": "2026-10-10T03:26:44+00:00", "who": "coordinator", "level": "info", "text": "APPROVED items executed (2/3): PAY-08 closed+verified. step-5 still dry (19h18m), GROUP_MODEL override stays."}
 {"ts": "2026-10-10T05:14:26+00:00", "who": "coordinator", "level": "info", "text": "coordinator watch alive -- rotation: sim current, ~1h40m left of its 2h shift"}
+{"ts": "2026-10-10T05:46:28+00:00", "who": "coordinator", "level": "info", "text": "Freemium probing live: probe-freemium.py covers promo+15 OpenRouter-free+15 local. Contributor PASS rehabilitated, sim validates live. mimo+step5 dry, all on solar. Pushed 073ef7e=origin."}
+{"ts": "2026-10-10T07:18:26+00:00", "who": "coordinator", "level": "info", "text": "coordinator watch alive -- rotation: ops-a current, ~1h39m left of its 2h shift"}
+{"ts": "2026-10-10T09:22:16+00:00", "who": "coordinator", "level": "info", "text": "coordinator watch alive -- rotation: ops-b current, ~1h39m left of its 2h shift"}
+{"ts": "2026-10-10T11:25:23+00:00", "who": "coordinator", "level": "info", "text": "coordinator watch alive -- rotation: spec current, ~1h39m left of its 2h shift"}
+{"ts": "2026-10-10T13:29:06+00:00", "who": "coordinator", "level": "info", "text": "coordinator watch alive -- rotation: plat current, ~1h39m left of its 2h shift"}
+{"ts": "2026-10-10T15:32:46+00:00", "who": "coordinator", "level": "info", "text": "coordinator watch alive -- rotation: net current, ~1h39m left of its 2h shift"}
+{"ts": "2026-10-10T16:47:16+00:00", "who": "net", "level": "info", "text": "Net shift revived: 3 overnight nudges died with 0 events (solar contention), budget reset, now running iter 2 on solar-mini4."}
+{"ts": "2026-10-10T16:47:16+00:00", "who": "coordinator", "level": "info", "text": "Status 09:50: net on shift (~25m left), all timers live, HEAD=origin=073ef7e. Freemium prober covers promo+15 OR-free+15 local; contributor rehabilitated; mimo+step5 dry, team on solar."}
