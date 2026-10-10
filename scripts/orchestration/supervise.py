@@ -384,7 +384,11 @@ def nudge(g, reason):
                               "--provider", PROVIDER, "--model", model_for(g), msg],
                              stdout=out, stderr=subprocess.STDOUT, start_new_session=True)
     open(os.path.join(d, "pid"), "w").write(str(p.pid))
-    print("%-6s nudged #%d (pid %d) - %s" % (g, n, p.pid, reason))
+    # same audit rule as spawn(): the recorded model and the run_result model
+    # must agree. nudge used to leave the file absent or stale, which is how
+    # ledger ended up with no model record at all (2026-10-09).
+    open(os.path.join(d, "model"), "w").write(model_for(g) + "\n")
+    print("%-6s nudged #%d (pid %d) model=%s - %s" % (g, n, p.pid, model_for(g), reason))
 
 
 def cmd_status():
