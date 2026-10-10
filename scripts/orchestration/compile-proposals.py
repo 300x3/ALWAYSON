@@ -137,7 +137,7 @@ def main():
                % (item, esc(p.get("title", "")), esc(p["body"])))
         log1 = log1[:idx] + "\n" + row + log1[idx:]
 
-    open(SEC, "w", encoding="utf-8").write(log1 + tail)
+    open(SEC, "w", encoding="utf-8").write(head + log1 + tail)
     with open(ledger_path, "a") as fh:
         for p in read_props():
             if p["file"] in {q["file"] for q in fresh}:
