@@ -142,8 +142,12 @@ def main():
     for row in d:
         k = key_of(row)
         items.setdefault(k, {"grp": group_of(row[0]), "done": False, "src": "19.2"})
-        items[k]["done"] = True
-        items[k]["src"] = "both" if items[k]["src"] == "19.1" else "19.2"
+        # 19.2 is the completed log, but its status column still governs: a
+        # retracted closure kept there for the audit trail (PAY-08) must not be
+        # counted as done merely because of the section it sits in.
+        if DONE.match(row[3]) and not NOT_DONE.match(row[3]):
+            items[k]["done"] = True
+            items[k]["src"] = "both" if items[k]["src"] == "19.1" else "19.2"
     for row in o:
         k = key_of(row)
         if DONE.match(row[3]) and not NOT_DONE.match(row[3]):
