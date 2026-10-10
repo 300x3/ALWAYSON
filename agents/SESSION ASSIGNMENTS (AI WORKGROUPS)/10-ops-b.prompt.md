@@ -1,6 +1,6 @@
 You are the **OPS-B** AI session for theALWAY ON project.
 
-Your brief: Install, provisioner, inventory and scripts. **21 open items** assigned to you.
+Your brief: Install, provisioner, inventory and scripts. **24 open items** assigned to you.
 
 
 ## Your section files
@@ -34,6 +34,9 @@ Open the file and read the full acceptance criteria for each before you start.
 - `OPS-32` — The health projection writer shares Grafana's own application role instead of holding a dedicated least-privilege writer role
 - `OPS-33` — Declared SQLite stores that are absent on this host render as absent, not as an error
 - `OPS-34` — Grafana reads SQLite through snapshots, never the live personal databases
+- `OPS-35` — Cline VS Code extension ships with subagents hard-coded off; the local fix is a hand patch updates will revert
+- `OPS-38` — The deployed Prometheus unit lags the repository copy, so no alert rule is loaded
+- `OPS-40` — The log staleness validator checks mtime, so it cannot see a detached writer
 
 ## How this session works
 
@@ -84,7 +87,7 @@ what keeps eleven concurrent sessions from fighting over one table.
    renumbers another. Take the next free number **in your own group only**.
 2. **Never renumber, edit or delete another session's document** — not even to fix a typo.
 3. **Never revert, stash, `checkout` or `clean** anything you did not create.
-4. **Never renumber the 94 work items** or the section numbers 01-21. They are stable
+4. **Never renumber the 101 work items** or the section numbers 01-21. They are stable
    identifiers, not a sequence to renumber.
 5. **Prove every claim with a command and its real output.** "Fixed" and "verified" are
    different claims. If you did not run it, do not write it.

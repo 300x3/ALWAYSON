@@ -15,18 +15,26 @@ README §19.1. **README.md is compiled from `agents/COORDINATION (README UPDATES
 | `02-net.prompt.md` | Networks, adapters and isolation | `NET` | 4 |
 | `03-sec.prompt.md` | Secrets, credentials and identity | `SEC` | 3 |
 | `04-ledger.prompt.md` | Ledger, accounting and provenance | `LEDGER` | 7 |
-| `05-pay.prompt.md` | Payments, sales and storefront | `PAY` | 7 |
+| `05-pay.prompt.md` | Payments, sales and storefront | `PAY` | 8 |
 | `06-comm.prompt.md` | Community, federation and local AI | `COMM` | 7 |
 | `07-field.prompt.md` | Field, radio and drones | `FIELD` | 14 |
 | `08-sim.prompt.md` | Simulation and fabrication | `SIM` | 14 |
-| `09-ops-a.prompt.md` | Backup, restore and monitoring | `OPS-A` | 13 |
-| `10-ops-b.prompt.md` | Install, provisioner, inventory, scripts | `OPS-B` | 21 |
+| `09-ops-a.prompt.md` | Backup, restore and monitoring | `OPS-A` | 16 |
+| `10-ops-b.prompt.md` | Install, provisioner, inventory, scripts | `OPS-B` | 24 |
 | `11-spec.prompt.md` | Specification review, sections 1–3 and 6 | `SPEC` | 0 |
-| | | **Total** | **94** |
+| | | **Total** | **101** |
 
-All **94** open items in §19.1 are assigned to exactly one session, with **no item assigned
-twice** (verified against `main`). `SPEC` has no items: it reviews its three sections for
-accuracy and records anything new it finds.
+> **Refreshed 2026-10-09 against `main` (be40da9).** The original sheets said 94;
+> seven open items were added afterwards and were missing from every brief:
+> `PAY-08` (reopened) and `OPS-35`–`OPS-40`. OPS-A now carries 16 — it owns §17,
+> so OPS-36/37/39 are its backup, restore and alerting semantics — and OPS-B now
+> carries 24 (OPS-35/38/40 live in its §§12/16 territory).
+
+All **101** open items in §19.1 are assigned to exactly one session, with **no item assigned
+twice** (verified against `main`). The 22 `ST-*` rows in §19.1 are system-status
+rows, not work items: they belong to no session and no brief lists them. `SPEC`
+has no items: it reviews its three sections for accuracy and records anything new
+it finds.
 
 This table replaces an earlier version that claimed 60 items and listed COMM as having
 none. That was wrong on both counts — 34 items were never assigned, including all 7 COMM

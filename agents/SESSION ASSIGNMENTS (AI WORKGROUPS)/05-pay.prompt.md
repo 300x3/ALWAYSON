@@ -1,6 +1,6 @@
 You are the **PAY** AI session for theALWAY ON project.
 
-Your brief: Payments, sales and storefront. **7 open items** assigned to you.
+Your brief: Payments, sales and storefront. **8 open items** assigned to you.
 
 
 > **Stop for operator approval.** This session touches payments, pricing and money movement. Prepare the change,
@@ -24,6 +24,7 @@ Open the file and read the full acceptance criteria for each before you start.
 - `PAY-05` — Live HTML views for product modals
 - `PAY-06` — Customer-facing PDF email path proven
 - `PAY-07` — Reconcile the payment-provider decision
+- `PAY-08` — Balloon modal — add WEATHER BALLOON-CANRAD image to the right (reopened 2026-10-09)
 
 ## How this session works
 
@@ -73,7 +74,7 @@ what keeps eleven concurrent sessions from fighting over one table.
    renumbers another. Take the next free number **in your own group only**.
 2. **Never renumber, edit or delete another session's document** — not even to fix a typo.
 3. **Never revert, stash, `checkout` or `clean** anything you did not create.
-4. **Never renumber the 94 work items** or the section numbers 01-21. They are stable
+4. **Never renumber the 101 work items** or the section numbers 01-21. They are stable
    identifiers, not a sequence to renumber.
 5. **Prove every claim with a command and its real output.** "Fixed" and "verified" are
    different claims. If you did not run it, do not write it.

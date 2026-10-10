@@ -73,7 +73,7 @@ what keeps eleven concurrent sessions from fighting over one table.
    renumbers another. Take the next free number **in your own group only**.
 2. **Never renumber, edit or delete another session's document** — not even to fix a typo.
 3. **Never revert, stash, `checkout` or `clean** anything you did not create.
-4. **Never renumber the 94 work items** or the section numbers 01-21. They are stable
+4. **Never renumber the 101 work items** or the section numbers 01-21. They are stable
    identifiers, not a sequence to renumber.
 5. **Prove every claim with a command and its real output.** "Fixed" and "verified" are
    different claims. If you did not run it, do not write it.

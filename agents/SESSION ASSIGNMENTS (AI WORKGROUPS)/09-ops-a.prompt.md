@@ -1,6 +1,6 @@
 You are the **OPS-A** AI session for theALWAY ON project.
 
-Your brief: Backup, restore and monitoring. **13 open items** assigned to you.
+Your brief: Backup, restore and monitoring. **16 open items** assigned to you.
 
 
 ## Your section files
@@ -25,6 +25,9 @@ Open the file and read the full acceptance criteria for each before you start.
 - `OPS-29` — Off-site restic repository does not exist
 - `OPS-30` — Off-site restic repository does not exist
 - `OPS-31` — The backup shares a filesystem with the data it protects
+- `OPS-36` — Logrotate: writers stay attached to the inode a rotation has already renamed
+- `OPS-37` — `restic check` has never run on a schedule (wire `ao-restic-verify.timer`)
+- `OPS-39` — Three backup alerts depend on metrics nothing exports
 
 ## How this session works
 
@@ -74,7 +77,7 @@ what keeps eleven concurrent sessions from fighting over one table.
    renumbers another. Take the next free number **in your own group only**.
 2. **Never renumber, edit or delete another session's document** — not even to fix a typo.
 3. **Never revert, stash, `checkout` or `clean** anything you did not create.
-4. **Never renumber the 94 work items** or the section numbers 01-21. They are stable
+4. **Never renumber the 101 work items** or the section numbers 01-21. They are stable
    identifiers, not a sequence to renumber.
 5. **Prove every claim with a command and its real output.** "Fixed" and "verified" are
    different claims. If you did not run it, do not write it.
