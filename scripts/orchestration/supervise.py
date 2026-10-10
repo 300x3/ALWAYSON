@@ -123,6 +123,37 @@ def worktree(g):
     return os.path.join(RUN, "wt-%s" % g)
 
 
+def ensure_worktree(g):
+    """Return wt-<g>, creating it if missing. Safe against a /tmp wipe.
+
+    A reboot (or any /tmp clean) removes the worktree DIRECTORY while the
+    ai-<g> branch and the stale `git worktree` registration survive. Two
+    measured failures on 2026-10-09: `worktree add -b ai-<g>` dies because the
+    branch already exists, and a nudge handed cline a --cwd that did not exist,
+    so ledger produced 0 bytes of events and looked "dead". Reuse the existing
+    branch, fast-forwarding it to origin/main so the session starts from the
+    current tree; only create a branch when there is none.
+    """
+    wt = worktree(g)
+    if os.path.isdir(wt):
+        return wt
+    br = "ai-%s" % g
+    subprocess.run(["git", "-C", ROOT, "worktree", "prune"], check=False)
+    has = subprocess.run(["git", "-C", ROOT, "show-ref", "--verify", "--quiet",
+                          "refs/heads/%s" % br]).returncode == 0
+    if has:
+        subprocess.run(["git", "-C", ROOT, "worktree", "add", wt, br], check=True)
+        # ff-only: fails harmlessly if the branch has diverged; the session
+        # merges main itself, as its brief instructs.
+        subprocess.run(["git", "-C", wt, "merge", "--ff-only", "origin/main"],
+                       check=False, stdout=subprocess.DEVNULL,
+                       stderr=subprocess.DEVNULL)
+    else:
+        subprocess.run(["git", "-C", ROOT, "worktree", "add", "-b", br, wt,
+                        "origin/main"], check=True)
+    return wt
+
+
 def spawn(g):
     d, wt = run_dir(g), worktree(g)
     if os.path.exists(os.path.join(d, "pid")):
@@ -130,9 +161,7 @@ def spawn(g):
         if pid_alive(pid):
             print("%-6s already running pid=%d" % (g, pid)); return
     # fresh worktree from origin/main - never from local main
-    if not os.path.isdir(wt):
-        subprocess.run(["git", "-C", ROOT, "worktree", "add", "-b", "ai-%s" % g, wt,
-                        "origin/main"], check=True)
+    ensure_worktree(g)
     log = os.path.join(d, "events.jsonl")
     env = dict(os.environ, AO_GROUP=g)
     cmd = ["cline", "--json", "--cwd", wt, "--timeout", str(TIMEOUT),
@@ -323,6 +352,9 @@ def nudge(g, reason):
                 if pid_alive(oldpid):
                     print("%-6s old pid %d refused to die - NOT spawning a duplicate" % (g, oldpid)); return
                 print("%-6s retired old pid %d" % (g, oldpid))
+    # create the worktree BEFORE spending a nudge: a missing /tmp worktree used
+    # to burn the nudge on a cline process that died at once (2026-10-09).
+    ensure_worktree(g)
     n += 1
     open(os.path.join(d, "nudges"), "w").write(str(n))
     msg = (
