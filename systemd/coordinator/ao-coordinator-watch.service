@@ -1,0 +1,11 @@
+[Unit]
+Description=ALWAYS ON coordinator self-watch: guard + rotation + compile gate every 15 min
+Documentation=file:///ALWAYSON/scripts/orchestration/coordinator-watch.sh
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash /ALWAYSON/scripts/orchestration/coordinator-watch.sh
+TimeoutStartSec=300
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ao-coordinator-watch

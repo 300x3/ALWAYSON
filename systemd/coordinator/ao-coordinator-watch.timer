@@ -1,0 +1,18 @@
+[Unit]
+Description=ALWAYS ON coordinator self-watch timer: every 15 min, plus catch-up after boot
+# Why this exists: the coordinator chat session only runs when the operator
+# sends a message. Between messages it is dormant -- ao-rotation moves agents
+# and ao-dashboard-refresh re-renders, but NOTHING wakes the coordinator.
+# This timer runs coordinator-watch.sh (rotation revive-in-place, compile
+# gate, nudge-limit escalation, 2h heartbeat) so the coordinator's duties
+# execute even when the operator says nothing.
+
+[Timer]
+OnBootSec=5min
+OnStartupSec=5min
+OnUnitActiveSec=15min
+Persistent=true
+Unit=ao-coordinator-watch.service
+
+[Install]
+WantedBy=default.target
