@@ -10,7 +10,7 @@ Description=ALWAYS ON coordinator self-watch timer: every 15 min, plus catch-up 
 [Timer]
 OnBootSec=5min
 OnStartupSec=5min
-OnUnitActiveSec=15min
+OnUnitActiveSec=5min
 Persistent=true
 Unit=ao-coordinator-watch.service
 

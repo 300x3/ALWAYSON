@@ -1,5 +1,5 @@
 [Unit]
-Description=ALWAYS ON coordinator self-watch: guard + rotation + compile gate every 15 min
+Description=ALWAYS ON coordinator self-watch: guard + rotation + compile gate every 5 min
 Documentation=file:///ALWAYSON/scripts/orchestration/coordinator-watch.sh
 
 [Service]
