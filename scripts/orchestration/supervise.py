@@ -77,15 +77,21 @@ VERIFIED = [
 GROUP_MODEL = {
     "plat":   "cline-free/mimo-v2.6-flash",
     "net":    "cline-free/mimo-v2.6-flash",
-    "sec":    "cline-free/step-5-preview",
-    "ledger": "cline-free/step-5-preview",
-    "pay":    "cline-free/step-5-preview",
+    # TEMPORARY 2026-10-09: cline-free/step-5-preview returned
+    # INFERENCE_CAP_ERROR 429 (daily free limit, resets ~2026-10-10 15:45 PDT,
+    # measured 2026-10-09 19:13 on the pay shift). The four step-5 groups are
+    # split across the two buckets that still answered a real probe at
+    # totalCost:0 (mimo MIMO-OK, solar SOLAR-OK). REVERT when step-5 refills:
+    # probe it first, then restore sec/ledger/pay/spec -> step-5-preview below.
+    "sec":    "cline-free/mimo-v2.6-flash",
+    "ledger": "cline-free/solar-mini4",
+    "pay":    "cline-free/mimo-v2.6-flash",
     "comm":   "cline-free/solar-mini4",
     "field":  "cline-free/mimo-v2.6-flash",
     "sim":    "cline-free/solar-mini4",
     "ops-a":  "cline-free/mimo-v2.6-flash",
     "ops-b":  "cline-free/solar-mini4",
-    "spec":   "cline-free/step-5-preview",
+    "spec":   "cline-free/solar-mini4",
 }
 
 FALLBACK = os.environ.get("AO_FALLBACK")  # force one verified id for every group
