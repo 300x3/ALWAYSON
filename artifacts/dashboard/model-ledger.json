@@ -1,0 +1,25 @@
+{
+ "probed": {
+  "cline-free/step-5-preview": {
+   "verdict": "DRY",
+   "detail": "{\"error\":{\"code\":\"INFERENCE_CAP_ERROR\",\"message\":\"Error 429: Daily free limit reached on model stepfun/step-5-preview. Try again in 18h 29m\"}}",
+   "ts": "2026-10-09 21:15"
+  },
+  "cline-free/mimo-v2.6-flash": {
+   "verdict": "DRY",
+   "detail": "{\"error\":{\"code\":\"INFERENCE_CAP_ERROR\",\"message\":\"Error 429: Daily free limit reached on model xiaomi/mimo-v2.6-flash. Try again in 21h 1m\"}}",
+   "ts": "2026-10-09 21:15"
+  },
+  "cline-free/muse-spark-1.3-contributor": {
+   "verdict": "PASS",
+   "detail": "edited+ran, totalCost=0",
+   "ts": "2026-10-09 21:14"
+  },
+  "cline-free/solar-mini4": {
+   "verdict": "TIMEOUT",
+   "detail": "no finish within 150s",
+   "ts": "2026-10-09 21:17"
+  }
+ },
+ "updated": "2026-10-09T21:17:52"
+}

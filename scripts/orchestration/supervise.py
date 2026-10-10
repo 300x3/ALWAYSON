@@ -75,21 +75,20 @@ VERIFIED = [
 # so concentrating all eleven on one id means one exhausted bucket takes the
 # whole team down again -- the exact failure mode of the old single-model setup.
 GROUP_MODEL = {
-    "plat":   "cline-free/mimo-v2.6-flash",
-    "net":    "cline-free/mimo-v2.6-flash",
-    # TEMPORARY 2026-10-09: cline-free/step-5-preview returned
-    # INFERENCE_CAP_ERROR 429 (daily free limit, resets ~2026-10-10 15:45 PDT,
-    # measured 2026-10-09 19:13 on the pay shift). The four step-5 groups are
-    # split across the two buckets that still answered a real probe at
-    # totalCost:0 (mimo MIMO-OK, solar SOLAR-OK). REVERT when step-5 refills:
-    # probe it first, then restore sec/ledger/pay/spec -> step-5-preview below.
-    "sec":    "cline-free/mimo-v2.6-flash",
+    "plat":   "cline-free/solar-mini4",
+    "net":    "cline-free/solar-mini4",
+    # TEMPORARY 2026-10-09, EXTENDED 20:35: mimo-v2.6-flash ALSO dry (429,
+    # resets ~21h49m, measured on the field shift). step-5 dry too (19h18m).
+    # solar-mini4 is the ONLY live bucket (SOLAR-OK probed 20:28). ALL groups
+    # temporarily on solar. REVERT when buckets refill: probe first, then
+    # restore the standing assignment below.
+    "sec":    "cline-free/solar-mini4",
     "ledger": "cline-free/solar-mini4",
-    "pay":    "cline-free/mimo-v2.6-flash",
+    "pay":    "cline-free/solar-mini4",
     "comm":   "cline-free/solar-mini4",
-    "field":  "cline-free/mimo-v2.6-flash",
-    "sim":    "cline-free/solar-mini4",
-    "ops-a":  "cline-free/mimo-v2.6-flash",
+    "field":  "cline-free/solar-mini4",
+    "sim":    "cline-free/muse-spark-1.3-contributor",
+    "ops-a":  "cline-free/solar-mini4",
     "ops-b":  "cline-free/solar-mini4",
     "spec":   "cline-free/solar-mini4",
 }
