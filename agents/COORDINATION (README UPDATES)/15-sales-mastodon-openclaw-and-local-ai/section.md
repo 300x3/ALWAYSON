@@ -1157,3 +1157,128 @@ breaks the bridge (see §15.4.8). Second, this is the **Quadlet/copy trap again*
 live unit at `~/.config/containers/systemd/` is a *copy* of
 `/ALWAYSON/quadlet/operations/mastodon-local-proxy.service`. Editing the repo file alone
 will not change the running proxy.
+
+### 15.4.14 COMM Re-Verification Pass, 2026-10-11 (close COMM-02/03/04, new COMM-08)
+
+All seven COMM items re-measured live 2026-10-11 (`curl -4` throughout, per the
+Section 15.4.10 trap). Prior proposals in `proposals/comm-COMM-0*.md` stand; this pass
+re-derives every number rather than quoting them.
+
+**COMM-01 -- still Open, unchanged.** All six actionable drift rows re-measured:
+
+```console
+$ sed -n '7p' config/mastodon/mastodon.env.example
+LOCAL_DOMAIN=300x3.com                                              # D1, unchanged
+$ sed -n '17p;19p' scripts/operations/fetch-openclaw-mastodon-env.sh
+  printf 'MASTODON_SERVER=https://300x3.com\\n'                      # D2, unchanged
+  printf 'MASTODON_BOT_EMAIL=300x3@posteo.net\\n'                    # D3, unchanged
+$ grep -n 'operator_client|protocol:|approved_pub_host|registrations' \
+    config/mastodon/instance-policy.yaml
+8:  operator_client: "... origin https://300x3.com"                 # D5, unchanged
+9:  protocol: "https://300x3.com at the Cloudflare edge ..."       # D4, unchanged
+16:  approved_pub_host: "300x3.com"                                # D5, unchanged
+20:  registrations: "open with approval gate ..."                  # D6, unchanged
+$ grep -n LOCAL_DOMAIN scripts/operations/fetch-mastodon-env.sh
+21:  printf 'LOCAL_DOMAIN=mastodon.300x3.com\\n'                     # correct, no action
+```
+
+D8 (version-matrix `local_domain`) remains correct; D9 remains retracted (15.4.13).
+None of the drifted files is owned by this section, so none was edited here. D6 still
+needs the operator's moderation decision (intended state "closed" = doc fix, or the
+live `registrations=False` service is misconfigured).
+
+**COMM-02 -- close.** Remote `following` collection returns both local accounts;
+remote `followers` returns only `bot`; local `follows` table unchanged at 4 rows:
+
+```console
+$ curl -4 -s -m 20 -H 'Accept: application/json' \
+    'https://mastodon.social/api/v1/accounts/115945980770248178/following?limit=80'
+count= 2           # admin@mastodon.300x3.com, bot@mastodon.300x3.com
+$ curl -4 -s -m 20 -H 'Accept: application/json' \
+    'https://mastodon.social/api/v1/accounts/115945980770248178/followers?limit=80'
+count= 1           # bot@mastodon.300x3.com only; asymmetry per 15.4.9, not a fault
+$ podman exec mastodon-db psql -U mastodon -d mastodon -At -c "select ... from follows ... order by f.id;"
+1|bot@LOCAL|admin@LOCAL
+2|Gargron@mastodon.social|bot@LOCAL
+3|300x3@mastodon.social|bot@LOCAL
+4|300x3@mastodon.social|admin@LOCAL
+```
+
+Acceptance ("confirmed from the remote `following` collection and local incoming
+relationship tables, never inferred from local outgoing state") is met by this exact
+method.
+
+**COMM-03 -- close.** All nine moderation tables still `0`; both local users approved;
+registrations still closed on the live service:
+
+```console
+$ podman exec mastodon-db psql -U mastodon -d mastodon -At -c "select counts ...;"
+blocks=0 domain_blocks=0 account_domain_blocks=0 email_domain_blocks=0
+canonical_email_blocks=0 follow_requests=0 invites=0 ip_blocks=0 user_invite_requests=0
+$ podman exec mastodon-db psql -U mastodon -d mastodon -At -c "select users ...;"
+1|admin@300x3.com|admin|t|f
+2|bot@300x3.com|bot|t|f
+$ curl -4 -s -m 20 https://mastodon.300x3.com/api/v1/instance
+registrations= False approval_required= False
+```
+
+The 15.4.6 standing record is the deliverable and it exists; the D6
+policy-vs-service contradiction is COMM-01's, not this item's.
+
+**COMM-04 -- close, with a NEW robustness gap filed as COMM-08.** Both acceptance
+halves re-verified (token length 43, value never printed; `verify_credentials`
+HTTP 200 `acct=bot id=117363090433277638`; `visibility: public` at bridge line 281;
+sha256 `486e7472...99c19` unchanged; cursor 7 vs notifications 7/8 both type `follow`
+= idle-by-type per 15.4.12, not a stall; zero 401s in 7 days so NOT the old
+crash-loop). But the unit is **no longer `NRestarts=0`**:
+
+```console
+$ systemctl --user show mastodon-openclaw-bridge.service -p ActiveState -p NRestarts -p MainPID
+ActiveState=active / MainPID=12293 / NRestarts=4
+$ systemctl --user status mastodon-openclaw-bridge.service --no-pager | head -6
+Active: active (running) since Thu 2026-10-08 10:35:50 PDT; 3 days ago
+$ journalctl --user -u mastodon-openclaw-bridge.service --since '2026-10-07' -o cat \
+    | grep -c "Main process exited, code=exited, status=1/FAILURE"
+7
+```
+
+Seven `status=1/FAILURE` exits across Oct 7 (3x burst) and Oct 8 (4x burst), each
+followed by a systemd restart, then stable 3 days. The failing call is the **startup**
+`verify_credentials` at bridge line 224 -- outside any `try`, so any transient kills
+the process:
+
+```console
+  File "/ALWAYSON/scripts/mastodon/mastodon-openclaw-bridge.py", line 224, in main
+    account = request(token, '/api/v1/accounts/verify_credentials')
+http.client.RemoteDisconnected: Remote end closed connection without response
+```
+
+This is the same class of fault the wallet-wait loop (lines 212-223) was added to
+fix, but the fix covers only credential *absence*, not a credential *check* that
+fails on a live-but-flaky path -- and the 15.4.10/11 tunnel flap is exactly such a
+path. A `RemoteDisconnected` during a flap burst at startup = crash; systemd restarts
+into the same burst = crash again. The bridge script is not owned by this section
+(`scripts/mastodon/` belongs to another session), so the fix -- wrap the startup
+`verify_credentials` in the same wait-and-log retry the wallet already gets -- is filed
+as **COMM-08** for the owning session, not applied here. The conversation-logic half
+(mention prefix, cursor guard, public visibility) is unaffected.
+
+**COMM-05 -- still Open, no new measurement changes the stop.** `dig MX 300x3.com`
+-> `answers=0`, unchanged. All three resolutions (DNS change, new port-25 listener,
+formal deferral) remain operator decisions. No DNS, package, or port action taken.
+
+**COMM-06 -- still Open, human step outstanding.** Remote lookups still resolve both
+accounts (`bot` id `117327405745705562` followers 2; `admin` id `117327389970897359`
+followers 2); 10 remote domains known locally per 15.4.4. The Konqueror browser step
+remains the operator's and is not faked headless.
+
+**COMM-07 -- still Open, nothing published.** `LLEN queue:push_public = 0`,
+`LLEN queue:pull = 0`. No public post, no directory submission; both need explicit
+operator approval.
+
+**What I got wrong this pass:** I first read `NRestarts=4` as a possible regression
+of the old 401 crash-loop and nearly wrote it up as "COMM-04 auth half failing
+again". The journal shows zero 401s; the exits are `RemoteDisconnected` on the
+startup API call, i.e. a transport flap hitting an unguarded line, not a credential
+fault. Checking the exception type before naming the fault is the lesson -- the same
+lesson as the empty-output-vs-zero-count trap in the COMM-05 proposal.
