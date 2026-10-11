@@ -897,6 +897,48 @@ ao-sim-fabrication-gz` is a live service restart (README §4.1 rule 6). The exac
 approved, is that one — no Quadlet edit is needed, because the world file is a bind mount and
 the restart picks up the committed file as-is.
 
+### SIM-16 status, 2026-10-11 (SIM session recheck)
+
+Re-measured from worktree `/tmp/ao-sessions/wt-sim`. SIM-16 **still holds**: the
+live server predates the committed world file, so the running simulation is
+executing a stale document.
+
+    $ podman inspect ao-sim-fabrication-gz --format '{{.State.StartedAt}} restarts={{.RestartCount}}'
+    2026-10-08 10:34:05.839744375 -0700 PDT restarts=0
+    $ stat -c '%y %s' GAZEBO/worlds/factory.world
+    2026-10-09 19:08:17.617502801 -0700 62883
+
+The unit was restarted once since §10.10 (start moved from 10-03 to 10-08), but
+the world file was re-checked out afterwards (10-09), so the load boundary
+survives the restart. The restart itself still requires explicit operator
+approval per README §4.1 rule 6 and is not performed here.
+
+### Verified state, 2026-10-11 (SIM session recheck)
+
+Measured from worktree `/tmp/ao-sessions/wt-sim` on 2026-10-11. The world file
+is SDF-valid (`gz sdf -k` reports `Valid.`), carries 37 links, and all four
+generators agree with it. The live portal confirms the committed state:
+
+| Item | Fresh measurement 2026-10-11 |
+|---|---|
+| World validity | `gz sdf -k GAZEBO/worlds/factory.world` → `Valid.` |
+| Link inventory | `grep -c '<link name='` → 37; portal `/api/status` → `link_count 37` |
+| RL objects | `/api/objects` → `total 9`, `in_world {present 9, missing []}`; `build-rl-objects.py --check` → `OK`, exit 0 |
+| Safety zones | `verify_safety_zones.py` → exit 0, 4 zones resolve, 2 `[GAP]` datums; `/api/safety-zones` serves resolved boxes |
+| Elevation cameras | `build-boning-cameras.py --check` → `OK`, exit 0 |
+| SIM-09 datum | `cell-arms centroid [6.401314, 2.697865, 1.150797]` = `origin + extent/2` exactly; `camera_elev_arms` pose `6.401 4.056 1.151` derived from it |
+| SIM-14 reset | `GET /api/reset` → 404, `POST` → 405 view-only refusal; `objects.yaml` declares `resettable: true` but no runtime object reset exists — still open |
+| SIM-16 staleness | server started 10-08, world mtime 10-09 — still stale, restart needs operator approval |
+
+**What I got wrong.** An early draft of this recheck claimed the SIM-14 reset
+limb might be satisfied by the `ao-sim-portal.sh reset` CLI path. It is not:
+that script restarts the whole unit, which is a lifecycle action, not an
+object-placement reset to `home_pose` — and restarting a live unit is itself a
+stop condition I must not perform. The acceptance text asks for objects that
+are resettable at run time; a unit restart is not that. SIM-14 stays open.
+
+---
+
 ### This section's characteristic failure: accepting a representation as the thing
 
 Three successive passes hit the same class of error in three disguises — recorded in §10.5,
