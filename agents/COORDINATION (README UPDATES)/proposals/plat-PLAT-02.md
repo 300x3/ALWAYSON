@@ -178,4 +178,58 @@ I nearly reported "four stale rows" as a new correction without checking how man
 one occupies, which is the exact error I am correcting in the paragraph above. I caught it because
 I ran `grep -n` for the digest prefixes instead of assuming one line each. **Count the thing you
 are claiming to count** — a "row" claim needs the row numbers, and a digest appears wherever it
+---
+
+# FIFTH PASS 2026-10-08 — still not closable from this session
+
+**Action: `update`.** Every figure in the audit above was re-run. All reproduce unchanged, so
+this pass adds no new drift — it records the state for the compiler and confirms the two
+blockers are unchanged.
+
+```yaml
+---
+item: PLAT-02
+action: update
+evidence: |
+  $ uname -r
+  7.0.0-38-generic
+  $ grep -n '^  kernel:' config/platform/version-matrix.yaml
+  3:  kernel: "7.0.0-34-generic"
+  $ dpkg-query -W -f='${Package} ${Version}\n' nvidia-container-toolkit
+  nvidia-container-toolkit 1.20.1-1
+  $ podman ps --format '{{.Image}}' | grep postgres | sort -u
+  docker.io/library/postgres@sha256:d74eeac9a635390a49bc21bd49fccd973de707e2a53a76ac49b552b8712ec46f
+  $ grep -n 'a65e6a84\|91d0f7e8' config/platform/version-matrix.yaml | sed 's/: *"docker.*//'
+  21:  broker_image_digest
+  47:    image_postgres
+  48:    image_redis
+  61:  image_postgres_shared
+  $ podman ps --format '{{.Image}}' | grep redis | sort -u
+  docker.io/library/redis@sha256:c6eabf748fc7a61dbb5a705c78bcf3d6377b1127a97d0ce965c11c44ba46896f
+  $ grep -rh '^Image=' quadlet/ | grep -vc '@sha256:'
+  2
+  $ podman ps --format '{{.Names}}\t{{.Image}}' | grep -v '@sha256:' | wc -l
+  6
+  $ podman ps --format '{{.Names}}' | wc -l
+  19
+section: 02-platform-baseline
+---
+§2.5 of my section now carries the full re-verification block, dated 2026-10-08, with the
+commands and their real output. The matrix is still wrong in exactly the ways recorded: four
+stale keys (`kernel`, `container_runtime_integration`, `image_postgres`/`image_postgres_shared`,
+`image_redis`/`broker_image_digest`), and the capture automation the item asks for is OPS-02,
+assigned to OPS-B.
+
+**Still not closable here — two independent reasons, both unchanged:**
+
+1. The corrections belong in `config/platform/version-matrix.yaml`, which this session does not
+   own. Recording the drift in §2.5 does not fix the matrix.
+2. The capture automation is `OPS-02`, assigned to OPS-B.
+
+The six tag-only running containers remain **unowned strays** (§19 `OPS-16`). Not removed
+here — container deletion requires operator approval under README §4.1 rule 3.
+
+**What I got wrong on this pass.** I nearly wrote this entry as "no new drift found", which
+is true but hides that the drift is still there and still uncorrected. The useful claim is the
+second one: the matrix names digests nothing runs, so it cannot verify what is deployed.
 appears.

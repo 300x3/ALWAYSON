@@ -441,3 +441,43 @@ This is a privilege boundary, not an oversight, and it is **not** a reason to ke
 it does not affect the designation, because the residual blobs would be *images*, and the rootful
 store provably holds no container, pod, volume or namespace records. **No deletion is proposed and
 no operator approval is assumed.** Reported for the operator's awareness only.
+---
+
+# FIFTH PASS 2026-10-08 — item closed
+
+**Action: `close`.** The designation was re-verified from scratch on this date and every
+measurement reproduces unchanged. The rootless, single-store designation holds without
+exception: no system-level Quadlet container or network unit exists, no Quadlet reassigns to a
+service account, and the rootful store's twelve tables are all empty except `DBConfig`.
+
+```yaml
+---
+item: PLAT-01
+action: close
+evidence: |
+  $ podman info --format '{{.Host.Security.Rootless}}'
+  true
+  $ podman info --format '{{.Store.GraphRoot}}'
+  /home/scottw/.local/share/containers/storage
+  $ systemctl --user list-unit-files 'ao-webodm*' --no-legend | grep -c '^ao-'
+  4
+  $ systemctl list-unit-files '*.container' '*.network' --no-legend | wc -l
+  0
+  $ grep -rn '^User=\|^Group=' quadlet/
+  (no output, rc=1)
+  $ python3 -c "import sqlite3; c=sqlite3.connect('file:/var/lib/containers/storage/db.sql?mode=ro',uri=True); ts=[r[0] for r in c.execute(\"select name from sqlite_master where type='table' order by name\")]; print({t: c.execute('select count(*) from \"'+t+'\"').fetchone()[0] for t in ts})"
+  {'ContainerConfig': 0, 'ContainerDependency': 0, 'ContainerExecSession': 0, 'ContainerExitCode': 0, 'ContainerState': 0, 'ContainerVolume': 0, 'DBConfig': 1, 'IDNamespace': 0, 'PodConfig': 0, 'PodState': 0, 'VolumeConfig': 0, 'VolumeState': 0}
+  $ systemctl list-unit-files 'ao-*' --no-legend | grep -Ec '\.(container|network)$'
+  0
+section: 13-podman-runtime-and-quadlet-policy
+---
+§13.2 now carries the re-verification block inline, dated 2026-10-08, with the commands and
+their real output. The three unused service accounts and the disabled
+`ao-podman-bridge.service` remain as scaffolding — left in place pending operator decision,
+recorded in §13.2.1. That is an OPEN item for the operator, not a defect in the designation,
+and it does not block this close.
+
+**What I got wrong on this pass.** I nearly closed PLAT-01 on the strength of the existing
+proposal's transcript without re-running anything, which would have repeated the exact error
+this item's earlier passes recorded (accepting a claim without reproducing it). Every command
+above was run fresh on 2026-10-08.

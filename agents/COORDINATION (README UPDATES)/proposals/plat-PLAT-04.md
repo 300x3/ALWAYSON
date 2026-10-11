@@ -155,4 +155,58 @@ surrounding harness as if all six checks reported a status. It does not: `podman
 added the `rc=` labels, because I redirected their output to `/dev/null` to make the block's own
 behaviour visible. The evidence above separates the two honestly: the `rc=` lines are mine, the
 stderr is the block's. Anyone reproducing this should expect five silent lines, not six labelled
+---
+
+# FIFTH PASS 2026-10-08 — item closed
+
+**Action: `close`.** §12.3's replacement verifier (`scripts/validation/verify-host-baseline.sh`)
+was run as written, and its failure path was exercised by stubbing `stat` and `loginctl`.
+Both directions reproduce, and the script satisfies all five requirements in §2.4.
+
+```yaml
+---
+item: PLAT-04
+action: close
+evidence: |
+  $ bash scripts/validation/verify-host-baseline.sh
+  === ALWAYS ON host baseline verification (asserting) ===
+    PASS  podman responds (5.7.0)
+    PASS  systemd --user manager reachable
+    PASS  linger enabled (survives logout)
+    PASS  cgroup v2 unified hierarchy
+    PASS  aa-status present
+    PASS  aa-enforce present (profile enforcement possible)
+  --- 6 passed, 0 failed ---
+  RESULT: PASS
+  EXIT=0
+
+  # failure path: stat() reports tmpfs, loginctl reports Linger=no
+  $ bash -c 'stat() { if [ "$1" = "-fc" ] && [ "$2" = "%T" ] && [ "$3" = "/sys/fs/cgroup" ]; then echo tmpfs; fi; }; export -f stat; loginctl() { echo Linger=no; }; export -f loginctl; bash scripts/validation/verify-host-baseline.sh; echo "EXIT=$?"' 2>&1
+  === ALWAYS ON host baseline verification (asserting) ===
+    PASS  podman responds (5.7.0)
+    PASS  systemd --user manager reachable
+    FAIL  linger is 'Linger=no', expected 'yes' - containers stop at logout (OPS-13)
+    FAIL  cgroup fs type is 'tmpfs', expected 'cgroup2fs'
+    PASS  aa-status present
+    PASS  aa-enforce present (profile enforcement possible)
+  --- 4 passed, 2 failed ---
+  RESULT: FAIL (2 check(s) failed)
+  EXIT=1
+section: 02-platform-baseline
+---
+§2.4 of my section now carries the re-verification block, dated 2026-10-08, with the commands
+and their real output in both directions. §12.3 already delegates to this script and documents
+the old block's three defects, so no further change is needed in §12.3 — it names the script
+and records the test passing and failing.
+
+The verifier satisfies all five requirements in §2.4: it compares observed against expected,
+exits non-zero on failure (1, not 0), prints each observed value beside its expected one, and
+the control case above is the proof that a passing result means something. The `sudo … ||
+true` defect that §12.3 carried is gone — the replacement never wraps a privileged command in
+`sudo`, and `aa-enforce` is reported as a WARN when missing rather than passed on `aa-status`.
+
+**What I got wrong on this pass.** I nearly recorded this as closed on the strength of the
+existing proposal's transcript, which described the script but did not run it. Running it was
+the point: the failure path is the evidence, and a verifier that only ever passes is the same
+defect wearing a new hat. Both directions were exercised fresh on 2026-10-08.
 ones.

@@ -206,4 +206,52 @@ rebuild would produce, not what this machine has.**
 Second, smaller: I reached for `dpkg -S` on two paths in one call and got two output lines, which
 I nearly summarised as one. That is the same summarising error as the "50 named images" figure I
 corrected in §13.2.1 on this same pass — I wrote up that error and then made a smaller version of
+---
+
+# FIFTH PASS 2026-10-08 — host side settled, provisioning side open
+
+**Action: `update`, referred to OPS-B.** Re-measured from scratch. Every figure reproduces:
+the host has `apparmor-utils` and all five profile tools resolve, but no bootstrap script and
+no provisioner names it.
+
+```yaml
+---
+item: PLAT-03
+action: update
+evidence: |
+  $ dpkg-query -W -f='${Package} ${Version}\n' apparmor-utils
+  apparmor-utils 5.0.2-0ubuntu1~26.04.1
+  $ for b in aa-status aa-enforce aa-complain aa-decode aa-logprof aa-genprof; do \
+      p=$(command -v $b || echo MISSING); \
+      printf '%-11s %-22s %s\n' "$b" "$p" "$(dpkg -S "$p" 2>/dev/null | cut -d: -f1)"; done
+  aa-status   /usr/sbin/aa-status      apparmor
+  aa-enforce  /usr/sbin/aa-enforce     apparmor-utils
+  aa-complain /usr/sbin/aa-complain    apparmor-utils
+  aa-decode   /usr/sbin/aa-decode      apparmor-utils
+  aa-logprof  /usr/sbin/aa-logprof     apparmor-utils
+  aa-genprof  /usr/sbin/aa-genprof     apparmor-utils
+  $ grep -rn 'apparmor' scripts/bootstrap/ scripts/provision/ 2>&1; echo rc=$?
+  rc=1
+  $ grep -c apparmor scripts/provision/provision.sh
+  0
+  $ sed -n '6p' scripts/bootstrap/02-install-host-dependencies.sh
+  pkgs=(podman uidmap slirp4netns fuse-overlayfs containernetworking-plugins nftables ufw git curl jq ca-certificates gnupg openssl restic smartmontools lm-sensors acl python3 python3-venv python3-pip)
+section: 02-platform-baseline
+---
+§2.3 of my section now carries the full re-verification block, dated 2026-10-08. The
+requirement is recorded where it belongs: both bootstrap scripts and `provision.sh` must name
+`apparmor-utils`, so a rebuild reproduces it without operator intervention. The two files that
+need the change are documented in §12.3 and are the OPS-B session's to edit.
+
+**Still open.** The provisioning path does not install the package. A host rebuilt from the
+repository's own bootstrap chain would not get it, and §4.1's profile workflow would have no
+tooling. This item must not close on the strength of one host's package list.
+
+Also recorded: `nvidia-container-toolkit` 1.20.1-1 and its three dependencies are present; the
+version matrix's `1.20.0` row is wrong (matrix file not owned by this session — noted in §2.5).
+
+**What I got wrong on this pass.** I nearly wrote "the host has it, so the item is done",
+which is the host-vs-repository confusion this item has already caused once. The distinguishing
+test is cheap: *would a freshly provisioned host from this repository have the package?* Run
+`grep -rn apparmor scripts/bootstrap/ scripts/provision/` and the answer is no.
 it. The evidence above shows the real two-line output rather than a tidied version of it.
