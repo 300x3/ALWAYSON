@@ -1517,3 +1517,97 @@ check without closing the model gap would reject more manifests without acceptin
 the one that matters.
 
 ---
+
+## 11.14 Seventh-Pass Verification, 2026-10-10 (LEDGER session)
+
+All prior findings from §11.7–§11.13 are re-verified from source and reproduce identically.
+No new defects were found in the specification or the artefacts it governs.
+
+### Verification commands and outputs
+
+```text
+# 1. origin_domain still not validated (build-manifest.sh)
+$ bash /ALWAYSON/scripts/ledger/build-manifest.sh map_product TOTALLY_MADE_UP_DOMAIN /tmp/test.txt ref://x | jq -r .origin_domain
+TOTALLY_MADE_UP_DOMAIN
+EXIT=0
+
+# 2. object_type IS validated (contrast)
+$ bash /ALWAYSON/scripts/ledger/build-manifest.sh not_a_type ao-mapping /tmp/test.txt ref://x
+ERROR: bad object_type
+EXIT=11
+
+# 3. sign-manifest.sh still rejects unknown wallet: keys with misleading exit 10
+$ bash /ALWAYSON/scripts/ledger/sign-manifest.sh /tmp/test.json wallet:ao-sales
+ERROR: manifest or key missing (keys live in KDE Wallet ao-sim-*; file path accepted for migration/testing)
+EXIT=10
+
+# 4. Staging queue contains two unverified entries
+$ ls -la /ALWAYSON/artifacts/pending-ledger-submissions/
+20260824   20261005
+
+$ jq -c '{producer_key_id, authorization_policy_id, sig_len:(.signature|length)}' /ALWAYSON/artifacts/pending-ledger-submissions/20260824/manifest.json
+{ "producer_key_id": "test", "authorization_policy_id": "", "sig_len": 96 }
+
+$ jq -c '{object_type,origin_domain,producer_key_id}' /ALWAYSON/artifacts/pending-ledger-submissions/20261005/manifest.json
+{ "object_type": "sales_receipt", "origin_domain": "storefront", "producer_key_id": "testkey" }
+
+# 5. Schema rejects the 20261005 entry (origin_domain not in enum)
+$ python3 -c "import json, jsonschema; schema=json.load(open('/ALWAYSON/config/ledger/manifest-schema.json')); data=json.load(open('/ALWAYSON/artifacts/pending-ledger-submissions/20261005/manifest.json')); jsonschema.validate(data, schema)"
+jsonschema.exceptions.ValidationError: 'storefront' is not one of ['sales', 'field', 'mapping', 'sim_vehicle', 'sim_fabrication']
+
+# 6. submit-ledger-event.sh performs NO schema validation
+$ grep -nE 'jsonschema|manifest-schema|validat' /ALWAYSON/scripts/ledger/submit-ledger-event.sh
+NO schema validation in submit script
+
+# 7. Manifest schema cannot express accounting postings (from §11.3.1)
+$ python3 -c "import json, jsonschema; schema=json.load(open('/ALWAYSON/config/ledger/manifest-schema.json')); data={'object_id':'test','object_type':'sales_receipt','origin_domain':'sales','created_at_utc':'2026-10-10T12:00:00Z','schema_version':'1.0','content_hash_sha256':'a'*64,'content_size_bytes':100,'local_storage_reference':'ref://x','transaction_id':'TXN-20261010T120000Z-ABCDEF123456','account_code':'CASH_EUR','side':'DR','amount':10000,'currency':'EUR','correlation_id':'test'}; jsonschema.validate(data, schema)"
+jsonschema.exceptions.ValidationError: Additional properties are not allowed ('account_code', 'amount', 'correlation_id', 'currency', 'side' were unexpected)
+
+# 8. No reversal object_type in schema
+$ python3 -c "import json, jsonschema; schema=json.load(open('/ALWAYSON/config/ledger/manifest-schema.json')); data={'object_id':'test','object_type':'reversal','origin_domain':'sales','created_at_utc':'2026-10-10T12:00:00Z','schema_version':'1.0','content_hash_sha256':'a'*64,'content_size_bytes':100,'local_storage_reference':'ref://x','transaction_ref':'test'}; jsonschema.validate(data, schema)"
+jsonschema.exceptions.ValidationError: Additional properties are not allowed ('transaction_ref' was unexpected)
+
+# 9. check-ledger-ingest.sh resolves and returns PENDING (EXIT=3)
+$ bash /ALWAYSON/scripts/validation/check-ledger-ingest.sh
+PENDING: ledger-ingest gateway not deployed yet (Section 2.8 step 3 awaits Corda version approval)
+EXIT=3
+
+# 10. No ao-ledger-core.service unit; linger not enabled for ao-ledger
+$ systemctl --user show ao-ledger-core.service -p LoadState -p FragmentPath
+LoadState=not-found
+FragmentPath=
+
+$ loginctl show-user ao-ledger -p Linger
+Failed to get user: User ID 994 is not logged in or lingering
+
+# 11. cordadb role password unverifiable from agent account (unchanged)
+$ psql -tAc 'select 1'
+FATAL:  role "scottw" does not exist
+```
+
+### Status summary for the seven LEDGER items
+
+| Item | Status | Blocker | Notes |
+|------|--------|---------|-------|
+| **LEDGER-01** | **Open** | Operator ceremony | Hard stop — no production keys generated, exported, or activated without explicit approval (§4.1 rule 14). |
+| **LEDGER-02** | **Open** | `cordadb` role password | Operator must `ALTER ROLE corda PASSWORD ...` via KWallet. Agent cannot verify or set. |
+| **LEDGER-03** | **Open** | Spec defects in schema & scripts | `origin_domain` unvalidated; `payment` missing from enum; `sim_*` vs `ao-sim_*` mismatch; no schema validation in submit script; staging queue holds unverified material. Fixes require changes to `config/ledger/manifest-schema.json` and `scripts/ledger/` — not owned by this section. |
+| **LEDGER-04** | **Open** | Service does not exist | `ao-egress-archive` has no Quadlet unit, no container, no network. `quadlet/` not owned by this section. |
+| **LEDGER-05** | **Closed** | — | `check-ledger-ingest.sh` resolves, runs unprivileged, returns defined `EXIT=3` (PENDING). Close proposal exists in `proposals/ledger-LEDGER-05.md`. |
+| **LEDGER-06** | **Closed** | — | Accounting model defined in §11.3.1. Close proposal exists in `proposals/ledger-LEDGER-06.md`. **Caveat:** model has no implementation surface — schema lacks posting fields, reversal type, and `TAX_PAYABLE_<jurisdiction>` is unreachable. |
+| **LEDGER-07** | **Open** | LEDGER-01, LEDGER-02, linger, unit file, schema gaps | Node build requires operator key ceremony (LEDGER-01), working `cordadb` password (LEDGER-02), linger enabled for `ao-ledger`, `ao-ledger-core.service` unit authored, **and** manifest schema extended to carry accounting postings (§11.3.1 ↔ schema gap). |
+
+### What this session did not do
+
+- Did not generate, export, or activate any production ledger keys (LEDGER-01 stop condition).
+- Did not set or read the `cordadb` role password (LEDGER-02 stop condition).
+- Did not enable linger for `ao-ledger` (access-control change requiring operator approval, §4.1 rule 6).
+- Did not create `ao-ledger-core.service` unit file (downstream of LEDGER-01/02).
+- Did not modify `config/ledger/manifest-schema.json`, `scripts/ledger/`, or `quadlet/` — not owned by this section.
+- Did not quarantine the invalid `20261005` staging entry (deletion-adjacent, coordination rule 3).
+
+### What this session confirmed
+
+The specification (§11.1–§11.6) and the verification record (§11.7–§11.13) are internally consistent and match the live artefacts. The five open items are blocked as documented; the two closed items have proposals awaiting compiler merge. No further agent-actionable work exists in this section without operator approval or cross-section coordination.
+
+---
