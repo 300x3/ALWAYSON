@@ -1,0 +1,47 @@
+2026-10-05 model-fix-and-sec-restart log
+==========================================
+
+[14:06] ao-openclaw-gateway.service restarted by systemd (from prior session work)
+         - Gateway v2026.7.1-2, pid 1276383
+         - Agent model: lmstudio/nvidia/nemotron-3-nano-4b
+         - 9 plugins loaded
+
+[Root cause identification]
+- globalState.json had actModeClineModelId = "stealth/space-bunny-alpha"
+- This model 404s on OpenRouter: "No endpoints found for stealth/space-bunny-alpha"
+- supervise.py passes --model to cline --json, but cline 3.0.60 ignores it
+  and falls back to globalState.json actModeClineModelId
+- sec was spawned with 404 errors, ledger too
+
+[Fix applied]
+- Changed ~//.cline/data/globalState.json:
+  actModeClineModelId: stealth/space-bunny-alpha → poolside/laguna-s-2.1:free
+  planModeClineModelId: stealth/space-bunny-alpha → poolside/laguna-s-2.1:free
+- Deleted stale supervise.cpython-314.pyc (cached old MODEL constant)
+- Reset /tmp/ao-sessions/rotation.json to point at sec
+- Cleared /tmp/ao-sessions/sec/pid
+
+[Sec first run on corrected model - 2026-10-06T01:09:10Z]
+- run_result event confirmed model = poolside/laguna-s-2.1:free
+- finishReason=error (operation timed out after 289525ms, 2 iterations)
+- Not a model error — free-tier quota pacing caused timeout
+- nudge #1 sent: AO_MODEL=poolside/laguna-s-2.1:free nudge sec
+
+[Verify sec running - 2026-10-06T01:26Z]
+- sec status: running, iter 4, idle 0.0m
+- Model in events confirmed: poolside/laguna-s-2.1:free
+
+[300x3 sitebot test - 2026-10-06T01:26Z]
+- curl POST http://127.0.0.1:18790/chat {"message":"hi","session":"test001"}
+- Response: {"reply": "Hello! How can I help you today?", "session": "test001"}
+- curl POST ... {"message":"what is 300x3","session":"test003"}
+- Response: full 300X3 product description returned correctly
+
+[LM Studio unchanged]
+- nvidia/nemotron-3-nano-4b IDLE (parallel 2, ctx 100096)
+- mxbai-embed-large-v1 IDLE
+
+[Outstanding - needs operator action]
+- ledger session still dead (404, spawned pre-fix) - needs respawn
+- supervise.py --model flag is decorative under --json (cline ignores it)
+- sec may need multiple nudges (MAX_NUDGES=3, operator approval to raise)

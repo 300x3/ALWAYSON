@@ -89,59 +89,113 @@ Per-invocation local runs use: cline -P lmstudio (verified exit 0).
 Do NOT change lastUsedProvider away from cline; the operator's cloud
 default stays.
 
-Your job as coordinator: triage rotation state, decide handoffs, merge
+Your job as coordinator: triage session state, decide assignments, merge
 proposals, update the dashboard. You do NOT do workgroup tasks yourself
--- you hand them to the shift agent.
+-- you hand them to the workgroup sessions (all 11 live in parallel since
+2026-10-10; see section 2).
 
---- 1B. WORKGROUP AGENT MODELS: free Cline models, assigned per group ---
+--- 1B. WORKGROUP AGENT MODELS: free models, one distinct bucket per group ---
 
-UPDATED 2026-10-08. poolside/laguna-s-2.1:free is RETIRED -- do not use
-it, do not put it in a document, do not "restore" it. It was an
-OpenRouter free tier with a daily quota wall that killed seven sessions
-on 2026-10-03 and paced every shift after that.
+UPDATED 2026-10-10 (operator: "assign more free AI agentic coders to
+specific workgroups and activate those sessions / manage them").
+poolside/laguna-s-2.1:free stays RETIRED -- do not use it, do not
+"restore" it. It was an OpenRouter free tier with a daily quota wall that
+killed seven sessions on 2026-10-03 (it appears in DIVERT history only;
+never assign it standing).
 
-Workgroup agents now run on FREE models served by the Cline provider
-itself, selected with --model at spawn. The assignment lives in
-supervise.py (GROUP_MODEL); this section is the human-readable copy.
+Workgroup agents run on FREE models billed through Cline usage, selected
+with --model at spawn. The assignment lives in supervise.py
+(GROUP_MODEL); this section is the human-readable copy.
 
-  VERIFIED FREE MODELS (measured 2026-10-08, cline 3.0.60, $0 cost)
+  VERIFIED FREE MODELS (two gates, both measured on this host, all $0)
   -------------------------------------------------------------------
-  Each was given a real two-part task: fix a wrong-operator bug, write a
-  file, then run the fix and report the output. All three edited both
-  files correctly and finished with finishReason=completed, totalCost=0.
+  Gate 1 (2026-10-08, cline 3.0.60): two-part task -- fix a wrong-operator
+  bug, write a file, run the fix, report the output. Gate 2 (2026-10-10,
+  probe-freemium.py): median-debug-v1 -- debug a deliberately buggy
+  median() until the model's own test_stats.py prints PASS-ALL, with the
+  probe re-checking ground truth, so PASS means able to CODE, not just
+  obedient.
 
     cline-free/mimo-v2.6-flash     PASS  309B MoE, agentic coding
     cline-free/step-5-preview      PASS  StepFun flagship, sparse MoE
     cline-free/solar-mini4         PASS  compact 35B MoE
     cline-free/muse-spark-1.3-contributor
-                                   FAIL  read-only: edited neither file,
-                                        timed out in iteration 2.
-                                        NOT ASSIGNED - do not use it.
+                                   PASS  rehabilitated 2026-10-09 (the
+                                        2026-10-08 FAIL was read-only
+                                        behaviour, re-probe passed;
+                                        assigned to sim, validated live)
 
-  ASSIGNMENT
+  Plus the 9 OpenRouter `:free` ids that PASSed median-debug-v1 in the
+  full probe-freemium.py sweep on 2026-10-10 (21:26-21:36), billed
+  through Cline usage at $0 like the promo ids:
+
+    nvidia/nemotron-3-ultra-550b-a55b:free      (frontier-size)
+    nvidia/nemotron-3-super-120b-a12b:free
+    thinkingmachines/inkling-small:free
+    dots-studio/dots-3-note-preview:free
+    nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free
+    nvidia/nemotron-3.5-lightning:free
+    apodex/apodex-1.1-mini:free
+    poolside/laguna-s-2.1:free   DIVERT-only (daily-quota history)
+    liquid/lfm-2.5-2.6b:free     DIVERT-only (2.6B, last resort)
+
+  ASSIGNMENT (11 groups -> 11 DISTINCT PASS buckets, one bucket per group)
   -------------------------------------------------------------------
-    step-5-preview    sec, ledger, pay, spec
-                      (judgement-heavy review against acceptance
-                       criteria; sec/ledger/pay also gate on operator
-                       approval, so a weaker model risks a wrong "done")
-    mimo-v2.6-flash   plat, net, field, ops-a
-    solar-mini4       comm, sim, ops-b
+    dots-3-note-preview   plat
+    inkling-small         net
+    step-5-preview        sec     (judgement gate; DRY this evening,
+                                   diverts to solar until ~18:03 10-11)
+    nemotron-3-ultra-550b  ledger  (judgement gate, biggest new coder)
+    nemotron-3-super-120b  pay     (judgement gate, approval-gated)
+    solar-mini4           comm
+    nemotron-3.5-lightning field
+    muse-spark            sim
+    nemotron-3-nano-omni  ops-a
+    apodex-1.1-mini       ops-b
+    mimo-v2.6-flash       spec    (judgement-heavy review)
 
-  Why spread across three ids instead of one "best" model: each free id
-  is a SEPARATE quota bucket. Concentrating all eleven groups on one id
-  recreates the original failure -- one exhausted bucket takes the whole
-  team down at once. Splitting means a bucket running dry costs at most
-  its own groups, and AO_FALLBACK moves them.
+  Why ONE DISTINCT bucket per group instead of one "best" model: each
+  free id is a SEPARATE quota bucket. Concentrating all eleven groups on
+  one id recreates the original failure -- one exhausted bucket takes the
+  whole team down at once. With distinct buckets a wall costs at most its
+  own group, model_for() diverts that group down DIVERT, and
+  AO_FALLBACK=<id> moves groups manually when needed.
 
-  The free list is a rotating promotion. Re-read it rather than assuming:
+  DAILY QUOTA RESETS (operator 2026-10-10): every FREE id (cline-free
+  promo and OpenRouter `:free`) goes DRY ~once a day (429
+  INFERENCE_CAP_ERROR with a "Try again in Nh Mm" countdown) and refills
+  ~24h later. Do NOT hand-edit GROUP_MODEL to chase a dry bucket -- that
+  was done on 2026-10-09/10 (all eleven on
+  solar) and is what the machinery below replaces. Instead:
+    - model_for() reads the model ledger at spawn:
+      a standing model reported DRY diverts that spawn down DIVERT
+      (solar -> mimo -> muse -> the 9 coding-gate `:free` PASS ids,
+      frontier-size first, LFM 2.6B last) to the first id reported PASS.
+    - ao-freemium-recheck.timer (daily 18:45 + boot catch-up) runs
+      probe-freemium.py recheck: re-probes ONLY the DRY buckets, writes
+      the verdicts back to the ledger, and posts flips to the
+      dashboard. A PASS flip makes the next spawn return to the standing
+      assignment automatically -- no code edit, no operator action.
+
+  The free list is a rotating promotion. Re-read it rather than assuming
+  (two surfaces, both $0 through Cline usage billing; the probe covers
+  both -- `probe-freemium.py probe` re-probes any id that has no fresh
+  coding verdict, so a newly promoted id is picked up by just re-running
+  it):
 
     curl -sS https://api.cline.bot/api/v1/ai/cline/recommended-models
+    curl -sS https://api.cline.bot/api/v1/ai/cline/models
 
-  Read the "free" array. If an assigned id has gone, reassign from the
-  VERIFIED list above -- after testing it with the two-part task
-  described here. Never substitute a paid model, and never point a
-  workgroup at the local nemotron: GPU time is reserved for coordination
-  and one nemotron instance already costs ~4.5 GiB of the 8 GiB card.
+  Read the first's "free" array (promo ids) and the second's ":free"
+  ids (OpenRouter free tier, all billed through Cline -- no separate
+  OpenRouter key needed). Only PASS counts as usable: the probe task
+  (median-debug-v1) is a real debugging task, so PASS means the model
+  is good at coding, not just obedient. If an assigned id has gone,
+  reassign from the VERIFIED list above -- after testing it with the
+  two-part task described here. Never substitute a paid model, and
+  never point a workgroup at the local nemotron: GPU time is reserved
+  for coordination and one nemotron instance already costs ~4.5 GiB of
+  the 8 GiB card.
 
   OVERRIDES (deliberate experiments only, documented before use)
   -------------------------------------------------------------------
@@ -160,20 +214,24 @@ supervise.py (GROUP_MODEL); this section is the human-readable copy.
   2. systemctl --user is-active ao-rotation.timer
   3. python3 scripts/orchestration/supervise.py status
 
-Interpret the three together:
+Interpret the three together (PARALLEL doctrine since 2026-10-10 --
+"11/11 live" is the healthy answer, not a single shift holder):
 
-  * status names a group with time left + timer active + that group
-    running = HEALTHY. Report that and stop. Do not respawn.
-  * status says idle + timer inactive = SHUT DOWN. Restart with:
+  * status says N/11 live, timers active, and supervise shows every other
+    group running/stuck = HEALTHY. Report that and stop. Do not respawn.
+  * timers inactive = SHUT DOWN. Restart with:
+      systemctl --user enable --now ao-coordinator-watch.timer
       systemctl --user enable --now ao-rotation.timer
       systemctl --user start ao-rotation.service
-    Then wait 60s and re-run the three checks. The first shift is plat.
-    * status names a group but supervise says error/dead/never for it =
-    MID-SHIFT DEATH. Revive with:
+    Then wait 60s and re-run the three checks. guard respawns the whole
+    team automatically when nothing is live.
+  * a group error/dead/never/done while others are live = THAT group
+    needs recovery. Run:
       python3 scripts/orchestration/rotate-agents.py rotate
-    That nudges the current group in its own worktree. Wait 60s, check
-    the last 5 lines of /tmp/ao-sessions/<group>/events.jsonl for fresh
-    output.
+    One guard pass: revives dead/errored groups in their own worktree,
+    continues finished ones, never stops a live one, MAX_NUDGES capped.
+    Wait 60s, check the last 5 lines of /tmp/ao-sessions/<group>/events.jsonl
+    for fresh output.
 
   SPECIAL CASE -- ledger is DEAD (404, pre-fix):
     HISTORICAL, 2026-10-05 only. ledger was spawned against
@@ -195,28 +253,29 @@ Interpret the three together:
          a stale value -- delete scripts/orchestration/__pycache__/ and
          respawn (see the STALE __pycache__ trap below).
 
-    NOTE: spawning ledger starts a NEW 2-hour shift that runs in parallel
-    with whichever workgroup agent is currently active (sec). The rotation
-    timer is set to single-agent pacing, but a manually-spawned group is a
-    one-off override. After ledger finishes, re-merge its branch:
+    NOTE: with the parallel doctrine (2026-10-10) a manual spawn of ledger
+    is just another live group alongside the rest -- nothing else is
+    stopped, and guard will keep it alive like any other session. When
+    ledger finishes, re-merge its branch:
       cd /ALWAYSON && git merge --no-edit local/ai-ledger
     Then run the compile gate:
       python3 agents/COORDINATION (README UPDATES)/tools/compile.py --check
   * timer active but rotation.json is stale or missing = state was wiped
     (reboot clears /tmp). The timer's OnStartupSec+Persistent=true
-    replays the missed run and starts plat by itself within ~2 minutes.
-    Wait, then re-check. Only start manually if nothing appears.
+    replays the missed run and guard respawns the whole team within
+    ~2 minutes. Wait, then re-check. Only start manually if nothing
+    appears.
 
 Then verify the agent is real, not a stale pid file:
 
   p=$(cat /tmp/ao-sessions/<group>/pid); ls /proc/$p
 
-If that fails, the pid file lied -- treat as mid-shift death above.
+If that fails, the pid file lied -- treat it as a dead session above.
 
 If the events log shows a quota message ("free usage limit"), the free
 model is exhausted: report the wait time and stop. Do not burn nudges.
 For any OTHER error (404, empty response, auth, abort): save uncommitted
-work from /tmp/ao-sessions/wt-<group>/ first, then force the next shift
+work from /tmp/ao-sessions/wt-<group>/ first, then run one recovery pass
 with rotate-agents.py rotate and report what you found.
 
 Background reading, in order:
@@ -225,26 +284,39 @@ Background reading, in order:
   README.md section 19 (the work log)
 
 ---------------------------------------------------------------------
-2. HOW THE ROTATION WORKS (2026-10-05 and later)
+2. HOW THE TEAM RUNS -- PARALLEL SINCE 2026-10-10
 ---------------------------------------------------------------------
 
-  * Order: plat, net, sec, ledger, pay, comm, field, sim, ops-a, ops-b,
-    spec, then back to plat. Dependency order, not alphabetical.
-  * Each group gets a 2-hour shift. Timer ao-rotation.timer fires every 2h
-    plus 2min after boot, calling rotate-agents.py rotate: stop current,
-    spawn next, record handoff in /tmp/ao-sessions/rotation.json.
+  SUPERSEDED: the 2026-10-05 one-group-per-shift rotation (2-hour shifts,
+  rotate = stop current + spawn next). On 2026-10-10 the operator ordered
+  "assign more free AI agentic coders to specific workgroups and to
+  activate those sessions / manage them" -- all 11 groups now run at once,
+  each in its own worktree on its own ledger-PASS free bucket (section 1B).
+
+  * Display order: plat, net, sec, ledger, pay, comm, field, sim, ops-a,
+    ops-b, spec. Dependency order, not alphabetical.
+  * Every group has a live session in parallel. Recovery:
+      - ao-coordinator-watch.timer fires every 5 minutes and runs
+        rotate-agents.py rotate, which DELEGATES to supervise.py guard:
+        spawn what is not running, revive dead/errored groups in their own
+        worktree, continue finished ones, respawn the whole team only when
+        nothing at all is live. Every revival is capped by MAX_NUDGES (3);
+        a group at the cap posts "needs a human" to the dashboard.
+      - ao-rotation.timer fires every 2h plus 2min after boot as a backup
+        pass (same command). rotation.json is no longer a shift clock; it
+        is only cleared by rotate-agents.py stop.
   * Reboot wipes /tmp, so the timer's OnStartupSec plus Persistent=true
-    replays the missed run and starts plat automatically. Nothing manual
-    is needed after a reboot.
+    replays the missed run and guard respawns the whole team with fresh
+    nudge counters. Nothing manual is needed after a reboot.
   * Manual commands (from /ALWAYSON):
-      rotate-agents.py status    who is current, time left
-      rotate-agents.py rotate    force a handoff now
-      rotate-agents.py stop      stop agent, clear rotation
-      supervise.py status        per-group health
+      rotate-agents.py status    N/11 sessions live
+      rotate-agents.py rotate    one recovery pass now
+      rotate-agents.py stop      stop every session
+      supervise.py status        per-group health detail
       supervise.py nudge GROUP   revive one dead group in its worktree
 
 ---------------------------------------------------------------------
-3. RULES THE ROTATION DEPENDS ON
+3. RULES THE TEAM RUNS ON
 ---------------------------------------------------------------------
 
 * Each session works in its own git worktree under /tmp/ao-sessions/.
@@ -252,8 +324,10 @@ Background reading, in order:
   process group (SIGTERM, then SIGKILL after 5s, verified dead) before
   spawning. If the old pid refuses to die, nudge REFUSES to spawn. This
   was a real incident on 2026-10-05, not a hypothetical.
-* The guard recovers ONLY processes that are verifiably gone. It never
-  touches a live agent. The guard's job is the dead, not the slow.
+* The guard recovers processes that are verifiably gone, plus FINISHED
+  (state "done") sessions, which it continues under the nudge budget. It
+  never touches a live, unfinished agent: the guard's job is the dead
+  and the finished, not the slow.
 * Sessions NEVER edit README.md directly, and NEVER edit section 19.
   They write proposals to agents/COORDINATION (README UPDATES)/proposals/ instead.
 * Uncommitted work lives in /tmp and dies on reboot. Commit early, often.
@@ -273,10 +347,11 @@ poolside/laguna-s-2.1:free and is RETIRED with it. That model is gone
 from every script; nothing here should be read as permission to put it
 back.
 
-The workgroup models are now free ids on the Cline provider (section 1B).
-They measured totalCost:0 and did not hit a daily wall during
-verification. So do NOT assume a death is quota exhaustion -- that
-assumption cost real shifts before. Diagnose in this order:
+The workgroup models are free ids billed through Cline usage (section 1B).
+They measured totalCost:0, but they DO go DRY ~daily -- model_for()'s
+divert and ao-freemium-recheck handle that, so do NOT assume a death is
+quota exhaustion yourself -- that assumption cost real sessions before.
+Diagnose in this order:
 
   1. WHICH MODEL actually ran, and was it the assigned one?
      cat /tmp/ao-sessions/<group>/model          # what was requested
@@ -307,22 +382,21 @@ is reserved for the coordinator, and one nemotron instance already costs
 ~4.5 GiB of the 8 GiB card.
 
 For any OTHER error (404, empty response, auth): save uncommitted work
-first, then force the next shift:
+first, then run one recovery pass:
 
   python3 scripts/orchestration/rotate-agents.py rotate
 
-The 2-hour cap bounds each group's share of the shift. Do not lengthen
-shifts or run groups in parallel without an operator instruction. Each
-group spawns on its assigned FREE Cline model -- see section 1B for the
-table; supervise.py (GROUP_MODEL) is authoritative, AO_MODEL and
+PARALLEL RUNS ARE OPERATOR INSTRUCTION (2026-10-10): all 11 groups run
+concurrently, each group on its assigned FREE model -- see section 1B for
+the table; supervise.py (GROUP_MODEL) is authoritative, AO_MODEL and
 AO_FALLBACK override it only for deliberate experiments. Never point a
 workgroup agent at the local model: GPU time is reserved for
 coordination, and one nemotron instance already costs ~4.5 GiB of the
 8 GiB card.
 
 ---------------------------------------------------------------------
---- END OF CURRENT INSTRUCTIONS (2026-10-05). Old 11-parallel notes follow
---- for history only. Do not act on anything below this line.
+--- END OF CURRENT INSTRUCTIONS (updated 2026-10-10, parallel team). ---
+--- Older notes below are history only. Do not act on anything below this line.
 ---
 
 TRAPS ADDED 2026-10-05:

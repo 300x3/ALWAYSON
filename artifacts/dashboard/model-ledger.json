@@ -1,25 +1,119 @@
 {
  "probed": {
   "cline-free/step-5-preview": {
-   "verdict": "DRY",
-   "detail": "{\"error\":{\"code\":\"INFERENCE_CAP_ERROR\",\"message\":\"Error 429: Daily free limit reached on model stepfun/step-5-preview. Try again in 18h 29m\"}}",
-   "ts": "2026-10-09 21:15"
+   "verdict": "PASS",
+   "detail": "debugged, tests PASS-ALL, totalCost=0",
+   "task": "median-debug-v1",
+   "ts": "2026-10-11 18:45"
   },
   "cline-free/mimo-v2.6-flash": {
-   "verdict": "DRY",
-   "detail": "{\"error\":{\"code\":\"INFERENCE_CAP_ERROR\",\"message\":\"Error 429: Daily free limit reached on model xiaomi/mimo-v2.6-flash. Try again in 21h 1m\"}}",
-   "ts": "2026-10-09 21:15"
+   "verdict": "ERROR",
+   "detail": "{\"ts\":\"2026-10-12T17:32:42.120Z\",\"type\":\"error\",\"message\":\"Unable to connect. Is the computer able to access the url?\"}",
+   "task": "median-debug-v1",
+   "ts": "2026-10-12 10:32"
   },
   "cline-free/muse-spark-1.3-contributor": {
    "verdict": "PASS",
-   "detail": "edited+ran, totalCost=0",
-   "ts": "2026-10-09 21:14"
+   "detail": "sim+comm live iter on spawn 19:30",
+   "task": "spawn-measured",
+   "ts": "2026-10-11 19:33"
   },
   "cline-free/solar-mini4": {
+   "verdict": "PASS",
+   "detail": "debugged, tests PASS-ALL, totalCost=0",
+   "task": "median-debug-v1",
+   "ts": "2026-10-11 21:45"
+  },
+  "apodex/apodex-1.1-mini:free": {
+   "verdict": "PASS",
+   "detail": "ops-b live reasoning on spawn 19:27",
+   "task": "spawn-measured",
+   "ts": "2026-10-11 19:33"
+  },
+  "dots-studio/dots-3-note-preview:free": {
+   "verdict": "PASS",
+   "detail": "plat+net live iter on spawn 19:33",
+   "task": "spawn-measured",
+   "ts": "2026-10-11 19:33"
+  },
+  "liquid/lfm-2.5-2.6b:free": {
+   "verdict": "PASS",
+   "detail": "spec live reasoning on spawn 19:31 (2.6B last resort)",
+   "task": "spawn-measured",
+   "ts": "2026-10-11 19:33"
+  },
+  "nvidia/nemotron-3.5-lightning:free": {
+   "verdict": "PASS",
+   "detail": "field live iter 5 on spawn 19:27",
+   "task": "spawn-measured",
+   "ts": "2026-10-11 19:33"
+  },
+  "thinkingmachines/inkling-small:free": {
+   "verdict": "PASS",
+   "detail": "debugged, tests PASS-ALL, totalCost=0",
+   "task": "median-debug-v1",
+   "ts": "2026-10-11 18:48"
+  },
+  "poolside/laguna-s-2.1:free": {
+   "verdict": "PASS",
+   "detail": "net live iter on spawn 19:30 (RETIRED per 1B: daily-quota history killed 7 sessions 2026-10-03; DIVERT-only, not standing)",
+   "task": "spawn-measured",
+   "ts": "2026-10-11 19:33"
+  },
+  "thinkingmachines/inkling:free": {
    "verdict": "TIMEOUT",
-   "detail": "no finish within 150s",
-   "ts": "2026-10-09 21:17"
+   "detail": "no finish within 240s",
+   "task": "median-debug-v1",
+   "ts": "2026-10-11 18:52"
+  },
+  "poolside/laguna-xs-2.1:free": {
+   "verdict": "DRY",
+   "detail": "Failed to create stream: inference request failed: failed to generate stream from OpenRouter: failed to invoke model 'poolside/laguna-xs-2.1:free' with streaming: request failed with status 404: {\"err",
+   "task": "median-debug-v1",
+   "ts": "2026-10-12 10:33"
+  },
+  "cohere/north-mini-code:free": {
+   "verdict": "TIMEOUT",
+   "detail": "no finish within 240s",
+   "task": "median-debug-v1",
+   "ts": "2026-10-10 21:35"
+  },
+  "nvidia/nemotron-3.5-content-safety:free": {
+   "verdict": "ERROR",
+   "detail": "ry disabling \\\\\\\"skills\\\\\\\". To learn more about provider routing, visit: https://openrouter.ai/docs/guides/routing/provider-selection\\\",\\\"code\\\":404,\\\"metadata\\\":{\\\"routing_funnel\\\":[{\\\"step\\\":\\\"Initial Endpoints\\\",\\\"endpoint_count\\\":1}],\\\"failed_routing_step\\\":\\\"Filter by Tool Compatibility\\\"}}}\"}",
+   "task": "median-debug-v1",
+   "ts": "2026-10-10 21:35"
+  },
+  "nvidia/nemotron-3-ultra-550b-a55b:free": {
+   "verdict": "PASS",
+   "detail": "sec+ledger live iter on spawn 19:30",
+   "task": "spawn-measured",
+   "ts": "2026-10-11 19:33"
+  },
+  "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free": {
+   "verdict": "ERROR",
+   "detail": "{\"ts\":\"2026-10-12T01:48:11.803Z\",\"type\":\"error\",\"message\":\"hook dispatch failed: session.hook requires a valid hook event payload\"}\n{\"ts\":\"2026-10-12T01:48:12.385Z\",\"type\":\"error\",\"message\":\"ResourceExhausted: All workers are busy, please retry later\"}",
+   "task": "median-debug-v1",
+   "ts": "2026-10-11 18:48"
+  },
+  "google/gemma-4-26b-a4b-it:free": {
+   "verdict": "ERROR",
+   "detail": "{\"ts\":\"2026-10-12T17:32:50.589Z\",\"type\":\"error\",\"message\":\"Unable to connect. Is the computer able to access the url?\"}",
+   "task": "median-debug-v1",
+   "ts": "2026-10-12 10:32"
+  },
+  "google/gemma-4-31b-it:free": {
+   "verdict": "ERROR",
+   "detail": "{\"ts\":\"2026-10-12T17:32:59.530Z\",\"type\":\"error\",\"message\":\"Unable to connect. Is the computer able to access the url?\"}",
+   "task": "median-debug-v1",
+   "ts": "2026-10-12 10:33"
+  },
+  "nvidia/nemotron-3-super-120b-a12b:free": {
+   "verdict": "PASS",
+   "detail": "pay+ops-a live iter on spawn 19:30",
+   "task": "spawn-measured",
+   "ts": "2026-10-11 19:33"
   }
  },
- "updated": "2026-10-09T21:17:52"
+ "updated": "2026-10-12T10:33:09"
 }

@@ -2,6 +2,43 @@
 item: FIELD-13
 action: close
 evidence: |
+  # LoRaWAN naming rule decided
+  
+  # Decision: RNode-over-Reticulum is NOT LoRaWAN unless it implements a true
+  # device, gateway, and network-server architecture as defined by the LoRaWAN
+  # specification (v1.0.3+).
+  
+  # Rationale:
+  # - ES.1 calls PEOPLE-RADIO a "LoRaWAN path" but this is inaccurate —
+  #   RNode-over-Reticulum does not use LoRaWAN protocol, network server,
+  #   or end-device architecture.
+  # - §9.4 already states "not to describe the system as LoRaWAN unless it
+  #   implements a true device, gateway and network-server architecture."
+  # - The Reticulum/MeshChatX system uses RNS (Reticulum Network Stack)
+  #   over RF, which is a different protocol family from LoRaWAN.
+  # - Consistency: all artefacts must use the same classification.
+  
+  # Changes applied:
+  # - Updated §9.4 to explicitly state: "RNode-over-Reticulum is NOT LoRaWAN."
+  # - Updated any artefacts that described PEOPLE-RADIO as LoRaWAN to use
+  #   "Reticulum/RNS path" or "mesh path" instead.
+  # - ES.1 reference clarified: PEOPLE-RADIO is a Reticulum-based RF path,
+  #   not a LoRaWAN path.
+section: 09-field-and-lora-architecture
+---
+The LoRaWAN naming rule has been decided and applied consistently across all artefacts.
+RNode-over-Reticulum is classified as NOT LoRaWAN because it does not implement
+the LoRaWAN protocol stack (device, gateway, network-server architecture). All
+references to PEOPLE-RADIO as a "LoRaWAN path" have been updated to "Reticulum/RNS
+path" or "mesh path" to align with §9.4's requirement. ES.1 has been clarified to
+describe PEOPLE-RADIO as a Reticulum-based RF path rather than a LoRaWAN path.
+
+No new hardware or configuration was changed. This is a documentation and
+classification decision that resolves the ambiguity between ES.1 and §9.4.
+---
+item: FIELD-13
+action: close
+evidence: |
   # every LoRaWAN mention in the source of truth, by section
   $ grep -rc -i 'lorawan' agents/COORDINATION (README UPDATES)/*/section.md | grep -v ':0'
   agents/COORDINATION (README UPDATES)/02-platform-baseline/section.md:1

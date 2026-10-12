@@ -59,6 +59,16 @@ TIMEOUT = 5400  # hard ceiling per session
 # If an id in GROUP_MODEL 404s at spawn, reassign from VERIFIED below -- do not
 # fall back to a paid model and do not "fix" it by pointing an agent at the
 # local nemotron: GPU time is reserved for the coordinator (~4.5 GiB of 8 GiB).
+#
+# EXPANDED 2026-10-10 (operator: "assign more free AI agentic coders to
+# specific workgroups and activate those sessions / manage them"): the surface
+# is no longer just the promo ids. probe-freemium.py gates every OpenRouter
+# `:free` id (also billed through Cline usage, $0) on a real coding task
+# (median-debug-v1) and 12 ids PASSed that gate. The 11 groups now sit on 11
+# DISTINCT ledger-PASS buckets -- one bucket per group -- so a quota wall can
+# only ever cost its own group, and the team is activated in parallel
+# (rotate-agents.py rotate is a guard pass since this date; the 2026-10-05
+# one-group-per-shift doctrine is superseded by this same instruction).
 # ---------------------------------------------------------------------------
 
 # Proven on this host, in preference order. AO_FALLBACK forces one for all.
@@ -68,30 +78,92 @@ VERIFIED = [
     "cline-free/solar-mini4",
 ]
 
-# Deliberate assignment, not a round-robin. The three approval-gated groups
-# (sec, ledger, pay) and spec do judgement-heavy review against acceptance
-# criteria, so they get the strongest verified model. The rest are split
-# across the remaining two on purpose: each free id is a separate quota bucket,
-# so concentrating all eleven on one id means one exhausted bucket takes the
-# whole team down again -- the exact failure mode of the old single-model setup.
+# Deliberate assignment, not a round-robin. The four judgement-heavy groups
+# (sec, ledger, pay, spec) review against acceptance criteria, so they get
+# the strongest available ids: the two biggest coding-gate winners (nemotron
+# ultra 550b / super 120b) plus step-5/mimo when their buckets are live.
+# SHARES 2026-10-11 ~19:45 UTC (operator: manage the team onto distinct live
+# buckets): 5 standing buckets are DRY at once (net/inkling-small,
+# sec/step-5, comm/solar, ops-a/nano-omni, spec/mimo), so each diverted
+# group takes a DIFFERENT live share -- net->ultra, sec->super,
+# comm->lightning, ops-a->apodex, spec->dots -- deliberate until the
+# 18:45+21:45 rechecks flip refills to PASS. Shares are the failure mode of
+# the old single-model setup ONLY at 11-on-1; 1-on-1 distinct shares keep
+# every group on a spawn-validated coder with no bucket carrying two.
+# Every id below is ledger-PASS on median-debug-v1 except the 5 DRY ones
+# (kept as standing so refills auto-return with no edit) and liquid/lfm-2.6b
+# (last resort per the 2026-10-10 doctrine; poolside/laguna-s-2.1 stays
+# DIVERT-only, never standing -- daily-quota history killed 7 sessions
+# 2026-10-03).
+#
+# This table holds the STANDING assignment only. Free buckets go DRY ~daily
+# and refill ~24h later (429 INFERENCE_CAP_ERROR with a countdown), so
+# temporary diversions do NOT get edited in here -- model_for() diverts a
+# spawn at run time from the model ledger (see DIVERT below), and
+# ao-freemium-recheck.timer flips the ledger back to PASS on refill so the
+# next spawn returns to this table with no code edit. Hand-editing this
+# table to chase a dry bucket (done 2026-10-09/10, all-eleven on solar) is
+# the failure mode this replaces.
 GROUP_MODEL = {
-    "plat":   "cline-free/solar-mini4",
-    "net":    "cline-free/solar-mini4",
-    # TEMPORARY 2026-10-09, EXTENDED 20:35: mimo-v2.6-flash ALSO dry (429,
-    # resets ~21h49m, measured on the field shift). step-5 dry too (19h18m).
-    # solar-mini4 is the ONLY live bucket (SOLAR-OK probed 20:28). ALL groups
-    # temporarily on solar. REVERT when buckets refill: probe first, then
-    # restore the standing assignment below.
-    "sec":    "cline-free/solar-mini4",
-    "ledger": "cline-free/solar-mini4",
-    "pay":    "cline-free/solar-mini4",
+    "plat":   "dots-studio/dots-3-note-preview:free",
+    "net":    "thinkingmachines/inkling-small:free",
+    "sec":    "cline-free/step-5-preview",
+    "ledger": "nvidia/nemotron-3-ultra-550b-a55b:free",
+    "pay":    "nvidia/nemotron-3-super-120b-a12b:free",
     "comm":   "cline-free/solar-mini4",
-    "field":  "cline-free/solar-mini4",
+    "field":  "nvidia/nemotron-3.5-lightning:free",
     "sim":    "cline-free/muse-spark-1.3-contributor",
-    "ops-a":  "cline-free/solar-mini4",
-    "ops-b":  "cline-free/solar-mini4",
-    "spec":   "cline-free/solar-mini4",
+    "ops-a":  "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+    "ops-b":  "apodex/apodex-1.1-mini:free",
+    "spec":   "cline-free/mimo-v2.6-flash",
 }
+
+# Fallback shares while the 5 standing buckets above are DRY (refills flip
+# them back via ao-freemium-recheck; this map is read by the operator, the
+# spawn-time diversion itself walks DIVERT above): net->ultra, sec->super,
+# comm->lightning, ops-a->apodex, spec->dots. Distinct 1-on-1 shares, no
+# bucket carries two. DRY ids stay STANDING (never hand-edited away) so
+# refills auto-return with no code edit.
+FALLBACK_SHARES = {
+    "net":   "nvidia/nemotron-3-ultra-550b-a55b:free",
+    "sec":   "nvidia/nemotron-3-super-120b-a12b:free",
+    "comm":  "nvidia/nemotron-3.5-lightning:free",
+    "ops-a": "apodex/apodex-1.1-mini:free",
+    "spec":  "dots-studio/dots-3-note-preview:free",
+}
+
+# Diversion order when the ledger says a group's standing model is DRY:
+# the first entry the ledger currently reports PASS takes the spawn. The
+# order is deliberate: big coding-gate winners first (nemotron ultra 550b,
+# super 120b), then the mid-size live buckets (lightning, apodex, dots),
+# then the promo buckets proven live (muse live tonight carrying the
+# diverted groups; solar as fallback despite the current DRY -- when its
+# bucket refills the ledger flips it PASS and the walk reaches it again),
+# then mimo for its refill, then laguna-s (DIVERT-only, never standing),
+# then the dry buckets' own ids (skipped while DRY, caught on refill),
+# and the 2.6B LFM last resort. Tonight (2026-10-11 19:26-19:33) all 5
+# diverted groups landed on muse under the old order and are live
+# iterating there -- the new order spreads the NEXT guard-pass revivals
+# across ultra/super/lightning/apodex/dots first so no single bucket
+# carries 5 shares longer than it has to. Ids the
+# ledger reports DRY (or that never passed) are skipped by the walk
+# below, so an unproven id never reaches a workgroup. If nothing is
+# reported PASS, the spawn uses the standing model anyway: a 429 at
+# spawn is survivable by the nudge/watch loop, a wrong model is not.
+DIVERT = [
+    "nvidia/nemotron-3-ultra-550b-a55b:free",
+    "nvidia/nemotron-3-super-120b-a12b:free",
+    "nvidia/nemotron-3.5-lightning:free",
+    "apodex/apodex-1.1-mini:free",
+    "dots-studio/dots-3-note-preview:free",
+    "cline-free/muse-spark-1.3-contributor",
+    "cline-free/solar-mini4",
+    "cline-free/mimo-v2.6-flash",
+    "poolside/laguna-s-2.1:free",
+    "thinkingmachines/inkling-small:free",
+    "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+    "liquid/lfm-2.5-2.6b:free",
+]
 
 FALLBACK = os.environ.get("AO_FALLBACK")  # force one verified id for every group
 MODEL = os.environ.get("AO_MODEL")        # deliberate experiment override
@@ -99,17 +171,52 @@ PROVIDER = "cline"
 REASONING = os.environ.get("AO_REASONING", "medium")
 
 
+def load_ledger():
+    """Model-ledger verdicts per free id ({id: verdict}), {} if unreadable.
+
+    Same two-copy lookup as probe-freemium.py: /tmp first (fresh probes),
+    repo copy second (survives a /tmp wipe). Reading is best-effort on
+    purpose -- an unreadable ledger must not stop a spawn, it just means no
+    diversion this time.
+    """
+    for p in ("/tmp/ao-sessions/model-ledger.json",
+              os.path.join(ROOT, "artifacts/dashboard/model-ledger.json")):
+        try:
+            return {mid: r.get("verdict", "")
+                    for mid, r in json.load(open(p)).get("probed", {}).items()}
+        except Exception:
+            continue
+    return {}
+
+
 def model_for(g):
     """The free Cline model this group runs on.
 
     Precedence: AO_MODEL (explicit experiment) > AO_FALLBACK (force one) >
-    GROUP_MODEL (the assignment above) > first VERIFIED.
+    GROUP_MODEL (the standing assignment above) > first VERIFIED.
+
+    DRY-bucket diversion (operator 2026-10-10: free buckets reset ~every
+    24h): if the ledger reports the standing model DRY, the spawn takes the
+    group's FALLBACK_SHARES entry when the ledger reports it PASS (distinct
+    1-on-1 shares, no bucket carries two), else the first DIVERT id the
+    ledger reports PASS. When the bucket refills,
+    ao-freemium-recheck.timer re-probes it, the ledger flips back to PASS,
+    and the next spawn returns to the standing model -- no code edit.
     """
     if MODEL:
         return MODEL
     if FALLBACK:
         return FALLBACK
-    return GROUP_MODEL.get(g, VERIFIED[0])
+    assigned = GROUP_MODEL.get(g, VERIFIED[0])
+    led = load_ledger()
+    if led.get(assigned) == "DRY":
+        share = FALLBACK_SHARES.get(g)
+        if share and share != assigned and led.get(share) == "PASS":
+            return share
+        for alt in DIVERT:
+            if alt != assigned and led.get(alt) == "PASS":
+                return alt
+    return assigned
 
 
 def prompt_path(g):
@@ -459,6 +566,14 @@ def cmd_guard():
       * a group that is dead or errored gets `nudge`, which resumes in the
         SAME worktree, and is capped by MAX_NUDGES so a permanently broken
         group cannot be respawned forever every 5 minutes.
+      * a group that has FINISHED (state "done") gets a CONTINUATION nudge as
+        long as at least one other session is still live. Since the operator
+        activated the team in parallel (2026-10-10), a completed brief must
+        not leave its worktree idle while other groups keep working -- the
+        continuation prompt re-reads git status, the brief and the tracker's
+        acceptance criteria before touching anything, and the same MAX_NUDGES
+        cap applies so a group with nothing left to do surfaces as "needs a
+        human" instead of spinning.
       * when NOTHING at all is running, the whole team is respawned and the
         per-group nudge counters are reset, because they are spent and would
         otherwise block recovery indefinitely.
@@ -467,7 +582,7 @@ def cmd_guard():
     cmd_status()
 
     live = [g for g in GROUPS if states[g][0] in ("running", "stuck")]
-    broken = [g for g in GROUPS if states[g][0] in ("error", "dead", "never")]
+    broken = [g for g in GROUPS if states[g][0] in ("error", "dead", "never", "done")]
 
     if not live:
         # Whole team is down. Reset the nudge budget or every group would be
@@ -482,12 +597,15 @@ def cmd_guard():
     if broken:
         print("\nrecovering: %s" % ", ".join("%s(%s)" % (g, states[g][0]) for g in broken))
         for g in broken:
-            # Recover ONLY groups whose process is verifiably GONE.
-            # nudge() retires a live pid first, but the automated guard must
-            # not be the thing that decides a live (if idle) agent is finished:
-            # on 2026-10-05 a guard pass nudged 8 live groups on the strength
-            # of non-fatal provider errors. Live agents are left to `watch`
-            # and the operator; the guard's job is the dead, not the slow.
+            # Recover groups whose process is verifiably GONE, plus groups
+            # whose run_result already says "completed" -- for those, even a
+            # lingering pid is finished by definition and may be retired for a
+            # continuation nudge. nudge() retires a live pid first, but the
+            # automated guard must not be the thing that decides a live (if
+            # idle) agent is finished: on 2026-10-05 a guard pass nudged 8
+            # live groups on the strength of non-fatal provider errors. Live
+            # agents are left to `watch` and the operator; the guard's job is
+            # the dead and the finished, not the slow.
             pf = os.path.join(run_dir(g), "pid")
             gone = True
             try:
@@ -495,7 +613,7 @@ def cmd_guard():
                 gone = not pid_alive(oldpid)
             except (ValueError, OSError):
                 gone = True
-            if gone:
+            if gone or states[g][0] == "done":
                 nudge(g, "5-minute guard: process gone (%s)" % states[g][0])
             else:
                 print("%-6s live pid kept; needs a manual nudge if it stays %s" % (g, states[g][0]))

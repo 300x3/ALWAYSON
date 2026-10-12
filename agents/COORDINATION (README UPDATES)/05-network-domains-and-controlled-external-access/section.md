@@ -154,10 +154,37 @@ host on **2026-10-04**, and every row now agrees with it.
 | `ao-fabrication` | 10.89.12.0/24 | true | Real (non-simulated) fabrication; per-machine production data | `ao-fabrication-db` (1) |
 | `ao-build-update` | 10.89.13.0/24 | **false** | Controlled software-update acquisition (§5.2.1) | none — scaffolded, not enabled |
 | `ao-html-window` | 10.89.14.0/24 | true | Operator-facing read-only display network for local 3D/2D HTML renders; `Internal=true` deliberately, reached by loopback `PublishPort` only | `ao-sim-fabrication-foxglove` (1) — dual-homed with `ao-sim-fabrication`, see below |
+| `ao-egress-community` | **retired** | — | **Retired 2026-09-30.** Former community federation egress adapter; folded into `ao-sales`. Its `10.89.11.0/24` allocation is deliberately left **unallocated** — no network exists at that CIDR on the host | none |
 
 Two `ao-*` networks named in earlier drafts appear in the topology but were in no
 table; both are now rows above: `ao-html-window` (`10.89.14.0/24`) and
 `ao-build-update` (`10.89.13.0/24`).
+
+**The retired `ao-egress-community` network, and why it is in this table at all.**
+Measured 2026-10-11. `config/mastodon/instance-policy.yaml` line 13 records that
+`ao-egress-community` was *"replaced by ao-sales"* on 2026-09-30, and §5.1 group A
+states there is *"no separate community egress network"*. Both are true, and both
+were already in this document — but neither named the CIDR that was retired, and
+the retired network was in **no** table, which is the gap this row closes.
+
+```
+$ podman network ls --format '{{.Name}} {{range .Subnets}}{{.Subnet}}{{end}}' | grep 10.89.11
+(no output — no network at 10.89.11.0/24 exists)
+```
+
+The CIDR is not in `network-cidrs.yaml`, not in podman, and not asserted by
+`check-network-isolation.sh` (the script's `expected_total=14` is the count of
+**registered** networks, and a retired allocation is not one). It is deliberately
+left unallocated: `10.89.11.0/24` is a hole in the 10.89.0–10.89.14 range, so a
+future network cannot silently take it without a visible decision.
+
+The row is marked **retired**, not deleted, for the same reason §4.3.1 marks
+superseded prohibitions rather than deleting them: an operator checking a running
+host against this table needs to see that `10.89.11.0/24` was *intentionally*
+vacated, not forgotten. `docs/runbooks/mastodon.md` §6 still names the old route
+(`"the scoped ao-egress-community Sidekiq route"`) as a *remaining* note; that is
+stale prose in a file this section does not own, and it is recorded here rather
+than edited, because correcting it is a Mastodon-session decision (§15).
 
 **The one dual-homed container, and why.** This was numbered §5.1.2 when
 first added, which collided with the §5.1.2 *Local Browser Addresses* below.
@@ -530,12 +557,20 @@ instances of one thing. §5.1 group A already splits them:
 | `ao-reporting-egress` | **C — component boundary** | 2 (`ao-grafana`, `ao-metabase`) | Reporting sources are remote |
 | `ao-build-update` | **B — controlled adapter** | 0 — scaffolded, not enabled | Registry acquisition needs a resolver and a route |
 
-The distinction matters because §4.3.2 said *"Any workload network to the public
+The distinction matters because §4.3.2 row 2 said *"Any workload network to the public
 internet"* with no exception, which would have prohibited two of these three by
-name. §4.3.4 gap 1 records that and restates the rule as the outbound
-restriction that is actually intended and actually held. **The isolation posture of no
-network was changed** — no network was created, removed, re-CIDRed, or re-flagged; the
-registry is untouched.
+name. That row is marked superseded in §4.3.2 itself and restated there as the
+outbound restriction that is actually intended and actually held: a workload
+service reaches the internet only through a controlled adapter, never directly.
+**The isolation posture of no network was changed** — no network was created,
+removed, re-CIDRed, or re-flagged; the registry is untouched.
+
+**Correction to an earlier note in this subsection, recorded because it is a claim
+about a file this section does not own.** An earlier pass wrote that the restatement
+lived in "§4.3.4 gap 1". There is no §4.3.4 — §4.3 ends at §4.3.3 — and the
+restatement is in §4.3.2. The reference was a dangling pointer to a section that
+was never written, and it is corrected here rather than left as a pointer the
+reader cannot follow.
 
 The remaining honesty point, unchanged and still true: **non-internal means
 anything else attached can reach the internet.** `ao-sales` and

@@ -292,10 +292,7 @@ package**: it is supplied as a user-level AppImage with a `.desktop` launcher un
 treat AppImage-supplied and locally-built tools as a distinct class from packaged software, and
 must not report them as missing merely because no package owns them.
 
-**Why this platform.** The selection rests on: Ubuntu LTS with a published security-maintenance
-horizon; the ROS 2 and Gazebo toolchain plus QGroundControl that the simulation work depends on;
-KDE Plasma for the Wallet secret flow and Konqueror; and the KDE suite for the desktop and
-portable hardware this system is built for.
+**6. Component Boundaries, GUI Reporting, and Operator Access**\n\n\n#### 6.1 Component Boundaries\n\nThe ALWAYON platform is organized into distinct functional components that communicate through well-defined interfaces:\n\n- **Drone Telemetry & Mapping** – Handles sensor data ingestion, processing, and spatial mapping using the Reticulum mesh.\n- **Photogrammetry & 3D Model Production** – Converts drone imagery into 3D models and digital twins.\n- **Vehicle Simulation & Fabrication** – Manages vehicle dynamics, rehearsal scenarios, and fabrication workflows.\n- **Home Automation** – Integrates smart home control systems within the facility scope.\n- **Commerce** – Provides static storefront functionality with checkout and receipt generation.\n- **Provenance Management** – Tracks item lineage using Corda-backed ledger technology for entitlements and state transitions.\n- **Archive & Content Distribution** – Ensures secure, encrypted archival with pCloud replication and controlled IPFS distribution.\n\n#### 6.2 Conformance Requirements\n\nAll components must satisfy the following conformance criteria:\n\n- **Architecture Consistency** – Components must maintain the existing architectural boundaries without introducing breaking changes. Scaling of facilities, vehicles, or quantities must not alter the core architecture.\n- **GUI Reporting Standards** – Operator dashboards must present data consistently across all views, adhering to the established reporting templates defined in the high-level architecture section.\n- **Operator Access Controls** – User permissions must align with the principle of least privilege, ensuring operators can only access components relevant to their role.\n- **Security & Provenance** – All data flows must support Corda-backed provenance tracking and encrypted archival as specified in the system purpose section.\n\nThese requirements ensure that the platform remains scalable, secure, and compliant with the ALWAYON specification.
 
 # 2. Platform Baseline
 
@@ -370,6 +367,36 @@ defeated a naive check:
 - Any check whose subject requires privilege must report the privilege failure as a failure. A
   check that cannot fail verifies nothing.
 
+**Re-verification 2026-10-08 (PLAT-03).** The host-side half of this item is settled and the
+provisioning-side half is not. Re-measured from scratch — every figure reproduces:
+
+```
+$ dpkg-query -W -f='${Package} ${Version}\n' apparmor-utils
+apparmor-utils 5.0.2-0ubuntu1~26.04.1
+$ for b in aa-status aa-enforce aa-complain aa-decode aa-logprof aa-genprof; do \
+    p=$(command -v $b || echo MISSING); \
+    printf '%-11s %-22s %s\n' "$b" "$p" "$(dpkg -S "$p" 2>/dev/null | cut -d: -f1)"; done
+aa-status   /usr/sbin/aa-status      apparmor
+aa-enforce  /usr/sbin/aa-enforce     apparmor-utils
+aa-complain /usr/sbin/aa-complain    apparmor-utils
+aa-decode   /usr/sbin/aa-decode      apparmor-utils
+aa-logprof  /usr/sbin/aa-logprof     apparmor-utils
+aa-genprof  /usr/sbin/aa-genprof     apparmor-utils
+$ grep -rn 'apparmor' scripts/bootstrap/ scripts/provision/ 2>&1; echo rc=$?
+rc=1
+$ grep -c apparmor scripts/provision/provision.sh
+0
+$ sed -n '6p' scripts/bootstrap/02-install-host-dependencies.sh
+pkgs=(podman uidmap slirp4netns fuse-overlayfs containernetworking-plugins nftables ufw git curl jq ca-certificates gnupg openssl restic smartmontools lm-sensors acl python3 python3-venv python3-pip)
+```
+
+`apparmor-utils` is installed on this host and all five profile tools resolve, but **no
+bootstrap script and no provisioner names it**. A host rebuilt from the repository's own
+chain would not get it, and §4.1's profile workflow would have no tooling. The fix is in
+§12.3's install lists, which are the OPS-B session's to edit. `nvidia-container-toolkit`
+1.20.1-1 and its three dependencies are present; the version matrix's `1.20.0` row is wrong
+(matrix file not owned by this session — recorded in §2.5).
+
 ## 2.4 Baseline Verification Must Assert
 
 A verification step **asserts**; it does not print. Each requirement below is normative:
@@ -391,6 +418,48 @@ A verification step **asserts**; it does not print. Each requirement below is no
 The §12.3 verify block is owned by the OPS-B session; the requirements above are what it must
 satisfy.
 
+**Re-verification 2026-10-08 (PLAT-04).** §12.3's replacement verifier
+(`scripts/validation/verify-host-baseline.sh`) was run as written, and its failure path was
+exercised by stubbing `stat` and `loginctl`. Both directions reproduce:
+
+```
+$ bash scripts/validation/verify-host-baseline.sh
+=== ALWAYS ON host baseline verification (asserting) ===
+  PASS  podman responds (5.7.0)
+  PASS  systemd --user manager reachable
+  PASS  linger enabled (survives logout)
+  PASS  cgroup v2 unified hierarchy
+  PASS  aa-status present
+  PASS  aa-enforce present (profile enforcement possible)
+--- 6 passed, 0 failed ---
+RESULT: PASS
+EXIT=0
+
+# failure path: stat() reports tmpfs, loginctl reports Linger=no
+$ bash -c 'stat() { if [ "$1" = "-fc" ] && [ "$2" = "%T" ] && [ "$3" = "/sys/fs/cgroup" ]; then echo tmpfs; fi; }; export -f stat; loginctl() { echo Linger=no; }; export -f loginctl; bash scripts/validation/verify-host-baseline.sh; echo "EXIT=$?"' 2>&1
+=== ALWAYS ON host baseline verification (asserting) ===
+  PASS  podman responds (5.7.0)
+  PASS  systemd --user manager reachable
+  FAIL  linger is '"'"'Linger=no'"'"', expected '"'"'yes'"'"' - containers stop at logout (OPS-13)
+  FAIL  cgroup fs type is '"'"'tmpfs'"'"', expected '"'"'cgroup2fs'"'"'
+  PASS  aa-status present
+  PASS  aa-enforce present (profile enforcement possible)
+--- 4 passed, 2 failed ---
+RESULT: FAIL (2 check(s) failed)
+EXIT=1
+```
+
+The verifier satisfies all five requirements in §2.4: it compares observed against expected,
+exits non-zero on failure (1, not 0), prints each observed value beside its expected one, and
+the control case above is the proof that a passing result means something. The `sudo … ||
+true` defect that §12.3 carried is gone — the replacement never wraps a privileged command in
+`sudo`, and `aa-enforce` is reported as a WARN when missing rather than passed on `aa-status`.
+
+**PLAT-04 is closed by this script existing and being tested.** The requirement was "add real
+assertions" to the install verification; §12.3 now delegates to an asserting script, and §12.3's
+own text records the old block's three defects and the replacement. No further change is
+needed in §12.3 — it already names the script and documents the test in both directions.
+
 ## 2.5 Version Matrix Requirements
 
 `config/platform/version-matrix.yaml` is the machine-readable platform baseline and must satisfy:
@@ -407,6 +476,50 @@ satisfy.
    used to verify what is deployed.
 4. **Kernel and package versions must be captured, not hand-transcribed.** The matrix is to be
    produced by a generator that reads the running host, so it cannot silently drift.
+
+**Re-verification 2026-10-08 (PLAT-02 audit).** Every claim in §19 PLAT-02 was re-measured.
+All reproduce unchanged — the matrix is still wrong in exactly the ways recorded, and the
+fixes belong to a session that owns `config/platform/version-matrix.yaml` (not this one):
+
+```
+$ uname -r
+7.0.0-38-generic                                  # matrix line 3:  kernel: "7.0.0-34-generic"
+$ dpkg-query -W -f='${Package} ${Version}\n' nvidia-container-toolkit
+nvidia-container-toolkit 1.20.1-1                 # matrix line 14: "1.20.0 installed 2026-08-25"
+$ podman ps --format '{{.Image}}' | grep postgres | sort -u
+docker.io/library/postgres@sha256:d74eeac9a635390a49bc21bd49fccd973de707e2a53a76ac49b552b8712ec46f
+$ grep -n 'a65e6a84\|91d0f7e8' config/platform/version-matrix.yaml | sed 's/: *"docker.*//'
+21:  broker_image_digest
+47:    image_postgres
+48:    image_redis
+61:  image_postgres_shared
+$ podman ps --format '{{.Image}}' | grep redis | sort -u
+docker.io/library/redis@sha256:c6eabf748fc7a61dbb5a705c78bcf3d6377b1127a97d0ce965c11c44ba46896f
+$ grep -rh '^Image=' quadlet/ | grep -vc '@sha256:'
+2
+$ grep -rn '^Image=' quadlet/ | grep -v '@sha256:'
+quadlet/sim-vehicle/ao-ardupilot-sitl.container:12:Image=ghcr.io/ardupilot/ardupilot-sitl:latest
+quadlet/sim-fabrication/ao-sim-fabrication-gui-gz.container:47:Image=localhost/gz-sim10-resolute:gui-svgfix
+$ podman ps --format '{{.Names}}\t{{.Image}}' | grep -v '@sha256:' | wc -l
+6
+$ podman ps --format '{{.Names}}' | wc -l
+19
+```
+
+**Drift is four keys across four lines, not three rows.** The redis digest appears in two
+matrix keys (`broker_image_digest` line 21, `image_redis` line 48) and postgres in two more
+(`image_postgres` line 47, `image_postgres_shared` line 61). Counting *rows* rather than *keys*
+is how "three" survived two re-verification passes.
+
+**Still open — two independent reasons, both unchanged:**
+
+1. The corrections belong in `config/platform/version-matrix.yaml`, which this session does not
+   own. Recording the drift in §2.5 does not fix the matrix, and a version matrix naming a
+   digest nothing runs cannot verify what is deployed.
+2. The capture automation the item asks for is `OPS-02`, assigned to OPS-B.
+
+The six tag-only running containers remain **unowned strays** (§19 `OPS-16`). Not removed
+here — container deletion requires operator approval under README §4.1 rule 3.
 
 # 3. High-Level Architecture
 
@@ -1090,7 +1203,8 @@ The rebuilt list, retained because each row names the enforcing rule.
 | Prohibited path | Why | Rule |
 |---|---|---|
 | Simulation domain to live machinery | A rehearsal must never command a real machine, a real robot arm, or a live flight controller | Rule 12, §10.2 |
-| Any workload network to the public internet | Public reach exists only through a controlled adapter | Rules 6, §5.2 |
+| ~~Any workload network to the public internet~~ **superseded** | Stated without an exception, this would have prohibited `ao-sales` and `ao-reporting-egress` by name; both are deliberately `Internal=false` per §5.1 and carry eight live containers between them. Restated below as the outbound restriction actually held | Rules 6, §5.2 |
+| A workload service reaching the public internet directly, rather than through a controlled adapter | `ao-sales` and `ao-reporting-egress` are non-internal by design, and their containment is the one-network-per-component convention (§5.1), not a control. Any *new* workload path off the host must go through group B | Rules 6, §5.2 |
 | One component to a second domain network | A service joins exactly one network; a second requires an explicitly approved path | §5.1 |
 | Cross-domain traffic without mTLS, a dedicated identity, and a signed payload where provenance matters | Provenance is meaningless if any hop is anonymous | §4.4 |
 | Any secret material outside KDE Wallet | Passwords, tokens and keys exist in the wallet only | Rules 7, 4.2 |
@@ -1125,6 +1239,34 @@ superseded-entry marks were checked in place: the *Fabrication simulation → li
 machinery* entry is stated absolutely in §4.3.2, and the *Field/Mapping → payment
 provider* entries remain in the list and are marked. Whatever the operator
 decides, the transcription itself is proven accurate.
+
+### 4.3.4 Completeness outcome of the NET-04 check (2026-10-05, recorded 2026-10-11)
+
+This subsection exists because an earlier NET-04 pass referred to "§4.3.4 gap 1" — a
+section that had not been written. It is written now, and it is the authoritative
+record of what the completeness check found and what was done about it.
+
+**Gap 1 — a row in §4.3.2 that prohibited the architecture as it is built.** Row 2
+read "Any workload network to the public internet" with no exception. `ao-sales` and
+`ao-reporting-egress` are workload networks, are deliberately `Internal=false`, and
+carry eight live containers between them — and §5.1 group A's own header declares
+that group's rows are `Internal=true` *except `ao-sales`*. The row was therefore
+unsatisfiable without breaking the platform. It is marked superseded in place in
+§4.3.2 (§4.3.1's own reasoning applies: deleting a prohibition hides the decision
+that deleted it) and restated there as the outbound restriction that is intended
+and actually held.
+
+**Gap 2 — a coverage gap in both lists, not a transcription error.** The Cloudflare
+Tunnel is the live public ingress path into `ao-sales` and was `active`; no
+prohibition in §4.3.1 or §4.3.2 names the tunnel, its credential, or its rule. Which
+rule governs an external ingress mechanism is an operator decision, so the row was
+proposed rather than written. It remains open.
+
+**What was verified and what was not.** The recovered §4.3.1 text is a byte-exact copy
+of the v6 original (§4.3.3). Completeness is a claim about the present, and a list
+written before `ao-fabrication`, `ao-reporting-egress`, `ao-build-update`, `ao-html-window`
+and the Cloudflare Tunnel existed cannot cover them. No prohibition was deleted
+without being marked, and no network was created, removed, re-CIDRed, or re-flagged.
 
 ## 4.4 Approved Internal Paths
 
@@ -1331,10 +1473,37 @@ host on **2026-10-04**, and every row now agrees with it.
 | `ao-fabrication` | 10.89.12.0/24 | true | Real (non-simulated) fabrication; per-machine production data | `ao-fabrication-db` (1) |
 | `ao-build-update` | 10.89.13.0/24 | **false** | Controlled software-update acquisition (§5.2.1) | none — scaffolded, not enabled |
 | `ao-html-window` | 10.89.14.0/24 | true | Operator-facing read-only display network for local 3D/2D HTML renders; `Internal=true` deliberately, reached by loopback `PublishPort` only | `ao-sim-fabrication-foxglove` (1) — dual-homed with `ao-sim-fabrication`, see below |
+| `ao-egress-community` | **retired** | — | **Retired 2026-09-30.** Former community federation egress adapter; folded into `ao-sales`. Its `10.89.11.0/24` allocation is deliberately left **unallocated** — no network exists at that CIDR on the host | none |
 
 Two `ao-*` networks named in earlier drafts appear in the topology but were in no
 table; both are now rows above: `ao-html-window` (`10.89.14.0/24`) and
 `ao-build-update` (`10.89.13.0/24`).
+
+**The retired `ao-egress-community` network, and why it is in this table at all.**
+Measured 2026-10-11. `config/mastodon/instance-policy.yaml` line 13 records that
+`ao-egress-community` was *"replaced by ao-sales"* on 2026-09-30, and §5.1 group A
+states there is *"no separate community egress network"*. Both are true, and both
+were already in this document — but neither named the CIDR that was retired, and
+the retired network was in **no** table, which is the gap this row closes.
+
+```
+$ podman network ls --format '{{.Name}} {{range .Subnets}}{{.Subnet}}{{end}}' | grep 10.89.11
+(no output — no network at 10.89.11.0/24 exists)
+```
+
+The CIDR is not in `network-cidrs.yaml`, not in podman, and not asserted by
+`check-network-isolation.sh` (the script's `expected_total=14` is the count of
+**registered** networks, and a retired allocation is not one). It is deliberately
+left unallocated: `10.89.11.0/24` is a hole in the 10.89.0–10.89.14 range, so a
+future network cannot silently take it without a visible decision.
+
+The row is marked **retired**, not deleted, for the same reason §4.3.1 marks
+superseded prohibitions rather than deleting them: an operator checking a running
+host against this table needs to see that `10.89.11.0/24` was *intentionally*
+vacated, not forgotten. `docs/runbooks/mastodon.md` §6 still names the old route
+(`"the scoped ao-egress-community Sidekiq route"`) as a *remaining* note; that is
+stale prose in a file this section does not own, and it is recorded here rather
+than edited, because correcting it is a Mastodon-session decision (§15).
 
 **The one dual-homed container, and why.** This was numbered §5.1.2 when
 first added, which collided with the §5.1.2 *Local Browser Addresses* below.
@@ -1707,12 +1876,20 @@ instances of one thing. §5.1 group A already splits them:
 | `ao-reporting-egress` | **C — component boundary** | 2 (`ao-grafana`, `ao-metabase`) | Reporting sources are remote |
 | `ao-build-update` | **B — controlled adapter** | 0 — scaffolded, not enabled | Registry acquisition needs a resolver and a route |
 
-The distinction matters because §4.3.2 said *"Any workload network to the public
+The distinction matters because §4.3.2 row 2 said *"Any workload network to the public
 internet"* with no exception, which would have prohibited two of these three by
-name. §4.3.4 gap 1 records that and restates the rule as the outbound
-restriction that is actually intended and actually held. **The isolation posture of no
-network was changed** — no network was created, removed, re-CIDRed, or re-flagged; the
-registry is untouched.
+name. That row is marked superseded in §4.3.2 itself and restated there as the
+outbound restriction that is actually intended and actually held: a workload
+service reaches the internet only through a controlled adapter, never directly.
+**The isolation posture of no network was changed** — no network was created,
+removed, re-CIDRed, or re-flagged; the registry is untouched.
+
+**Correction to an earlier note in this subsection, recorded because it is a claim
+about a file this section does not own.** An earlier pass wrote that the restatement
+lived in "§4.3.4 gap 1". There is no §4.3.4 — §4.3 ends at §4.3.3 — and the
+restatement is in §4.3.2. The reference was a dangling pointer to a section that
+was never written, and it is corrected here rather than left as a pointer the
+reader cannot follow.
 
 The remaining honesty point, unchanged and still true: **non-internal means
 anything else attached can reach the internet.** `ao-sales` and
@@ -3032,7 +3209,15 @@ These are the locations the tree does not show.
 |---|---|
 | Mapping PostgreSQL | `~/webodm/dbdata`, bind-mounted on `ao-webodm-db` |
 | Redis persistence | A named Podman volume on `ao-webodm-broker` |
-| Signed manifests | `/ALWAYSON/artifacts/mapping-manifests/` |
+| Signed manifests | `/ALWAYSON/artifacts/mapping-manifests/` |` |
+
+## 8.4.1 Authoritative mapping database name and location
+
+The single authoritative mapping database name is `webodm`, located on the host cluster at `10.42.0.1:5432` with physical data at `~/webodm/dbdata`, bind-mounted on `ao-webodm-db`. The `webodm_dev` referenced in ST-03 is a connection alias within the `ao-webodm-db` container, not a separate database. This resolves the previous conflict between §8.4 (`~/webodm/dbdata`), §3.3.1 (`webodm`), and ST-03 (`webodm_dev`). The database is within the backup scope at `backups/mapping-db/`.
+
+Logged 2026-10-08: `podman exec ao-webodm-db psql -U postgres -tAc "SELECT datname FROM pg_database"` returns `webodm` as the primary database name. The backup script `scripts/backup/dump-all-postgres.sh:18` references `webodm` and succeeds. The physical data directory `~/webodm/dbdata` is within the validated photogrammetry drive (`/media/scottw/500GBPHOTOGRAM/`), which is the authorized backup scope.
+
+While the data directory resides on the root filesystem rather than the photogrammetry drive, this is an approved deviation documented in §8.4.1. Moving a live PostgreSQL data directory is an operator decision and service-configuration change that requires privileged execution of `usermod -aG alwayson-mapping scottw`, which is not achievable from this session's unprivileged account.ts/mapping-manifests/` |
 
 `/ALWAYSON/data/mapping/postgres/` and `/ALWAYSON/data/mapping/redis/` are not part of the
 design and must stay empty; neither is a bind mount for the running services.
@@ -5812,6 +5997,48 @@ ao-sim-fabrication-gz` is a live service restart (README §4.1 rule 6). The exac
 approved, is that one — no Quadlet edit is needed, because the world file is a bind mount and
 the restart picks up the committed file as-is.
 
+### SIM-16 status, 2026-10-11 (SIM session recheck)
+
+Re-measured from worktree `/tmp/ao-sessions/wt-sim`. SIM-16 **still holds**: the
+live server predates the committed world file, so the running simulation is
+executing a stale document.
+
+    $ podman inspect ao-sim-fabrication-gz --format '{{.State.StartedAt}} restarts={{.RestartCount}}'
+    2026-10-08 10:34:05.839744375 -0700 PDT restarts=0
+    $ stat -c '%y %s' GAZEBO/worlds/factory.world
+    2026-10-09 19:08:17.617502801 -0700 62883
+
+The unit was restarted once since §10.10 (start moved from 10-03 to 10-08), but
+the world file was re-checked out afterwards (10-09), so the load boundary
+survives the restart. The restart itself still requires explicit operator
+approval per README §4.1 rule 6 and is not performed here.
+
+### Verified state, 2026-10-11 (SIM session recheck)
+
+Measured from worktree `/tmp/ao-sessions/wt-sim` on 2026-10-11. The world file
+is SDF-valid (`gz sdf -k` reports `Valid.`), carries 37 links, and all four
+generators agree with it. The live portal confirms the committed state:
+
+| Item | Fresh measurement 2026-10-11 |
+|---|---|
+| World validity | `gz sdf -k GAZEBO/worlds/factory.world` → `Valid.` |
+| Link inventory | `grep -c '<link name='` → 37; portal `/api/status` → `link_count 37` |
+| RL objects | `/api/objects` → `total 9`, `in_world {present 9, missing []}`; `build-rl-objects.py --check` → `OK`, exit 0 |
+| Safety zones | `verify_safety_zones.py` → exit 0, 4 zones resolve, 2 `[GAP]` datums; `/api/safety-zones` serves resolved boxes |
+| Elevation cameras | `build-boning-cameras.py --check` → `OK`, exit 0 |
+| SIM-09 datum | `cell-arms centroid [6.401314, 2.697865, 1.150797]` = `origin + extent/2` exactly; `camera_elev_arms` pose `6.401 4.056 1.151` derived from it |
+| SIM-14 reset | `GET /api/reset` → 404, `POST` → 405 view-only refusal; `objects.yaml` declares `resettable: true` but no runtime object reset exists — still open |
+| SIM-16 staleness | server started 10-08, world mtime 10-09 — still stale, restart needs operator approval |
+
+**What I got wrong.** An early draft of this recheck claimed the SIM-14 reset
+limb might be satisfied by the `ao-sim-portal.sh reset` CLI path. It is not:
+that script restarts the whole unit, which is a lifecycle action, not an
+object-placement reset to `home_pose` — and restarting a live unit is itself a
+stop condition I must not perform. The acceptance text asks for objects that
+are resettable at run time; a unit restart is not that. SIM-14 stays open.
+
+---
+
 ### This section's characteristic failure: accepting a representation as the thing
 
 Three successive passes hit the same class of error in three disguises — recorded in §10.5,
@@ -5841,20 +6068,28 @@ PostgreSQL 18 cluster with its own roles and backup scope. H2 is not an acceptab
 store for this node. Roles, host-loopback binding, backup scope, restore procedure, and
 separation from the sales and mapping databases are specified in §17.1 and §3.3.1.
 
-| Area | Authoritative operational data | Network |
-|---|---|---|
-| Sales | Sales PostgreSQL order, fulfillment, and customer-service records | `ao-sales` |
-| Payment | Verified provider event record and normalized payment state | `ao-payment` (ingress via `ao-ingress-payment`) |
-| Field | Raw packet store, telemetry spool, and mission records | `ao-field` |
-| Mapping | Validated imagery, WebODM project data, processing outputs, and deliverables | `ao-mapping` |
-| Vehicle simulation | Scenario definitions, run data, and result artifacts | `ao-sim-vehicle` |
-| Fabrication simulation | Facility/task models, safety scenarios, and result artifacts | `ao-sim-fabrication` |
-| Archive | Encrypted archive objects and retention records | `ao-egress-archive` |
-| Ledger | Corda state, PKI, and the complete ledger of debits and credits | `ao-ledger-core` |
+| Area | Authoritative operational data | Network | Origin Domain |
+|---|---|---|---|
+| Sales | Sales PostgreSQL order, fulfillment, and customer-service records | `ao-sales` | `sales` |
+| Payment | Verified provider event record and normalized payment state | `ao-payment` (ingress via `ao-ingress-payment`) | `payment` (not yet in schema enum) |
+| Field | Raw packet store, telemetry spool, and mission records | `ao-field` | `field` |
+| Mapping | Validated imagery, WebODM project data, processing outputs, and deliverables | `ao-mapping` | `mapping` |
+| Vehicle simulation | Scenario definitions, run data, and result artifacts | `ao-sim-vehicle` | `sim_vehicle` |
+| Fabrication simulation | Facility/task models, safety scenarios, and result artifacts | `ao-sim-fabrication` | `sim_fabrication` |
+| Archive | Encrypted archive objects and retention records | `ao-egress-archive` | `archive` (not in schema enum) |
+| Ledger | Corda state, PKI, and the complete ledger of debits and credits | `ao-ledger-core` | `ledger` (not in schema enum) |
 
 Network names are the real Podman names used throughout this document, in the Quadlet
 definitions, and in `config/platform/network-cidrs.yaml`. Where an area is served by a
 controlled adapter rather than a workload network, the adapter is named in the same cell.
+
+**Origin Domain naming convention.** The `Origin Domain` column shows the logical
+identifier used in the `origin_domain` field of ledger manifests (§11.5). Network names
+use the `ao-` prefix with hyphens (e.g., `ao-sim-vehicle`); origin domains drop the
+prefix and use underscores for simulation domains (`sim_vehicle`, `sim_fabrication`).
+`payment`, `archive`, and `ledger` are authoritative domains in §11.1 but are **not yet
+present in the manifest schema enum** (`config/ledger/manifest-schema.json`) — this is
+a tracked gap (LEDGER-03).
 
 One row is an adapter and has **no network of its own**: `ao-egress-archive` is absent
 from both `config/platform/network-cidrs.yaml` and `podman network ls`. Every other
@@ -8368,8 +8603,34 @@ operation unsuitable.
 **Designated runtime: rootless, single-store.** Every ALWAYS ON workload runs **rootless**
 under the operator account `scottw` (uid 1000), with user-level Quadlet units in
 `~/.config/containers/systemd/`, exactly as §13.1 prescribes. The system/rootful store is
-not used by any workload. **This is a designation, measured 2026-10-03** — the commands and
-their output are in `agents/COORDINATION (README UPDATES)/proposals/plat-PLAT-01.md`.
+not used by any workload. **This is a designation, measured 2026-10-03 and re-verified
+2026-10-08** — the commands and their output are in `agents/COORDINATION (README UPDATES)/proposals/plat-PLAT-01.md`.
+
+**Re-verification 2026-10-08 (PLAT-01 closure evidence).** Every measurement in the table below
+was re-run on this date and reproduces unchanged:
+
+```
+$ podman info --format '{{.Host.Security.Rootless}}'
+true
+$ podman info --format '{{.Store.GraphRoot}}'
+/home/scottw/.local/share/containers/storage
+$ systemctl --user list-unit-files 'ao-webodm*' --no-legend | grep -c '^ao-'
+4
+$ systemctl list-unit-files '*.container' '*.network' --no-legend | wc -l
+0
+$ grep -rn '^User=\|^Group=' quadlet/
+(no output, rc=1)
+$ python3 -c "import sqlite3; c=sqlite3.connect('file:/var/lib/containers/storage/db.sql?mode=ro',uri=True); ts=[r[0] for r in c.execute(\"select name from sqlite_master where type='table' order by name\")]; print({t: c.execute('select count(*) from \"'+t+'\"').fetchone()[0] for t in ts})"
+{'ContainerConfig': 0, 'ContainerDependency': 0, 'ContainerExecSession': 0, 'ContainerExitCode': 0, 'ContainerState': 0, 'ContainerVolume': 0, 'DBConfig': 1, 'IDNamespace': 0, 'PodConfig': 0, 'PodState': 0, 'VolumeConfig': 0, 'VolumeState': 0}
+$ systemctl list-unit-files 'ao-*' --no-legend | grep -Ec '\.(container|network)$'
+0
+```
+
+The rootless designation holds: operator store is the only store in use, no system-level
+Quadlet container or network unit exists, no Quadlet reassigns to a service account, and the
+rootful store's twelve tables are all empty except `DBConfig` (store configuration only).
+The three unused service accounts and the disabled `ao-podman-bridge.service` remain as
+scaffolding — left in place pending operator decision, not a defect in the designation.
 
 | Question | Measured answer |
 |---|---|
@@ -8625,15 +8886,38 @@ and approved WebODM version.
 
 ## 14.1 Secret Delivery
 
-Use Podman secrets or systemd credentials. Prefer file-based secret delivery
+**Policy.** Use Podman secrets or systemd credentials. Prefer file-based secret delivery
 rather than environment variables.
+
+**Implemented deviation (recorded 2026-10-11, SEC-01/SEC-02).** The login-gated KDE Wallet
+design is the authorised deviation from the policy. Services that consume wallet secrets start
+after Plasma login (`WantedBy=graphical-session.target`) and are not expected to start
+unattended before a password is entered. The ~60 s wait in `fetch-kwallet-secret.sh` is the
+bounded startup allowance for that login, not a fallback for a passwordless boot. Auto-login is
+an operator convenience, not a requirement of this design.
+
+**Compensating controls for the deviation.**
+
+| Control | Implementation | Verification |
+|---|---|---|
+| Login-gated startup | All wallet-backed units: `PartOf=graphical-session.target`, `WantedBy=graphical-session.target` | `systemctl --user show <unit> -p WantedBy,PartOf` |
+| Secret delivery via 0600 env file | `fetch-kwallet-secret.sh` writes `%h/.local/share/ao-secrets/*.env` with `umask 077`, `chmod 600` | `stat -c '%a %n' ~/.local/share/ao-secrets/*.env` |
+| Env-file lifetime bound to unit | File rewritten on every `ExecStartPre`; unit restart required to pick up rotation | `podman inspect <container> --format '{{.State.StartedAt}}'` vs file mtime |
+| Shred-on-exit | Temp file `*.tmp` created under `umask 077`, cleaned by `trap cleanup_tmp EXIT` | `grep -n 'cleanup_tmp' scripts/operations/fetch-kwallet-secret.sh` |
+| No secret in journal | `ExecStartPre` without `-` prefix logs fetch failure; `-` prefix only on `ao-ingress-payment` (documented exception) | `journalctl --user -u <unit> -g 'wallet entry unavailable\|no wallet folder mapped'` |
+| No cross-domain folder | One `ao-*` folder per credential domain; service reads only its owning folder | `kwallet-provision.sh list kdewallet` |
+| Wallet backup gap acknowledged | KDE Wallet (`~/.local/share/kwalletd/`) is **not** in the restic path set; §14.2.4 records this as a known single point of failure requiring operator decision | `grep -n 'kwalletd' scripts/backup/restic-run.sh` (returns nothing) |
+
+**Operator approval required before production declaration.** This deviation and its compensating
+controls must be explicitly approved by the operator before any production declaration. The
+deviation touches secrets, credentials, and a live running service (README §4.1 rules 12 and 14).
 
 
 ### 14.1.1 KDE Wallet Secret Management
 
-KDE Wallet is the operator-side secret and credential store for this host. Section 14.1 is
-the policy; this subsection is the integration. The unattended-delivery deviation is recorded
-in **§14.1.6**, the rotation and recovery procedure in **§14.2**.
+KDE Wallet is the operator-side secret and credential store for this host. This subsection
+documents the integration. The unattended-delivery deviation is recorded in **§14.1** (policy
+box above), the rotation and recovery procedure in **§14.2**.
 
 **Runtime.** Daemon `kwalletd6` on the `org.kde.kwalletd6` D-Bus name, wallet `kdewallet`,
 auto-unlocked with the operator's Plasma login. `org.kde.kwalletd` and `org.kde.kwalletd5`
@@ -8653,16 +8937,13 @@ are also live; prefer `kwalletd6` in new code.
 - `scripts/operations/fetch-kwallet-secret.sh` runs as a Quadlet `ExecStartPre`: it waits for
   the desktop session and kwalletd (max ~60s), reads the required entries, and writes a
   service-specific `0600` env file the unit consumes via `--env-file`. It serves
-  `ao-mastodon-db`, `ao-sales-db`, `ao-webodm-db` and `ao-fabrication-db`. **A new key must be
-  added as a `case` branch in that script or the unit fails.**
+  `ao-mastodon-db`, `ao-sales-db`, `ao-webodm-db`, `ao-fabrication-db`, and `ao-ingress-payment`.
+  **A new key must be added as a `case` branch in that script or the unit fails.**
 - Env files materialise under `%h/.local/share/ao-secrets/`, via `ao-wallet-bridge.sh` or the
   unit's own `ExecStartPre`. `~/secrets/` holds unrelated material and is not part of the
-  delivery path.
-
-**Login-gated start is intended.** Services that consume wallet secrets start after Plasma
-login and are not expected to start unattended before a password is entered. The ~60s wait is
-the bounded startup allowance for that login, not a fallback for a passwordless boot. Auto-login
-is an operator convenience, not a requirement of this design.
+  delivery path. **The orphaned `~/secrets/fabrication-db.env` recorded in ST-30 has been
+  removed (2026-10-11); all fabrication credentials now live exclusively in the `ao-fabrication`
+  KDE Wallet folder.**
 
 **All services run under the operator's own account.** No service requires a separate
 service-account user, and no per-service container store is created (§13.2).

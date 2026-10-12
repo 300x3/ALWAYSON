@@ -24,10 +24,10 @@ Byte-exact transcription verified by Python diff (11 lines in, 11 out, 0 diff)
 Both superseded-entry marks verified accurate
 
 ## Files changed
-- agents/COORDINATION/05-network-domains-and-controlled-external-access/section.md (§5.2.2, §5.2.3, matrix row)
-- agents/COORDINATION/04-security-isolation-and-data-policy/section.md (§4.3.3 verification note)
+- agents/COORDINATION (README UPDATES)/05-network-domains-and-controlled-external-access/section.md (§5.2.2, §5.2.3, matrix row)
+- agents/COORDINATION (README UPDATES)/04-security-isolation-and-data-policy/section.md (§4.3.3 verification note)
 - README.md (recompiled from 21 sections)
-- 4 proposal files in agents/COORDINATION/proposals/
+- 4 proposal files in agents/COORDINATION (README UPDATES)/proposals/
 
 ## NOT touched
 - TOPOLOGY/* files (other sessions)

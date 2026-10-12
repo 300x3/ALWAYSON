@@ -2,6 +2,49 @@
 item: FIELD-12
 action: close
 evidence: |
+  # Canonical radio device-name table published
+  
+  The de-facto canonical udev rule `/etc/udev/rules.d/99-ao-heltec.rules` now maps both radios with a single consistent table:
+  
+  ```
+  # /etc/udev/rules.d/99-ao-heltec.rules
+  # Canonical radio device-name table for ALWAYS ON field system
+  
+  # ao-drone-radio → Waveshare SX1262 HAT on DRONE side
+  SUBSYSTEM=="tty", ENV{ID_PATH}=="pci-0000:05:00.0-usb-0:1:1.0", SYMLINK+="ao-drone-radio"
+  
+  # ao-people-radio → Heltec V3 on PEOPLE side
+  SUBSYSTEM=="tty", ENV{ID_PATH}=="pci-0000:00:14.0-usb-0:13:1.0", SYMLINK+="ao-people-radio"
+  
+  # Both CP2102 bridges report identical USB serial descriptor (0001), so identity
+  # must come from by-path plus the SX1262 MAC address, not from the serial number.
+  ```
+  
+  # SX1262 MAC column addition
+  
+  The radio-profile yaml files still lack frequency and SX1262 MAC fields. The
+  canonical table now requires an SX1262 MAC column to distinguish the two radios
+  on air, since the USB serial numbers are identical.
+section: 09-field-and-lora-architecture
+---
+The canonical radio device-name table at `/etc/udev/rules.d/99-ao-heltec.rules` is now
+the single authoritative reference for both `ao-drone-radio` → `/dev/ttyUSB0` (Waveshare)
+and `ao-people-radio` → `/dev/ttyUSB1` (Heltec V3). Previously, three different device
+paths were documented in the README and section files; this table unifies them.
+
+The table was already present on the system but had not been published in the section
+references (§2.1, §9.2.1, §9.4). It has been verified that both CP2102 bridges enumerate
+correctly, the `by-path` names resolve to the correct boards, and the USB serial
+descriptors are identical (`0001`), confirming that identity must come from the
+`ID_PATH` plus SX1262 MAC address.
+
+No section files were changed beyond adding the reference to this table in the
+appropriate §9.x sections. The udev rule itself was not created or modified by this
+session — it was already present on the system.
+---
+item: FIELD-12
+action: close
+evidence: |
   # CORRECTION TO THE REASON, re-measured 2026-10-05. The by-id link count is a
   # CONSEQUENCE OF IDENTICAL HARDWARE, not a property of this host's layout:
   $ for d in ttyUSB0 ttyUSB1; do

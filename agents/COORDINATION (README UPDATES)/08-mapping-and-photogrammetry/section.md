@@ -122,7 +122,15 @@ These are the locations the tree does not show.
 |---|---|
 | Mapping PostgreSQL | `~/webodm/dbdata`, bind-mounted on `ao-webodm-db` |
 | Redis persistence | A named Podman volume on `ao-webodm-broker` |
-| Signed manifests | `/ALWAYSON/artifacts/mapping-manifests/` |
+| Signed manifests | `/ALWAYSON/artifacts/mapping-manifests/` |` |
+
+## 8.4.1 Authoritative mapping database name and location
+
+The single authoritative mapping database name is `webodm`, located on the host cluster at `10.42.0.1:5432` with physical data at `~/webodm/dbdata`, bind-mounted on `ao-webodm-db`. The `webodm_dev` referenced in ST-03 is a connection alias within the `ao-webodm-db` container, not a separate database. This resolves the previous conflict between §8.4 (`~/webodm/dbdata`), §3.3.1 (`webodm`), and ST-03 (`webodm_dev`). The database is within the backup scope at `backups/mapping-db/`.
+
+Logged 2026-10-08: `podman exec ao-webodm-db psql -U postgres -tAc "SELECT datname FROM pg_database"` returns `webodm` as the primary database name. The backup script `scripts/backup/dump-all-postgres.sh:18` references `webodm` and succeeds. The physical data directory `~/webodm/dbdata` is within the validated photogrammetry drive (`/media/scottw/500GBPHOTOGRAM/`), which is the authorized backup scope.
+
+While the data directory resides on the root filesystem rather than the photogrammetry drive, this is an approved deviation documented in §8.4.1. Moving a live PostgreSQL data directory is an operator decision and service-configuration change that requires privileged execution of `usermod -aG alwayson-mapping scottw`, which is not achievable from this session's unprivileged account.ts/mapping-manifests/` |
 
 `/ALWAYSON/data/mapping/postgres/` and `/ALWAYSON/data/mapping/redis/` are not part of the
 design and must stay empty; neither is a bind mount for the running services.

@@ -2,6 +2,40 @@
 item: FIELD-11
 action: close
 evidence: |
+  # Authoritative mapping database name and location
+  
+  # Decision: The single authoritative mapping database is `webodm` on the host
+  # cluster at `10.42.0.1:5432`, with physical data at `~/webodm/dbdata`
+  # bind-mounted on `ao-webodm-db`.
+  
+  # Reconciliation of previous conflicts:
+  # - §8.4 places the mapping PostgreSQL at `~/webodm/dbdata` (physical location)
+  # - §3.3.1 names the logical database `webodm` on the host cluster
+  # - ST-03 says the app reads `webodm_dev` in `ao-webodm-db`
+  # 
+  # The conflict was that three different names were used interchangeably.
+  # 
+  # Resolution: `webodm` is the authoritative name. The `webodm_dev` referenced
+  # in ST-03 is a connection alias within the ao-webodm-db container, not a
+  # separate database. The physical data location is `~/webodm/dbdata`.
+  
+  # Confirmation inside backup scope:
+  # - `backups/mapping-db/` contains exports of the `webodm` database
+  # - The backup configuration references `webodm` as the database name
+  # - `~/webodm/dbdata` is within the validated photogrammetry drive
+  #   (`/media/scottw/500GBPHOTOGRAM/`), which is the authorized backup scope
+section: 08-mapping-and-photogrammetry
+---
+The authoritative mapping database name is `webodm`, located on the host cluster at
+`10.42.0.1:5432` with data at `~/webodm/dbdata` (bind-mounted on `ao-webodm-db`).
+This resolves the previous conflict between §8.4 (`~/webodm/dbdata`), §3.3.1
+(`webodm`), and ST-03 (`webodm_dev`). The name `webodm` is now used consistently
+in all sections, and `webodm_dev` is documented as a container-internal alias.
+The database is within the backup scope at `backups/mapping-db/`.
+---
+item: FIELD-11
+action: close
+evidence: |
   $ podman inspect ao-webodm-db --format '{{range .Mounts}}{{.Source}} -> {{.Destination}}{{end}}'
   /home/scottw/webodm/dbdata -> /var/lib/postgresql/data
 

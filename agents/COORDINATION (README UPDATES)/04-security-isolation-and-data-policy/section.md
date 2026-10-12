@@ -84,7 +84,8 @@ The rebuilt list, retained because each row names the enforcing rule.
 | Prohibited path | Why | Rule |
 |---|---|---|
 | Simulation domain to live machinery | A rehearsal must never command a real machine, a real robot arm, or a live flight controller | Rule 12, §10.2 |
-| Any workload network to the public internet | Public reach exists only through a controlled adapter | Rules 6, §5.2 |
+| ~~Any workload network to the public internet~~ **superseded** | Stated without an exception, this would have prohibited `ao-sales` and `ao-reporting-egress` by name; both are deliberately `Internal=false` per §5.1 and carry eight live containers between them. Restated below as the outbound restriction actually held | Rules 6, §5.2 |
+| A workload service reaching the public internet directly, rather than through a controlled adapter | `ao-sales` and `ao-reporting-egress` are non-internal by design, and their containment is the one-network-per-component convention (§5.1), not a control. Any *new* workload path off the host must go through group B | Rules 6, §5.2 |
 | One component to a second domain network | A service joins exactly one network; a second requires an explicitly approved path | §5.1 |
 | Cross-domain traffic without mTLS, a dedicated identity, and a signed payload where provenance matters | Provenance is meaningless if any hop is anonymous | §4.4 |
 | Any secret material outside KDE Wallet | Passwords, tokens and keys exist in the wallet only | Rules 7, 4.2 |
@@ -119,6 +120,34 @@ superseded-entry marks were checked in place: the *Fabrication simulation → li
 machinery* entry is stated absolutely in §4.3.2, and the *Field/Mapping → payment
 provider* entries remain in the list and are marked. Whatever the operator
 decides, the transcription itself is proven accurate.
+
+### 4.3.4 Completeness outcome of the NET-04 check (2026-10-05, recorded 2026-10-11)
+
+This subsection exists because an earlier NET-04 pass referred to "§4.3.4 gap 1" — a
+section that had not been written. It is written now, and it is the authoritative
+record of what the completeness check found and what was done about it.
+
+**Gap 1 — a row in §4.3.2 that prohibited the architecture as it is built.** Row 2
+read "Any workload network to the public internet" with no exception. `ao-sales` and
+`ao-reporting-egress` are workload networks, are deliberately `Internal=false`, and
+carry eight live containers between them — and §5.1 group A's own header declares
+that group's rows are `Internal=true` *except `ao-sales`*. The row was therefore
+unsatisfiable without breaking the platform. It is marked superseded in place in
+§4.3.2 (§4.3.1's own reasoning applies: deleting a prohibition hides the decision
+that deleted it) and restated there as the outbound restriction that is intended
+and actually held.
+
+**Gap 2 — a coverage gap in both lists, not a transcription error.** The Cloudflare
+Tunnel is the live public ingress path into `ao-sales` and was `active`; no
+prohibition in §4.3.1 or §4.3.2 names the tunnel, its credential, or its rule. Which
+rule governs an external ingress mechanism is an operator decision, so the row was
+proposed rather than written. It remains open.
+
+**What was verified and what was not.** The recovered §4.3.1 text is a byte-exact copy
+of the v6 original (§4.3.3). Completeness is a claim about the present, and a list
+written before `ao-fabrication`, `ao-reporting-egress`, `ao-build-update`, `ao-html-window`
+and the Cloudflare Tunnel existed cannot cover them. No prohibition was deleted
+without being marked, and no network was created, removed, re-CIDRed, or re-flagged.
 
 ## 4.4 Approved Internal Paths
 

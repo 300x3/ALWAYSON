@@ -40,16 +40,16 @@ def _count_sessions():
 
 
 def do_spawn():
-    """Advance the single-agent rotation, or report the current shift.
+    """Run one recovery/activation pass, or report the live-session count.
 
-    2026-10-05: the operator runs ONE agent at a time in 2-hour shifts, not
-    11 parallel sessions. The old behaviour here -- clearing every pid marker
-    and spawning all 11 -- would fight the rotation timer by launching 11
-    agents the timer would then stop. So this button now runs
-    `rotate-agents.py rotate`: hands off to the next group if the shift is
-    over, revives the current agent if it died mid-shift, does nothing if
-    the shift is healthy. rotate-agents.py owns the actual launch so the
-    dashboard and the CLI cannot drift apart on how a session is started.
+    PARALLEL doctrine (operator 2026-10-10, superseding 2026-10-05's
+    one-at-a-time 2-hour shifts): all 11 groups run at once, each on its own
+    ledger-PASS free bucket (GROUP_MODEL in supervise.py). This button runs
+    `rotate-agents.py rotate`, which delegates to supervise.py guard: spawn
+    what is not running, revive dead/errored sessions in their own worktree,
+    continue finished ones, never stop a live session, every revival capped
+    by MAX_NUDGES. rotate-agents.py owns the actual launch so the dashboard
+    and the CLI cannot drift apart on how a session is started.
     """
     r = subprocess.run([sys.executable, ROTATE, "rotate"],
                        cwd=ROOT, capture_output=True, text=True, timeout=300)

@@ -11,20 +11,28 @@ PostgreSQL 18 cluster with its own roles and backup scope. H2 is not an acceptab
 store for this node. Roles, host-loopback binding, backup scope, restore procedure, and
 separation from the sales and mapping databases are specified in §17.1 and §3.3.1.
 
-| Area | Authoritative operational data | Network |
-|---|---|---|
-| Sales | Sales PostgreSQL order, fulfillment, and customer-service records | `ao-sales` |
-| Payment | Verified provider event record and normalized payment state | `ao-payment` (ingress via `ao-ingress-payment`) |
-| Field | Raw packet store, telemetry spool, and mission records | `ao-field` |
-| Mapping | Validated imagery, WebODM project data, processing outputs, and deliverables | `ao-mapping` |
-| Vehicle simulation | Scenario definitions, run data, and result artifacts | `ao-sim-vehicle` |
-| Fabrication simulation | Facility/task models, safety scenarios, and result artifacts | `ao-sim-fabrication` |
-| Archive | Encrypted archive objects and retention records | `ao-egress-archive` |
-| Ledger | Corda state, PKI, and the complete ledger of debits and credits | `ao-ledger-core` |
+| Area | Authoritative operational data | Network | Origin Domain |
+|---|---|---|---|
+| Sales | Sales PostgreSQL order, fulfillment, and customer-service records | `ao-sales` | `sales` |
+| Payment | Verified provider event record and normalized payment state | `ao-payment` (ingress via `ao-ingress-payment`) | `payment` (not yet in schema enum) |
+| Field | Raw packet store, telemetry spool, and mission records | `ao-field` | `field` |
+| Mapping | Validated imagery, WebODM project data, processing outputs, and deliverables | `ao-mapping` | `mapping` |
+| Vehicle simulation | Scenario definitions, run data, and result artifacts | `ao-sim-vehicle` | `sim_vehicle` |
+| Fabrication simulation | Facility/task models, safety scenarios, and result artifacts | `ao-sim-fabrication` | `sim_fabrication` |
+| Archive | Encrypted archive objects and retention records | `ao-egress-archive` | `archive` (not in schema enum) |
+| Ledger | Corda state, PKI, and the complete ledger of debits and credits | `ao-ledger-core` | `ledger` (not in schema enum) |
 
 Network names are the real Podman names used throughout this document, in the Quadlet
 definitions, and in `config/platform/network-cidrs.yaml`. Where an area is served by a
 controlled adapter rather than a workload network, the adapter is named in the same cell.
+
+**Origin Domain naming convention.** The `Origin Domain` column shows the logical
+identifier used in the `origin_domain` field of ledger manifests (§11.5). Network names
+use the `ao-` prefix with hyphens (e.g., `ao-sim-vehicle`); origin domains drop the
+prefix and use underscores for simulation domains (`sim_vehicle`, `sim_fabrication`).
+`payment`, `archive`, and `ledger` are authoritative domains in §11.1 but are **not yet
+present in the manifest schema enum** (`config/ledger/manifest-schema.json`) — this is
+a tracked gap (LEDGER-03).
 
 One row is an adapter and has **no network of its own**: `ao-egress-archive` is absent
 from both `config/platform/network-cidrs.yaml` and `podman network ls`. Every other
