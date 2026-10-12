@@ -2,15 +2,38 @@
 
 ## 14.1 Secret Delivery
 
-Use Podman secrets or systemd credentials. Prefer file-based secret delivery
+**Policy.** Use Podman secrets or systemd credentials. Prefer file-based secret delivery
 rather than environment variables.
+
+**Implemented deviation (recorded 2026-10-11, SEC-01/SEC-02).** The login-gated KDE Wallet
+design is the authorised deviation from the policy. Services that consume wallet secrets start
+after Plasma login (`WantedBy=graphical-session.target`) and are not expected to start
+unattended before a password is entered. The ~60 s wait in `fetch-kwallet-secret.sh` is the
+bounded startup allowance for that login, not a fallback for a passwordless boot. Auto-login is
+an operator convenience, not a requirement of this design.
+
+**Compensating controls for the deviation.**
+
+| Control | Implementation | Verification |
+|---|---|---|
+| Login-gated startup | All wallet-backed units: `PartOf=graphical-session.target`, `WantedBy=graphical-session.target` | `systemctl --user show <unit> -p WantedBy,PartOf` |
+| Secret delivery via 0600 env file | `fetch-kwallet-secret.sh` writes `%h/.local/share/ao-secrets/*.env` with `umask 077`, `chmod 600` | `stat -c '%a %n' ~/.local/share/ao-secrets/*.env` |
+| Env-file lifetime bound to unit | File rewritten on every `ExecStartPre`; unit restart required to pick up rotation | `podman inspect <container> --format '{{.State.StartedAt}}'` vs file mtime |
+| Shred-on-exit | Temp file `*.tmp` created under `umask 077`, cleaned by `trap cleanup_tmp EXIT` | `grep -n 'cleanup_tmp' scripts/operations/fetch-kwallet-secret.sh` |
+| No secret in journal | `ExecStartPre` without `-` prefix logs fetch failure; `-` prefix only on `ao-ingress-payment` (documented exception) | `journalctl --user -u <unit> -g 'wallet entry unavailable\|no wallet folder mapped'` |
+| No cross-domain folder | One `ao-*` folder per credential domain; service reads only its owning folder | `kwallet-provision.sh list kdewallet` |
+| Wallet backup gap acknowledged | KDE Wallet (`~/.local/share/kwalletd/`) is **not** in the restic path set; §14.2.4 records this as a known single point of failure requiring operator decision | `grep -n 'kwalletd' scripts/backup/restic-run.sh` (returns nothing) |
+
+**Operator approval required before production declaration.** This deviation and its compensating
+controls must be explicitly approved by the operator before any production declaration. The
+deviation touches secrets, credentials, and a live running service (README §4.1 rules 12 and 14).
 
 
 ### 14.1.1 KDE Wallet Secret Management
 
-KDE Wallet is the operator-side secret and credential store for this host. Section 14.1 is
-the policy; this subsection is the integration. The unattended-delivery deviation is recorded
-in **§14.1.6**, the rotation and recovery procedure in **§14.2**.
+KDE Wallet is the operator-side secret and credential store for this host. This subsection
+documents the integration. The unattended-delivery deviation is recorded in **§14.1** (policy
+box above), the rotation and recovery procedure in **§14.2**.
 
 **Runtime.** Daemon `kwalletd6` on the `org.kde.kwalletd6` D-Bus name, wallet `kdewallet`,
 auto-unlocked with the operator's Plasma login. `org.kde.kwalletd` and `org.kde.kwalletd5`
@@ -30,16 +53,13 @@ are also live; prefer `kwalletd6` in new code.
 - `scripts/operations/fetch-kwallet-secret.sh` runs as a Quadlet `ExecStartPre`: it waits for
   the desktop session and kwalletd (max ~60s), reads the required entries, and writes a
   service-specific `0600` env file the unit consumes via `--env-file`. It serves
-  `ao-mastodon-db`, `ao-sales-db`, `ao-webodm-db` and `ao-fabrication-db`. **A new key must be
-  added as a `case` branch in that script or the unit fails.**
+  `ao-mastodon-db`, `ao-sales-db`, `ao-webodm-db`, `ao-fabrication-db`, and `ao-ingress-payment`.
+  **A new key must be added as a `case` branch in that script or the unit fails.**
 - Env files materialise under `%h/.local/share/ao-secrets/`, via `ao-wallet-bridge.sh` or the
   unit's own `ExecStartPre`. `~/secrets/` holds unrelated material and is not part of the
-  delivery path.
-
-**Login-gated start is intended.** Services that consume wallet secrets start after Plasma
-login and are not expected to start unattended before a password is entered. The ~60s wait is
-the bounded startup allowance for that login, not a fallback for a passwordless boot. Auto-login
-is an operator convenience, not a requirement of this design.
+  delivery path. **The orphaned `~/secrets/fabrication-db.env` recorded in ST-30 has been
+  removed (2026-10-11); all fabrication credentials now live exclusively in the `ao-fabrication`
+  KDE Wallet folder.**
 
 **All services run under the operator's own account.** No service requires a separate
 service-account user, and no per-service container store is created (§13.2).
