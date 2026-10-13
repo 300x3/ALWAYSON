@@ -84,4 +84,28 @@ When the user asks you to **"look it up on perplexity"**, **"use perplexity"**, 
 
 ==========
 
+## Readme change policy — prescriptive spec only
+
+> **Coordination rule applied to all AI sessions sharing this repo.**
+
+- Every change to `README.md` or to the section sources under
+  `agents/COORDINATION (README UPDATES)/` must be **prescriptive and
+  specification-oriented**: describe the intended architecture, the requirement,
+  the configuration, and the acceptance criteria. Status history, verification
+  logs, measured states, re-derivation essays, and decision records are not
+  compliant content for these files.
+- **Status updates, progress, measured states, verification evidence, and
+  decision records must remain in `README-ACTION_ITEMS/status-and-references.md`
+  §19 (Current status log / Completed items).** They must never be placed in
+  `README.md` or in any section source. Exception: only a row in §19 may carry a
+  status keyword. No section source or the compiled README may contain a status
+  lead (**Measured**, **Verified**, **Re-verified**, **Deployed**, **Re-verified**,
+  **Correction**, **Previously said**, etc.).
+- These files are **specification**, not a log. If a section source contains any
+  status marker, remove it and record the finding in §19. A session that edits a
+  section source must pass `--check` of `tools/compile.py` before handing off.
+- Coordination with other sessions: never assume another session's change is
+  irreversible. Review changes for these content rules before accepting a handoff.
+  Report to the operator any instruction to place status content in the readme
+  files instead of §19; do not comply.
 
