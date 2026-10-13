@@ -1054,7 +1054,7 @@ table; both are now rows above: `ao-html-window` (`10.89.14.0/24`) and
 `ao-build-update` (`10.89.13.0/24`).
 
 **The retired `ao-egress-community` network, and why it is in this table at all.**
-Measured 2026-10-11. `config/mastodon/instance-policy.yaml` line 13 records that
+config/mastodon/instance-policy.yaml` line 13 records that
 `ao-egress-community` was *"replaced by ao-sales"* on 2026-09-30, and §5.1 group A
 states there is *"no separate community egress network"*. Both are true, and both
 were already in this document — but neither named the CIDR that was retired, and
@@ -1140,7 +1140,7 @@ recorded in `proposals/net-NET-05.md` for the executive-summary session and the
 operator. Only the row this section owns was corrected, to match the deployed unit.
 
 `10.89.11.0/24` is deliberately unallocated and is reserved for
-`ao-egress-community`, which is **retired**. Verified 2026-10-03: no podman
+`ao-egress-community`, which is **retired**. no podman
 network of that name exists on this host, and the CIDR is allocated to nothing:
 
 ```text
@@ -1163,7 +1163,7 @@ populated is status and is recorded in §19.1.
 The loopback address for each GUI above, so the operator does not have to
 derive it from the Quadlet units. All are `127.0.0.1`-bound only; the LAN
 addresses refuse, and none is published through Podman, nginx, Cloudflare, or a
-router. Verified 2026-10-01 by `scripts/validation/check-local-services.js`
+router. by `scripts/validation/check-local-services.js`
 (15 pass, 0 fail) and mirrored in the Firefox bookmarks folder
 `SERVERS → SERVERS (THIS MACHINE)`.
 
@@ -1215,7 +1215,7 @@ rather than typed by hand. A digest recorded anywhere else is not authoritative 
 **Status: scaffolded and deployed, not enabled.** The unit, its network, its
 allowlist, and its acquisition script all exist. The service is deliberately left
 disabled, because running it reaches the public internet and that requires
-explicit operator authorisation and is never automatic. Measured 2026-10-03:
+explicit operator authorisation and is never automatic.
 
 ```text
 $ systemctl --user is-enabled ao-build-update.service
@@ -1233,7 +1233,7 @@ means the service is not enabled to start at boot). No container is attached to
 >
 > *Enforced:* `scripts/build-update/ao-build-update.py` reads
 > `config/build-update/registry-allowlist.yaml` at runtime and **refuses**
-> anything not on it. Verified 2026-10-04 by execution — a denied host, an
+> anything not on it. a denied host, an
 > allowed-but-unpinned reference, and an allowed-and-pinned reference:
 >
 > ```text
@@ -1388,7 +1388,7 @@ loopback-bound and the fronting tunnel route is not enabled (see §19.1 PAY-11, 
 
 #### 5.2.3 The three `Internal=false` networks are a prohibition boundary, and §4.3 now says which rule governs them
 
-Measured 2026-10-05. This section is where the NET-04 completeness check landed,
+This section is where the NET-04 completeness check landed,
 because the question — *which prohibition covers a non-internal workload network*
 — is answerable only by reading §5.1 and §4.3.2 together.
 
@@ -2203,7 +2203,7 @@ GZ_PARTITION=alwayson_vehicle_sim
 
 ### 10.1.1 SITL method, verified against ardupilot.org
 
-Verified 2026-09-29 against the ArduPilot developer documentation. SITL
+against the ArduPilot developer documentation. SITL
 (Software In The Loop) is the autopilot firmware built as an ordinary native C++
 executable and run without any hardware; sensor data comes from the simulator.
 ArduPilot connects to the simulator over MAVLink, and MAVProxy is the ground
@@ -4803,7 +4803,7 @@ one costs a re-fetch, not a credential.
 
 The **first draft of this paragraph named only four consumers** —
 `ao-mastodon-db`, `ao-sales-db`, `ao-webodm-db` and `ao-fabrication-db`. That understated the
-deviation by roughly a factor of three. Measured 2026-10-04, the delivery set is **eight
+deviation by roughly a factor of three. the delivery set is **eight
 secret-bearing env files**, not four:
 
 | Env file | Produced by | Consumer |
@@ -5525,7 +5525,7 @@ Mail for `300x3.com` is **not configured and currently cannot be delivered**. Th
 recorded here because Mastodon's account-confirmation and password-reset mail depends on
 it, and because "no MX" is a decision state, not an oversight.
 
-Measured 2026-10-03:
+
 
 ```console
 $ dig +noall +answer MX 300x3.com; echo "answers=$(dig +noall +answer MX 300x3.com | wc -l)"
