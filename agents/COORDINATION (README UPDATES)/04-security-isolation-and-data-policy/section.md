@@ -111,44 +111,6 @@ records where two entries were superseded and by what. Confirmation of the
 recovered list as the operator-approved original is the one item in this section
 that needs a human decision.
 
-**Independent verification 2026-10-05.** A later NET session re-checked the
-transcription mechanically, not by eye: it extracted the `## 4.3 Prohibited Paths`
-block from the archived v6 document and the `text` block in §4.3.1 with a Python
-regex, dropped blank lines, and diffed the two. Nine content lines in, nine out,
-zero differences — the list is a byte-exact copy, not a paraphrase. Both
-superseded-entry marks were checked in place: the *Fabrication simulation → live
-machinery* entry is stated absolutely in §4.3.2, and the *Field/Mapping → payment
-provider* entries remain in the list and are marked. Whatever the operator
-decides, the transcription itself is proven accurate.
-
-### 4.3.4 Completeness outcome of the NET-04 check (2026-10-05, recorded 2026-10-11)
-
-This subsection exists because an earlier NET-04 pass referred to "§4.3.4 gap 1" — a
-section that had not been written. It is written now, and it is the authoritative
-record of what the completeness check found and what was done about it.
-
-**Gap 1 — a row in §4.3.2 that prohibited the architecture as it is built.** Row 2
-read "Any workload network to the public internet" with no exception. `ao-sales` and
-`ao-reporting-egress` are workload networks, are deliberately `Internal=false`, and
-carry eight live containers between them — and §5.1 group A's own header declares
-that group's rows are `Internal=true` *except `ao-sales`*. The row was therefore
-unsatisfiable without breaking the platform. It is marked superseded in place in
-§4.3.2 (§4.3.1's own reasoning applies: deleting a prohibition hides the decision
-that deleted it) and restated there as the outbound restriction that is intended
-and actually held.
-
-**Gap 2 — a coverage gap in both lists, not a transcription error.** The Cloudflare
-Tunnel is the live public ingress path into `ao-sales` and was `active`; no
-prohibition in §4.3.1 or §4.3.2 names the tunnel, its credential, or its rule. Which
-rule governs an external ingress mechanism is an operator decision, so the row was
-proposed rather than written. It remains open.
-
-**What was verified and what was not.** The recovered §4.3.1 text is a byte-exact copy
-of the v6 original (§4.3.3). Completeness is a claim about the present, and a list
-written before `ao-fabrication`, `ao-reporting-egress`, `ao-build-update`, `ao-html-window`
-and the Cloudflare Tunnel existed cannot cover them. No prohibition was deleted
-without being marked, and no network was created, removed, re-CIDRed, or re-flagged.
-
 ## 4.4 Approved Internal Paths
 
 ```text

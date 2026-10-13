@@ -29,31 +29,6 @@ under the operator account `scottw` (uid 1000), with user-level Quadlet units in
 not used by any workload. **This is a designation, measured 2026-10-03 and re-verified
 2026-10-08** — the commands and their output are in `agents/COORDINATION (README UPDATES)/proposals/plat-PLAT-01.md`.
 
-**Re-verification 2026-10-08 (PLAT-01 closure evidence).** Every measurement in the table below
-was re-run on this date and reproduces unchanged:
-
-```
-$ podman info --format '{{.Host.Security.Rootless}}'
-true
-$ podman info --format '{{.Store.GraphRoot}}'
-/home/scottw/.local/share/containers/storage
-$ systemctl --user list-unit-files 'ao-webodm*' --no-legend | grep -c '^ao-'
-4
-$ systemctl list-unit-files '*.container' '*.network' --no-legend | wc -l
-0
-$ grep -rn '^User=\|^Group=' quadlet/
-(no output, rc=1)
-$ python3 -c "import sqlite3; c=sqlite3.connect('file:/var/lib/containers/storage/db.sql?mode=ro',uri=True); ts=[r[0] for r in c.execute(\"select name from sqlite_master where type='table' order by name\")]; print({t: c.execute('select count(*) from \"'+t+'\"').fetchone()[0] for t in ts})"
-{'ContainerConfig': 0, 'ContainerDependency': 0, 'ContainerExecSession': 0, 'ContainerExitCode': 0, 'ContainerState': 0, 'ContainerVolume': 0, 'DBConfig': 1, 'IDNamespace': 0, 'PodConfig': 0, 'PodState': 0, 'VolumeConfig': 0, 'VolumeState': 0}
-$ systemctl list-unit-files 'ao-*' --no-legend | grep -Ec '\.(container|network)$'
-0
-```
-
-The rootless designation holds: operator store is the only store in use, no system-level
-Quadlet container or network unit exists, no Quadlet reassigns to a service account, and the
-rootful store's twelve tables are all empty except `DBConfig` (store configuration only).
-The three unused service accounts and the disabled `ao-podman-bridge.service` remain as
-scaffolding — left in place pending operator decision, not a defect in the designation.
 
 | Question | Measured answer |
 |---|---|
