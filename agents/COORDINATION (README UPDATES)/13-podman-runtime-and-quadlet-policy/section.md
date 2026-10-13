@@ -119,60 +119,13 @@ $ python3 -c "import sqlite3; c=sqlite3.connect('file:/var/lib/containers/storag
 any image table: NONE
 ```
 
-**This materially strengthens the single-store designation.** The store is not merely
-"unused by any workload" as the previous revision had to concede — it holds **no workload
-records whatsoever**, and the earlier claim that this could only be resolved with operator
-approval was wrong on both counts: the mode was misread, and no approval was ever needed.
-
-**Seven `ao-*` unit files exist at system level — none of them is a container.** Re-measured
-2026-10-04 16:40 with a deliberately broad pattern, because the row above originally cited only
-`ao-webodm*`, which returns `0` even when unrelated system units exist:
-
-```
-$ systemctl list-unit-files 'ao-*' | grep '^ao-'
-ao-podman-bridge.service   disabled enabled
-ao-restic-backup.service   static   -
-ao-restic-prefetch.service static   -
-ao-restic-verify.service   static   -
-ao-restic-backup.timer     enabled  enabled
-ao-restic-prefetch.timer   disabled enabled
-ao-restic-verify.timer     enabled  enabled
-```
-
-The six `ao-restic-*` units are host backup timers, not Quadlet containers, and
-`systemctl cat ao-restic-backup.service ao-restic-verify.service | grep -Ec 'podman|containers/storage'`
-returns **`0`** — they never touch a container store. The seventh is the rejected bridge unit already
-recorded in §13.2.1. The single-store designation is unaffected, but **"no system-level `ao-*`
-units" would have been false**; only "no system-level `ao-*` *container* units" is true, and that
-is what the design actually prohibits. Those restic units belong to §17 and are another session's.
-
-**Still open, and narrower than stated: residual image data.** `overlay-images/` is mode `0700`
-and both `ls` and `du` return `Permission denied` as uid 1000, so **whether any image blobs remain is
-still unverified**. This is consistent with the last write being `2026-09-30` (images were pulled
-before the rootless migration) but does not prove it. For contrast the rootless store holds **100**
-distinct image IDs and is fully enumerable by the operator — measured 2026-10-04 17:05 as
-`podman images --all --quiet | sort -u | wc -l` → `100`.
-
-**Correction, 2026-10-04 17:05: "of which 50 are named" was wrong — the figure is 30.** The `100`
-count is right and reproduces exactly, but the breakdown attached to it was written without being
-measured. `--quiet` emits bare image IDs, so it cannot answer the naming question at all; the
-image-name-to-digest mapping had to
-to ask it with `--format`:
-
-```
-$ podman images --all --quiet | sort -u | wc -l
-100
-$ podman images --all --format '{{.Repository}}:{{.Tag}}' | sort -u | wc -l
-31                                  # distinct Repository:Tag entries
-$ podman images --all --format '{{.Repository}}:{{.Tag}}' | sort -u | grep -vc '<none>:<none>'
-30                                  # the actually-named ones
-```
-
-So **30 images carry a repository:tag name and 70 are intermediate or unreferenced layers** —
-not 50/50. Note the two counting questions are different and neither substitutes for the other:
-`--quiet | sort -u` counts image *IDs* (100), while `--format | sort -u` counts *name* entries (31).
-The retracted "102 image records" figure was wrong for the same reason — it was written without
-running the count.
+The top level and `db.sql` are readable by uid 1000 with no `sudo`; only the `0700` child
+directories (including `overlay-images/`) are not, so whether any residual image blobs remain is
+**still unverified** — consistent with the last write being 2026-09-30 (images were pulled before
+the rootless migration) but not proven. The rootless store is fully enumerable by the operator and
+holds 100 distinct image IDs, of which 30 carry a `repository:tag` name and 70 are intermediate or
+unreferenced layers (image IDs via `--quiet | sort -u`, versus 31 name entries via `--format`;
+the two counting questions are different and neither substitutes for the other).
 
 Enumerating the rootful remainder needs
 one `sudo` command and operator approval — recommended action, **no automatic action taken**, and

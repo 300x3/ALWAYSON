@@ -169,107 +169,11 @@ against the provider record. Coinbase is verified against the on-chain settlemen
 record. Bodies are capped at 256 KiB, only a SHA-256 hash and an opaque reference
 are stored, and a raw payload is never persisted.
 
-**Measured state of the automated verifier, 2026-10-03.** The verifier in
-`scripts/payment/ao-payment-adapter.py` is *not* conformant with either provider
-and must not be treated as a working control. Two defects, both proven by running
-the adapter, are recorded as **OPEN**:
-
-1. **The signature scheme is one PayPal does not produce.** The adapter computes
-   `HMAC-SHA256(secret, transmission_id | transmission_time | raw_body)`. PayPal
-   documents a different construction entirely: the message string is
-   `transmissionId | timeStamp | webhookId | crc32` — the CRC-32 of the raw body,
-   not the body — and it is verified with the RSA public key from the
-   `paypal-cert-url` certificate, not a shared HMAC secret. Tested directly: a
-   signature built on PayPal's documented message string is **rejected** by
-   `verify_paypal`, and only the adapter's own non-standard construction is
-   accepted. Consequence: as written the adapter would reject every genuine PayPal
-   delivery. This fails closed, so it is not a money-loss risk, but it means no
-   PayPal payment can be accepted and §7.2's "signature-verified webhook" control
-   does not exist yet.
-2. **Coinbase is verified with the PayPal verifier.** `AUTOMATED = ("paypal",
-   "coinbase")` and both branches call `verify_paypal`. Proven over HTTP: a
-   PayPal-style signed POST to `/webhook/coinbase` returns **200 accepted**, while
-   a Coinbase event carrying its own `x-cc-webhook-signature` header returns
-   **401**. `COINBASE_WEBHOOK_SECRET` is provisioned into `payment.env` by the
-   wallet bridge but is **never read by any code**. The Coinbase path therefore
-   admits PayPal-shaped events and rejects all real Coinbase events.
-
-A third defect sits in the normalized event model rather than the verifier: for a
-real PayPal `PAYMENT.CAPTURE.COMPLETED` payload the money is at
-`resource.amount.value`, which `normalize()` does not read, so `amount_cents`
-comes back `None` and the amount is silently lost. For Coinbase the
-money-bearing reference is `charge.id`, which `normalize()` also does not read;
-it falls through to the top-level **event** id, so the adapter records the event
+The local verifier must conform to each provider’s documented signature scheme and read every provider secret it is provisioned, and `normalize()` must preserve the money-bearing fields of every accepted event. The verifier is not conformant today; the measured defects are recorded as **OPEN** in §19.1 PAY-02, and the credential/env findings in ST-12.
 
 ## 7.3 Sales and Receipt Sequence
 
-# negative controls, to rule out a hasEntry that always answers true:
-payment-paypal-webhook-idX             (false,)
-definitely-not-a-key                   (false,)
-payment-db-password read from ao-sales (false,)
-```
-
-`payment.env` (`~/.local/share/ao-secrets/payment.env`, mode 0600, mtime
-2026-10-04 18:38) now carries **four** keys, not one, and re-composing the file
-through the bridge reproduces it byte for byte — which is the test the earlier
-revision could not have passed:
-
-```text
-$ ./scripts/operations/fetch-kwallet-secret.sh "$T/payment.env" payment-credentials
-compose exit=0
-  key=PAYMENT_DSN                len=106
-  key=PAYPAL_WEBHOOK_ID          len=24
-  key=PAYPAL_WEBHOOK_SECRET      len=48
-  key=COINBASE_WEBHOOK_SECRET    len=48
-  PAYMENT_DSN              match=YES
-  PAYPAL_WEBHOOK_ID        match=YES
-  PAYPAL_WEBHOOK_SECRET    match=YES
-  COINBASE_WEBHOOK_SECRET  match=YES
-  whole-file: IDENTICAL
-```
-
-The temporary file was shredded immediately after the comparison. No secret value
-was printed at any point; only lengths, key names and SHA-256 equality were used.
-
-**Two findings survive the correction, and both are still OPEN:**
-
-1. **`payment-db-password` is byte-identical to `sales-db-password`.** The two
-   wallet entries hash the same (48 characters each, identical SHA-256 prefix).
-   So the "two secrets are one secret" problem the earlier revision identified is
-   real and is now located in the *wallet* rather than in a hand-written file — it
-   was seeded by copying, not by the bridge. Compromise of the sales-db password
-   yields the payment adapter's database access. **The other three entries are
-   genuinely distinct** from it (webhook id, PayPal secret, Coinbase secret all
-   hash differently), so this is one duplicated value, not a wholesale reuse.
-2. **The DSN still grants `sales_migration_role`** — the full schema-admin role —
-   to a payment ingress adapter that needs only INSERT on
-   `payment_provider_events`. That §14.1 least-privilege deviation is unchanged.
-
-**A staleness finding neither revision recorded.** The running container was
-started `2026-10-01 15:08:41`, but `payment.env` was last written
-`2026-10-04 18:38` — the container predates the file it reads. Its environment
-reflects the older content:
-
-```text
-$ podman inspect ao-ingress-payment --format '{{range .Config.Env}}{{println .}}{{end}}' | cut -d= -f1
-container GPG_KEY HOME HOSTNAME PATH PAYMENT_DSN PYTHON_SHA256 PYTHON_VERSION
-```
-
-`PAYPAL_WEBHOOK_ID`, `PAYPAL_WEBHOOK_SECRET` and `COINBASE_WEBHOOK_SECRET` are
-**absent from the live process** even though they are in the file and in the
-wallet. The `ExecStartPre` prefetch is non-fatal (`-` prefix), so the unit started
-cleanly on the older file and has not been restarted since. The running adapter's
-DSN password does match the current wallet value (identical SHA-256 prefix), so
-the database path is consistent; the three webhook secrets simply are not loaded.
-
-**Not remediated here.** Rotating a live password, re-scoping a role, or restarting a
-payment unit are §4.1 rule 14 and rule 12 stop conditions and require explicit operator
-approval. The
-remediation proposed for operator approval is unchanged in shape: rotate
-`payment-db-password` to a value distinct from `sales-db-password`, grant a
-`sales_api_role` limited to the INSERT the adapter performs, and restart
-`ao-ingress-payment` so the prefetch loads the three webhook secrets. Recorded as
-**OPEN** for the operator.
+Sequence requirements are defined below.
 
 ### 7.3.2 Sequence
 

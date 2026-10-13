@@ -228,13 +228,10 @@ Architecture requirements and verified state:
   `https://mastodon.300x3.com/.well-known/webfinger`.
 - The tunnel currently uses HTTP/2 transport because QUIC stream timeouts were
   observed on this host. Local and public health checks returned HTTP 200.
-- **Open registration is closed.** Measured 2026-10-03: `/api/v1/instance` reports
-  `registrations=false, approval_required=false`, and no `registrations` row exists in the
-  `settings` table. There is no approval queue and no pending registration. Account
-  creation on this instance is an operator action performed directly in the admin UI.
-  (An earlier revision of this bullet claimed registration was "open with the approval
-  gate"; that was contradicted by both the API and the database on 2026-10-03 and has
-  been corrected here.)
+- **Open registration is closed.** `/api/v1/instance` reports `registrations=false,
+  approval_required=false`, with no `registrations` row in the `settings` table. There is no
+  approval queue and no pending registration. Account creation on this instance is an operator
+  action performed directly in the admin UI.
 - No passwords, OAuth secrets, API keys, tunnel credentials, or access tokens
   are committed to Git or recorded in this README.
 

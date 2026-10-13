@@ -33,10 +33,9 @@ detail in §3.3; this table records only what is unique to each tool's role here
 **Both application databases live on the host PostgreSQL 18 cluster**, not in their own
 containers, and are reached differently. Grafana mounts the host's `/var/run/postgresql` and
 connects over the Unix socket with `GF_DATABASE_HOST=/var/run/postgresql`. Metabase connects
-over TCP to the host's `10.42.0.1` on `ao-reporting-egress`. Measured 2026-10-04; both
-containers are also on `ao-admin`. Both are loopback-and-socket scoped, which is why neither
-needs a public port. Measured listeners: Grafana `127.0.0.1:3001` and Metabase
-`127.0.0.1:3002`, loopback-bound only (`ss -ltn`).
+over TCP to the host's `10.42.0.1` on `ao-reporting-egress`; both containers are also on
+`ao-admin`. Both are loopback-and-socket scoped, which is why neither needs a public port:
+Grafana on `127.0.0.1:3001` and Metabase on `127.0.0.1:3002`, loopback-bound only (`ss -ltn`).
 
 ### 6.A.3 Conformance Requirements
 
@@ -53,25 +52,23 @@ operator-access implementation must comply with this subsection and §§4, 5, 14
 - Reporting identities must enforce read-only access to source databases or
   services. Grafana and Metabase each keep their own application database and read the
   business databases over per-source read-only roles, writing to none of them.
-  *Verified 2026-10-04 on `salesdb`: `sales_reporting_role` holds `SELECT` on **five views**
-  and nothing else — `v_reporting_orders`, `v_reporting_receipts`, `v_reporting_entitlements`,
+  `sales_reporting_role` holds `SELECT` on **five views** and nothing else on `salesdb` —
+  `v_reporting_orders`, `v_reporting_receipts`, `v_reporting_entitlements`,
   `v_reporting_sale_provenance`, `v_corda_entry_readiness`. It is not a superuser and has no
   `CREATE`/`CREATEDB`/`CREATEROLE`. It holds no privilege on any base table: reading `orders`
   directly fails with `permission denied for table orders`, while reading `v_reporting_orders`
-  succeeds. That is the read-only boundary holding, not merely declared.*
-  *Note the word **views** — an earlier revision of this bullet said "5 tables". The grant is on
-  views owned by `sales_migration_role`, and the underlying tables are granted to
-  `sales_api_role` and `sales_backup_role`, never to the reporting role.*
-  *The separate `metabase_app` role exists **only** on the Metabase application database, not on
-  `salesdb`, so the reporting path to the business data is `sales_reporting_role`.*
-  *One thing to watch, not a breach: `sales_migration_role` on the same cluster **is** a
+  succeeds. That is the read-only boundary holding, not merely declared. Note the word
+  **views**: the grant is on views owned by `sales_migration_role`, and the underlying tables
+  are granted to `sales_api_role` and `sales_backup_role`, never to the reporting role.
+  The separate `metabase_app` role exists **only** on the Metabase application database, not on
+  `salesdb`, so the reporting path to the business data is `sales_reporting_role`.
+  One thing to watch, not a breach: `sales_migration_role` on the same cluster **is** a
   superuser with `CREATEDB` and `CREATEROLE`. That is the migration identity and it is not
   handed to a reporting tool, but any future convenience that grants it to Metabase or
-  Grafana would void the read-only boundary above.*
-
-  **Re-verified 2026-10-04 by executing as the reporting role, not by reading a catalog.**
-  A catalog view reports what is *granted*; this proves what actually *happens* when the
-  reporting identity connects, which is the claim that matters:
+  Grafana would void the read-only boundary above.
+  Execution as the reporting role — not a catalog read — is how this is verified:
+  a catalog view reports what is *granted*; connecting proves what actually *happens*,
+  which is the claim that matters:
 
   ```
   $ podman exec ao-sales-db psql -U sales_reporting_role -d salesdb -tAc "select count(*) from orders;"
