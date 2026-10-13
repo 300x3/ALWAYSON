@@ -22,7 +22,7 @@ GZ_PARTITION=alwayson_vehicle_sim
 
 ### 10.1.1 SITL method, verified against ardupilot.org
 
-Verified 2026-09-29 against the ArduPilot developer documentation. SITL
+against the ArduPilot developer documentation. SITL
 (Software In The Loop) is the autopilot firmware built as an ordinary native C++
 executable and run without any hardware; sensor data comes from the simulator.
 ArduPilot connects to the simulator over MAVLink, and MAVProxy is the ground

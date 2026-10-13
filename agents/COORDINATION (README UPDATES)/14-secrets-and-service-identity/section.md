@@ -395,7 +395,7 @@ one costs a re-fetch, not a credential.
 
 The **first draft of this paragraph named only four consumers** —
 `ao-mastodon-db`, `ao-sales-db`, `ao-webodm-db` and `ao-fabrication-db`. That understated the
-deviation by roughly a factor of three. Measured 2026-10-04, the delivery set is **eight
+deviation by roughly a factor of three. the delivery set is **eight
 secret-bearing env files**, not four:
 
 | Env file | Produced by | Consumer |

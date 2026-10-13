@@ -194,7 +194,7 @@ statuses unchanged, and `INSERT … VALUES ('bad', true, 'banana')` is rejected 
 `sqlite_store_status_check`. The classifier agrees row-for-row with the SQL
 across all 16 cases exercised in Python.
 
-### 16.1.1 Quadlet deploy path
+### 16.1.2 Quadlet deploy path
 
 **Quadlet units deploy flat.** `~/.config/containers/systemd/` holds copies, not symlinks,
 and Quadlet does not read a per-domain subdirectory. A unit placed in

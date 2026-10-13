@@ -472,7 +472,7 @@ Mail for `300x3.com` is **not configured and currently cannot be delivered**. Th
 recorded here because Mastodon's account-confirmation and password-reset mail depends on
 it, and because "no MX" is a decision state, not an oversight.
 
-Measured 2026-10-03:
+
 
 ```console
 $ dig +noall +answer MX 300x3.com; echo "answers=$(dig +noall +answer MX 300x3.com | wc -l)"
