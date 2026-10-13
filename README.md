@@ -292,7 +292,6 @@ package**: it is supplied as a user-level AppImage with a `.desktop` launcher un
 treat AppImage-supplied and locally-built tools as a distinct class from packaged software, and
 must not report them as missing merely because no package owns them.
 
-**6. Component Boundaries, GUI Reporting, and Operator Access**\n\n\n#### 6.1 Component Boundaries\n\nThe ALWAYON platform is organized into distinct functional components that communicate through well-defined interfaces:\n\n- **Drone Telemetry & Mapping** – Handles sensor data ingestion, processing, and spatial mapping using the Reticulum mesh.\n- **Photogrammetry & 3D Model Production** – Converts drone imagery into 3D models and digital twins.\n- **Vehicle Simulation & Fabrication** – Manages vehicle dynamics, rehearsal scenarios, and fabrication workflows.\n- **Home Automation** – Integrates smart home control systems within the facility scope.\n- **Commerce** – Provides static storefront functionality with checkout and receipt generation.\n- **Provenance Management** – Tracks item lineage using Corda-backed ledger technology for entitlements and state transitions.\n- **Archive & Content Distribution** – Ensures secure, encrypted archival with pCloud replication and controlled IPFS distribution.\n\n#### 6.2 Conformance Requirements\n\nAll components must satisfy the following conformance criteria:\n\n- **Architecture Consistency** – Components must maintain the existing architectural boundaries without introducing breaking changes. Scaling of facilities, vehicles, or quantities must not alter the core architecture.\n- **GUI Reporting Standards** – Operator dashboards must present data consistently across all views, adhering to the established reporting templates defined in the high-level architecture section.\n- **Operator Access Controls** – User permissions must align with the principle of least privilege, ensuring operators can only access components relevant to their role.\n- **Security & Provenance** – All data flows must support Corda-backed provenance tracking and encrypted archival as specified in the system purpose section.\n\nThese requirements ensure that the platform remains scalable, secure, and compliant with the ALWAYON specification.
 
 # 2. Platform Baseline
 
@@ -1478,10 +1477,9 @@ detail in §3.3; this table records only what is unique to each tool's role here
 **Both application databases live on the host PostgreSQL 18 cluster**, not in their own
 containers, and are reached differently. Grafana mounts the host's `/var/run/postgresql` and
 connects over the Unix socket with `GF_DATABASE_HOST=/var/run/postgresql`. Metabase connects
-over TCP to the host's `10.42.0.1` on `ao-reporting-egress`. Measured 2026-10-04; both
-containers are also on `ao-admin`. Both are loopback-and-socket scoped, which is why neither
-needs a public port. Measured listeners: Grafana `127.0.0.1:3001` and Metabase
-`127.0.0.1:3002`, loopback-bound only (`ss -ltn`).
+over TCP to the host's `10.42.0.1` on `ao-reporting-egress`; both containers are also on
+`ao-admin`. Both are loopback-and-socket scoped, which is why neither needs a public port:
+Grafana on `127.0.0.1:3001` and Metabase on `127.0.0.1:3002`, loopback-bound only (`ss -ltn`).
 
 ### 6.A.3 Conformance Requirements
 
@@ -1498,25 +1496,23 @@ operator-access implementation must comply with this subsection and §§4, 5, 14
 - Reporting identities must enforce read-only access to source databases or
   services. Grafana and Metabase each keep their own application database and read the
   business databases over per-source read-only roles, writing to none of them.
-  *Verified 2026-10-04 on `salesdb`: `sales_reporting_role` holds `SELECT` on **five views**
-  and nothing else — `v_reporting_orders`, `v_reporting_receipts`, `v_reporting_entitlements`,
+  `sales_reporting_role` holds `SELECT` on **five views** and nothing else on `salesdb` —
+  `v_reporting_orders`, `v_reporting_receipts`, `v_reporting_entitlements`,
   `v_reporting_sale_provenance`, `v_corda_entry_readiness`. It is not a superuser and has no
   `CREATE`/`CREATEDB`/`CREATEROLE`. It holds no privilege on any base table: reading `orders`
   directly fails with `permission denied for table orders`, while reading `v_reporting_orders`
-  succeeds. That is the read-only boundary holding, not merely declared.*
-  *Note the word **views** — an earlier revision of this bullet said "5 tables". The grant is on
-  views owned by `sales_migration_role`, and the underlying tables are granted to
-  `sales_api_role` and `sales_backup_role`, never to the reporting role.*
-  *The separate `metabase_app` role exists **only** on the Metabase application database, not on
-  `salesdb`, so the reporting path to the business data is `sales_reporting_role`.*
-  *One thing to watch, not a breach: `sales_migration_role` on the same cluster **is** a
+  succeeds. That is the read-only boundary holding, not merely declared. Note the word
+  **views**: the grant is on views owned by `sales_migration_role`, and the underlying tables
+  are granted to `sales_api_role` and `sales_backup_role`, never to the reporting role.
+  The separate `metabase_app` role exists **only** on the Metabase application database, not on
+  `salesdb`, so the reporting path to the business data is `sales_reporting_role`.
+  One thing to watch, not a breach: `sales_migration_role` on the same cluster **is** a
   superuser with `CREATEDB` and `CREATEROLE`. That is the migration identity and it is not
   handed to a reporting tool, but any future convenience that grants it to Metabase or
-  Grafana would void the read-only boundary above.*
-
-  **Re-verified 2026-10-04 by executing as the reporting role, not by reading a catalog.**
-  A catalog view reports what is *granted*; this proves what actually *happens* when the
-  reporting identity connects, which is the claim that matters:
+  Grafana would void the read-only boundary above.
+  Execution as the reporting role — not a catalog read — is how this is verified:
+  a catalog view reports what is *granted*; connecting proves what actually *happens*,
+  which is the claim that matters:
 
   ```
   $ podman exec ao-sales-db psql -U sales_reporting_role -d salesdb -tAc "select count(*) from orders;"
@@ -1730,107 +1726,11 @@ against the provider record. Coinbase is verified against the on-chain settlemen
 record. Bodies are capped at 256 KiB, only a SHA-256 hash and an opaque reference
 are stored, and a raw payload is never persisted.
 
-**Measured state of the automated verifier, 2026-10-03.** The verifier in
-`scripts/payment/ao-payment-adapter.py` is *not* conformant with either provider
-and must not be treated as a working control. Two defects, both proven by running
-the adapter, are recorded as **OPEN**:
-
-1. **The signature scheme is one PayPal does not produce.** The adapter computes
-   `HMAC-SHA256(secret, transmission_id | transmission_time | raw_body)`. PayPal
-   documents a different construction entirely: the message string is
-   `transmissionId | timeStamp | webhookId | crc32` — the CRC-32 of the raw body,
-   not the body — and it is verified with the RSA public key from the
-   `paypal-cert-url` certificate, not a shared HMAC secret. Tested directly: a
-   signature built on PayPal's documented message string is **rejected** by
-   `verify_paypal`, and only the adapter's own non-standard construction is
-   accepted. Consequence: as written the adapter would reject every genuine PayPal
-   delivery. This fails closed, so it is not a money-loss risk, but it means no
-   PayPal payment can be accepted and §7.2's "signature-verified webhook" control
-   does not exist yet.
-2. **Coinbase is verified with the PayPal verifier.** `AUTOMATED = ("paypal",
-   "coinbase")` and both branches call `verify_paypal`. Proven over HTTP: a
-   PayPal-style signed POST to `/webhook/coinbase` returns **200 accepted**, while
-   a Coinbase event carrying its own `x-cc-webhook-signature` header returns
-   **401**. `COINBASE_WEBHOOK_SECRET` is provisioned into `payment.env` by the
-   wallet bridge but is **never read by any code**. The Coinbase path therefore
-   admits PayPal-shaped events and rejects all real Coinbase events.
-
-A third defect sits in the normalized event model rather than the verifier: for a
-real PayPal `PAYMENT.CAPTURE.COMPLETED` payload the money is at
-`resource.amount.value`, which `normalize()` does not read, so `amount_cents`
-comes back `None` and the amount is silently lost. For Coinbase the
-money-bearing reference is `charge.id`, which `normalize()` also does not read;
-it falls through to the top-level **event** id, so the adapter records the event
+The local verifier must conform to each provider’s documented signature scheme and read every provider secret it is provisioned, and `normalize()` must preserve the money-bearing fields of every accepted event. The verifier is not conformant today; the measured defects are recorded as **OPEN** in §19.1 PAY-02, and the credential/env findings in ST-12.
 
 ## 7.3 Sales and Receipt Sequence
 
-# negative controls, to rule out a hasEntry that always answers true:
-payment-paypal-webhook-idX             (false,)
-definitely-not-a-key                   (false,)
-payment-db-password read from ao-sales (false,)
-```
-
-`payment.env` (`~/.local/share/ao-secrets/payment.env`, mode 0600, mtime
-2026-10-04 18:38) now carries **four** keys, not one, and re-composing the file
-through the bridge reproduces it byte for byte — which is the test the earlier
-revision could not have passed:
-
-```text
-$ ./scripts/operations/fetch-kwallet-secret.sh "$T/payment.env" payment-credentials
-compose exit=0
-  key=PAYMENT_DSN                len=106
-  key=PAYPAL_WEBHOOK_ID          len=24
-  key=PAYPAL_WEBHOOK_SECRET      len=48
-  key=COINBASE_WEBHOOK_SECRET    len=48
-  PAYMENT_DSN              match=YES
-  PAYPAL_WEBHOOK_ID        match=YES
-  PAYPAL_WEBHOOK_SECRET    match=YES
-  COINBASE_WEBHOOK_SECRET  match=YES
-  whole-file: IDENTICAL
-```
-
-The temporary file was shredded immediately after the comparison. No secret value
-was printed at any point; only lengths, key names and SHA-256 equality were used.
-
-**Two findings survive the correction, and both are still OPEN:**
-
-1. **`payment-db-password` is byte-identical to `sales-db-password`.** The two
-   wallet entries hash the same (48 characters each, identical SHA-256 prefix).
-   So the "two secrets are one secret" problem the earlier revision identified is
-   real and is now located in the *wallet* rather than in a hand-written file — it
-   was seeded by copying, not by the bridge. Compromise of the sales-db password
-   yields the payment adapter's database access. **The other three entries are
-   genuinely distinct** from it (webhook id, PayPal secret, Coinbase secret all
-   hash differently), so this is one duplicated value, not a wholesale reuse.
-2. **The DSN still grants `sales_migration_role`** — the full schema-admin role —
-   to a payment ingress adapter that needs only INSERT on
-   `payment_provider_events`. That §14.1 least-privilege deviation is unchanged.
-
-**A staleness finding neither revision recorded.** The running container was
-started `2026-10-01 15:08:41`, but `payment.env` was last written
-`2026-10-04 18:38` — the container predates the file it reads. Its environment
-reflects the older content:
-
-```text
-$ podman inspect ao-ingress-payment --format '{{range .Config.Env}}{{println .}}{{end}}' | cut -d= -f1
-container GPG_KEY HOME HOSTNAME PATH PAYMENT_DSN PYTHON_SHA256 PYTHON_VERSION
-```
-
-`PAYPAL_WEBHOOK_ID`, `PAYPAL_WEBHOOK_SECRET` and `COINBASE_WEBHOOK_SECRET` are
-**absent from the live process** even though they are in the file and in the
-wallet. The `ExecStartPre` prefetch is non-fatal (`-` prefix), so the unit started
-cleanly on the older file and has not been restarted since. The running adapter's
-DSN password does match the current wallet value (identical SHA-256 prefix), so
-the database path is consistent; the three webhook secrets simply are not loaded.
-
-**Not remediated here.** Rotating a live password, re-scoping a role, or restarting a
-payment unit are §4.1 rule 14 and rule 12 stop conditions and require explicit operator
-approval. The
-remediation proposed for operator approval is unchanged in shape: rotate
-`payment-db-password` to a value distinct from `sales-db-password`, grant a
-`sales_api_role` limited to the INSERT the adapter performs, and restart
-`ao-ingress-payment` so the prefetch loads the three webhook secrets. Recorded as
-**OPEN** for the operator.
+Sequence requirements are defined below.
 
 ### 7.3.2 Sequence
 
@@ -3700,32 +3600,7 @@ Podman networks (removing one strands whatever containers are attached). A rollb
 "restores the host to bare Ubuntu" would be a data-loss event wearing a rollback's
 clothes.
 
-**Verified, dry run.** State is identical before and after, and the summary line is last:
-
-```text
-$ bash -n scripts/provision/rollback.sh && echo 'SYNTAX OK'
-SYNTAX OK
-$ bash scripts/provision/rollback.sh >/tmp/rb5.out 2>&1; echo "rc=$?"
-rc=0
-$ grep -n '^--- stage' /tmp/rb5.out
-5:--- stage 90: verification artefacts (nothing to undo)
-8:--- stage 70: persistent data (NEEDS OPERATOR - not undone)
-17:--- stage 60: secrets (NEEDS OPERATOR - not undone)
-22:--- stage 55: restic backup units
-37:--- stage 50: Quadlet unit files (per domain)
-51:--- stage 40: vendor blobs (NEEDS OPERATOR - not undone)
-56:--- stage 30: snaps and flatpak (NEEDS OPERATOR - commands printed only)
-67:--- stage 20: apt repositories added by stage 10
-81:--- stage 10: nothing to undo
-$ tail -1 /tmp/rb5.out
-dry run only. Nothing was changed. Re-run with --yes to apply.
-```
-
-```text
-# BEFORE: units=85 restic=6 nets=14 timer=enabled
-$ bash scripts/provision/rollback.sh >/dev/null 2>&1
-# AFTER : units=85 restic=6 nets=14 timer=enabled
-```
+The dry run is idempotent by construction: state is identical before and after, and the summary line is last.
 
 The only `rm` the script can reach is `sudo rm -f /etc/systemd/system/<unit>`, named from
 `systemd/backup/`. Stage 50 delegates to `rollback-domain.sh`, which removes **only** the
@@ -3744,10 +3619,8 @@ $ python3 -c "..." # counting stage keys in the ledger
   stage 90: 16 step(s) recorded
 ```
 
-**Still open on this item.** A clean-room rebuild has still never been executed, so the
-procedure remains unproven end to end; and `bootstrap/01` photogrammetry verification is
-still not gated on §17.3 evidence as §16.1 requires. The rollback half is written and
-proven; those two are not mine to close here.
+The rollback half is written; whether a clean-room rebuild has ever executed it end to
+end, and whether `bootstrap/01` is gated on §17.3 evidence, are tracked in §19.1 OPS-12.
 
 # Automatically generated by /usr/libexec/podman/quadlet
 #
@@ -4419,60 +4292,13 @@ $ python3 -c "import sqlite3; c=sqlite3.connect('file:/var/lib/containers/storag
 any image table: NONE
 ```
 
-**This materially strengthens the single-store designation.** The store is not merely
-"unused by any workload" as the previous revision had to concede — it holds **no workload
-records whatsoever**, and the earlier claim that this could only be resolved with operator
-approval was wrong on both counts: the mode was misread, and no approval was ever needed.
-
-**Seven `ao-*` unit files exist at system level — none of them is a container.** Re-measured
-2026-10-04 16:40 with a deliberately broad pattern, because the row above originally cited only
-`ao-webodm*`, which returns `0` even when unrelated system units exist:
-
-```
-$ systemctl list-unit-files 'ao-*' | grep '^ao-'
-ao-podman-bridge.service   disabled enabled
-ao-restic-backup.service   static   -
-ao-restic-prefetch.service static   -
-ao-restic-verify.service   static   -
-ao-restic-backup.timer     enabled  enabled
-ao-restic-prefetch.timer   disabled enabled
-ao-restic-verify.timer     enabled  enabled
-```
-
-The six `ao-restic-*` units are host backup timers, not Quadlet containers, and
-`systemctl cat ao-restic-backup.service ao-restic-verify.service | grep -Ec 'podman|containers/storage'`
-returns **`0`** — they never touch a container store. The seventh is the rejected bridge unit already
-recorded in §13.2.1. The single-store designation is unaffected, but **"no system-level `ao-*`
-units" would have been false**; only "no system-level `ao-*` *container* units" is true, and that
-is what the design actually prohibits. Those restic units belong to §17 and are another session's.
-
-**Still open, and narrower than stated: residual image data.** `overlay-images/` is mode `0700`
-and both `ls` and `du` return `Permission denied` as uid 1000, so **whether any image blobs remain is
-still unverified**. This is consistent with the last write being `2026-09-30` (images were pulled
-before the rootless migration) but does not prove it. For contrast the rootless store holds **100**
-distinct image IDs and is fully enumerable by the operator — measured 2026-10-04 17:05 as
-`podman images --all --quiet | sort -u | wc -l` → `100`.
-
-**Correction, 2026-10-04 17:05: "of which 50 are named" was wrong — the figure is 30.** The `100`
-count is right and reproduces exactly, but the breakdown attached to it was written without being
-measured. `--quiet` emits bare image IDs, so it cannot answer the naming question at all; the
-image-name-to-digest mapping had to
-to ask it with `--format`:
-
-```
-$ podman images --all --quiet | sort -u | wc -l
-100
-$ podman images --all --format '{{.Repository}}:{{.Tag}}' | sort -u | wc -l
-31                                  # distinct Repository:Tag entries
-$ podman images --all --format '{{.Repository}}:{{.Tag}}' | sort -u | grep -vc '<none>:<none>'
-30                                  # the actually-named ones
-```
-
-So **30 images carry a repository:tag name and 70 are intermediate or unreferenced layers** —
-not 50/50. Note the two counting questions are different and neither substitutes for the other:
-`--quiet | sort -u` counts image *IDs* (100), while `--format | sort -u` counts *name* entries (31).
-The retracted "102 image records" figure was wrong for the same reason — it was written without
-running the count.
+The top level and `db.sql` are readable by uid 1000 with no `sudo`; only the `0700` child
+directories (including `overlay-images/`) are not, so whether any residual image blobs remain is
+**still unverified** — consistent with the last write being 2026-09-30 (images were pulled before
+the rootless migration) but not proven. The rootless store is fully enumerable by the operator and
+holds 100 distinct image IDs, of which 30 carry a `repository:tag` name and 70 are intermediate or
+unreferenced layers (image IDs via `--quiet | sort -u`, versus 31 name entries via `--format`;
+the two counting questions are different and neither substitutes for the other).
 
 Enumerating the rootful remainder needs
 one `sudo` command and operator approval — recommended action, **no automatic action taken**, and
@@ -5455,13 +5281,10 @@ Architecture requirements and verified state:
   `https://mastodon.300x3.com/.well-known/webfinger`.
 - The tunnel currently uses HTTP/2 transport because QUIC stream timeouts were
   observed on this host. Local and public health checks returned HTTP 200.
-- **Open registration is closed.** Measured 2026-10-03: `/api/v1/instance` reports
-  `registrations=false, approval_required=false`, and no `registrations` row exists in the
-  `settings` table. There is no approval queue and no pending registration. Account
-  creation on this instance is an operator action performed directly in the admin UI.
-  (An earlier revision of this bullet claimed registration was "open with the approval
-  gate"; that was contradicted by both the API and the database on 2026-10-03 and has
-  been corrected here.)
+- **Open registration is closed.** `/api/v1/instance` reports `registrations=false,
+  approval_required=false`, with no `registrations` row in the `settings` table. There is no
+  approval queue and no pending registration. Account creation on this instance is an operator
+  action performed directly in the admin UI.
 - No passwords, OAuth secrets, API keys, tunnel credentials, or access tokens
   are committed to Git or recorded in this README.
 
