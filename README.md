@@ -5204,7 +5204,7 @@ main storefront remains on the apex/`www` hostnames and is not routed to Mastodo
 WebFinger and `/api/v1/instance` both report `mastodon.300x3.com`, while `300x3.com`
 serves the static storefront. The `scottw` operator account runs the 5 Mastodon containers
 directly; there is no second Mastodon store and no separate service account on this host.
-Open configuration drift against these values is tracked in §19.1.
+Any configuration drift against these values is tracked in §19.1.
 
 | Area | Architecture requirement |
 |---|---|
@@ -5237,12 +5237,12 @@ $ curl -s https://mastodon.300x3.com/api/v1/instance | python3 -c "import sys,js
 False False
 ```
 
-Registration is **closed** (`registrations` absent from the `settings` table, which
-Mastodon treats as disabled). There is therefore no approval queue to operate. See
-COMM-03 in §19.1.
+Acceptance: `registrations` must be absent from the `settings` table — Mastodon treats
+absence as disabled — and with it no approval queue may exist or be operated. Drift is
+tracked in §19.1 COMM-03.
 
 - WebFinger and actor JSON resolve through the public federation hostname.
-- The main storefront remains on `300x3.com` / `www.300x3.com`.
+- The main storefront is served from `300x3.com` / `www.300x3.com`.
 - No `/mastodon` path deployment is used; the dedicated hostname provides the
   root paths required by ActivityPub.
 
@@ -5277,17 +5277,15 @@ credentials remain in protected runtime storage and are never committed.
 
 TLS requirements:
 
-- TLS is mandatory at the edge for all federation traffic (satisfied by
-  Cloudflare edge termination for the tunnel-routed apex hostname).
+- TLS is mandatory at the edge for all federation traffic; Cloudflare must terminate
+  TLS for the tunnel-routed `mastodon.300x3.com` hostname.
 - Tunnel credentials and origin certificate are stored 0400 under
   `~/.cloudflared/` and mirrored to KDE Wallet `ao-mastodon`; never in
   Git or this README. Revoke by deleting/re-creating the tunnel.
-- `X-Forwarded-Proto: https` is supplied by cloudflared so Rails
-  generates HTTPS URLs and Secure cookies (validated: instance JSON
-  reports `streaming_api: wss://mastodon.300x3.com`). The validation claim was
-  correct but the value quoted must be the federation host `mastodon.300x3.com`,
-  not the retired apex `300x3.com` (the static storefront, which is not routed to
-  Mastodon). Verify with:
+- `X-Forwarded-Proto: https` must be supplied by cloudflared so Rails
+  generates HTTPS URLs and Secure cookies; instance JSON must report
+  `streaming_api: wss://mastodon.300x3.com` — the federation host, never the apex
+  `300x3.com` (the static storefront, which is not routed to Mastodon). Verify with:
 
   ```console
   $ curl -4 -s https://mastodon.300x3.com/api/v1/instance \
@@ -5324,8 +5322,8 @@ stated here, because a specification does not carry its own status.
    health checks must return HTTP 200.
 6. `@300x3@mastodon.social` resolved; public followers collection confirms both local
    accounts follow it.
-7. Public post fetched; local mention records created and native notification
-   processing repaired.
+7. Public post fetched; local mention records created; native notification
+   processing operating.
 8. Verify reverse follows using the remote following collection and local incoming
    relationship tables, then perform a fresh signed ActivityPub round-trip test.
    Tracked in §19.1 under COMM.
@@ -5337,37 +5335,33 @@ stated here, because a specification does not carry its own status.
     to the local instance; then submit `300x3.com` to the joinmastodon.org directory
     (operator-authorised). Tracked in §19.1 COMM-07.
 
-Steps 1 through 7 are complete; see §19.1 ST-13 and ST-14 for the evidence and for what
-remains on the federation edge.
+Step 8 verification must read reverse follows from the remote `following` collection of
+`300x3@mastodon.social` and cross-check them against the local `follows` table — never from
+local outgoing state alone. A *fresh signed* ActivityPub round-trip posts publicly, so it
+requires operator approval before it is run (§19.1 COMM-07). The sidekiq queues must be
+empty, which shows nothing is stuck: `LLEN queue:push_public = 0`, `LLEN queue:pull = 0`,
+and `redis-cli KEYS 'queue:*'` must return an empty array.
 
-Step 8: **the reverse-follow verification half is done**, read from the remote `following`
-collection of `300x3@mastodon.social` and cross-checked against the local `follows` table —
-never from local outgoing state alone. A *fresh signed* ActivityPub round-trip is **not** re-run
-here, because doing so posts publicly and needs operator approval (COMM-07). The
-sidekiq queues must be empty, which shows nothing is stuck:
-`LLEN queue:push_public = 0`, `LLEN queue:pull = 0`, and `redis-cli KEYS 'queue:*'`
-returns an empty array.
-
-Step 9: first contact confirms the instance is indexed. Evidence is 10 distinct remote domains
-known locally (`mastodon.social`, `veganism.social`, `mastodon.online`, `universeodon.com`,
-`mastodonapp.uk`, `rivals.space`, `cupoftea.social`, `sekretaerbaer.de`, `fedibook.de`,
-`friendicadev.sekretaerbaer.de`) and `mastodon.social` holding our actor, confirmed by
-`lookup?acct=bot@mastodon.300x3.com` → id `117327405745705562` and
-`lookup?acct=admin@mastodon.300x3.com` → id `117327389970897359`. The one part of
-step 9 not performed is the **human** step — signing in with Konqueror and following from
-the browser UI. That requires the operator at the desktop and is not something a headless
-session can or should fake. Tracked as COMM-06; status Open.
+Step 9: first contact must confirm the instance is indexed. The indexed state is evidenced
+by 10 distinct remote domains known locally (`mastodon.social`, `veganism.social`,
+`mastodon.online`, `universeodon.com`, `mastodonapp.uk`, `rivals.space`, `cupoftea.social`,
+`sekretaerbaer.de`, `fedibook.de`, `friendicadev.sekretaerbaer.de`) and `mastodon.social`
+holding our actor, confirmed by `lookup?acct=bot@mastodon.300x3.com` → id
+`117327405745705562` and `lookup?acct=admin@mastodon.300x3.com` → id `117327389970897359`.
+The final part of step 9 is the **human** step — signing in with Konqueror and following from
+the browser UI — which requires the operator at the desktop and must never be faked by a
+headless session. Tracked in §19.1 COMM-06.
 
 **Tunnel health must not be read from a single registration snapshot.** A reading of "all 4
 connections registered … no inbound fault" taken between flaps is not a health statement —
 the four connections re-register continuously. Confirm stability over a window before
 asserting the edge path is fault-free (see §19.1 COMM-08).
 
-Step 10 has two parts and neither is complete. Public-post delivery and round-trip
-re-validation need a **new public post**, which is an external publication and is
-withheld pending operator approval; directory submission to joinmastodon.org is
-explicitly named in §19.1 as requiring explicit operator approval. Neither was performed.
-Tracked as COMM-07; status Open.
+Step 10 has two parts, both gated on explicit operator approval: public-post delivery and
+round-trip re-validation require a **new public post**, and an external publication must not
+be made without that approval; directory submission to joinmastodon.org likewise requires
+explicit operator approval. Neither may be performed by an agent session on its own
+authority. Tracked in §19.1 COMM-07.
 
 ### 15.4.5 Operational Boundaries After Enablement
 
@@ -5384,16 +5378,17 @@ Tracked as COMM-07; status Open.
 
 ### 15.4.6 Remote Account Approval and Rejection Record
 
-The standing moderation record for **remote** accounts contacting this instance is kept in
-`README-ACTION_ITEMS/status-and-references.md` (§19.3), deliberately separate from the local
-follow relationships in §15.4.4, so an approval or rejection decision is auditable rather than
-inferred from follow state. Nothing in the moderation tables is self-populating: **every block
-or approval must be recorded there as a dated row by the operator**, per §15.4.1 "Operator
-duties".
+Every approval or rejection decision for a **remote** account contacting this instance must be
+recorded as a dated row — date, remote account, action, basis — in
+`README-ACTION_ITEMS/status-and-references.md` (§19.3) at the moment the decision is taken.
+The record must be kept separate from the local follow relationships in §15.4.4, so a decision
+is auditable rather than inferred from follow state. Moderation tables never self-populate:
+rows are added only by the operator, per §15.4.1 "Operator duties", and no remote account may
+be blocked, domain-blocked or rejected except on an operator decision recorded there first.
 
-Requirements: while registration is closed, every moderation counter must be 0, and no remote
-account may be rejected except as an operator decision recorded in §19.3. Query the counters
-directly from the `mastodon-db` container; all must be 0:
+With registration closed (§15.4.2), every moderation counter must read 0; a non-zero counter
+is permitted only where it matches an operator decision recorded in §19.3. Query the counters
+directly from the `mastodon-db` container; the expected result is all zeros:
 
 ```console
 $ podman exec mastodon-db psql -U mastodon -d mastodon -At -c \
@@ -5413,8 +5408,8 @@ canonical_email_blocks=0 follow_requests=0 invites=0 ip_blocks=0 user_invite_req
 Discovery relays (`veganism.social`, `mastodon.online`, `universeodon.com`,
 `mastodonapp.uk`, `rivals.space`, `cupoftea.social`, `friendica@sekretaerbaer.de`,
 `friendica@fedibook.de`, `friendica@friendicadev.sekretaerbaer.de`) are **automatically fetched
-service-discovery actors** — protocol artefacts, not user accounts and not approval
-candidates.
+service-discovery actors** — protocol artefacts, not user accounts. They must never be
+treated as approval or rejection candidates, and no record row may be created for them.
 
 ### 15.4.7 Inbound and Outbound Mail for the 300X3 Domain
 

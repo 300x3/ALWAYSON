@@ -324,14 +324,11 @@ Implementation references that sit outside the repository:
 
 Never add API keys, passwords, tunnel credential JSON, or any other secret to this list.
 
-```
-
 ### Moderation record - 300X3 Mastodon (moved from README §15.4.6)
 
-Dated moderation decisions for remote accounts contacting the local instance:
-
-instance, deliberately kept separate from the local follow relationships in §15.4.4.
-It is written here so that an approval or rejection decision is auditable rather than
+Dated moderation decisions for remote accounts contacting this instance, deliberately kept
+separate from the local follow relationships in §15.4.4 so that an approval or rejection
+decision is auditable rather than inferred from follow state.
 
 
 ```console
