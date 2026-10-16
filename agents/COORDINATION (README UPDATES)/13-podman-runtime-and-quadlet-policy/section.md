@@ -26,21 +26,22 @@ operation unsuitable.
 **Designated runtime: rootless, single-store.** Every ALWAYS ON workload runs **rootless**
 under the operator account `scottw` (uid 1000), with user-level Quadlet units in
 `~/.config/containers/systemd/`, exactly as §13.1 prescribes. The system/rootful store is
-not used by any workload. **This is a designation, measured 2026-10-03 and re-verified
-2026-10-08** — the commands and their output are in `agents/COORDINATION (README UPDATES)/proposals/plat-PLAT-01.md`.
+not used by any workload. **This is a designation, not a description of whatever
+is installed** — verify it with the commands in the table below; evidence is in
+`agents/COORDINATION (README UPDATES)/proposals/plat-PLAT-01.md`.
 
 
-| Question | Measured answer |
+| Question | Answer |
 |---|---|
 | Is the operator Podman rootless? | `podman info --format '{{.Host.Security.Rootless}}'` → `true` |
 | Which store backs it? | `podman info --format '{{.Store.GraphRoot}}'` → `/home/scottw/.local/share/containers/storage` |
 | Do any Quadlet units name a `User=` or `Group=`? | none — `grep -rn '^User=\|^Group=' quadlet/` returns nothing |
-| Are there system-level `.container` or `.network` units? | **No — measured 2026-10-04 16:40.** `systemctl list-unit-files '*.container' --no-legend \| wc -l` → `0`, and `systemctl list-unit-files 'ao-*' --no-legend \| grep -Ec '\.(container\|network)$'` → `0`. Every mapping unit is `systemctl --user`, state `generated` (Quadlet generator output) |
+| Are there system-level `.container` or `.network` units? | **No.** `systemctl list-unit-files '*.container' --no-legend \| wc -l` → `0`, and `systemctl list-unit-files 'ao-*' --no-legend \| grep -Ec '\.(container\|network)$'` → `0`. Every mapping unit is `systemctl --user`, state `generated` (Quadlet generator output) |
 | Are the WebODM containers in the operator store? | `podman ps` lists `ao-webodm-{webapp,worker,db,broker}` and `ao-nodeodm` from the rootless store above |
 | Are the declared extra connections real? | `podman system connection list` → header only; `~/.config/containers/podman-connections.json` is `{"Connection":{},"Farm":{}}` |
 | Does `/run/ao-podman/` exist? | `ls /run/ao-podman` → `No such file or directory` |
 | Is `ao-podman-bridge.service` active? | `systemctl is-enabled ao-podman-bridge.service` → `disabled`; `systemctl --user is-enabled` → `not-found` |
-| Does the **rootful** store hold any workload? | **No — measured 2026-10-04.** `/var/lib/containers/storage/db.sql` is world-readable and its `ContainerConfig`, `ContainerState`, `ContainerExitCode`, `VolumeConfig`, `PodConfig` and `ContainerDependency` tables are **all empty** (row count `0` each). Enumerated without `sudo`; see §13.2.1 |
+| Does the **rootful** store hold any workload? | **No.** `/var/lib/containers/storage/db.sql` is world-readable and its `ContainerConfig`, `ContainerState`, `ContainerExitCode`, `VolumeConfig`, `PodConfig` and `ContainerDependency` tables are **all empty** (row count `0` each). Enumerated without `sudo`; see §13.2.1 |
 
 The container store therefore has one owner. Podman Desktop, `podman system connection`,
 and any GUI path are all pointed at the operator account's local rootless socket, and
@@ -67,14 +68,14 @@ one system unit from that rejected design are still present on the host.** Recor
 is what closes the disagreement between this section and the §19.2 row that described a
 "mixed-store deviation": there is no mixed store. What exists is unused scaffolding.
 
-| Artefact | Measured state | Meaning |
+| Artefact | State | Meaning |
 |---|---|---|
 | `ao-sales` (uid 993), `ao-ledger` (994), `ao-mapping` (997) | accounts exist with home directories `/home/alwayson-{sales,ledger,mapping}` | accounts only |
 | `loginctl show-user ao-mapping` | `Failed to get user: User ID 997 is not logged in or lingering` | not lingering, so it cannot own a user-level Quadlet unit |
 | `ps -eo user,comm \| awk '$1 ~ /ao-\|alwayson/'` | no rows | no process runs as any of the three |
 | `/etc/systemd/system/ao-podman-bridge.service` | present, `systemctl is-enabled` → `disabled` | the rejected bridge unit, masked by being disabled |
 | `/run/ao-podman/` | `No such file or directory` | the rejected socket directory was never created |
-| `/var/lib/containers/storage` | exists, `db.sql` last written 2026-09-30 | **enumerated 2026-10-04** — zero containers/pods/volumes; residual images unverified, see below |
+| `/var/lib/containers/storage` | exists, `db.sql` last written before the rootless migration | enumerated — zero containers/pods/volumes; residual images unverified, see below |
 
 **Deviation.** The host carries three unused service accounts and one disabled system unit
 that this design does not authorise. They hold no container store, no socket and no process,
@@ -82,11 +83,9 @@ so the single-store designation above is unaffected. They are **left in place**:
 account or a unit file is a deletion, and README §4.1 rule 3 requires explicit operator
 approval. **This is an OPEN item for the operator**, not a defect in the running system.
 
-**CORRECTION 2026-10-04 (measured): the rootful store is *not* inaccessible, and the previous
-recording of this OPEN item was wrong.** The section said the store's "contents are
-`drwx------ root root`" and that `sudo ls` returned `Permission denied`, so enumeration needed
-operator approval. **Both are wrong, and the mistake was generalising a mode from a child
-directory to the store root.** Measured:
+**The rootful store root is readable without `sudo`; only its child directories are not.**
+The store's top level is `drwxr-xr-x root:root`, never `drwx------` — the mode belongs to
+children such as `overlay-images/` and must not be generalised upward. Verify directly:
 
 ```
 $ stat -c '%A %U:%G %n' /var/lib/containers/storage
@@ -120,9 +119,9 @@ any image table: NONE
 ```
 
 The top level and `db.sql` are readable by uid 1000 with no `sudo`; only the `0700` child
-directories (including `overlay-images/`) are not, so whether any residual image blobs remain is
-**still unverified** — consistent with the last write being 2026-09-30 (images were pulled before
-the rootless migration) but not proven. The rootless store is fully enumerable by the operator and
+directories (including `overlay-images/`) are not, so whether any residual image blobs remain
+must be established by enumeration under one `sudo` command (operator approval required) and
+must not be assumed either way. The rootless store is fully enumerable by the operator and
 holds 100 distinct image IDs, of which 30 carry a `repository:tag` name and 70 are intermediate or
 unreferenced layers (image IDs via `--quiet | sort -u`, versus 31 name entries via `--format`;
 the two counting questions are different and neither substitutes for the other).

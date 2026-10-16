@@ -135,9 +135,9 @@ Two distinct mistakes arise from trusting a count more than its scope:
    moves when the file is renamed: the `umsgpack` figure lived in `meshchatx.log.2` in
    one pass and `meshchatx.log.3` in the next. **A count that moves when you rename
    the file is not measuring the fault.**
-2. **A count of a live, still-growing log**, read as a stable zero. It is correct only
-   on the day it was taken and is superseded later; today's non-zero result must not
-   be dismissed as a measurement artefact.
+2. **A count of a live, still-growing log must never be read as a stable value.** It is
+   valid only for the instant it was taken; a later non-zero result must not be dismissed
+   as a measurement artefact.
 
 **On the binary-grep worry, checked rather than assumed:** these logs *are* binary to
 `grep` (`binary file matches`), which is a real trap for anyone counting here. It does

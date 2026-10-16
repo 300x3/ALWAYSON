@@ -1,7 +1,7 @@
 ---
 doc_id: PROJECT-STATUS
-version: 1.0
-last_updated: 2026-10-08
+version: 1.1
+last_updated: 2026-10-16
 status: ACTIVE
 owner: operations
 source_document:
@@ -55,6 +55,9 @@ keywords in the vocabulary table below (§2). Rows are unique by `ID`.
 | PLAT-02 | Version matrix refresh | ST-01, ST-25 | **Open** | §2.5, §4.1 rule 9 | **Partly done 2026-10-01.** The `mastodon` rows now record the digests actually in use (they recorded tags, understating the pinning), `local_domain` corrected to `mastodon.300x3.com`, and the `RAILS_FORCE_SSL=true` note replaced — those switches are inert, and the local UI is served over TLS by the loopback proxy at `https://127.0.0.1:3300`. A new `operations` section records the Grafana/Metabase/Prometheus/node-exporter digests. **Remaining:** still hand-edited rather than captured, and the Gazebo `nginx:alpine` row is knowingly unpinned. **Measured 2026-10-03, re-verified 2026-10-04 17:05 — four stale keys carry wrong values, and counting rows rather than keys is how this survived two passes:** `host.kernel` records `7.0.0-34-generic`, host runs `7.0.0-38-generic` (`uname -r`); `gpu.container_runtime_integration` records `nvidia-container-toolkit 1.20.0`, host has `1.20.1-1` (`dpkg-query -W`); `operations.image_postgres_shared` and `operations.image_postgres` record `postgres@sha256:a65e6a84…` while `ao-sales-db`, `mastodon-db` and `ao-fabrication-db` all run `postgres@sha256:d74eeac9a635390a49bc21bd49fccd973de707e2a53a76ac49b552b8712ec46f`; `image_redis` and `broker_image_digest` record `91d0f7e8` while the running image is `redis@sha256:c6eabf748fc7a61dbb5a705c78bcf3d6377b1127a97d0ce965c11c44ba46896f`. The two database digests are the serious ones: every running container disagrees with the recorded pin, so the matrix cannot verify what is deployed. Four digests run but are absent from the matrix entirely — `gz-sim10-server`, `foxglove-bridge`, and both Redis images. **Six of 25 running containers are tag-only and all six are strays, not Quadlet units** (`podman ps --format '{{.Names}}\t{{.Image}}' \| grep -v '@sha256:'` → four Grafana containers on `:11.6.0` tags plus two on `localhost/foxglove-bridge:latest`), every one with a generated `podman run` name (`ao-sqli3`, `keen_bhabha`, `confident_khayyam`, `relaxed_tharp`, `dreamy_rosalind`, `vigorous_shannon`) duplicating the pinned `ao-grafana` and `ao-sim-fabrication-foxglove`; removal is a delete needing operator approval and is tracked by `OPS-16`. In the repository `grep -rh '^Image=' quadlet/ \| grep -vc '@sha256:'` → `2`, and those two are the deliberate exceptions now named in §2.5 (`ao-ardupilot-sitl.container:12`, `ao-sim-fabrication-gui-gz.container:47`). |
 | PLAT-03 | `apparmor-utils` and GPU toolkit packages | ST-01, ST-25 | **Open** | §2.3, §12.3 | Install list omits packages that later verification blocks assume exist (`aa-status` check, CDI/GPU access). Reconcile the install list with the verification steps. **Measured 2026-10-04, re-verified 2026-10-04 17:05 — every figure reproduces and the gap is unchanged. The host is fixed; the provisioning path is not.** `dpkg-query -W apparmor-utils` → `apparmor-utils 5.0.2-0ubuntu1~26.04.1`, all five binaries resolve under `/usr/sbin/`, and `/var/log/apt/history.log` records the install at `2026-10-04 09:07:11`, `Requested-By: scottw (1000)`, pulling `apparmor-utils`, `python3-apparmor` and `python3-libapparmor`. That was an **interactive operator action, not a change to any install list**, so: `scripts/bootstrap/02-install-host-dependencies.sh` line 6 still does not name `apparmor-utils`; `scripts/bootstrap/ao-bootstrap-privileged.sh` still does not name it; `grep -c apparmor scripts/provision/provision.sh` → `0`. A host rebuilt from the repository's own bootstrap chain would not get it, and §4.1's profile workflow would have no tooling. **This item must not close on the strength of one host's package list.** `nvidia-container-toolkit` + its three dependencies are present at `1.20.1-1`. **Correction:** `config/platform/version-matrix.yaml` records `nvidia-container-toolkit 1.20.0 installed 2026-08-25` — the matrix is wrong, recorded here because that file is not owned by this session. **Acceptance:** both bootstrap scripts and `provision.sh` name every package above, so a rebuild reproduces it without operator intervention. |
 | PLAT-04 | Asserting install verification | ST-01, ST-25 | **Open** | §2.4, §12.3 | The §12.3 verify block prints values without asserting them, and the cgroup check is silent on failure. Add real assertions. **Requirements are now normative in §2.4. Three defects, all reproduced by running the block as written.** (1) The cgroup line `test "$(stat -fc %T /sys/fs/cgroup)" = "cgroup2fs" && echo "…"` is **silent on failure** — it prints nothing, returns non-zero, and nothing reads the return code. (2) The block's **overall exit status is 0 either way**, reproduced 2026-10-03: with the cgroup check simulated as failing it printed `last rc=1`, no output, continued, and reported `OVERALL SCRIPT EXIT=0`. A script that cannot fail cannot verify anything, so the §19.2 evidence it supports cannot be re-run and trusted — the same defect `OPS-15` records. (3) The AppArmor line discards its own failure: §12.3 line 163 is `sudo aa-status \|\| true`, and running the block **verbatim** with `sudo` untouched produced `sudo: A terminal is required to authenticate` on stderr while still reporting `OVERALL EXIT=0` — the AppArmor check **never ran**. An operator reading six green lines concludes the profile set is enforcing; it was not inspected. Unprivileged, `aa-status` prints `apparmor module is loaded.` on stdout, writes `You do not have enough privilege to read the profile set.` to stderr, and **exits 4**; `sudo -n aa-status` → `sudo: interactive authentication is required`, rc=1. **Acceptance:** the block exits non-zero on any failed check, prints expected beside observed, and names privilege failures as failures. Owned by OPS-B; see `agents/COORDINATION (README UPDATES)/proposals/plat-PLAT-04.md`. |
+| PLAT-05 | **OS platform deviation — Ubuntu 26.04.1 LTS vs Kubuntu 26.04 LTS** | ST-01, ST-25 | **Open** | §2, §2.1 | §2 names Kubuntu 26.04 LTS as the platform baseline but states the `kubuntu-desktop` metapackage is not required and only KDE Plasma settings packages are expected. This host runs **Ubuntu 26.04.1 LTS** (`PRETTY_NAME="Ubuntu 26.04.1 LTS"`, `VERSION_ID="26.04"`) with KDE Plasma installed (`/usr/bin/plasmashell`, `/usr/bin/konqueror`). The deviation is accepted: Plasma provides the login-gated KDE Wallet secret flow (§14.1.1) and Konqueror as the automation browser. Recorded so a rebuild from the repository's own bootstrap chain does not assume `kubuntu-desktop` or any Kubuntu distributor string. |
+| PLAT-06 | **Six Quadlet unit files exist but are not deployed** | ST-01, ST-25 | **Open** | §13, §13.3, §16.1 | Six Quadlet source files exist under `quadlet/` but have no corresponding deployed unit in `~/.config/containers/systemd/`: `ao-data.network`, `ao-field.network`, `ao-ledger-core.network`, `ao-ledger-ingest.network`, `ao-sim-vehicle.network`, `ao-ardupilot-sitl.container`. Five are `.network` files; one is a simulation container. The corresponding networks (`ao-data`, `ao-field`, `ao-ledger-core`, `ao-ledger-ingest`, `ao-sim-vehicle`) exist live under those exact names — created imperatively by `scripts/bootstrap/04-create-podman-networks.sh` — but without Quadlet unit definitions they are not governed by the flat-deploy model in §13.3. Deploy the six units, or formally mark each as intentionally undeployed. `ao-ardupilot-sitl.container` being undeployed is unremarkable (SITL is on-demand, not always-on). |
+| PLAT-07 | **Network ownership conflict — repo Quadlet vs bootstrap script** | ST-01, ST-02 | **Open** | §2.2, §5.1, §13.3 | The same `ao-*` networks are described by two owners: repo Quadlet files (`quadlet/networks/*.network`) and an imperative bootstrap script (`scripts/bootstrap/04-create-podman-networks.sh`, which calls `podman network create` directly). For `ao-data` the two currently agree (`NetworkName=ao-data`, `Internal=true`, subnet `10.89.8.0/24`), but a future edit to one file would not change the running network. Decide the single owner of network creation, then redeploy the flat unit copies (§16.1.1) so the repository and live state agree. Needs an operator decision; touches live network configuration. |
 | **NET** | Networks, adapters and isolation | | **Open** | | |
 | NET-01 | **Controlled ingress/egress adapters** | ST-12, ST-17 | **Open** | §5.2 | `ao-build-update` **scaffolded and deployed, not enabled** (§5.2.1): its own `Internal=false` egress network at `10.89.13.0/24`, digest-pinned unit, read-only registry allowlist, and acquisition script that resolves candidates, captures digests, and writes an update audit record with no promotion authority. **Remaining:** operator decision on enabling it, and the `build`/`update` scope question. `ao-ingress-payment` and `ao-egress-archive` still require implementation with destination allowlists, validated TLS, separate credentials, and connection logging. Community publication is carried inside `ao-sales`. |
 | NET-02 | **CIDR reconciliation in `network-cidrs.yaml`** | ST-02 | **Open** | §2.2 | **Partly done 2026-09-30:** all three CIDRs registered and validation green (`OK: all domain networks present; isolation domains internal-only`); the generated-registry list in `check-network-isolation.sh` updated so the entries persist. **Remaining:** the `ao-egress-community` name/CIDR reconciliation against `instance-policy.yaml`, the Grafana topology dashboard, and the Mastodon runbook — the network is live on `10.89.11.0/24` while the name is recorded as folded into `ao-sales`, which is a rename decision, not a registry edit. |
@@ -77,7 +80,7 @@ keywords in the vocabulary table below (§2). Rows are unique by `ID`.
 | LEDGER-06 | **Accounting model for the authoritative ledger** | ST-09, ST-10 | **Open** | §11.1, §11.3, §4.4, §7.2 | Corda is declared the authoritative ledger of debits and credits and §4.4 requires an accounting report, but §11.3 defines no accounts, no debit/credit entry semantics, no posting rule, no currency handling, and no reconciliation between Corda state and `salesdb`. §7.2 calls Corda the source of truth for financial ledger information while §11.1 makes PostgreSQL authoritative for source data. Define the model or state that the ledger records references only and accounting is computed in reporting. |
 | **PAY** | Payments, sales and storefront | | **Open** | | |
 | PAY-01 | Payment credentials into KDE Wallet `ao-payment` | ST-24 | **Open** | §14.1 | Folder provisioned per §14.1.1; entry stored through `kwallet-provision.sh`; no secret in Git, logs, HTML, or Corda. |
-| PAY-02 | Payment verifier and normalized event model | ST-11, ST-12 | **Open** | §7.2, §7.3 | A test payment event produces a verified normalized record. |
+| PAY-02 | Payment verifier and normalized event model | ST-11, ST-12 | **Open** | §7.2, §7.3 | A test payment event produces a verified normalized record. **Measured state of the automated verifier, 2026-10-03: `scripts/payment/ao-payment-adapter.py` is *not* conformant with either provider and must not be treated as a working control. Three defects, all proven by running the adapter.** (1) **The signature scheme is one PayPal does not produce.** The adapter computes `HMAC-SHA256(secret, transmission_id \| transmission_time \| raw_body)`; PayPal documents `transmissionId \| timeStamp \| webhookId \| crc32` (CRC-32 of the raw body, not the body), verified with the RSA public key from the `paypal-cert-url` certificate, not a shared HMAC secret. A signature built on PayPal's documented construction is **rejected** by `verify_paypal` and only the adapter's own non-standard construction is accepted — so the adapter would reject every genuine PayPal delivery. This fails closed (no money-loss risk) but means no PayPal payment can be accepted and §7.2's "signature-verified webhook" control does not exist yet. (2) **Coinbase is verified with the PayPal verifier.** `AUTOMATED = ("paypal", "coinbase")` and both branches call `verify_paypal`: a PayPal-style signed POST to `/webhook/coinbase` returns **200 accepted**, while a real Coinbase event carrying `x-cc-webhook-signature` returns **401**. `COINBASE_WEBHOOK_SECRET` is provisioned into `payment.env` but **never read by any code** — the Coinbase path admits PayPal-shaped events and rejects all real Coinbase events. (3) **The normalized event model drops the money.** For a real PayPal `PAYMENT.CAPTURE.COMPLETED` payload the money is at `resource.amount.value`, which `normalize()` does not read, so `amount_cents` comes back `None` and the amount is silently lost; for Coinbase the money-bearing reference is `charge.id`, which `normalize()` also does not read — it falls through to the top-level event id. |
 | PAY-03 | Sales API and receipt/fulfillment workflow | ST-11, ST-12 | **Open** | §7.3, §15.1 | A sales receipt manifest can be generated without exposing sensitive data. |
 | PAY-04 | `salesdb` schema initialization | ST-11, ST-12 | **Open** | §3.3.1, §15.1 | Live application schema initialized; read-only reporting views defined. |
 | PAY-05 | **Live HTML views for product modals** | ST-11 | **Open** | §7.1.2 | The nine operator-requested views (Instructables robot link; MeshChatX visualizer/messaging; IPFS-pCloud route orthotiff with times and telemetry; Trimble San Vicente point clouds; LocusMap; Mapbox; Mastodon live forum; Gazebo/Foxglove kitchen, storage/CNC, and vehicle; Trimble SketchUp grid) are built and reachable from the modals, **each published as a static export, an approved published view, or an external service** — never by exposing a loopback address. **Recorded 2026-10-01; nothing is built.** Three preconditions are open and need operator decisions: the Instructables robot image asset does not exist, the Mastodon and MeshChatX iframes have no publishable origin, and the three simulation views are gated on §19.1 SIM-04 and SIM-05. Publishing any live view is a new public entry requiring explicit operator approval under §4.1 rule 6. |
@@ -95,6 +98,7 @@ keywords in the vocabulary table below (§2). Rows are unique by `ID`.
 | COMM-07 | Public-post delivery, round trips, and directory submission | ST-13, ST-14 | **Open** | §15.4.4 step 10 | Public-post delivery to `mastodon.social` and reply/boost round-trips back to the local instance are validated; then `300x3.com` is submitted to the joinmastodon.org directory. Directory submission is an external publication and requires explicit operator approval. |
 | COMM-08 | **Cloudflare Tunnel edge instability against `mastodon.300x3.com`, and the local path is unconfirmed** | ST-13, ST-14 | **Open** | §15.4.3 | Measured 2026-10-04/05: the `cloudflared-alwayson.service` logs repeated `Lost connection with the edge` — 381 events in 24 h (was 384 the prior pass, i.e. steady-state persistence, not decay), across all four tunnel connections flapping in lockstep over nine PoPs, with `NRestarts=1`. The fault has run continuously for over two days. **Cause is unconfirmed:** a control long-lived TLS handshake to the same Cloudflare edge IP (`104.21.41.83:443`) succeeds cleanly and a control request to a non-tunnel external host is stable (`200 200 200`), which excludes "TLS to the edge IP is broken" and "general outbound HTTPS is broken" but does not yet confirm the local path (uplink/NAT/tunnel transport), because a single short-lived handshake says nothing about connection *stability* over the minutes-long window a tunnel connector needs. Isolating the local path means changing live network configuration — a stop condition owned by §15.4.3. To close: run the read-only control comparison over a deliberate observation window (a stable control while all four tunnel connections flap in lockstep confirms the local path and exonerates the tunnel), then decide transport. Note the measurement trap recorded here: a `15 min ago: 0` sample is a quiet window, not the absence of a fault — a short window must never be quoted on its own. |
 | COMM-09 | **Config/documentation drift against `mastodon.300x3.com` (apex `300x3.com` in helper artefacts)** | ST-13, ST-14 | **Open** | §15.4.2, §15.4.3 | The live instance is genuinely `mastodon.300x3.com` and federation works; the drift is confined to documentation and helper artefacts that emit the superseded apex `300x3.com` (none owned by §15, so none edited there). Reconciled audit 2026-10-03: **D1** `config/mastodon/mastodon.env.example:7` `LOCAL_DOMAIN=300x3.com` → `mastodon.300x3.com` (highest severity — a template that would provision a wrong-identity instance); **D2** `scripts/operations/fetch-openclaw-mastodon-env.sh:17` `MASTODON_SERVER=https://300x3.com` → `https://mastodon.300x3.com` (points every consumer at the static storefront); **D3** same script line 19 `MASTODON_BOT_EMAIL=300x3@posteo.net` → `bot@300x3.com`; **D4** `config/mastodon/instance-policy.yaml:9` names apex host and retired network `ao-mastodon-federation` → `mastodon.300x3.com`; **D5** `instance-policy.yaml` `approved_pub_host: "300x3.com"` / Tokodon origin → `mastodon.300x3.com`; **D6** `instance-policy.yaml:20` `registrations: "open with approval gate"` → `"closed"` (contradicted by the live instance, `registrations=false`); D7 (`admin@`/`bot@300x3.com`) and D8 (`local_domain` in version-matrix) are already correct. **D9 needs no edit:** the version-matrix note cites the loopback proxy at `https://127.0.0.1:3300`, which is correct — an earlier pass wrongly flagged `3300` as a typo for `3000` and would have introduced a real fault; both ports exist for different processes (`:3000` is the Podman-published Puma origin returning 301, `:3300` is `mastodon-local-proxy.py` terminating self-signed TLS and returning 200), and the `RAILS_FORCE_SSL`/`LOCAL_HTTPS` values are actually `true`, not the `false` the note describes. The OpenClaw bridge depends on this `3300`-vs-`3000` distinction (its `API` constant is `https://127.0.0.1:3300` with a pinned self-signed CA). |
+| COMM-10 | **Mastodon API tokens not minted for local instance** | ST-13, ST-24 | **Open** | §14.1.5, §15.2 | §14.1.5 requires minting Mastodon API tokens via Doorkeeper for the `openclaw-mastodon-bridge` application on the local `mastodon.300x3.com` instance. The bridge OAuth and conversation halves were validated under COMM-04, but the token-minting procedure itself — creating the Doorkeeper application, generating the access token, and storing it in KDE Wallet (`ao-mastodon`/`openclaw-bot-access-token`) — has not been executed as a repeatable setup step. Without it, a clean reinstall cannot reproduce the bridge's API access. Perform the token minting per §14.1.5 and record the procedure. |
 | **FIELD** | Field, radio and drones | | **Open** | | |
 | FIELD-01 | RF characterization on both bands | ST-04, ST-05, ST-06 | **Open** | §9.4 | RSSI, SNR, noise floor, packet loss, retry behaviour, and airtime recorded on both RNodes. **Closure is a recorded finding, not a fix** — if the interference is benign ambient noise, record that. No corrective action unless measurement shows a real fault. |
 | FIELD-02 | End-to-end field link test | — | **Open** | §9.2, §9.4 | Unicast and broadcast proven over each RF path; fail-safe verified on radio, serial-path, and peer loss; no live flight-control path enabled during testing. |
@@ -321,3 +325,91 @@ Implementation references that sit outside the repository:
 Never add API keys, passwords, tunnel credential JSON, or any other secret to this list.
 
 ```
+
+### Moderation record - 300X3 Mastodon (moved from README §15.4.6)
+
+Dated moderation decisions for remote accounts contacting the local instance:
+
+instance, deliberately kept separate from the local follow relationships in §15.4.4.
+It is written here so that an approval or rejection decision is auditable rather than
+
+
+```console
+$ podman exec mastodon-db psql -U mastodon -d mastodon -At -c \
+  "select 'blocks='||(select count(*) from blocks)
+        ||' domain_blocks='||(select count(*) from domain_blocks)
+        ||' account_domain_blocks='||(select count(*) from account_domain_blocks)
+        ||' email_domain_blocks='||(select count(*) from email_domain_blocks)
+        ||' canonical_email_blocks='||(select count(*) from canonical_email_blocks)
+        ||' follow_requests='||(select count(*) from follow_requests)
+        ||' invites='||(select count(*) from invites)
+        ||' ip_blocks='||(select count(*) from ip_blocks)
+        ||' user_invite_requests='||(select count(*) from user_invite_requests);"
+blocks=0 domain_blocks=0 account_domain_blocks=0 email_domain_blocks=0
+canonical_email_blocks=0 follow_requests=0 invites=0 ip_blocks=0 user_invite_requests=0
+```
+
+| Date | Remote account | Action | Basis |
+|---|---|---|---|
+| 2026-10-01 | `300x3@mastodon.social` (remote mirror of the project's own service account, `actor_type=Service`, `bot=true`) | **Accepted** — bidirectional follow established with `bot` and `admin`. No block recorded. | Self-owned account; it is the project's own `300x3` mastodon.social identity, so blocking it would sever the operator's own remote presence. Not a third party. |
+| 2026-10-01 | `Gargron@mastodon.social` (remote third party, `actor_type=Person`) | **Accepted as a remote actor, not followed** — `bot` follows `Gargron`; no reverse follow exists and none is expected. No block recorded. | An ordinary public-account follow in the direction local→remote. Not a moderation event. |
+| — | All other contacting remote accounts | No action. Discovery relays (`veganism.social`, `mastodon.online`, `universeodon.com`, `mastodonapp.uk`, `rivals.space`, `cupoftea.social`, `friendica@sekretaerbaer.de`, `friendica@fedibook.de`, `friendica@friendicadev.sekretaerbaer.de`) are **automatically fetched service-discovery actors**, not user accounts and not approval candidates. | Discovery contacts are protocol artefacts, not sign-ups. |
+
+There are **no pending remote approval requests**: `follow_requests = 0` and
+`user_invite_requests = 0`, which is consistent with registration being closed (§15.4.2).
+Nothing in the moderation tables is self-populating, so this table is the record of
+record — a future block or approval must be added as a row here by the operator, per
+§15.4.1 "Operator duties". No remote account has been rejected to date.
+
+### Mail gap evidence - COMM-05 (moved from README §15.4.7)
+
+Mail for `300x3.com` is **not configured and currently cannot be delivered**. This is
+recorded here because Mastodon's account-confirmation and password-reset mail depends on
+it, and because "no MX" is a decision state, not an oversight.
+
+
+
+```console
+$ dig +noall +answer MX 300x3.com; echo "answers=$(dig +noall +answer MX 300x3.com | wc -l)"
+answers=0
+$ dig +noall +answer TXT 300x3.com          # no SPF
+$ dig +noall +answer TXT _dmarc.300x3.com   # no DMARC
+$ dig +noall +answer A  mail.300x3.com      # no mail host
+$ ss -lntp | grep -E ':(25|465|587)\b'      # no local SMTP listener
+```
+
+With no MX, RFC 5321 §5.1 falls back to the implicit MX, which is the domain's A record
+(the Cloudflare edge addresses). Port 25 to those addresses does not answer:
+
+```console
+$ for IP in 172.67.163.66 104.21.41.83; do echo > /dev/tcp/$IP/25 && echo "$IP:25 OPEN" || echo "$IP:25 no-answer/closed"; done
+172.67.163.66:25 no-answer/closed
+104.21.41.83:25 no-answer/closed
+```
+
+Consequence: **all mail to `@300x3.com` is silently undeliverable.** This affects the
+local Mastodon accounts, whose registered addresses are `admin@300x3.com` and
+`bot@300x3.com`. Password resets and any confirmation mail cannot arrive. Because the
+instance has open registration closed and no pending approvals, this is currently
+non-blocking for federation, but it is a real gap.
+
+**Outbound mail is unconfigured, not merely undeliverable.** Listing the **key names** of
+the live Mastodon environment (no values printed) must show no mail configuration at all:
+
+```console
+$ cut -d= -f1 ~/.local/share/ao-secrets/mastodon.env | sort | grep -iE 'smtp|mail|email'
+NO smtp/mail/email key present in live mastodon.env
+```
+
+The file holds 24 keys, all of them database, cache, TLS or tuning values. Mastodon
+therefore has no `SMTP_ADDRESS`/`SMTP_DOMAIN`/credentials, so it has **no way to submit
+mail either**. The practical consequence is wider than "reset mail is undeliverable":
+account recovery on this instance is not merely blocked at the receiving hop, there is no
+sending path to block. Any resolution chosen under COMM-05 must set **both** directions;
+fixing MX alone would leave outbound silent.
+
+Resolution requires an operator decision between the options in §19.1 COMM-05 and is
+**not** taken unilaterally here: pointing MX at a hosted relay, standing up a local MTA
+(both a new public listener on port 25 and a new package — rule 3 and rule 12), or
+formally deferring mail and documenting that address-based recovery is unsupported.
+Tracked as COMM-05; status Open.

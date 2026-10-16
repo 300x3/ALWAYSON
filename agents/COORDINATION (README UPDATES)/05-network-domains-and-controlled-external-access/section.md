@@ -116,11 +116,10 @@ count changes without a deliberate decision.
 **The registry is the authority and it is hand-maintained.**
 `config/platform/network-cidrs.yaml` is the single source of truth for every CIDR
 and `Internal` flag (§2.2). The validation script **reads** it; it does not
-regenerate it. This was previously reversed — the script rebuilt the registry from
-a hardcoded array of network names on every run, which meant the file named as the
-authority was in fact derived from the script, and a network created in podman but
-absent from that array was silently erased from the authority on the next run.
-Adding a network is now a deliberate two-step act: create it, then add its line to
+regenerate it: rebuilding the registry from a hardcoded array of network names would
+make the named authority a derived artifact, and any network created in podman but
+absent from that array would be silently erased from the authority on the next run.
+Adding a network is therefore a deliberate two-step act: create it, then add its line to
 the registry. The script asserts both directions: every registered network must
 exist with the recorded CIDR and flag, and every live `ao-*` network must appear in
 the registry.
@@ -135,10 +134,7 @@ which prints one row per registered network and a footer carrying the asserted
 counts. The two prose columns — what the network belongs to, and what is attached
 to it — are architecture, not runtime state, and are maintained here.
 
-Every network's *Attached now* count below was re-measured against the running
-host on **2026-10-04**, and every row now agrees with it.
-
-| Network | Subnet | Internal | Belongs to (§5.1) | Attached now |
+| Network | Subnet | Internal | Belongs to (§5.1) | Attached (host state) |
 |---|---|---|---|---|
 | `ao-sales` | 10.89.0.0/24 | **false** | Mastodon stack, `ao-sales-db`, orders and AI chat | `mastodon-web` `-sidekiq` `-db` `-redis` `-streaming`, `ao-sales-db` (6) |
 | `ao-payment` | 10.89.1.0/24 | true | Provider webhook verifier, payment adapter | `ao-ingress-payment` (1) |
@@ -154,18 +150,16 @@ host on **2026-10-04**, and every row now agrees with it.
 | `ao-fabrication` | 10.89.12.0/24 | true | Real (non-simulated) fabrication; per-machine production data | `ao-fabrication-db` (1) |
 | `ao-build-update` | 10.89.13.0/24 | **false** | Controlled software-update acquisition (§5.2.1) | none — scaffolded, not enabled |
 | `ao-html-window` | 10.89.14.0/24 | true | Operator-facing read-only display network for local 3D/2D HTML renders; `Internal=true` deliberately, reached by loopback `PublishPort` only | `ao-sim-fabrication-foxglove` (1) — dual-homed with `ao-sim-fabrication`, see below |
-| `ao-egress-community` | **retired** | — | **Retired 2026-09-30.** Former community federation egress adapter; folded into `ao-sales`. Its `10.89.11.0/24` allocation is deliberately left **unallocated** — no network exists at that CIDR on the host | none |
+| `ao-egress-community` | **retired** | — | Retired community federation egress adapter; folded into `ao-sales`. Its `10.89.11.0/24` allocation is deliberately left **unallocated** — no network exists at that CIDR on the host | none |
 
-Two `ao-*` networks named in earlier drafts appear in the topology but were in no
-table; both are now rows above: `ao-html-window` (`10.89.14.0/24`) and
-`ao-build-update` (`10.89.13.0/24`).
+Two `ao-*` networks appear in the topology and must also appear in this table:
+`ao-html-window` (`10.89.14.0/24`) and `ao-build-update` (`10.89.13.0/24`).
 
 **The retired `ao-egress-community` network, and why it is in this table at all.**
-config/mastodon/instance-policy.yaml` line 13 records that
-`ao-egress-community` was *"replaced by ao-sales"* on 2026-09-30, and §5.1 group A
-states there is *"no separate community egress network"*. Both are true, and both
-were already in this document — but neither named the CIDR that was retired, and
-the retired network was in **no** table, which is the gap this row closes.
+`config/mastodon/instance-policy.yaml` line 13 records that
+`ao-egress-community` was *"replaced by ao-sales"*, and §5.1 group A
+states there is *"no separate community egress network"*. Both are true and
+neither names the CIDR that was retired, so this row names it: `10.89.11.0/24`.
 
 ```
 $ podman network ls --format '{{.Name}} {{range .Subnets}}{{.Subnet}}{{end}}' | grep 10.89.11
@@ -182,22 +176,12 @@ The row is marked **retired**, not deleted, for the same reason §4.3.1 marks
 superseded prohibitions rather than deleting them: an operator checking a running
 host against this table needs to see that `10.89.11.0/24` was *intentionally*
 vacated, not forgotten. `docs/runbooks/mastodon.md` §6 still names the old route
-(`"the scoped ao-egress-community Sidekiq route"`) as a *remaining* note; that is
-stale prose in a file this section does not own, and it is recorded here rather
-than edited, because correcting it is a Mastodon-session decision (§15).
+(`"the scoped ao-egress-community Sidekiq route"`) as a note; that line is owned by
+the Mastodon session (§15) and is superseded by this row.
 
-**The one dual-homed container, and why.** This was numbered §5.1.2 when
-first added, which collided with the §5.1.2 *Local Browser Addresses* below.
-Two sections shared one number. It is demoted to a bolded lead-in here rather
-than given a new number, because it is a continuation of §5.1.1 — it explains a
-row of the table immediately above — and because §5.1.2 is already referenced by
-name from §7 and §19.1 as *Local Browser Addresses*, so that number belongs to
-the other section. Renumbering the browser-address section instead would have
-broken those references; renumbering this one would have put a §5.1.3 above a
-§5.1.2.
-
-The *one network per component* rule above permits a second attachment only
-where the approved access path says so explicitly. Exactly one container holds two:
+**The one dual-homed container, and why.** The *one network per component* rule above
+permits a second attachment only where the approved access path says so explicitly.
+Exactly one container holds two:
 `ao-sim-fabrication-foxglove`, on `ao-sim-fabrication` (its own domain) and on
 `ao-html-window` (the read-only display network).
 
@@ -221,12 +205,9 @@ neither carries a route off the host, and the bridge publishes nothing but its
 loopback `127.0.0.1:8081` WebSocket. This is a bridge between two internal
 segments, not an egress path.
 
-**This row previously said "none" was attached, and that was wrong** — it was
-written when the network was empty and never re-measured after the Foxglove
-bridge was deployed. The whole *Attached now* column is host state and goes
-stale silently; it is stated here as measured on the date below, not as a
-permanent fact. `--emit-table` covers only the two generated columns, so the
-attachment column must be re-measured directly:
+**The *Attached (host state)* column goes stale silently; it is not a
+permanent fact.** `--emit-table` covers only the two generated columns, so the
+attachment column must be re-measured directly before it is relied on:
 
 ```bash
 for n in ao-sales ao-payment ao-field ao-mapping ao-sim-vehicle \
@@ -238,13 +219,12 @@ for n in ao-sales ao-payment ao-field ao-mapping ao-sim-vehicle \
 done
 ```
 
-**`ao-html-window` is not the storefront window.** ES.2 describes it as
-public-facing egress to 300x3.com, and this row used to repeat that. The
-deployed unit and network file say otherwise: the network is `Internal=true`
-with no route off the host, and it serves the operator's own browser over
-loopback. ES.2 is not owned by this section and has not been edited; the divergence is
-recorded in `proposals/net-NET-05.md` for the executive-summary session and the
-operator. Only the row this section owns was corrected, to match the deployed unit.
+**`ao-html-window` is not the storefront window.** The deployed unit and network file are
+authoritative: the network is `Internal=true` with no route off the host, and it serves the
+operator's own browser over loopback — not public-facing egress to 300x3.com. Where ES.2
+describes it as storefront egress, the divergence is recorded in
+`proposals/net-NET-05.md`; ES.2 is owned by another section, and this row matches the
+deployed unit.
 
 `10.89.11.0/24` is deliberately unallocated and is reserved for
 `ao-egress-community`, which is **retired**. no podman
@@ -283,7 +263,7 @@ router. by `scripts/validation/check-local-services.js`
 | Gazebo 3D viewer | `http://127.0.0.1:8765/viewer` | Served by the same portal process; selects any of the eight read-only camera feeds and resizes the 3D view. It connects to the bridge on `ws://127.0.0.1:8081` |
 | Mastodon local UI | `https://127.0.0.1:3300/` | **Self-signed cert — accept once.** Terminates TLS because upstream hardcodes `config.force_ssl = true`; `http://127.0.0.1:3000/` 301s to a TLS port that does not exist and hangs the browser |
 | Mastodon web origin (transport) | `http://127.0.0.1:3000/` | Answers `301` only; not usable as a browser entry point |
-| WebODM | `http://127.0.0.1:8000/` | Redirects to `/login/`. Loopback published 2026-10-01; no SSH tunnel needed |
+| WebODM | `http://127.0.0.1:8000/` | Redirects to `/login/`. Loopback-published; no SSH tunnel needed |
 | Grafana | `http://127.0.0.1:3001/` | Redirects to `/login` |
 | Metabase | `http://127.0.0.1:3002/` | |
 | Prometheus | `http://127.0.0.1:9090/` | Redirects to `/query` |
@@ -300,17 +280,14 @@ router. by `scripts/validation/check-local-services.js`
 (`ao-ingress-payment`, `ao-egress-archive`, `ao-build-update`) are rows in that table along
 with their purpose, direction, and mandatory controls.
 
-Their measured state differs, and §5.1 group B previously flattened all three into
-"Deployable", which hid both the running adapter and the missing control:
+Each adapter is specified in its own subsection. All three are required, and each must
+satisfy its mandatory controls before it carries any traffic:
 
-| Adapter | Measured state | Detail |
-|---|---|---|
-| `ao-ingress-payment` | **Implemented and running** since 2026-10-01; one claimed control absent | §5.2.2 |
-| `ao-build-update` | Scaffolded and deployed, **not enabled** | §5.2.1 |
-| `ao-egress-archive` | **Not implemented.** No unit, no network, no service | `systemctl --user is-enabled ao-egress-archive.service` → `not-found`; no `quadlet/egress-archive/` directory |
-
-So `ao-egress-archive` is the *only* adapter of the three that genuinely does not exist.
-`ao-ingress-payment` was the substantive correction.
+| Adapter | Specification |
+|---|---|
+| `ao-ingress-payment` | §5.2.2 — signature verification, audit log, rate limiting in place before any tunnel or relay route is enabled |
+| `ao-build-update` | §5.2.1 — allowlist enforced in code, disabled until the operator authorises a run |
+| `ao-egress-archive` | §11.6 — must exist as a Quadlet, container, and network before any credential is provisioned |
 
 ### 5.2.1 `ao-build-update` — Controlled Software-Update Acquisition
 
@@ -319,10 +296,10 @@ So `ao-egress-archive` is the *only* adapter of the three that genuinely does no
 `scripts/validation/capture-version-matrix.sh`, and regenerated from the deployed units
 rather than typed by hand. A digest recorded anywhere else is not authoritative (§4.1 rule 9).
 
-**Status: scaffolded and deployed, not enabled.** The unit, its network, its
-allowlist, and its acquisition script all exist. The service is deliberately left
+**Disabled until authorised.** The unit, its network, its allowlist, and its
+acquisition script are all part of the deployment, and the service must stay
 disabled, because running it reaches the public internet and that requires
-explicit operator authorisation and is never automatic.
+explicit operator authorisation and is never automatic. Acceptance:
 
 ```text
 $ systemctl --user is-enabled ao-build-update.service
@@ -332,8 +309,8 @@ inactive
 ```
 
 The unit files are installed at `~/.config/containers/systemd/` (`generated`
-means the service is not enabled to start at boot). No container is attached to
-`ao-build-update`; the network is allocated and empty.
+means the service is not enabled to start at boot). The network `10.89.13.0/24`
+is allocated and carries no workload container.
 
 > **The allowlist is enforced in code, but not by the network.** These are two
 > different controls and it matters which one you are relying on.
@@ -374,8 +351,7 @@ means the service is not enabled to start at boot). No container is attached to
 > has.** Segment-level enforcement needs a firewall rule set on the bridge, a
 > filtering proxy, or per-destination proxies — all firewall policy, all
 > requiring explicit operator approval (Rule 6, §4.1 rule 13). Until that is
-> approved and built, do not attach any container to this network. NET-01 is open
-> on exactly this point; see `proposals/net-NET-01.md`.
+> approved and built, do not attach any container to this network. NET-01 tracks this point; see §19.1.
 
 **What it is.** `ao-build-update` is the controlled acquisition stage of the
 software-update path. It resolves candidate container images and host package
@@ -411,10 +387,7 @@ adapter is permitted to make. That restriction **is** a working control in this
 script: it reads the allowlist at runtime and refuses anything not on it, and
 refuses unpinned references, exiting non-zero on both (verified by execution
 above). What is *not* enforced is the network segment — see the status note.
-This paragraph previously said the restriction was "not currently enforced by
-any mechanism", which contradicted the verified results directly above it and
-was wrong; it conflated the two controls the status note separates. The
-allowlist is mounted read-only, so the adapter cannot widen its own boundary.
+The allowlist is mounted read-only, so the adapter cannot widen its own boundary.
 `packages.ros.org` is on an explicit deny list rather than merely absent, because
 it fails TLS verification from this host and that verification is deliberately
 not disabled. The adapter publishes no port and serves no listener; it runs as a
@@ -490,12 +463,12 @@ signature, normalizes it, and emits the verified payment event on `ao-payment`
 Rate limiting must be implemented **before** any Cloudflare Tunnel or relay route that would
 front the listener is enabled, or that enablement must be refused — an unthrottled inbound
 payment webhook endpoint is exactly where an unthrottled listener is worth attacking. The
-absence of rate limiting today is a latent gap, not a live exposure, because the endpoint is
+absence of rate limiting is a latent gap, not a live exposure, because the endpoint is
 loopback-bound and the fronting tunnel route is not enabled (see §19.1 PAY-11, NET-01).
 
-#### 5.2.3 The three `Internal=false` networks are a prohibition boundary, and §4.3 now says which rule governs them
+#### 5.2.3 The three `Internal=false` networks are a prohibition boundary, and §4.3 states which rule governs them
 
-This section is where the NET-04 completeness check landed,
+This section records the prohibition boundary,
 because the question — *which prohibition covers a non-internal workload network*
 — is answerable only by reading §5.1 and §4.3.2 together.
 
@@ -513,17 +486,16 @@ internet"* with no exception, which would have prohibited two of these three by
 name. That row is marked superseded in §4.3.2 itself and restated there as the
 outbound restriction that is actually intended and actually held: a workload
 service reaches the internet only through a controlled adapter, never directly.
-**The isolation posture of no network was changed** — no network was created,
-removed, re-CIDRed, or re-flagged; the registry is untouched.
+**Only the wording of the rule changed** — no network is created, removed, re-CIDRed,
+or re-flagged; the registry is untouched.
 
-The remaining honesty point, unchanged and still true: **non-internal means
+The honesty point: **non-internal means
 anything else attached can reach the internet.** `ao-sales` and
 `ao-reporting-egress` have no firewall or destination allowlist between them and
 the public internet. Their containment rests on the one-network-per-component
 rule (§5.1) plus the fact that nothing else is attached to them — a
 convention, not a control. `ao-build-update` is the one case where the
-convention is load-bearing and unenforced; §5.2.1 covers it and NET-01 is open
-on it.
+convention is load-bearing and unenforced; §5.2.1 covers it and NET-01 is tracked in §19.1.
 
 ## 5.3 Approved Local Data Paths
 

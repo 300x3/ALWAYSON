@@ -27,7 +27,7 @@ a host-managed PostgreSQL 18 cluster, loopback-only, carries host administration
 Grafana and Metabase application databases, and each domain that owns authoritative data
 runs **its own dedicated PostgreSQL container** with its own image and its own version.
 Every consumer gets a separate logical database and a separate application role inside its
-own container. The measured version behind each row is recorded in §3.3.1.
+own container. The version behind each row is stated in §3.3.1.
 
 | Database | Holds |
 |---|---|
@@ -100,7 +100,7 @@ container on ao-fabrication:  eth0 10.89.12.3/24
   connect 10.42.0.1:5432     unreachable
 ```
 
-Measured on `ao-fabrication-db`, the container that owns `a_fab`. The routing table holds
+The routing table on `ao-fabrication-db`, the container that owns `a_fab`, holds
 exactly one route — its own subnet — so there is no default route and no NAT out of the
 domain. This is what `Internal=true` means, and it is the isolation model working rather
 than a fault.
@@ -125,10 +125,10 @@ $ systemctl --user cat ao-postgres-reporting-bridge.service | grep -i 'Starts at
 
 The script's own comment and the unit description both name the ao-admin gateway; the code
 binds the equipment LAN. **The comment is wrong, not the address.** This is the same class of
-error as the mount-flag and label-key traps in §6: a comment asserted a property that was never
-measured, and the property was false.
+error as the mount-flag and label-key traps in §6: a comment asserted a property that is
+false.
 
-Three consequences, all measured:
+Three consequences:
 
 1. **It is not an internal-only listener.** `10.42.0.1:5432` is bound to the wired equipment
    LAN, so the host PostgreSQL cluster is reachable by anything that can route to `10.42.0.1`
@@ -174,12 +174,11 @@ Three consequences, all measured:
 
 ### Never assume a mechanism from a name
 
-An earlier revision of this section described the reporting bridge as the
-container-to-host-PostgreSQL mechanism and cited §3.3.0.1 for it without checking what
-address it bound. The error class is **assuming a mechanism from a name**: "reporting
-bridge" + "ao-admin" implied the Podman gateway, and no `ss -ltnp` was run to see the
-actual bind address. **The gateway a name claims to expose and the address it exposes
-can differ by two subnets and an entire security boundary.**
+A name is not a mechanism. The error class is **assuming a mechanism from a name**:
+"reporting bridge" + "ao-admin" implies the Podman gateway, and only `ss -ltnp` shows the
+address a process actually binds. **The gateway a name claims to expose and the address it
+exposes can differ by two subnets and an entire security boundary** — bind the address
+before relying on it.
 
 #### 3.3.0.2 Domoticz for non-fabrication equipment
 
@@ -198,18 +197,16 @@ container on an `Internal=true` domain could not (§3.3.0.1). Domoticz running o
 the host therefore needs no relay, no opened domain, and no new listener to reach
 those devices — the same conclusion already reached for `ao-fabrication-collect`.
 
-**Listener posture: settled (operator, 2026-09-30).** Domoticz only ever needs to be
-reachable from this machine, so it was moved to loopback before any device was
-attached:
-
-- the web UI is started `-wwwbind 127.0.0.1 -nomdns` and now serves only
+**Listener posture.** Domoticz only ever needs to be
+reachable from this machine:
+- the web UI is started `-wwwbind 127.0.0.1 -nomdns` and serves only
   `127.0.0.1:8080`; the LAN address actively refuses
-- the shared server on `*:6144` was disabled outright (`RemoteSharedPort = 0`) and
+- the shared server on `*:6144` is disabled (`RemoteSharedPort = 0`) and
   there is no shared-server listener
 
 Neither change affects reaching devices on `10.42.0.0/24`, which is a host-side
-path independent of the web listeners. Verified after the change: loopback
-returns 200 and `10.42.0.1:8080` is refused.
+path independent of the web listeners. Loopback
+`10.42.0.1:8080` is refused.
 
 `a_fab` holds per-machine production data only. It is **not** a ledger, **not** a sales
 record, and **not** a backup target. Anything that must become provable leaves
@@ -217,7 +214,7 @@ record, and **not** a backup target. Anything that must become provable leaves
 the simulation domain does.
 
 **Network:** `ao-fabrication`, `Internal=true`, `10.89.12.0/24`, created and registered in
-`/ALWAYSON/config/platform/network-cidrs.yaml` (2026-09-30). The subnet is **pinned** in
+`/ALWAYSON/config/platform/network-cidrs.yaml` . The subnet is **pinned** in
 `/ALWAYSON/quadlet/networks/ao-fabrication.network` because every other network there lets
 Podman auto-assign. See §2.2 for the reconciliation of the adjacent
 unregistered `10.89.10.0/24` and `10.89.11.0/24`.
@@ -233,7 +230,7 @@ installed package or desktop settings module.
 | **PostgreSQL 17** | Sales database service | Container `ao-sales-db` on `ao-sales`, database `salesdb` | Authoritative source for customers, orders, products, payments, receipts, entitlements, and audit history |
 | **PostgreSQL 17** | Mastodon web/background workers | Container `mastodon-db` on `ao-sales`, database `mastodon` | Accounts, posts, media metadata, federation state, and background-job application data |
 | **PostgreSQL 17** | Fabrication database service | Container `ao-fabrication-db` on `ao-fabrication`, database `a_fab`, role `fabrication_role` | Per-machine production data pulled from each individual machine (§3.3.0). Separate from `ao-sim-fabrication`, which holds none |
-| **PostgreSQL 9.5** | WebODM web/worker | Container `ao-webodm-db` on `ao-mapping`, database `webodm` (host-side data dir `~/webodm/dbdata`) | Mapping projects, processing state, users, and geospatial data. The app reads database `webodm_dev` in that container. **PostGIS is installed in `webodm_dev` (version 2.3.2) but not in `webodm`** — so the only installed extension in `webodm` is `plpgsql`, and the geospatial extension lives in the database the app actually reads. Re-measured 2026-10-04; an earlier revision of this row said PostGIS was absent from *both* databases, which was wrong |
+| **PostgreSQL 9.5** | WebODM web/worker | Container `ao-webodm-db` on `ao-mapping`, database `webodm` (host-side data dir `~/webodm/dbdata`) | Mapping projects, processing state, users, and geospatial data. The app reads database `webodm_dev` in that container. **PostGIS is installed in `webodm_dev` (version 2.3.2) but not in `webodm`** — so the only installed extension in `webodm` is `plpgsql`, and the geospatial extension lives in the database the app actually reads |
 | **PostgreSQL 9.5** | NodeODM | The same `ao-webodm-db` container, plus filesystem processing data | Processing-node state and coordination; large image/output artifacts remain filesystem data |
 | **PostgreSQL 18** | Corda 5 node | `cordadb` (dedicated Corda PostgreSQL database in the host cluster, per §11.1) | Receipt, entitlement, and provenance state. Built on Corda 5 against `cordadb`. |
 | **Redis 8** | Host Redis service | Host Redis database 0 | General low-latency cache/coordination layer; no current application data confirmed |
@@ -245,12 +242,12 @@ installed package or desktop settings module.
 | **Prometheus TSDB** | Prometheus | `/prometheus` persistent volume | Security evidence only. Time-series metrics, service health, resource usage, and security evidence. Acts alone and independently of Grafana and Metabase. |
 | **SQLite** | MeshChatX / Reticulum MeshChatX | Per-identity database at `~/.reticulum-meshchatx/identities/<identity>/database.db` | MeshChatX messages, rooms, and local Reticulum/MeshChatX application state.
 | **SQLite** | QGroundControl | **No application database exists.** Settings are in an INI file and map tiles in a tile cache
-| **SQLite** | Akonadi/KDE PIM applications | Akonadi SQLite data | Contacts, calendars, mail indexes, and local personal-information data **Not collected by Prometheus** — excluded by operator instruction 2026-10-03: personal and mail-index material is not security telemetry |
+| **SQLite** | Akonadi/KDE PIM applications | Akonadi SQLite data | Contacts, calendars, mail indexes, and local personal-information data **Not collected by Prometheus** — excluded by operator instruction: personal and mail-index material is not security telemetry |
 | **SQLite** | nPerf | `~/.local/share/nPerf/{history,settings,engine}.db` | Run history and settings; two of the three are snapshotted and read by Grafana. Row counts only — settings values are never selected |
 | **SQLite** | Elisa | `~/.local/share/elisa/elisaDatabase.db` | Music library; snapshotted and read by Grafana. Counts only — no titles, artists or paths |
 | **SQLite** | Klipper | `~/.local/share/klipper/history3.sqlite` | Clipboard history. **Never snapshotted, metadata only, by design** — a snapshot would copy clipboard content (which can include passwords and tokens) into a world-readable file, which README §4.1 rule 5 forbids |
 | **SQLite** | libaccounts-glib | `~/.config/libaccounts-glib/accounts.db` | Account identifiers. **Never snapshotted, metadata only**, same reason as Klipper |
-| **SQLite** | Firefox, Brave, Chrome, and Edge | Browser profile SQLite stores | Browser history, site storage, caches, certificates, and profile data **Not collected by Prometheus** — excluded by operator instruction 2026-10-03: browsing material is not security telemetry.
+| **SQLite** | Firefox, Brave, Chrome, and Edge | Browser profile SQLite stores | Browser history, site storage, caches, certificates, and profile data **Not collected by Prometheus** — excluded by operator instruction: browsing material is not security telemetry.
 | **SQLite** | Podman | Rootless container metadata store | Container, image, network, and volume metadata; not application data BoltDB, not SQLite, so not a Prometheus collector target |
 | **Filesystem/local metadata — social** | LM Studio and OpenClaw | Application files, model settings, and local state | Sales/social AI application state that is not automatically part of SQL reporting.
 | **Filesystem/local metadata — drone/field** | ArduPilot, MeshChatX/Reticulum field stores, and radio gateway logs | Application files, telemetry spools, and local state | Field operational and engineering data that is not automatically part of SQL reporting |

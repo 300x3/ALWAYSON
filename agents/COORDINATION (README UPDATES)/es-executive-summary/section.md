@@ -7,13 +7,13 @@
 | Social media | Most closely tied to the **remote fediverse**: public marketing/contact across website chat, email, Mastodon, and approved social channels, with the fediverse chatbot eventually routing into other social media systems. **OpenClaw** is the direct Mastodon publisher; its local output is standardized PDFs for order/follow-up/support/payment workflows, processed into the sales, payment, and ledger records. `ao-sales` connects to the remote fediverse only (§4.3) |
 | LM Studio | Fundamental local LLM host for OpenClaw |
 | Browser | Konqueror — dedicated browser for automation |
-| Automated testing | Testing is being done with Playwright and Chrome (see section 20) |
+| Automated testing | Playwright and Chrome verify loopback service reachability per `config/platform/loopback-services.yaml`; results are recorded in §19.2 |
 | RNode client A — PEOPLE-RADIO | **MeshChatX**, which is the coordination system for the ALWAYS ON Reticulum network stack and the LoRa radios. It only needs to speak to the **Reticulum network stack**, and the RNode is its radio. **LoRaWAN for communication only** — the public human side (§9.2.2). **End-to-end encryption** is built into the stack: strong modern encryption by default, ephemeral keys, forward secrecy by default, and no unencrypted links or packets possible |
 | RNode client B — DRONE-RADIO | **LoRa mesh RNode for drones only** — the private drone side. Carries a **dedicated RNS-enabled connection** from QGroundControl to the drones over DRONE-RADIO, so local QGC missions reach the QGC session on the Pi5 drone and missions can be **updated midflight** (§9.2.2) |
 | Radios | **Wi-Fi** — Wi-Fi/Ethernet from the main desktop reaches the main internet; that desktop manages all DHCP. **2 LoRa radios** — `PEOPLE-RADIO` (915 MHz) = public human chat, `DRONE-RADIO` (917 MHz) = authenticated private drone mission/status traffic (§9.2.2) |
 | QGroundControl | Desktop primary mission planning; KaliOS RPi5 fallback/out-of-range mission-update operation; and drone — KaliOS on the Raspberry Pi 5 with the Autopilot Module, running ArduPilot. It holds a **dedicated RNS-enabled connection to the drones over DRONE-RADIO**, and so receives **midflight mission updates** relayed by DRONE-RADIO to the QGC session on the Pi5 drone (§9.2.2) |
 | **Email endpoint** | The storefront routes the buyer through the **EMAIL TEMPLATE** (not an inbox); the host reviews every purchase request against that template. Complete → published as a PDF, a **WORK ORDER REQUEST**; incomplete → sent back by email requesting the remaining information (§4.3) |
-| Prometheus | Prometheus is for security only. It acts alone and independently, operating on the other systems to ensure security and to address any problems: time-series store, rule evaluation, alerting, and security evidence — **continuously hardened over the life of the system via ad-hoc security AI review** |
+| Prometheus | Prometheus is for security only. It acts alone and independently, operating on the other systems to ensure security and to address any problems: time-series store, rule evaluation, alerting, and security evidence; operated under the §17 security controls |
 | Grafana | Dashboards and metrics only; it reads the databases that already exist and does not write to them |
 | Metabase | Reporting only, and it does ad-hoc read-only reporting, so it requires **its own dedicated PostgreSQL application database** to hold its Metabase schema, saved questions, dashboards, and subscriptions. That application database holds Metabase's own state only — it is not a system of record for business data, and it never receives data from the reporting sources. Metabase connects to the other PostgreSQL and MySQL databases, and to local desktop-application SQLite files, as a **read-only** user in order to report on them, and it never writes to them. Ad-hoc reports that become recurring are promoted into stable Grafana dashboards |
 | Corda | Blockchain-enabled accounting, ledger, receipt, entitlement, fulfillment, provenance, and approved state-transition system. Built on **Corda 5.2.2** against `cordadb` — one database within the regular host PostgreSQL 18 cluster, with its own roles and backup scope (§11.1) |
@@ -49,12 +49,12 @@ resolution-independent view, or to open the two portrait panels side by side, us
 the vector and self-contained viewer:
 
 **[Open the live topology viewer](https://filedn.com/l5JNexbL2ipFNaQcAkmV7lQ/%2A%2A%2ACURRENT%2A%2A%2A/site/alwayson-single-topology.html)** — the interactive
-diagram, hosted and always current (rebuilt 2026-10-02). This link is stable; it is
+diagram, hosted and always current. This link is stable; it is
 replaced in place each time the diagram is rebuilt, so it never changes.
 
 | Artefact | Use it for |
 |---|---|
-| **[Live topology viewer](https://filedn.com/l5JNexbL2ipFNaQcAkmV7lQ/%2A%2A%2ACURRENT%2A%2A%2A/site/alwayson-single-topology.html)** | **Interactive, zoomable, self-contained HTML (rebuilt 2026-10-02). Hover a card to trace its links, click to pin, use find to jump to a node. Hosted copy at a stable link, so it is the one that stays current** |
+| **[Live topology viewer](https://filedn.com/l5JNexbL2ipFNaQcAkmV7lQ/%2A%2A%2ACURRENT%2A%2A%2A/site/alwayson-single-topology.html)** | **Interactive, zoomable, self-contained HTML. Hover a card to trace its links, click to pin, use find to jump to a node. Hosted copy at a stable link, so it is the one that stays current** |
 | [ao-single-topology.svg](assets/ao-single-topology.svg) | Vector master. Scales to any zoom with no loss; opens in a browser or Inkscape |
 | [ao-single-topology.html](assets/ao-single-topology.html) | The same viewer, committed here — works offline, no server needed |
 | **[Software status — markdown](docs/software-status.md)** | **Every installed package, image, application and tool, in one table: what is installed, whether it is up to date, what is released, and whether it is pinned.** [PDF](docs/software-status.pdf) for printing and offline reading. Generated, not hand-maintained. Refresh with `sudo ./scripts/build-update/refresh-install-log.sh` |
@@ -95,9 +95,9 @@ than `ao-*` network members:
 
 | ALWAYS ON loopback listener | Process | Status |
 |---|---|---|
-| `127.0.0.1:8765` | `ao-sim-fabrication-portal.service` | **Gazebo world portal**, view-only HTML, verified 200. Loopback only. Part of operating `ao-sim-fabrication` (§10.2) |
+| `127.0.0.1:8765` | `ao-sim-fabrication-portal.service` | **Gazebo world portal**, view-only HTML, returns `200`. Loopback only. Part of operating `ao-sim-fabrication` (§10.2) |
 | `127.0.0.1:8081` | `ao-sim-fabrication-foxglove.service` | **Foxglove bridge**, a WebSocket server only — no HTTP, so a browser pointed at it gets no page. Loopback only. Carries the eight camera feeds to the `/viewer` client. Part of operating `ao-sim-fabrication` (§10.2) |
-| `127.0.0.1:8099` | `python3` (`web-console-server.py`) | **ALWAYS ON operator console**, verified 200. **Not a deployed service** — no unit or timer starts it, so it is absent unless an operator runs it by hand. Open item in §19.1. See §19.2 |
+| `127.0.0.1:8099` | `python3` (`web-console-server.py`) | **ALWAYS ON operator console**, returns `200` when started. **Not a deployed service** — no unit or timer starts it; run it by hand. Open item in §19.1; evidence in §19.2 |
 
 **Other listeners on this host that are not part of ALWAYS ON.** The isolation
 statements above describe `ao-*` infrastructure. A small number of other services
@@ -107,13 +107,9 @@ overstated:
 | Listener | Process | Status |
 |---|---|---|
 | `0.0.0.0:4242` | ReticulumMeshChat | Documented, part of the mesh tooling |
-| `127.0.0.1:8080` | Domoticz web UI | **Loopback-only 2026-09-30** (operator: needs access from this machine only). Started with `-wwwbind 127.0.0.1 -nomdns`. Verified: loopback 200, LAN address refused. Not an `ao-*` service; intended future use is other equipment on the equipment LAN — see §3.3.0.2. |
+| `127.0.0.1:8080` | Domoticz web UI | Loopback only. Started with `-wwwbind 127.0.0.1 -nomdns`; LAN address refused. Not an `ao-*` service; intended future use is other equipment on the equipment LAN — see §3.3.0.2. |
 
-The Domoticz UI was moved to loopback on 2026-09-30, so the only remaining
-non-loopback listeners are ReticulumMeshChat (documented) and `dnsmasq`/`socat`,
-which are bound to the equipment LAN the desktop manages. The "no public
-listener" claim is therefore true of every `ao-*` service, of the Gazebo portal,
-of the operator console, and of Domoticz.
+The only non-loopback listeners are ReticulumMeshChat (documented) and `dnsmasq`/`socat`, bound to the equipment LAN the desktop manages. The "no public listener" claim is therefore true of every `ao-*` service, of the Gazebo portal, of the operator console, and of Domoticz.
 
 - **The fabrication machines are real machines, not simulation nodes.** MainsailOS,
   Moonraker, Klipper, the individual additive-manufacturing machines (3D printers and
@@ -166,15 +162,13 @@ of the operator console, and of Domoticz.
 
 This is the single authoritative document for the ALWAYS ON project. It contains the
 intended architecture, implemented configuration, operational requirements, validation
-evidence, approved deviations, known issues, and work queue. The remaining tables,
+evidence, approved deviations. The remaining tables,
 commands, evidence, paths, full interface inventory, operational requirements,
 payment/ledger forms, Mastodon details, installation procedures, backup rules, and
-service records follow, numbered 1–21. Where an older statement conflicts with ES.1,
+service records follow, numbered 1–17. Status, work queue, and references live in §19–20 (`README-ACTION_ITEMS/status-and-references.md`), never in this body. Where an older statement conflicts with ES.1,
 ES.1 governs. When the current implementation differs from an architecture
 requirement, the difference must be recorded in **Approved Deviations and Open
 Decisions** with a rationale, compensating controls, owner, and resolution condition.
-
-**Last consolidated review:** 2026-09-30
 
 > **Operator warning.** Everything here is difficult until it is easy. These tools
 > are sharp and dangerous, and if you disrespect them they will can/will harm you —

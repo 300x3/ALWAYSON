@@ -71,8 +71,8 @@ internal hosts — see Section 7.1 prohibitions):
 
 1. Modal shows product images, parts list / detailed drawings link, pCloud
    folder link, and IPFS digital-asset mark where applicable.
-2. A purchase button routes to provider-hosted checkout (PayPal hosted button
-   today; Zelle instructions and Coinbase/USDC flow per §7.2 as
+2. A purchase button routes to provider-hosted checkout (PayPal hosted button;
+   Zelle instructions and Coinbase/USDC flow per §7.2 as
    if built) or to a `mailto:300X3@POSTEO.NET` order-request template
    carrying product name, options, and quantity.
 3. Checkout completion returns a provider-signed event (or manual
@@ -150,10 +150,10 @@ There are three forms of payment processing:
 | 3 | **Coinbase / stablecoin (USDC)** | Coinbase or similar | Crypto/stablecoin settlement | Documented provider terms, accounting treatment, refund process, and explicit operator approval |
 
 **In scope, decided, and closed as a policy question: PayPal, Zelle and Coinbase/USDC.**
-This is the single normative statement of provider scope for the project. It was
-settled when §7.2 was written and it is not open. Earlier wording elsewhere that
-treats provider selection as undecided — ES.2's "deployable once the provider
-decision is recorded (§7.2)" and ST-27's "open on payment-provider selection" —
+This is the single normative statement of provider scope for the project; provider
+selection is not open. Wording elsewhere that treats provider selection as undecided —
+ES.2's "deployable once the provider decision is recorded (§7.2)" and ST-27's "open on
+payment-provider selection" —
 refers to the *implementation* being gated, not to the choice being unmade, and
 is corrected by this statement. Choosing the providers never authorised accepting
 a payment: §4.1 rule 14 still requires explicit operator approval before payment
@@ -169,7 +169,7 @@ against the provider record. Coinbase is verified against the on-chain settlemen
 record. Bodies are capped at 256 KiB, only a SHA-256 hash and an opaque reference
 are stored, and a raw payload is never persisted.
 
-The local verifier must conform to each provider’s documented signature scheme and read every provider secret it is provisioned, and `normalize()` must preserve the money-bearing fields of every accepted event. The verifier is not conformant today; the measured defects are recorded as **OPEN** in §19.1 PAY-02, and the credential/env findings in ST-12.
+The local verifier must conform to each provider’s documented signature scheme and read every provider secret it is provisioned, and `normalize()` must preserve the money-bearing fields of every accepted event. Conformance is tracked as **OPEN** in §19.1 PAY-02, with the credential/env findings in ST-12.
 
 ## 7.3 Sales and Receipt Sequence
 

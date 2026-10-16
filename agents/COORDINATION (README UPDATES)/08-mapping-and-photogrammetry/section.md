@@ -25,9 +25,8 @@ layers for high-volume processing.
 
 ## 8.2 Required Directory Tree
 
-The tree below is the specification. It is currently **not yet satisfied** on the live
-drive (see §19.1 FIELD-10): the mount itself is healthy, but required sub-directories
-are missing and ownership blocks the operator.
+The tree below is the specification. Compliance on the live drive is tracked in
+§19.1 FIELD-10.
 
 ```text
 /media/scottw/500GBPHOTOGRAM/

@@ -1,4 +1,29 @@
 # README change log
+## 2026-10-16 — specification-only pass over the body (§1–16)
+
+Removed remaining status, progress and timeline language from the compiled README body and
+relocated it to `README-ACTION_ITEMS/status-and-references.md` (§19.3) or to this file.
+
+| Change | Effect on the document |
+|---|---|
+| Dates stripped from §3.1, §5.1, §11.7, §12–§13, §14.1, §15.2, §15.4 | "Re-measured 2026-10-04", "Retired 2026-09-30", "Loopback published 2026-10-01", "Implemented and running since 2026-10-01" and ~40 similar phrases became present-tense requirements; only sample console output still carries timestamps |
+| §5.2 measured-state table replaced | "Scaffolded and deployed, not enabled", "Not implemented. No unit, no network" became a requirements table pointing at §5.2.1, §5.2.2 and §11.6 |
+| §11.7 retitled | "Corda 5 Node Build Status and Blockers" → "… Requirements and Stop Conditions"; "The node is not built" → "No Corda 5 node may be built by an agent session" |
+| §13.2 CORRECTION block rewritten | "CORRECTION 2026-10-04 (measured): … the previous recording was wrong" became a plain verifiable statement about store-root modes |
+| §14.1.6 orphaned-env-file narrative rewritten | Discovery narrative and "Operator decision requested" became requirement form ("this path must not exist"); decision pointer moved to §19 |
+| §15.2 bridge evidence block moved | The five dated verification bullets moved to §19.3; the body keeps five must-hold requirements |
+| §15.4.6 moderation record moved | The dated remote-account decision table moved to §19.3; the body keeps the counter requirement and the "record every decision there" rule |
+| §15.4.7 mail section rewritten | Current-state narrative ("not configured and currently cannot be delivered", measured dig/ss output) became inbound/outbound/recovery requirements plus verification commands; the measured gap evidence moved to §19.3 under COMM-05 |
+| History sentences deleted throughout | "An earlier revision of this section…", "This row previously said …", "A correction to what this section claimed when first written", "NOTE (2026-10-06): earlier drafts…" and similar revision narration removed |
+| Section sources re-split | `tools/split.py` re-ran over the edited body; `tools/compile.py --check` reports identical |
+
+### Verified
+
+```
+compile.py --check        identical
+headings                  203 before, 203 after
+dates in prose            0 (remaining timestamps are inside sample output blocks)
+```
 
 Revision history for `/ALWAYSON/README.md`. This is where history belongs — the body of
 the README states the current architecture and the current work, and does not narrate how

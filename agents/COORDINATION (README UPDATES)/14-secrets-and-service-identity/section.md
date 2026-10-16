@@ -5,7 +5,7 @@
 **Policy.** Use Podman secrets or systemd credentials. Prefer file-based secret delivery
 rather than environment variables.
 
-**Implemented deviation (recorded 2026-10-11, SEC-01/SEC-02).** The login-gated KDE Wallet
+**Authorised deviation (SEC-01/SEC-02).** The login-gated KDE Wallet
 design is the authorised deviation from the policy. Services that consume wallet secrets start
 after Plasma login (`WantedBy=graphical-session.target`) and are not expected to start
 unattended before a password is entered. The ~60 s wait in `fetch-kwallet-secret.sh` is the
@@ -56,9 +56,8 @@ are also live; prefer `kwalletd6` in new code.
   **A new key must be added as a `case` branch in that script or the unit fails.**
 - Env files materialise under `%h/.local/share/ao-secrets/`, via `ao-wallet-bridge.sh` or the
   unit's own `ExecStartPre`. `~/secrets/` holds unrelated material and is not part of the
-  delivery path. **The orphaned `~/secrets/fabrication-db.env` recorded in ST-30 has been
-  removed (2026-10-11); all fabrication credentials now live exclusively in the `ao-fabrication`
-  KDE Wallet folder.**
+  delivery path. **No fabrication credential file may exist under `~/secrets/` (ST-30); all
+  fabrication credentials live exclusively in the `ao-fabrication` KDE Wallet folder.**
 
 **All services run under the operator's own account.** No service requires a separate
 service-account user, and no per-service container store is created (§13.2).
@@ -211,7 +210,7 @@ which is outside this root and inert.
 | Location | Role |
 |---|---|
 | `~/.local/share/ao-secrets/mastodon.env` | **The only env file.** Loaded by `EnvironmentFile=` in `quadlet/sales/ao-mastodon-web.container` |
-| KDE Wallet `kdewallet` / `ao-mastodon` / `mastodon-env` | Wallet copy of the same content. **Was documented here as "byte-identical by SHA-256 (1043 bytes)". That is wrong — see the correction below.** |
+| KDE Wallet `kdewallet` / `ao-mastodon` / `mastodon-env` | Wallet entry whose value materialises `mastodon.env` (§14.1.3). Byte-identity is not assumed — compare before relying on it. |
 | KDE Wallet `ao-mastodon` / `mastodon-secret-key-base`, `mastodon-otp-secret`, `mastodon-db-password` | Per-key wallet entries |
 
 No second copy of this file is kept anywhere, and nothing may be restored into the
@@ -261,21 +260,21 @@ entriesList(i, s folder, s app) -> a{sv}
 
 There is **no `listFolders` method** — the folder enumeration method is
 `folderList`. There is also no `introspect` on `org.kde.KWallet`; that lives on
-`org.freedesktop.DBus.Introspectable`. Both mistakes were made and corrected
-while auditing the Mastodon bridge.
+`org.freedesktop.DBus.Introspectable` — both are easy to reach for by habit, so check
+the interface name before writing a call.
 
-**`folderList` returns DUPLICATE rows — de-duplicate before counting.** Measured
-2026-10-01: a raw count reported 990 rows / "972 folders", which looks like
-catastrophic duplication. `set()` gives the true **18 folders**; the same applies
-to `entriesList`, whose de-duplicated `ao-*` + `Passwords` total is **39 entries**.
+**`folderList` returns DUPLICATE rows — de-duplicate before counting.** A raw count
+returns each folder several times and reads as catastrophic duplication (hundreds of
+rows for a dozen real folders). `set()` gives the true folder count; the same applies
+to `entriesList`, whose `ao-*` + `Passwords` total must be taken from the set.
 
 **Readiness: use `isOpen`, not daemon presence.** Gating on
 `busctl --user list | grep kwalletd6` is wrong — kwalletd6 is D-Bus-activated the
 moment anything touches it and appears long before the wallet is unlocked, so the
-gate returns true instantly and any timeout behind it never waits. This caused a
-login outage on 2026-10-01: `ao-grafana` and `ao-metabase` read a locked wallet,
-failed their `ExecStartPre`, exhausted systemd's 5 fast restarts in ~5s and stayed
-down. Both fetchers now use `isOpen(handle)` with a 30×2s budget.
+gate returns true instantly and any timeout behind it never waits. Without this
+gate `ao-grafana` and `ao-metabase` read a locked wallet, fail their `ExecStartPre`,
+exhaust systemd's 5 fast restarts in ~5s and stay down. Both fetchers must use
+`isOpen(handle)` with a 30×2s budget.
 
 **The locked path cannot be tested directly.** KWallet exposes no `lock()`;
 `closeAllWallets()` does not leave the wallet locked, because the next `open()`
@@ -332,60 +331,48 @@ Three traps: there is no `accounts.local` column;
 `accounts`; and `expires_in: 0` produces an already-expired token.
 ### 14.1.6 Recorded deviation — env-file delivery instead of Podman secrets
 
-**Orphaned plaintext copy: `%h/.local/share/ao-secrets/legacy-alwayson-folder.env`.** Found
-2026-10-04, mode `0600`, holding four credential values by key name —
-`mastodon-db-password`, `sales-db-password`, `webodm-postgres-password`,
-`fabrication-db-password` — and referenced by **no** quadlet unit, script or section file. It is
-a plaintext duplicate of wallet-held credentials, which §14.1.1's rules forbid outright.
+**Forbidden plaintext copy: `%h/.local/share/ao-secrets/legacy-alwayson-folder.env`.** This
+path must not exist: it is mode `0600`, holds one credential for each of the four DB domains
+(`mastodon-db-password`, `sales-db-password`, `webodm-postgres-password`,
+`fabrication-db-password`), and is referenced by **no** quadlet unit, script or section file.
+It is a plaintext duplicate of wallet-held credentials, which §14.1.1's rules forbid outright.
 
-Four measured facts, by sha256 prefix and no values printed, comparing each legacy key against
-the live env file the owning unit reads:
+Comparing each legacy key against the live env file the owning unit reads (sha256 prefix,
+never a value) is how any residual copy is assessed:
 
 | Legacy key | vs live env file | Result |
 |---|---|---|
-| `sales-db-password` | `sales-db.env` `POSTGRES_PASSWORD` | **SAME** (48 chars) — currently valid |
-| `webodm-postgres-password` | `webodm.env` `POSTGRES_PASSWORD` | **SAME** (32 chars) — currently valid |
-| `fabrication-db-password` | `fabrication-db.env` `POSTGRES_PASSWORD` | **SAME** (32 chars) — currently valid |
-| `mastodon-db-password` | `mastodon-db.env` `POSTGRES_PASSWORD` | DIFFERENT (48 vs 40 chars) — stale |
+| `sales-db-password` | `sales-db.env` `POSTGRES_PASSWORD` | **SAME** (48 chars) — a live credential |
+| `webodm-postgres-password` | `webodm.env` `POSTGRES_PASSWORD` | **SAME** (32 chars) — a live credential |
+| `fabrication-db-password` | `fabrication-db.env` `POSTGRES_PASSWORD` | **SAME** (32 chars) — a live credential |
+| `mastodon-db-password` | `mastodon-db.env` `POSTGRES_PASSWORD` | DIFFERENT (48 vs 40 chars) — superseded |
 
-**Three of the four are live database passwords, not historical artefacts.** An earlier draft of
-this subsection reported only the `sales-db-password` match and characterised the file as "neither
-wholly useless nor wholly current"; that was measured against two keys with the wrong live key
-names and understated the exposure by a factor of three. The corrected count is the one above. The
-practical consequence is unchanged but sharper: this file is a plaintext store of **three
-currently-valid production database credentials** plus one stale one, and it is exactly the
+**Treat the file's entire contents as live production database credentials.** It is exactly the
 duplication §14.2 exists to prevent.
 
-`check-secrets-exposure.sh` does **not** catch it — that
-script checks *tracked* files and file modes, and this file is untracked and correctly `0600`.
-It was found by enumerating `ao-secrets/` and comparing against the units that read it, not by
-running the guard. The guard's blind spot is itself the finding: **rule 7 compliance is only as
-good as the tracked-file assumption**, and a `0600` copy of three live database passwords plus
-one stale one sits outside both Git and the units.
+`check-secrets-exposure.sh` does **not** catch it — that script checks *tracked* files and file
+modes, and this file is untracked and correctly `0600`. **Rule 7 compliance therefore rests on
+more than the tracked-file assumption**: enumerate `ao-secrets/` and compare each file against
+the units that read it, because a `0600` copy of live database passwords sits outside both Git
+and the units.
 
-Its origin is not recorded anywhere in the repository — no quadlet unit, script or section file
-references `legacy-alwayson-folder`. Given the name and the fact that it holds exactly one
-password for each of the four DB domains, it appears to be a pre-wallet-folder consolidation
-artefact: a moment when the credential layout was one file instead of one folder per domain.
+No quadlet unit, script or section file references `legacy-alwayson-folder`, so its origin is
+unrecoverable from the repository; treat it as a pre-wallet-folder consolidation artefact — one
+credential file per DB domain rather than one wallet folder per domain.
 
-**Deleting the legacy file is not performed here.** Removing it is a deletion of
-secret-classified material, which is outside this specification's authority (brief
-stop conditions). **Operator decision requested** — recommend deletion. The
-reasoning matters and cuts the other way from a first reading: because three of
-the four values are **currently valid**, deleting the file removes a real
-plaintext store of live credentials, and it loses nothing operationally, because
-the wallet remains the system of record and the live env files are re-fetched at
-every start (the scope paragraph below). Deleting is therefore strictly safer
-than keeping. Rotation is **not** required by the presence of the
-file, because nothing outside it uses those values and they were never committed to Git, a
+**Removing it is an operator action, not a specification step.** Deleting the file removes a
+plaintext store of live credentials and loses nothing operationally: the wallet remains the
+system of record and the live env files are re-fetched at every start (scope paragraph below),
+so deletion is strictly safer than keeping it. Rotation is not required by the file's presence
+alone, because nothing outside it uses those values and they were never committed to Git, a
 backup set, or an external network; rotation becomes required only if the operator judges the
-host's local user account to be untrusted.
+host's local user account to be untrusted. The deletion decision is recorded in
+`README-ACTION_ITEMS/status-and-references.md`.
 
-**Status: recorded, awaiting operator ratification.** This subsection exists because
+**This deviation requires operator ratification.** This subsection exists because
 §14.1 mandates Podman secrets or systemd credentials while every implemented path is a
-wallet-materialised `0600` env file. The deviation is real, and it is documented here rather
-than silently left in place. **It is not self-approving** — README §4.1 rule 14 reserves the
-decision to the operator.
+wallet-materialised `0600` env file. The deviation is recorded here rather than left silent.
+**It is not self-approving** — README §4.1 rule 14 reserves the decision to the operator.
 
 **Scope of the deviation.** Secret *storage* is the KDE Wallet, encrypted at rest. Secret
 *delivery* is a `0600` env file under `%h/.local/share/ao-secrets/`, refreshed at start-up by
@@ -393,10 +380,7 @@ decision to the operator.
 only system of record, and every file is rewritten from the wallet on each refresh, so losing
 one costs a re-fetch, not a credential.
 
-The **first draft of this paragraph named only four consumers** —
-`ao-mastodon-db`, `ao-sales-db`, `ao-webodm-db` and `ao-fabrication-db`. That understated the
-deviation by roughly a factor of three. the delivery set is **eight
-secret-bearing env files**, not four:
+The delivery set is **eight secret-bearing env files**, not four:
 
 | Env file | Produced by | Consumer |
 |---|---|---|
@@ -424,7 +408,8 @@ because `ao-wallet-bridge.sh` adds the ACL that lets `ao-sales` read it. Measure
     user::rw-  user:ao-sales:r--  group::---  mask::r--  other::---
 
 The other eight env files are `0600 scottw:scottw` with no ACL. So "all delivery copies are
-`0600`" is true of eight files and false of the ninth; §14.1.6 previously said so uniformly.
+`0600`" is true of eight files and false of the ninth: `mastodon.env` is `0640` with an
+ACL granting `ao-sales` read (§14.1.4).
 
 **Why the mandated mechanism is not used.** Podman secrets (`podman secret ls` returns an
 empty list; Podman 5.7.0) would have to be populated *from* the wallet by a root or
@@ -433,7 +418,7 @@ rather than removing it, and `Secret=` cannot be populated from a login-gated wa
 Systemd `LoadCredential=` is available to the systemd user manager but is not usable by
 Podman-managed containers, which take `EnvironmentFile=`/`Secret=`, not systemd credentials.
 
-**Compensating controls actually in place** (each verified, not asserted):
+**Compensating controls** (each verified, not asserted):
 
 | Control | Evidence |
 |---|---|
@@ -453,34 +438,29 @@ So the accurate statement is: **delivery copies persist on disk at `0600` betwee
 are replaced, not shredded.** This is the accepted residual exposure of the deviation and is
 why the wallet — not these files — is designated the system of record.
 
-**Two stale facts corrected while writing this subsection.**
+**Two file-layout facts this subsection depends on:**
 
-1. §19 ST-30 records `~/secrets/fabrication-db.env` as a `0600` file. **No such file exists.**
-   `find ~/secrets -name '*fabrication-db*'` returns nothing; the live file is
-   `~/.local/share/ao-secrets/fabrication-db.env` (`-rw-------`, 100 bytes), matching the
-   single-env-root rule in §14.1.2. ST-30's text is stale and should not be read as evidence
-   of a second delivery path. The §19 compiler should correct ST-30; it is not a
-   file this specification owns.
-2. `~/secrets/mastodon.env` is a **dangling symlink** to
-   `/ALWAYSON/secrets/mastodon/mastodon.env`, which does not exist
-   (`ls: cannot access …: No such file or directory`). It is inert, because
-   `quadlet/sales/ao-sales-db.container` and the Mastodon units read
-   `EnvironmentFile=%h/.local/share/ao-secrets/…`, not `~/secrets/`. Reported, **not removed** —
-   deleting files is outside this specification's authority and it may belong to another
-   subsystem.
+1. **Exactly one env root (§14.1.2).** The live file is
+   `~/.local/share/ao-secrets/fabrication-db.env` (`0600`); no fabrication credential file
+   may exist under `~/secrets/`. Where §19 ST-30 states otherwise, that text is owned by
+   the §19 compiler, not by this specification.
+2. `~/secrets/mastodon.env` must be treated as **inert** if present: it is a dangling symlink
+   to `/ALWAYSON/secrets/mastodon/mastodon.env`, and `quadlet/sales/ao-sales-db.container`
+   and the Mastodon units read `EnvironmentFile=%h/.local/share/ao-secrets/…`, not
+   `~/secrets/`. Deleting files is outside this specification's authority.
 
-**Migration remains available if the operator prefers it.** The pinned Postgres image
-(`postgres@sha256:d74eeac9a…`) calls `file_env 'POSTGRES_PASSWORD'` at line 235 of
-`/usr/local/bin/docker-entrypoint.sh`, so `POSTGRES_PASSWORD_FILE` **is** honoured; a Podman
+**Migration to Podman `Secret=` is available and requires operator approval.** The pinned
+Postgres image (`postgres@sha256:d74eeac9a…`) calls `file_env 'POSTGRES_PASSWORD'` at line 235
+of `/usr/local/bin/docker-entrypoint.sh`, so `POSTGRES_PASSWORD_FILE` **is** honoured; a Podman
 `Secret=` mounted at `/run/secrets/…` plus `Environment=POSTGRES_PASSWORD_FILE=/run/secrets/…`
-would satisfy §14.1 for the database services. It has not been applied: it changes live unit
-definitions and live credential delivery, and therefore stops for operator approval.
+would satisfy §14.1 for the database services. Applying it changes live unit definitions and
+live credential delivery, and therefore stops for operator approval.
 
 ## 14.2 Credential rotation, revocation and recovery
 
-This subsection exists because §14.1.1 requires rotation, revocation, expiration and recovery
-to be documented before production use, and none of it was documented in §14, §16 or §17.
-`docs/runbooks/secrets.md` carries a three-line "Rotation" note, but it is stale: it describes
+§14.1.1 requires rotation, revocation, expiration and recovery to be documented before
+production use; this subsection is that documentation.
+`docs/runbooks/secrets.md` carries a three-line "Rotation" note that describes
 per-service-account homes (`alwayson-mapping`) and a manual copy-out step, both superseded by
 §13.2 (all services run under the operator's account) and by the wallet-materialised flow.
 **This subsection is the procedure; the runbook's summary is the non-authoritative copy.**

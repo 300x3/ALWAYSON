@@ -108,14 +108,12 @@ EXIT=1
 
 The verifier satisfies all five requirements in §2.4: it compares observed against expected,
 exits non-zero on failure (1, not 0), prints each observed value beside its expected one, and
-the control case above is the proof that a passing result means something. The `sudo … ||
-true` defect that §12.3 carried is gone — the replacement never wraps a privileged command in
-`sudo`, and `aa-enforce` is reported as a WARN when missing rather than passed on `aa-status`.
+the control case above is the proof that a passing result means something. The verifier must
+never wrap a privileged command in `sudo … || true`, and `aa-enforce` must be reported as a WARN
+when missing rather than passed on `aa-status`.
 
-**PLAT-04 is closed by this script existing and being tested.** The requirement was "add real
-assertions" to the install verification; §12.3 now delegates to an asserting script, and §12.3's
-own text records the old block's three defects and the replacement. No further change is
-needed in §12.3 — it already names the script and documents the test in both directions.
+§12.3 delegates the install verification to an asserting script: it names the script and
+documents the test in both directions. §2.4 is the requirement that delegation implements.
 
 ## 2.5 Version Matrix Requirements
 

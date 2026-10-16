@@ -74,9 +74,8 @@ described in §12.5.
 
 ### 16.1.1 `build-update/provenance/` — the generator package (OPS-18)
 
-`provenance-log.py` was a single ~2,300-line module holding evidence gathering,
-policy, plan generation and rendering in one file. It is now a thin entrypoint
-over a package, split by concern:
+`provenance-log.py` is a thin entrypoint over a package split by concern — evidence
+gathering, policy, plan generation and rendering are separated (OPS-18):
 
 | Module | Holds | Why it is separate |
 |---|---|---|
@@ -138,12 +137,12 @@ item:
 | `excluded` | present, but deliberately not snapshotted | no — a decision already taken |
 | `error` | present and **unreadable** | **yes** |
 
-`absent` and `error` are the pair that was previously collapsed. OPS-33 asks
-that a store declared in the manifest but missing here render as an *error*
-rather than silently reading as `absent`; the schema now carries the distinction,
-the view exposes `sqlite_stores_absent`, `sqlite_stores_error` and
-`sqlite_stores_excluded` as separate counters, and the collector sets `error` for
-anything it could not open, stat or parse.
+`absent` and `error` must stay distinct: OPS-33 requires a store declared in the
+manifest but missing on this host to render as an *error* rather than silently reading
+as `absent`. The schema carries the distinction, the view exposes
+`sqlite_stores_absent`, `sqlite_stores_error` and `sqlite_stores_excluded` as separate
+counters, and the collector must set `error` for anything it could not open, stat or
+parse.
 
 **The classification is keyword-based over `read_error` free text**, which is a
 known fragility and is recorded here so the next reader does not trust it
@@ -151,12 +150,11 @@ blindly. `sqlite3` reports corruption as `DatabaseError('file is not a
 database')` or `'database disk image is malformed'` — sentences containing none
 of the usual "…failed" markers.
 
-**A fault list that matches only some failure words is a false-negative generator.** Because the
-list matched only `failed` /
-`not a sqlite file` / `header read failed` / `open failed` / `read failed` /
-`snapshot failed` / `integrity`, a **corrupt database was classified `excluded`**
-— that is, an unreadable store was recorded as a *deliberate operator
-decision*. Measured before the fix:
+**A fault list that matches only some failure words is a false-negative generator.** The list
+must match `failed` / `not a sqlite file` / `header read failed` / `open failed` /
+`read failed` / `snapshot failed` / `integrity` in full; anything narrower lets a
+**corrupt database classify as `excluded`** — an unreadable store recorded as a
+*deliberate operator decision*. Behaviour the test pins:
 
 ```console
 $ classify_store({'present': True, 'read_error': 'database disk image is malformed'})
@@ -249,12 +247,11 @@ All logs and journals are kept in one place:
 /ALWAYSON/logs/
 ```
 
-`LOGS-JOURNALS/` is **not** the location; it was a name in an earlier draft and
-never matched the implementation. Every writer uses `/ALWAYSON/logs/`:
+`LOGS-JOURNALS/` is **not** the location. Every writer uses `/ALWAYSON/logs/`:
 `common.sh` sets `AO_LOG_DIR`, the deployed Gazebo quadlet sets
 `--log-opt path=…/logs/sim-gz-server.log`, `ao-build-update` bind-mounts
 `logs/operations`, and the §12.1 install step writes
-`logs/installation/agent-install.log`. The earlier `LOGS-JOURNALS/` name was never implemented; §16.3 is the single statement.
+`logs/installation/agent-install.log`. §16.3 is the single statement of the location.
 
 Rotation: `/etc/logrotate.d/` policy staged at
 `config/host/logrotate-alwayson.conf` (daily, 14 kept, no compression — see
@@ -301,10 +298,6 @@ same 4,000-line document.
 | `agents/COORDINATION (README UPDATES)/<nn>-<slug>/section.md` | One README section, beginning with its own `# N. Title` heading |
 | `agents/COORDINATION (README UPDATES)/tools/split.py` | `README.md` → the section folders |
 | `agents/COORDINATION (README UPDATES)/tools/compile.py` | The section folders → `README.md`; `--check` verifies without writing |
-
-**NOTE (2026-10-06):** earlier drafts of this section carried the source folder name with
-extra parentheses; the canonical, tracked name is `agents/COORDINATION (README UPDATES)/` and is used
-throughout this section. The earlier parenthesized forms are retired.
 
 **Rules.**
 

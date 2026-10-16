@@ -65,13 +65,13 @@ Public internet → PostgreSQL, Redis, WebODM workers, LM Studio, Corda,
                   ROS, MAVLink, Gazebo, QGroundControl, RNS, MeshChatX
 ```
 
-Two entries in this list have been superseded by later operator decisions and are
-marked rather than silently deleted, because deleting them would hide a decision:
+Two entries in this list are superseded by operator decision and are marked rather
+than silently deleted, because deleting them would hide the decision:
 
-- *Field → payment provider* and *Mapping → payment provider* are superseded in
-  that payment is now reached through the controlled `ao-ingress-payment` /
+- *Field → payment provider* and *Mapping → payment provider* are prohibited:
+  payment is reached only through the controlled `ao-ingress-payment` /
   `ao-egress-archive` adapters (§5.2), never directly from a workload network.
-  The prohibition still holds in substance: no `ao-field` or `ao-mapping` container
+  The prohibition holds in substance: no `ao-field` or `ao-mapping` container
   holds a payment credential.
 - *Fabrication simulation → live machinery **during phase one***: the phase-one
   qualifier is historical. The prohibition is absolute in the current design
@@ -97,11 +97,8 @@ The rebuilt list, retained because each row names the enforcing rule.
 
 ### 4.3.3 What was lost, and where it went
 
-The body of this section was at one point overwritten with a duplicate of the
-sale-chain diagram. That misplaced content was not lost — it belongs to the sale
-chain and is now carried once, in §3.3.2, which holds the sale-chain figure and
-the catalogue-to-Corda narrative. The prohibition list itself was lost with it and
-is restored above as §4.3.1.
+The sale-chain diagram and the catalogue-to-Corda narrative belong to §3.3.2, which
+carries them once. The prohibition list for this section is §4.3.1 above.
 
 The list above is recovered from the archived v6 document, which is the
 operator-approved original named as this document's own ancestor

@@ -11,7 +11,7 @@
 | Website | https://www.300x3.com |
 | Supporting plan | https://archive.org/details/@scott_widmann |
 | Created with | Bluebeam and LibreDraw (PDF project plan), Perplexity.ai, Cline.bot |
-| Revision | 2026-10-02 — GitHub review pass; see `docs/readme-change-log.md` |
+| Revision | History lives in `docs/readme-change-log.md` |
 | Current main host | ATX desktop - running Linux Kubuntu |
 | Peripheral host | Drone — Raspberry Pi 5 and Autopilot Module, running KaliOS |
 | Format rule | Tables and topology diagrams are primary; original detailed commands/evidence are retained in-place below for operational completeness |

@@ -158,15 +158,14 @@ Verify — **this block asserts and exits non-zero on failure**:
 ./scripts/validation/verify-host-baseline.sh
 ```
 
-That script is the asserting replacement for the block this section used to
-carry. The old block was replaced because it **could not fail**: the cgroup
-test `test "$(stat -fc %T /sys/fs/cgroup)" = "cgroup2fs" && echo ...` is
-silent when the test fails, nothing read its return code, and the block's
-overall exit status was 0 either way. Reproduced 2026-10-03 — breaking the
-cgroup check changed nothing and the block still exited 0. A check that
-cannot fail verifies nothing, so no §19.2 evidence could rest on it.
+The script asserts and exits non-zero on failure. Any inline verification block
+in this section must be able to fail: an inline cgroup test of the form
+`test "$(stat -fc %T /sys/fs/cgroup)" = "cgroup2fs" && echo ...` is silent when
+the test fails, nothing reads its return code, and the block's exit status is 0
+either way. A check that cannot fail verifies nothing, so no §19.2 evidence may
+rest on one.
 
-The replacement was tested in both directions, because a verifier that only
+The script must be tested in both directions, because a verifier that only
 ever passes is the same defect wearing a new hat:
 
 ```
@@ -206,9 +205,8 @@ one account, and this is the one that exits **2** for an account that does not
 exist - the failure mode a `[ "$linger" = "yes" ]` test handles worst. See the
 bug below.
 
-The `loginctl show-user -p Linger` line that section 12.3 used to carry was
-read-only and silent on failure, and linger is a real precondition rather than a
-nicety: every workload here is a *rootless user* Quadlet unit under
+The `loginctl show-user -p Linger` check must not be read-only and silent on failure —
+linger is a real precondition rather than a nicety: every workload here is a *rootless user* Quadlet unit under
 `~/.config/containers/systemd/`, driven by `systemd --user`, and that instance
 only exists for the operator account while a session is open. Log out of KDE and
 every container, timer and Quadlet-generated unit for this account stops, and none
@@ -216,14 +214,14 @@ of them come back on their own after a reboot. `ao-lmstudio.service` already
 depends on this - its own header says "Starts at boot via user lingering".
 
 So the rebuild must **report** linger before it starts any unit, and the
-provisioner now does, at stage 20, before stage 50:
+provisioner does so at stage 20, before stage 50:
 
 ```bash
 ./scripts/validation/check-user-linger.sh          # report
 ./scripts/validation/check-user-linger.sh --check  # gate: 0 ok, 1 fault, 2 no such account
 ```
 
-Measured on this host 2026-10-04:
+Expected output:
 
 ```console
 $ bash scripts/validation/check-user-linger.sh
@@ -276,10 +274,10 @@ and an installer that verifies what is already on disk.
 
 ### 12.4.2 Every stage has an undo, and the undo is non-destructive (OPS-12)
 
-`scripts/provision/rollback.sh` is the missing half of §12.4. Until now each stage of
-`provision.sh` described only what it *built*, and a rebuild that failed halfway left the
-operator with no documented way back. The script is **dry-run by default**, mirroring
-`provision.sh`, because undo is as dangerous as the action.
+`scripts/provision/rollback.sh` is the required counterpart of §12.4: every stage of
+`provision.sh` must have a documented, non-destructive way back, so a rebuild that fails
+halfway never leaves the operator without one. The script is **dry-run by default**,
+mirroring `provision.sh`, because undo is as dangerous as the action.
 
 ```bash
 ./scripts/provision/rollback.sh --list   # what each stage undoes, and whether it needs an operator
@@ -373,7 +371,7 @@ ao-sim-vehicle
 They were therefore created by `bootstrap/04-create-operational-layout`'s sibling
 `04-create-podman-networks.sh`, which calls `podman network create` directly. **The same
 network is described by two owners** — a repo Quadlet file and an imperative bootstrap
-script. For `ao-data` the two currently agree, so nothing is broken today:
+script. For `ao-data` the two agree:
 
 ```text
 $ grep -E 'NetworkName|Internal' quadlet/networks/ao-data.network
@@ -414,7 +412,7 @@ entry was refused (DRIFT or an unpinned download). `manual` is deliberately *not
 a failure — it means no vendor publishes an artifact, which is an operator phase,
 and counting it would make every run red.
 
-Measured on this host 2026-10-04, dry run against the real manifest:
+Dry run against the real manifest:
 
 ```console
 $ AO_ROOT=/tmp/ao-sessions/wt-ops-b bash scripts/provision/install-vendor-binaries.sh
@@ -432,7 +430,7 @@ OK      cline v3.0.60 - present, no installed digest recorded to check against
 installed=0  already-present=8  manual=0  refused=0  failed=0
 ```
 
-**All eight are present on this host and verified.** Five have no vendor URL and
+**All eight must be present and verified.** Five have no vendor URL and
 so cannot be fetched unattended even in principle — a property of the vendors,
 not a gap in the provisioner, and the honest residue of OPS-17. Three (gh, bun,
 cline) are installable; the first two verify against a recorded `installed_sha256`.
@@ -462,17 +460,15 @@ The `Installed` column of `docs/software-status.md` is produced by
 `/var/log/apt/history.log` and its rotated siblings via
 `scripts/build-update/apt_history.py`.
 
-**It used to be wrong, and wrong in a way that mattered.** dpkg keeps no install
-timestamp, so the date was inferred from the mtime of
-`/var/lib/dpkg/info/<pkg>.list` — a file dpkg rewrites on *every* unpack. The
-column therefore displayed the last **upgrade** date under an install heading. An
-operator auditing a deployment would read "installed 2026-10-01" for a package
-that had in fact been installed in April and merely upgraded that day.
+**The install date must come from apt's history log, never from a file mtime.**
+dpkg keeps no install timestamp, and `/var/lib/dpkg/info/<pkg>.list` is rewritten
+on *every* unpack, so its mtime is the last **upgrade** date — reading it as an
+install date would date a long-installed package as newly installed.
 
-apt's history log does hold the truth, and it separates the two cases: every
-transaction records `Start-Date`, the exact `Commandline`, and distinct
-`Install:` / `Upgrade:` / `Remove:` / `Purge:` lines. Four facts now reach the
-document that did not before:
+apt's history log holds the truth and separates the two cases: every transaction
+records `Start-Date`, the exact `Commandline`, and distinct
+`Install:` / `Upgrade:` / `Remove:` / `Purge:` lines. Four facts must reach the
+document:
 
 | Fact | How it is derived |
 |---|---|
@@ -481,7 +477,7 @@ document that did not before:
 | removed / purged | a later `Remove:`/`Purge:` wins over the earlier `Install:`; the cell reads `not installed (removed/purged <date>)` |
 | who asked | the `Requested-By:` user, where apt recorded one |
 
-Measured against the real log (2026-10-04):
+Against the real log:
 
 ```
 $ python3 scripts/build-update/apt_history.py
@@ -526,47 +522,42 @@ Ran 62 tests in 0.73s
 OK
 ```
 
-Three defects had shipped because nothing asserted them, and each now has a
-test:
+Three defect classes must be locked down by tests:
 
-1. **Truncated digests became pull commands.** `update_steps()` checked only the
-   `sha256:` prefix, so `sha256:` plus 12 hex characters produced
-   `podman pull repo@sha256:<12>`, which a registry rejects with HTTP 400 — a
-   command that looked correct and could never work. `is_complete_digest()` now
-   checks the algorithm *and* the full body length, and suppresses command
-   generation entirely.
-2. **Steps built from a display name.** A row for the application "Account
-   Wizard" produced `apt install --only-upgrade Account`, which does not exist.
-   Steps now use the owning package name.
-3. **A prose error string used as a digest.** `"upstream digest unreachable
-   (registry refused)"` reached the command generator. Any value that is not a
-   complete digest now yields no command.
+1. **Truncated digests must not become pull commands.** `sha256:` plus 12 hex characters
+   would produce `podman pull repo@sha256:<12>`, which a registry rejects with HTTP 400 —
+   a command that looks correct and can never work. `is_complete_digest()` checks the
+   algorithm *and* the full body length and suppresses command generation entirely.
+2. **Steps must be built from the owning package name, never a display name.** A row for
+   the application "Account Wizard" must not produce `apt install --only-upgrade Account`,
+   which does not exist.
+3. **A prose error string must never be used as a digest.** A value such as
+   `"upstream digest unreachable (registry refused)"` must yield no command.
 
-A fourth defect was found and fixed *by* this suite: `update_steps()` accepted a
-12-character digest while a nearby assertion already expected it to be rejected.
+The suite also asserts that `update_steps()` rejects a 12-character digest, a value
+a nearby assertion already expects to be rejected.
 
 Two further tests exist specifically because the fixes were silent when
 reverted. `test_apt_history_loads_regardless_of_working_directory` runs the
 generator as a subprocess with `cwd=/tmp`: the original `import apt_history`
 resolved against `sys.path`, which holds the **current working directory**, not
 the script's own directory — and `refresh-install-log.sh` does `cd "$AO_ROOT"`
-first. The import therefore raised `ImportError` on every production run and
-silently fell back to the dpkg mtime, producing a document that looked normal
-and carried the older, less accurate dates. The module is now loaded by
-`__file__`. Without the test this regression is invisible: the failure mode is
-a plausible-looking document, not an error.
+first. The module must therefore be loaded by `__file__`, never resolved through
+`sys.path`: otherwise the import raises `ImportError`, silently falls back to the dpkg
+mtime, and produces a document that looks normal while carrying the wrong dates.
+Without the test this failure mode is invisible — a plausible-looking document, not
+an error.
 
-### 12.5.3 `eligible` now means a machine can do it (OPS-19)
+### 12.5.3 `eligible` means a machine can do it (OPS-19)
 
-`update-plan.json` used to carry a single `steps` list per item, mixing two
-things that cannot be combined: commands an executor could run
+`update-plan.json` must not carry a single `steps` list per item, because two
+things cannot be combined: commands an executor could run
 (`podman pull repo@sha256:<64>`) and prose no executor could ever run
-(`edit Image= in quadlet/<domain>/<unit>.container`). An item was marked
-**eligible** on the strength of the first while carrying the second, so
-"eligible" did not mean "automatable" and **nothing in the file distinguished
-them**.
+(`edit Image= in quadlet/<domain>/<unit>.container`). An item must not be marked
+**eligible** on the strength of the first while carrying the second — **the file
+must distinguish them**, so "eligible" means "automatable".
 
-`update_steps()` now returns `{"steps": [...], "manual": [...]}`, and the
+`update_steps()` returns `{"steps": [...], "manual": [...]}`, and the
 `eligible` decision is taken on the strength of `steps` alone:
 
 | Field | Meaning | Contract |
@@ -581,15 +572,14 @@ downgrades any argument carrying a shell metacharacter to prose rather than
 emitting it — an item literally named `pkg; rm -rf /` produces **no**
 executable step and keeps its intent under `manual`.
 
-The consequence is visible and worth stating plainly: on this host the plan now
-reports **0 eligible of 224**. That is not a regression, it is the truth. The
-old count of 6 was counting items whose only "step" was a sentence about
-editing a Quadlet file.
+The consequence is visible and worth stating plainly: the plan reports
+**0 eligible of 224**, because an item counts as eligible only when it carries
+executable argv steps — never when its only "step" is a sentence about editing a
+Quadlet file (§12.5.4, OPS-19).
 
-**A correction to what this section claimed when first written.** It said
-"`brave` remains genuinely automatable and is emitted as argv". That was
-checked rather than assumed, and it is false as stated. `update_steps()`
-*does* emit argv for `brave` —
+**Eligibility must be read from the plan, never inferred from the source.** The claim
+that "`brave` remains genuinely automatable and is emitted as argv" is false as
+stated: `update_steps()` *does* emit argv for `brave` —
 
 ```
 $ python3 -c "...update_steps({'item':'brave','via':'snap/latest/stable'}, None)"
@@ -682,9 +672,9 @@ $ python3 scripts/build-update/apply-plan.py --no-snapshot     # AO_ROOT=/ALWAYS
     OPS-19, not a per-item defect.
 ```
 
-That is the validator earning its keep: the live plan is still schema 1 and has
-not been regenerated since §12.5.3 landed, so **it is not yet safe to hand to
-an executor**. Regenerating it is one `./scripts/build-update/refresh-install-log.sh`.
+That is the validator earning its keep: **a schema-1 plan is not safe to hand to an
+executor**. Regenerate the live plan with one
+`./scripts/build-update/refresh-install-log.sh` before citing it.
 
 **A trap worth recording for the next agent.** The validator defaults `AO_ROOT`
 to `/ALWAYSON`, so running it from a worktree validates **the live main-repo
@@ -694,7 +684,7 @@ this: a first run reported 199 items and schema 1 while the worktree plan held
 `plan :` line in the output against the file you meant. The same class of bug
 existed literally in `refresh-install-log.sh`, whose summary-report heredoc
 opened a hardcoded `/ALWAYSON/data/build-update/update-plan.json` while the
-surrounding script honoured `AO_ROOT`; it now takes the path as `sys.argv[1]`.
+surrounding script honoured `AO_ROOT`; it takes the path as `sys.argv[1]`.
 
 ### 12.5.5 Image digests are checked against what is deployed (OPS-02)
 
@@ -705,10 +695,10 @@ by reading it. `capture-version-matrix.sh` does not help: it rewrites five host
 facts (systemd, podman, netplan, nvidia) with `sed` and never looks at an
 image at all.
 
-The check now exists as `scripts/validation/check-image-digests.sh`, and it
-found real drift immediately. **7 matrix rows name a digest no deployed unit
-carries, 1 deployed image is not digest-pinned, and 4 deployed digests appear
-nowhere in the matrix:**
+The check is `scripts/validation/check-image-digests.sh`. It must be run before the
+matrix is cited, and it reports drift in three directions — matrix rows whose digest no
+deployed unit carries, deployed images that are not digest-pinned, and deployed digests
+absent from the matrix:
 
 ```
 $ AO_ROOT=$PWD bash scripts/validation/check-image-digests.sh --check
@@ -758,14 +748,12 @@ launder a hand edit into an apparently-captured fact. So the seven rows above
 are **reported as findings, not fixed**. That is deliberate, and it is the
 part most likely to look like incompleteness.
 
-**A bug this check had on its first run, which the tests caught.** When every
-deployed image is unpinned, the digest-extracting `grep` matches nothing and
-exits 1; under `set -e` + `pipefail` that aborted the script with **status 1
-and no output at all**. A gate that fails without saying why is worse than no
-gate, because the next reader cannot tell a real finding from a crash. It is
-fixed by tolerating the empty result in collection rather than by loosening
-`set -e`, because the unpinned images are precisely what the script most needs
-to report.
+**The check must not abort silently.** When every deployed image is unpinned, the
+digest-extracting `grep` matches nothing and exits 1; under `set -e` + `pipefail` that
+would abort the script with **status 1 and no output at all**. A gate that fails without
+saying why is worse than no gate, because the next reader cannot tell a real finding from
+a crash. The collection step therefore tolerates the empty result rather than loosening
+`set -e`, because the unpinned images are precisely what the script most needs to report.
 
 That is why the five tests drive the **real script** against a synthetic tree
 and assert exit codes, rather than testing a Python reimplementation: a check
@@ -801,7 +789,7 @@ the prose.
 for 3,857 packages, the ROS train one row for 351. "Is the desktop behind" is
 answerable; "update ROS 2 rviz" is not. Collapsing those rows is right — they
 were 90 percent of the document — but a collapsed row that hides its members is
-a dead end. Each roll-up now carries a `members` list and renders it as a
+a dead end. Each roll-up carries a `members` list and renders it as a
 `<details>` drill-down, in Markdown, HTML **and** the PDF:
 
 ```
@@ -822,10 +810,9 @@ $ AO_ROOT=$PWD python3 scripts/build-update/provenance-log.py --offline \
       --out /tmp/ops23v/s.md --html /tmp/ops23v/s.html --plan /tmp/ops23v/p.json
 ```
 
-**A trap here, and the reason the numbers above were nearly unprovable.** The
-tracked render artifacts `docs/software-status.md` and `tmp/software-status.html`
-are **stale** — dated 2026-10-03 20:53, while the generator carrying this fix
-landed 2026-10-04 10:30. So checking the fix against them shows 2 summaries and
+**A trap here.** The tracked render artifacts `docs/software-status.md` and
+`tmp/software-status.html` must be regenerated by the current generator before
+they are used as evidence: a render predating a generator fix rolls up but shows
 **0** drill-downs, which reads exactly like "the fix does not work":
 
 ```
@@ -838,10 +825,9 @@ $ grep -c "details class='drill'" tmp/software-status.html
 
 Both apt roll-ups are missing there too, which is the §12.5.5 pattern in a
 different guise: the code is correct and the artifact predates it. The
-committed documents have **not** been regenerated, so the shipped PDF still
-collapses those rows to bare counts. That is a real outstanding action, and it
-is why the evidence above comes from a scratch render rather than from the
-tracked files — the claim is about the generator, and it is stated as such.
+committed documents must be regenerated before they are cited, or the shipped PDF
+collapses those rows to bare counts — which is why the evidence above comes from a
+scratch render rather than from the tracked files: the claim is about the generator.
 
 The HTML drill-down is inline on the row itself, where the count promised it,
 and carries every member as its own `<li>`.
@@ -859,24 +845,21 @@ path specifically, and that the drill-down survives the print stylesheet,
 because a PDF that hides it reintroduces the same dead end. Member names are
 HTML-escaped: they come from `.desktop` files on disk and are not trusted.
 
-The two apt roll-ups were still bare counts after that first pass — checked
-the rendered output rather than trusting the code, and `Ubuntu archive packages`
-and `ROS 2 lyrical (whole train)` carried no members. Both lists are already in
-`inv`, so both now attach theirs; the ROS one matters most because the train is
-FROZEN, making "which 351 packages are affected" the question an operator will
-actually ask. `test_the_apt_rollups_carry_their_members` is the guard, and I
-confirmed it is not vacuous by deleting both `members` keys and watching it
-fail with `Ubuntu archive packages is a roll-up with no members`.
+The two apt roll-ups must carry their members — verify the rendered output rather than
+trusting the code: `Ubuntu archive packages` and `ROS 2 lyrical (whole train)` may not
+render as bare counts. Both lists are already in `inv`, so both attach theirs; the ROS one
+matters most because the train is FROZEN, making "which 351 packages are affected" the
+question an operator will actually ask. `test_the_apt_rollups_carry_their_members` is the
+guard, and it is not vacuous: deleting both `members` keys fails it with
+`Ubuntu archive packages is a roll-up with no members`.
 
-**A second fix the first one created.** Attaching members made the Markdown
-~3× larger, but the existing roll-up renderer joined them into a single table
-cell (`', '.join(members)`), so the Ubuntu archive came out as **one
-40,000-character line**. That technically satisfied "the members are reachable"
-and practically failed the reader as badly as the original count — a single row
-you cannot scan is not a drill-down. Package roll-ups now render one member per
-row with the version in its own column, in their own collapsible block; the
-launcher grouping keeps its joined cell, where members are short and few. The
-roll-up emitter was extracted from `render()` into `rollup_details_md()` so this
+**A roll-up must be scannable, not merely reachable.** Members must not be joined into a
+single table cell (`', '.join(members)`) — that renders the Ubuntu archive as **one
+40,000-character line**, which satisfies "the members are reachable" and fails the reader
+as badly as the original count: a single row you cannot scan is not a drill-down. Package
+roll-ups render one member per row with the version in its own column, in their own
+collapsible block; the launcher grouping keeps its joined cell, where members are short and
+few. The roll-up emitter is extracted from `render()` into `rollup_details_md()` so this
 is unit-testable — `render()` spends hundreds of apt round trips, which no test
 should pay to assert a formatting rule.
 

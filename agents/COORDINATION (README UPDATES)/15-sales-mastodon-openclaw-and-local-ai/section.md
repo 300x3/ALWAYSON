@@ -171,33 +171,22 @@ other service. Human approval remains required for pricing, orders, shipping,
 warranties, financial topics, technical claims, safety guidance, legal
 statements, and any publication outside the local bridge workflow.
 
-Bridge state re-verified 2026-10-03 (evidence for COMM-04):
+Bridge requirements — COMM-04 verification evidence is recorded in
+`README-ACTION_ITEMS/status-and-references.md`:
 
-- **Auth half.** The wallet-held bot token is valid. `verify_credentials` returns
-  HTTP 200 for `acct=bot, id=117363090433277638` against
-  `https://mastodon.300x3.com`. The token value was never printed — only its length
-  (43 characters) was measured.
-- **Script identity.** The unit runs `/ALWAYSON/scripts/mastodon/mastodon-openclaw-bridge.py`.
-  `~/.local/bin/mastodon-openclaw-bridge.py` is a byte-identical copy, not a symlink —
-  `sha256` is `486e7472…99c19` for both. Editing the `/ALWAYSON` copy is therefore *not*
-  sufficient to change live behaviour until the unit is restarted; this is the same
+- **Auth.** The wallet-held bot token must pass `verify_credentials` against
+  `https://mastodon.300x3.com` with HTTP 200 for `acct=bot`. The token value must never
+  be printed — measure its length only.
+- **Script identity.** The unit must run `/ALWAYSON/scripts/mastodon/mastodon-openclaw-bridge.py`.
+  A copy under `~/.local/bin/` is a byte-identical copy, not a symlink, so editing the
+  `/ALWAYSON` copy does not change live behaviour until the unit restarts — the same
   copy-not-symlink trap as Quadlets.
-- **Operator decision honoured.** Line 281 of the bridge posts with
-  `'visibility': 'public'` and retains the `@author` mention prefix, matching the
-  2026-10-01 operator decision. Confirmed in *both* copies above, so no stale
-  `unlisted` variant is hiding in the deployed file.
-- **Cursor is current but idle.** `~/.openclaw/mastodon-bridge-state.json` holds
-  `lastNotificationId: "7"`, while `max(notifications.id)` is 8. The two
-  notifications (ids 7 and 8, both `follow` from `300x3@mastodon.social`) are not
-  `mention`/`status` types, so the bridge correctly ignores them; the state file is
-  simply not rewritten for skipped types. Last write was 2026-10-02 00:27 UTC, ~49.9 h
-  before measurement. This is expected idleness, **not** the stale-cursor fault
-  described in COMM-04 — that earlier fault (cursor ahead of the newest id) is fixed
-  and the bridge's own recovery log line is present in the journal.
-- **No 401 crash-loop regression.** `systemctl --user status` shows the unit
-  `active (running) since Thu 2026-10-01 18:50:55 PDT`, with no restart loop
-  (re-confirmed 2026-10-04, 2 days uptime, `Main PID: 788109`, memory 14.1 M,
-  peak 19.8 M, CPU 47.1 s).
+- **Visibility.** Every deployed copy must post with `'visibility': 'public'` and retain
+  the `@author` mention prefix, per the operator decision (§15.4.5).
+- **Cursor.** Notifications that are not `mention`/`status` types must be ignored without
+  rewriting the cursor, and a stale cursor must self-recover with a journal log line.
+- **No crash loop.** The unit must stay `active (running)` with no restart loop; a 401
+  regression must not recur. Verify with `systemctl --user status mastodon-openclaw-bridge`.
 
 ## 15.3 Local 300X3 Mastodon Deployment
 
@@ -207,7 +196,7 @@ The 300X3 Mastodon instance (Mastodon 4.3.7, containerized in the authoritative
 `https://300x3.com` and `https://www.300x3.com`; it is not routed to Mastodon.
 Operators use Konqueror and OpenClaw on the desktop. 
 
-Architecture requirements and verified state:
+Architecture requirements:
 
 - `ao-sales` is `Internal=false` and contains the Mastodon database, Redis,
   streaming service, web origin, and Sidekiq. Database, Redis, and streaming are
@@ -223,11 +212,11 @@ Architecture requirements and verified state:
   the Mastodon tunnel and retain the filedn redirect behavior.
 - Mastodon identity is `LOCAL_DOMAIN=mastodon.300x3.com`. Accounts, login emails, and the
   `alsoKnownAs` alias are specified in §15.4.2.
-- Public actor and WebFinger endpoints were verified at
+- Public actor and WebFinger endpoints must resolve at
   `https://mastodon.300x3.com/actor` and
   `https://mastodon.300x3.com/.well-known/webfinger`.
-- The tunnel currently uses HTTP/2 transport because QUIC stream timeouts were
-  observed on this host. Local and public health checks returned HTTP 200.
+- The tunnel uses HTTP/2 transport; QUIC is not used. Local and public health checks
+  must return HTTP 200.
 - **Open registration is closed.** `/api/v1/instance` reports `registrations=false,
   approval_required=false`, with no `registrations` row in the `settings` table. There is no
   approval queue and no pending registration. Account creation on this instance is an operator
@@ -267,8 +256,8 @@ Open configuration drift against these values is tracked in §19.1.
 
 ### 15.4.2 Domain and Mastodon Identity Configuration
 
-The authoritative runtime env (`LOCAL_DOMAIN=mastodon.300x3.com`) as re-measured
-2026-10-03, from `~/.local/share/ao-secrets/mastodon.env`, non-secret keys only:
+The authoritative runtime env (`LOCAL_DOMAIN=mastodon.300x3.com`) is read from
+`~/.local/share/ao-secrets/mastodon.env`, non-secret keys only:
 
 ```text
 LOCAL_DOMAIN=mastodon.300x3.com
@@ -277,8 +266,7 @@ LOCAL_HTTPS=true
 ALTERNATE_DOMAINS=localhost,localhost:3000,127.0.0.1,127.0.0.1:3000
 ```
 
-Registration state is also **not** as previously recorded here. Measured
-2026-10-03 against the live instance:
+Registration must be closed with no approval queue; verify against the live instance:
 
 ```console
 $ curl -s https://mastodon.300x3.com/api/v1/instance | python3 -c "import sys,json;d=json.load(sys.stdin);print(d.get('registrations'), d.get('approval_required'))"
@@ -365,11 +353,11 @@ stated here, because a specification does not carry its own status.
 2. Cloudflare redirect rule narrowed to exclude `mastodon.300x3.com`; the static
    storefront redirect unchanged.
 3. Mastodon identity set to `LOCAL_DOMAIN=mastodon.300x3.com`; actor, WebFinger, and
-   local actor documents verified.
+   local actor documents must resolve and verify.
 4. Community publication carried inside `ao-sales`; database, Redis, and streaming
    remain isolated.
-5. Tunnel transport switched to HTTP/2 after QUIC stream timeouts; local and public
-   health checks return HTTP 200.
+5. Tunnel transport is HTTP/2, not QUIC (stream timeouts); local and public
+   health checks must return HTTP 200.
 6. `@300x3@mastodon.social` resolved; public followers collection confirms both local
    accounts follow it.
 7. Public post fetched; local mention records created and native notification
@@ -432,12 +420,16 @@ Tracked as COMM-07; status Open.
 
 ### 15.4.6 Remote Account Approval and Rejection Record
 
-This is the standing moderation record for **remote** accounts contacting this
-instance, deliberately kept separate from the local follow relationships in §15.4.4.
-It is written here so that an approval or rejection decision is auditable rather than
-inferred from follow state.
+The standing moderation record for **remote** accounts contacting this instance is kept in
+`README-ACTION_ITEMS/status-and-references.md` (§19.3), deliberately separate from the local
+follow relationships in §15.4.4, so an approval or rejection decision is auditable rather than
+inferred from follow state. Nothing in the moderation tables is self-populating: **every block
+or approval must be recorded there as a dated row by the operator**, per §15.4.1 "Operator
+duties".
 
-State measured 2026-10-03 directly from the `mastodon-db` container:
+Requirements: while registration is closed, every moderation counter must be 0, and no remote
+account may be rejected except as an operator decision recorded in §19.3. Query the counters
+directly from the `mastodon-db` container; all must be 0:
 
 ```console
 $ podman exec mastodon-db psql -U mastodon -d mastodon -At -c \
@@ -454,69 +446,44 @@ blocks=0 domain_blocks=0 account_domain_blocks=0 email_domain_blocks=0
 canonical_email_blocks=0 follow_requests=0 invites=0 ip_blocks=0 user_invite_requests=0
 ```
 
-| Date | Remote account | Action | Basis |
-|---|---|---|---|
-| 2026-10-01 | `300x3@mastodon.social` (remote mirror of the project's own service account, `actor_type=Service`, `bot=true`) | **Accepted** — bidirectional follow established with `bot` and `admin`. No block recorded. | Self-owned account; it is the project's own `300x3` mastodon.social identity, so blocking it would sever the operator's own remote presence. Not a third party. |
-| 2026-10-01 | `Gargron@mastodon.social` (remote third party, `actor_type=Person`) | **Accepted as a remote actor, not followed** — `bot` follows `Gargron`; no reverse follow exists and none is expected. No block recorded. | An ordinary public-account follow in the direction local→remote. Not a moderation event. |
-| — | All other contacting remote accounts | No action. Discovery relays (`veganism.social`, `mastodon.online`, `universeodon.com`, `mastodonapp.uk`, `rivals.space`, `cupoftea.social`, `friendica@sekretaerbaer.de`, `friendica@fedibook.de`, `friendica@friendicadev.sekretaerbaer.de`) are **automatically fetched service-discovery actors**, not user accounts and not approval candidates. | Discovery contacts are protocol artefacts, not sign-ups. |
-
-There are **no pending remote approval requests**: `follow_requests = 0` and
-`user_invite_requests = 0`, which is consistent with registration being closed (§15.4.2).
-Nothing in the moderation tables is self-populating, so this table is the record of
-record — a future block or approval must be added as a row here by the operator, per
-§15.4.1 "Operator duties". No remote account has been rejected to date.
+Discovery relays (`veganism.social`, `mastodon.online`, `universeodon.com`,
+`mastodonapp.uk`, `rivals.space`, `cupoftea.social`, `friendica@sekretaerbaer.de`,
+`friendica@fedibook.de`, `friendica@friendicadev.sekretaerbaer.de`) are **automatically fetched
+service-discovery actors** — protocol artefacts, not user accounts and not approval
+candidates.
 
 ### 15.4.7 Inbound and Outbound Mail for the 300X3 Domain
 
-Mail for `300x3.com` is **not configured and currently cannot be delivered**. This is
-recorded here because Mastodon's account-confirmation and password-reset mail depends on
-it, and because "no MX" is a decision state, not an oversight.
+Mail for `300x3.com` must either be delivered or be formally deferred as unsupported.
+Mastodon's account-confirmation and password-reset mail depends on it, so "no MX" must be a
+recorded decision, not an oversight. The gap and its options are tracked in
+`README-ACTION_ITEMS/status-and-references.md` COMM-05 (§19.1); the choice is the operator's
+(§4.1 rule 14) and must not be taken unilaterally here.
 
+Requirements once mail is enabled — **both directions, or neither**:
 
+- **Inbound.** An `MX` record for `300x3.com` (or acceptance that RFC 5321 §5.1's implicit
+  MX — the domain's A record — answers on port 25), plus SPF, DMARC and a `mail.300x3.com`
+  host as applicable.
+- **Outbound.** `SMTP_ADDRESS`, `SMTP_DOMAIN` and credentials must exist in the live Mastodon
+  env (`~/.local/share/ao-secrets/mastodon.env`), because without them Mastodon has no
+  submission path at all — fixing MX alone leaves outbound silent.
+- **Recovery.** Password reset and confirmation mail to `admin@300x3.com` and `bot@300x3.com`
+  must work end to end, or the instance must document that address-based recovery is
+  unsupported.
 
-```console
-$ dig +noall +answer MX 300x3.com; echo "answers=$(dig +noall +answer MX 300x3.com | wc -l)"
-answers=0
-$ dig +noall +answer TXT 300x3.com          # no SPF
-$ dig +noall +answer TXT _dmarc.300x3.com   # no DMARC
-$ dig +noall +answer A  mail.300x3.com      # no mail host
-$ ss -lntp | grep -E ':(25|465|587)\b'      # no local SMTP listener
-```
-
-With no MX, RFC 5321 §5.1 falls back to the implicit MX, which is the domain's A record
-(the Cloudflare edge addresses). Port 25 to those addresses does not answer:
-
-```console
-$ for IP in 172.67.163.66 104.21.41.83; do echo > /dev/tcp/$IP/25 && echo "$IP:25 OPEN" || echo "$IP:25 no-answer/closed"; done
-172.67.163.66:25 no-answer/closed
-104.21.41.83:25 no-answer/closed
-```
-
-Consequence: **all mail to `@300x3.com` is silently undeliverable.** This affects the
-local Mastodon accounts, whose registered addresses are `admin@300x3.com` and
-`bot@300x3.com`. Password resets and any confirmation mail cannot arrive. Because the
-instance has open registration closed and no pending approvals, this is currently
-non-blocking for federation, but it is a real gap.
-
-**Outbound is also unconfigured, not merely undeliverable — added 2026-10-05.** The
-first pass above only tested *receiving*. Listing the **key names** of the live Mastodon
-environment (no values printed) shows there is no mail configuration at all:
+Verification — any resolution must be re-checked with all of these:
 
 ```console
+$ dig +noall +answer MX 300x3.com           # an MX answer, not zero answers
+$ dig +noall +answer TXT 300x3.com           # SPF
+$ dig +noall +answer TXT _dmarc.300x3.com    # DMARC
+$ dig +noall +answer A  mail.300x3.com       # mail host
+$ ss -lntp | grep -E ':(25|465|587)\b'       # local SMTP listener, if submitting locally
 $ cut -d= -f1 ~/.local/share/ao-secrets/mastodon.env | sort | grep -iE 'smtp|mail|email'
-NO smtp/mail/email key present in live mastodon.env
 ```
 
-The file holds 24 keys, all of them database, cache, TLS or tuning values. Mastodon
-therefore has no `SMTP_ADDRESS`/`SMTP_DOMAIN`/credentials, so it has **no way to submit
-mail either**. The practical consequence is wider than "reset mail is undeliverable":
-account recovery on this instance is not merely blocked at the receiving hop, there is no
-sending path to block. Any resolution chosen under COMM-05 must set **both** directions;
-fixing MX alone would leave outbound silent.
-
-Resolution requires an operator decision between the options in §19.1 COMM-05 and is
-**not** taken unilaterally here: pointing MX at a hosted relay, standing up a local MTA
-(both a new public listener on port 25 and a new package — rule 3 and rule 12), or
-formally deferring mail and documenting that address-based recovery is unsupported.
-Tracked as COMM-05; status Open.
+Options, all operator decisions: point MX at a hosted relay, stand up a local MTA (a new
+public listener on port 25 and a new package — §4.1 rules 3 and 12), or formally defer mail
+and document that address-based recovery is unsupported.
 

@@ -14,7 +14,7 @@ separation from the sales and mapping databases are specified in §17.1 and §3.
 | Area | Authoritative operational data | Network | Origin Domain |
 |---|---|---|---|
 | Sales | Sales PostgreSQL order, fulfillment, and customer-service records | `ao-sales` | `sales` |
-| Payment | Verified provider event record and normalized payment state | `ao-payment` (ingress via `ao-ingress-payment`) | `payment` (not yet in schema enum) |
+| Payment | Verified provider event record and normalized payment state | `ao-payment` (ingress via `ao-ingress-payment`) | `payment` (schema enum gap: LEDGER-03) |
 | Field | Raw packet store, telemetry spool, and mission records | `ao-field` | `field` |
 | Mapping | Validated imagery, WebODM project data, processing outputs, and deliverables | `ao-mapping` | `mapping` |
 | Vehicle simulation | Scenario definitions, run data, and result artifacts | `ao-sim-vehicle` | `sim_vehicle` |
@@ -30,9 +30,9 @@ controlled adapter rather than a workload network, the adapter is named in the s
 identifier used in the `origin_domain` field of ledger manifests (§11.5). Network names
 use the `ao-` prefix with hyphens (e.g., `ao-sim-vehicle`); origin domains drop the
 prefix and use underscores for simulation domains (`sim_vehicle`, `sim_fabrication`).
-`payment`, `archive`, and `ledger` are authoritative domains in §11.1 but are **not yet
-present in the manifest schema enum** (`config/ledger/manifest-schema.json`) — this is
-a tracked gap (LEDGER-03).
+`payment`, `archive`, and `ledger` are authoritative domains in §11.1 and **must be
+present in the manifest schema enum** (`config/ledger/manifest-schema.json`); their
+absence there is tracked as LEDGER-03.
 
 One row is an adapter and has **no network of its own**: `ao-egress-archive` is absent
 from both `config/platform/network-cidrs.yaml` and `podman network ls`. Every other
@@ -304,42 +304,40 @@ $ echo $?
 ```
 
 Exit `3` is a defined **PENDING** state, distinct from a failure (`44`) and from
-healthy (`0`). The script exits `3` before any network call because no container
-named `ledger-ingest` exists — confirmed independently:
+healthy (`0`). The script must exit `3` before any network call while no container
+named `ledger-ingest` exists — confirm independently:
 
 ```text
 $ podman ps -a --format '{{.Names}}' | grep -c 'ledger-ingest'
 0
 ```
 
-There is therefore no unresolved socket-bridge fault to diagnose. The probe is
-blocked only by the gateway not being deployed, which is downstream of the
-Corda 5 node build and the operator key ceremony. No privileged command is
-pending for this item.
+Exit `3` therefore means **gateway absent**, downstream of the Corda 5 node build
+(§11.7) and the operator key ceremony — not a socket-bridge fault to diagnose. No
+privileged command is pending for this item.
 
 Signing and submission are likewise staged, not broken:
 `scripts/ledger/sign-manifest.sh` signs and `scripts/ledger/submit-ledger-event.sh`
 stages unsigned-or-unsubmitted manifests to
 `artifacts/pending-ledger-submissions/<YYYYMMDD>/` and exits `3`, so nothing is
 lost while the gateway is absent. Ingest security properties (§11.2.1) are
-therefore **specified and enforced client-side**, but remain **unproven end to
-end** until the gateway exists.
+**specified and enforced client-side** and must be proven end to end at the gateway.
 
-### 11.2.5 Ingest Security Requirements (specified, not yet enforced by a gateway)
+### 11.2.5 Ingest Security Requirements (enforced at the ledger gateway)
 
 The ingest gateway must enforce all of the following. Each maps to a control in
-§11.2.1 and §4.4; none is satisfied by the current staging behaviour.
+§11.2.1 and §4.4; none can be satisfied by staging behaviour alone.
 
-| # | Requirement | Enforced by | Current state |
+| # | Requirement | Enforced by | Where the control lives |
 |---|---|---|---|
-| 1 | Mutual TLS; one client certificate per exporter domain | Gateway | Not implemented — no gateway |
-| 2 | Path authorization against `config/ledger/authorization-policy.yaml` | Gateway | Policy file exists, no enforcer |
-| 3 | JSON Schema validation against `config/ledger/manifest-schema.json` | Gateway | Schema exists; `additionalProperties: false` |
-| 4 | Detached signature verification against the exporter's registered key | Gateway | **Signer-side only.** `sign-manifest.sh` signs; nothing verifies |
-| 5 | `producer_key_id` must match the mTLS certificate identity | Gateway | Not implemented |
-| 6 | Idempotency on `correlation_id` (§11.2.1) | Gateway | Required by policy, unenforced |
-| 7 | Replay defence — reject a re-presented digest/timestamp | Gateway | Not implemented |
-| 8 | Audit log of accept **and** reject, with reason code | Gateway | Not implemented |
+| 1 | Mutual TLS; one client certificate per exporter domain | Gateway | mTLS terminates at the gateway; the client half presents, never trusts |
+| 2 | Path authorization against `config/ledger/authorization-policy.yaml` | Gateway | the policy file is authoritative; only the gateway enforces it |
+| 3 | JSON Schema validation against `config/ledger/manifest-schema.json` | Gateway | the schema is `additionalProperties: false`; validation is gateway-side |
+| 4 | Detached signature verification against the exporter's registered key | Gateway | client side signs only (`sign-manifest.sh`); verification exists nowhere else |
+| 5 | `producer_key_id` must match the mTLS certificate identity | Gateway | derived from the authenticated mTLS identity, never from the body |
+| 6 | Idempotency on `correlation_id` (§11.2.1) | Gateway | required by policy; enforcement is gateway-side |
+| 7 | Replay defence — reject a re-presented digest/timestamp | Gateway | gateway-side only |
+| 8 | Audit log of accept **and** reject, with reason code | Gateway | gateway-side only |
 
 Two design points an implementer should not get wrong:
 
@@ -352,8 +350,8 @@ Two design points an implementer should not get wrong:
   [transaction_id]`) and again by `build-manifest.sh`, which rejects a
   `sales_receipt` without an issued `transaction_id` (exit `12`).
 
-Until rows 1–8 exist in a running gateway, **LEDGER-03 stays open**. What is
-demonstrable today is only the client half: build → sign → stage. Signing proves
+Rows 1–8 must exist in a running gateway before LEDGER-03 (§19.1) can close. Only the
+client half is demonstrable without one: build → sign → stage. Signing proves
 a manifest is well-formed and signed; it proves nothing about acceptance,
 authorization, or replay defence, because there is no acceptor to test.
 
@@ -379,8 +377,8 @@ $ bash scripts/ledger/verify-ledger-receipt.sh RCPT-FAKE-0001 <manifest>
 FAIL: receipt mismatch                                        # exit 50
 ```
 
-So the **unsigned-rejection** and **schema conditional** behaviours are real and
-now verified by execution rather than by reading the source.
+So the **unsigned-rejection** and **schema conditional** behaviours are asserted by
+execution rather than by reading the source.
 
 #### A real weakness: staging does not validate the signature
 
@@ -394,7 +392,7 @@ $ bash scripts/ledger/submit-ledger-event.sh m3.json
 PENDING: gateway not deployed; manifest staged for later submission   # exit 3
 ```
 
-This is **not currently a security hole**, because the manifest goes to a local
+This is **not a security hole**, because the manifest goes to a local
 staging directory and is never transmitted — there is no gateway to accept it.
 It becomes one the moment row 4 (server-side signature verification) is skipped.
 Therefore:
@@ -408,7 +406,7 @@ Therefore:
   creates records that look operator-approved and are not.
 
 The empty `producer_key_id` and `authorization_policy_id` fields that
-`build-manifest.sh` emits are currently unpopulated placeholders. They must be
+`build-manifest.sh` emits are unpopulated placeholders. They must be
 filled by the gateway from the authenticated mTLS identity, never from the
 submitted body.
 
@@ -678,21 +676,15 @@ Local source data
   restic (§17.1).
 - Archive replication occurs only through `ao-egress-archive`.
 
-### 11.6.1 pCloud Archive Credential Status
+### 11.6.1 pCloud Archive Credential Requirements
 
-`ao-egress-archive` **does not exist as a Quadlet, a container, or a network.**
-This is the concrete reason LEDGER-04 cannot progress:
+**Credentials are provisioned only into a service that has a unit.** The
+`ao-egress-archive` adapter must therefore be built as a Quadlet, container, and
+network before any credential is provisioned and before LEDGER-04's acceptance
+criteria are executable as written.
 
-```text
-$ find quadlet -ipath '*archive*'          # no output
-$ podman ps -a --format '{{.Names}}' | grep -c -E 'archive|egress'
-0
-```
-
-Only the policy file exists (`config/pcloud/replication-policy.yaml`), which
-constrains scope but provisions nothing. **Credentials cannot be provisioned into
-a service that has no unit, so the `ao-egress-archive` adapter must be built
-before LEDGER-04's acceptance criteria are executable as written.**
+`config/pcloud/replication-policy.yaml` constrains scope but provisions nothing —
+the policy file alone is not a credential source.
 
 Note the naming mismatch for whoever builds it: §11.1 and §4.4 call this
 component **`ao-egress-archive`**; the LEDGER-04 acceptance criteria call it
@@ -704,13 +696,13 @@ exists by name and non-zero length, never print, copy, or export the value.
 **No replication test may be run without credentials, which are a stop
 condition (README §4.1 rule 14).**
 
-## 11.7 Corda 5 Node Build Status and Blockers
+## 11.7 Corda 5 Node Build Requirements and Stop Conditions
 
-**The node is not built. No Corda 5 node exists, and none can be built by an
-agent session.** The artifacts are present and verified, but the remaining steps
-are operator-only key ceremonies (§11.2, README §4.1 rule 14).
+**No Corda 5 node may be built by an agent session.** The artifacts are staged and
+verified; the remaining steps are operator-only key ceremonies (§11.2, README §4.1
+rule 14). The node exists only after they complete.
 
-### What is verified in place
+### Staged and verified artifacts
 
 ```text
 $ sha256sum -c corda-combined-worker-5.2.2.0.jar.sha256sum   # in data/corda-install/
@@ -718,9 +710,9 @@ corda-combined-worker-5.2.2.0.jar: OK
 ```
 
 Corda 5.2.2 worker JAR, CLI installer, and notary plugin are staged in
-`data/corda-install/` with checksum sidecars. The Corda 4.14.2 / H2 installation
-was retired on 2026-09-29 under operator approval — see
-`logs/operations/2026-09-28-corda4-retirement.md`.
+`data/corda-install/` with checksum sidecars, and every sidecar must verify
+before any build step. The host must carry no Corda 4.14.2 / H2 installation;
+the retirement record is tracked in `README-ACTION_ITEMS/status-and-references.md` (ST-09).
 
 ### The ledger service account is `ao-ledger`
 
@@ -747,7 +739,7 @@ not a missing account — do not "fix" it by loosening the mode or by running th
 node as `scottw`. Note also that the retirement log (`…corda4-retirement.md`)
 already used `alwayson-ledger` for uid 994, so this same error is present there.
 
-### The blocking conditions, in order
+### Stop conditions, in order
 
 1. **Ledger keys (LEDGER-01).** The TLS certificate chain and keystores for the
    Corda 5 cluster require the operator to hold the passphrases in KWallet under
@@ -767,10 +759,11 @@ Until step 1 completes, the node cannot be created, the ledger is **not
 production-ready**, and no receipt, entitlement, or provenance record can be
 final (§11.2.3).
 
-### What could not be verified unprivileged
+### Unprivileged accounts cannot measure database state
 
-Database state cannot be measured from an unprivileged account. Both PostgreSQL
-paths are closed to it, and neither failure means the database is absent:
+Database state cannot be measured from an unprivileged account, so table counts
+must not be asserted from one. Both PostgreSQL paths are closed to it, and neither
+failure means the database is absent:
 
 ```text
 $ psql -tAc 'select 1'
@@ -781,9 +774,8 @@ $ sudo -n -u postgres psql -tAc "SELECT count(*) FROM pg_tables WHERE schemaname
 sudo: interactive authentication is required
 ```
 
-The "0 tables in `cordadb`" claim in §19 for LEDGER-07 is therefore **carried
-forward from §19 and NOT re-verified here**. It should not be repeated as
-established fact until the operator runs:
+Any "tables in `cordadb`" figure is LEDGER-07 evidence and must not be repeated in
+this document as established fact until the operator runs:
 
 ```bash
 sudo -u postgres psql -tAc "SELECT count(*) FROM pg_tables WHERE schemaname='public' AND tablename NOT LIKE 'pg_%';"
