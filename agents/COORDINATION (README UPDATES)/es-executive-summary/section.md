@@ -162,13 +162,14 @@ The only non-loopback listeners are ReticulumMeshChat (documented) and `dnsmasq`
 
 This is the single authoritative document for the ALWAYS ON project. It contains the
 intended architecture, implemented configuration, operational requirements, validation
-evidence, approved deviations. The remaining tables,
+evidence, and the open work items that close the remaining gaps. The remaining tables,
 commands, evidence, paths, full interface inventory, operational requirements,
 payment/ledger forms, Mastodon details, installation procedures, backup rules, and
 service records follow, numbered 1–17. Status, work queue, and references live in §19–20 (`README-ACTION_ITEMS/status-and-references.md`), never in this body. Where an older statement conflicts with ES.1,
 ES.1 governs. When the current implementation differs from an architecture
-requirement, the difference must be recorded in **Approved Deviations and Open
-Decisions** with a rationale, compensating controls, owner, and resolution condition.
+requirement, the gap SHALL be tracked as an Open work item in §19.1 with owner,
+acceptance criteria, and closure evidence — no implementation ships with an
+untracked gap.
 
 > **Operator warning.** Everything here is difficult until it is easy. These tools
 > are sharp and dangerous, and if you disrespect them they will can/will harm you —

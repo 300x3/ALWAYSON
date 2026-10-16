@@ -1,4 +1,55 @@
 # README change log
+## 2026-10-16 — Prescriptive rewrite: deviation escape hatches eliminated (DOC-02)
+
+Every `deviation` / `approved deviation` / `authorised deviation` / `recorded deviation`
+clause in live §§ES.3, 6, 8.4.1, 11, 13.2.1, 14.1, 14.1.6, 17.1.3, 17.3 and §19.1/§20
+was rewritten as a SHALL requirement or an Open §19.1 work item. No `deviat*` string
+remains in live §§1–17 sources or the compiled README body.
+
+| Change | Effect on the document |
+|---|---|
+| ES.3 gap rule rewritten | Untracked gaps forbidden: every implementation-vs-requirement gap SHALL be an Open §19.1 work item with owner, acceptance criteria, closure evidence |
+| §6 boundary rule rewritten | Material gaps SHALL be tracked Open work items before any production declaration |
+| §8.4.1 mapping store rewritten | Root-filesystem data directory is Open work item FIELD-11, SHALL be closed by moving onto the validated drive |
+| §11 Corda exception rewritten | Native systemd unit is the single specified exception to §4.1 rule 5, not a deviation |
+| §13.2.1 store scaffolding rewritten | Three unused accounts + one disabled unit are Open work item OPS-14, SHALL be removed by operator action |
+| §14.1 policy rewritten | KDE Wallet storage + `0600` env-file delivery via `EnvironmentFile=` is the specified design (SEC-01/SEC-02 ratification); required controls replace compensating-controls language |
+| §14.1.6 heading + body rewritten | Specified delivery subsection; residual handling stated as specified, not accepted exposure |
+| §17.1.3 off-site schedule rewritten | Repository SHALL be on a schedule; gap tracked as OPS-30 |
+| §17.3 completion item rewritten | Open work items, not deviations, in the completion list |
+| §19.1 rows rewritten | PLAT-01, PLAT-05, SEC-01, SEC-02, OPS-06, OPS-13, OPS-14, OPS-34, §19.2 Rootless row, §20 preamble — all SHALL requirements or specified exceptions |
+| Section sources recompiled | `tools/compile.py` rebuilt README.md; `--check` reports identical |
+
+### Verified
+
+```text
+grep -rin deviat (live sections)   nothing
+grep -in deviat (compiled README)  nothing
+compile.py --check                 identical
+```
+
+## 2026-10-16 — §15.4 status/progress narration removed (moved to §19.3)
+
+All of §15.4 (Remote account moderation) read as status/progress narration and was
+rewritten as pure specification and procedure. The dated-row decision record and the
+operator-only decision rule were moved to §19.3, with the §15.4 body retaining only the
+counter requirement and the record-the-decision rule.
+
+| Change | Effect on the document |
+|---|---|
+| §15.4.1–15.4.5 status-language repaired | Sentences claiming past completion, open/closed status, drift history, and measured-gap claims converted to requirement form (§19.3 COMM-03/04/05 evidence retained) |
+| §15.4.6 moderation record relocated | Dated-row decision table moved to §19.3; body keeps counter requirement and "record every decision there" rule; zero-counter query as console verification |
+| Discovery-relay tail corrected | Discovery relays are protocol artefacts, not approval candidates |
+| Section sources re-split | `tools/split.py` re-ran over the edited body; `tools/compile.py --check` reports identical |
+
+### Verified
+
+```text
+compile.py --check        identical
+headings                  203 before, 203 after
+fences                    239 before, 239 after
+```
+
 ## 2026-10-16 — specification-only pass over the body (§1–16)
 
 Removed remaining status, progress and timeline language from the compiled README body and

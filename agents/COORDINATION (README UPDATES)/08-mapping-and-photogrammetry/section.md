@@ -125,17 +125,27 @@ These are the locations the tree does not show.
 
 ## 8.4.1 Authoritative mapping database name and location
 
-The single authoritative mapping database is on the host cluster at `10.42.0.1:5432`,
-with physical data at `~/webodm/dbdata`, bind-mounted on `ao-webodm-db`, and it is
-within the backup scope at `backups/mapping-db/`. The `webodm_dev` referenced in
-ST-03 is a connection alias within the `ao-webodm-db` container, not a separate
-database. This resolves the conflict between §8.4 (`~/webodm/dbdata`), §3.3.1
-(`webodm`), and ST-03 (`webodm_dev`).
+The single authoritative mapping database is **`webodm_dev`** in container `ao-webodm-db`,
+with physical data at `~/webodm/dbdata` (`/home/scottw/webodm/dbdata`, bind-mounted at
+`/var/lib/postgresql/data`), and it is within the backup scope
+(`scripts/backup/dump-all-postgres.sh:18` dumps `webodm_dev`). The app reads `webodm_dev`
+by default (`WO_DATABASE_NAME` unset; upstream `settings.py` default `webodm_dev`). The empty
+`webodm` database in the same container is a 2026-09-30 rollback artefact, not the live
+database. Measured 2026-10-16: `webodm_dev` holds 32 public tables (10 projects, 10 tasks);
+`webodm` holds 0. This resolves the conflict between §8.4 (`~/webodm/dbdata`), §3.3.1
+(`webodm`), and ST-03 (`webodm_dev`). The duplicate `POSTGRES_DB=webodm` default in
+`quadlet/mapping/ao-webodm-db.container` is vestigial (the live `webodm_dev` predates it)
+and changing it is an operator action.
 
 The data directory resides on the root filesystem rather than the photogrammetry
-drive; this is an approved deviation documented here and tracked as FIELD-11. Moving
+drive; this gap is tracked as Open work item FIELD-11 in §19.1. Moving
 a live PostgreSQL data directory is an operator decision and service-configuration
-change requiring privileged `usermod -aG alwayson-mapping scottw`.
+change. Measured 2026-10-16: the drive top level is now operator-writable
+(`scottw:ao-mapping`, and `scottw` is in `ao-mapping`), but eight subdirectories
+(`backups`, `deliverables`, `exports`, `incoming`, `manifests`, `rejected`, `tmp`,
+`validated`) remain `ao-mapping:alwayson-mapping` mode `770` with `alwayson-mapping`
+empty, so they are still operator-denied; see FIELD-10. Any move must fix that
+ownership first, or the database lands on a volume its own operator cannot manage.
 
 `/ALWAYSON/data/mapping/postgres/` and `/ALWAYSON/data/mapping/redis/` are not part of
 the design and must stay empty; neither is a bind mount for the running services.

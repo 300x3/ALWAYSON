@@ -105,8 +105,9 @@ operator-access implementation must comply with this subsection and §§4, 5, 14
 - No GUI may add a public listener, broad host networking, unrestricted Podman
   socket access, `--privileged`, shared writable storage, or unrelated-domain
   secret merely to simplify deployment or troubleshooting.
-- Any material deviation requires an approved record before a production
-  declaration.
+- Any material gap against these boundaries SHALL be tracked as an Open work item
+  in §19.1 with owner and acceptance criteria before a production declaration —
+  no production declaration ships with an untracked gap.
 
 The machine-readable inventory that implements this requirement is
 `/ALWAYSON/config/platform/gui-boundary-matrix.yaml`.

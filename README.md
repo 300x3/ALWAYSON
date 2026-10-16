@@ -209,13 +209,14 @@ The only non-loopback listeners are ReticulumMeshChat (documented) and `dnsmasq`
 
 This is the single authoritative document for the ALWAYS ON project. It contains the
 intended architecture, implemented configuration, operational requirements, validation
-evidence, approved deviations. The remaining tables,
+evidence, and the open work items that close the remaining gaps. The remaining tables,
 commands, evidence, paths, full interface inventory, operational requirements,
 payment/ledger forms, Mastodon details, installation procedures, backup rules, and
 service records follow, numbered 1–17. Status, work queue, and references live in §19–20 (`README-ACTION_ITEMS/status-and-references.md`), never in this body. Where an older statement conflicts with ES.1,
 ES.1 governs. When the current implementation differs from an architecture
-requirement, the difference must be recorded in **Approved Deviations and Open
-Decisions** with a rationale, compensating controls, owner, and resolution condition.
+requirement, the gap SHALL be tracked as an Open work item in §19.1 with owner,
+acceptance criteria, and closure evidence — no implementation ships with an
+untracked gap.
 
 > **Operator warning.** Everything here is difficult until it is easy. These tools
 > are sharp and dangerous, and if you disrespect them they will can/will harm you —
@@ -1507,8 +1508,9 @@ operator-access implementation must comply with this subsection and §§4, 5, 14
 - No GUI may add a public listener, broad host networking, unrestricted Podman
   socket access, `--privileged`, shared writable storage, or unrelated-domain
   secret merely to simplify deployment or troubleshooting.
-- Any material deviation requires an approved record before a production
-  declaration.
+- Any material gap against these boundaries SHALL be tracked as an Open work item
+  in §19.1 with owner and acceptance criteria before a production declaration —
+  no production declaration ships with an untracked gap.
 
 The machine-readable inventory that implements this requirement is
 `/ALWAYSON/config/platform/gui-boundary-matrix.yaml`.
@@ -1877,17 +1879,27 @@ These are the locations the tree does not show.
 
 ## 8.4.1 Authoritative mapping database name and location
 
-The single authoritative mapping database is on the host cluster at `10.42.0.1:5432`,
-with physical data at `~/webodm/dbdata`, bind-mounted on `ao-webodm-db`, and it is
-within the backup scope at `backups/mapping-db/`. The `webodm_dev` referenced in
-ST-03 is a connection alias within the `ao-webodm-db` container, not a separate
-database. This resolves the conflict between §8.4 (`~/webodm/dbdata`), §3.3.1
-(`webodm`), and ST-03 (`webodm_dev`).
+The single authoritative mapping database is **`webodm_dev`** in container `ao-webodm-db`,
+with physical data at `~/webodm/dbdata` (`/home/scottw/webodm/dbdata`, bind-mounted at
+`/var/lib/postgresql/data`), and it is within the backup scope
+(`scripts/backup/dump-all-postgres.sh:18` dumps `webodm_dev`). The app reads `webodm_dev`
+by default (`WO_DATABASE_NAME` unset; upstream `settings.py` default `webodm_dev`). The empty
+`webodm` database in the same container is a 2026-09-30 rollback artefact, not the live
+database. Measured 2026-10-16: `webodm_dev` holds 32 public tables (10 projects, 10 tasks);
+`webodm` holds 0. This resolves the conflict between §8.4 (`~/webodm/dbdata`), §3.3.1
+(`webodm`), and ST-03 (`webodm_dev`). The duplicate `POSTGRES_DB=webodm` default in
+`quadlet/mapping/ao-webodm-db.container` is vestigial (the live `webodm_dev` predates it)
+and changing it is an operator action.
 
 The data directory resides on the root filesystem rather than the photogrammetry
-drive; this is an approved deviation documented here and tracked as FIELD-11. Moving
+drive; this gap is tracked as Open work item FIELD-11 in §19.1. Moving
 a live PostgreSQL data directory is an operator decision and service-configuration
-change requiring privileged `usermod -aG alwayson-mapping scottw`.
+change. Measured 2026-10-16: the drive top level is now operator-writable
+(`scottw:ao-mapping`, and `scottw` is in `ao-mapping`), but eight subdirectories
+(`backups`, `deliverables`, `exports`, `incoming`, `manifests`, `rejected`, `tmp`,
+`validated`) remain `ao-mapping:alwayson-mapping` mode `770` with `alwayson-mapping`
+empty, so they are still operator-denied; see FIELD-10. Any move must fix that
+ownership first, or the database lands on a volume its own operator cannot manage.
 
 `/ALWAYSON/data/mapping/postgres/` and `/ALWAYSON/data/mapping/redis/` are not part of
 the design and must stay empty; neither is a bind mount for the running services.
@@ -3225,10 +3237,10 @@ sudo -u postgres psql -tAc "\du corda"   # inspect role state; do not print the 
 
 ### The node build is native, not containerised — and that is deliberate
 
-Corda 5 ships no official container image. Ledger core therefore runs as a native
-systemd user unit for `ao-ledger`, bound to loopback PostgreSQL. This is a
-**documented deviation** from the Podman-and-Quadlet-only rule (README §4.1 rule
-5) and is the single place it applies. It is recorded here so it is not later
+Corda 5 ships no official container image. Ledger core therefore SHALL run as a native
+systemd user unit for `ao-ledger`, bound to loopback PostgreSQL. This is the single
+specified exception to the Podman-and-Quadlet-only rule (README §4.1 rule
+5) and is the single place it applies. It is specified here so it is not later
 mistaken for an oversight. It widens **no** listener and uses **no**
 `--privileged`; the node is not reachable from any workload network. The two
 `ao-ledger-core` and `ao-ledger-ingest` Quadlet networks are nevertheless
@@ -4166,12 +4178,11 @@ here. Two are specific to this model:
 - Explicit bind mounts are limited to approved mapping paths (§5.3).
 - systemd resource limits and a restart policy are set on every unit.
 
-### 13.2.1 Recorded deviation — per-service accounts exist but run nothing
+### 13.2.1 Tracked gap — per-service accounts exist but run nothing
 
 The design forbids a per-service store, and no workload uses one. **However, the accounts and
-one system unit from that rejected design are still present on the host.** Recording them here
-is what closes the disagreement between this section and the §19.2 row that described a
-"mixed-store deviation": there is no mixed store. What exists is unused scaffolding.
+one system unit from that rejected design are still present on the host.** They are tracked
+here as Open work item `OPS-14` in §19.1: there is no mixed store. What exists is unused scaffolding.
 
 | Artefact | State | Meaning |
 |---|---|---|
@@ -4182,9 +4193,10 @@ is what closes the disagreement between this section and the §19.2 row that des
 | `/run/ao-podman/` | `No such file or directory` | the rejected socket directory was never created |
 | `/var/lib/containers/storage` | exists, `db.sql` last written before the rootless migration | enumerated — zero containers/pods/volumes; residual images unverified, see below |
 
-**Deviation.** The host carries three unused service accounts and one disabled system unit
+**Tracked gap (Open work item `OPS-14`).** The host carries three unused service accounts and one disabled system unit
 that this design does not authorise. They hold no container store, no socket and no process,
-so the single-store designation above is unaffected. They are **left in place**: removing an
+so the single-store designation above is unaffected. They SHALL be removed by operator action
+(recorded in §19.1 `OPS-14`): removing an
 account or a unit file is a deletion, and README §4.1 rule 3 requires explicit operator
 approval. **This is an OPEN item for the operator**, not a defect in the running system.
 
@@ -4341,17 +4353,23 @@ and approved WebODM version.
 
 ## 14.1 Secret Delivery
 
-**Policy.** Use Podman secrets or systemd credentials. Prefer file-based secret delivery
+**Policy.** Secret storage SHALL be the KDE Wallet, encrypted at rest. Secret delivery
+SHALL be a wallet-materialised `0600` env file under `%h/.local/share/ao-secrets/`,
+consumed by the unit via Podman `EnvironmentFile=` and refreshed at start-up by
+`fetch-kwallet-secret.sh` (Open work items `SEC-01`/`SEC-02` in §19.1 track operator
+ratification of the nine-file/fifteen-unit delivery set). Prefer file-based secret delivery
 rather than environment variables.
 
-**Authorised deviation (SEC-01/SEC-02).** The login-gated KDE Wallet
-design is the authorised deviation from the policy. Services that consume wallet secrets start
+**Specified design (SEC-01/SEC-02).** The login-gated KDE Wallet
+design is the specified secret-delivery mechanism for this host, implementing the §4.1 rule 7
+requirement (`Only use KDE Wallet for passwords, tokens, keys, and other secret material`).
+Services that consume wallet secrets start
 after Plasma login (`WantedBy=graphical-session.target`) and are not expected to start
 unattended before a password is entered. The ~60 s wait in `fetch-kwallet-secret.sh` is the
 bounded startup allowance for that login, not a fallback for a passwordless boot. Auto-login is
 an operator convenience, not a requirement of this design.
 
-**Compensating controls for the deviation.**
+**Required controls for the specified design.**
 
 | Control | Implementation | Verification |
 |---|---|---|
@@ -4363,14 +4381,14 @@ an operator convenience, not a requirement of this design.
 | No cross-domain folder | One `ao-*` folder per credential domain; service reads only its owning folder | `kwallet-provision.sh list kdewallet` |
 | Wallet backup gap acknowledged | KDE Wallet (`~/.local/share/kwalletd/`) is **not** in the restic path set; §14.2.4 records this as a known single point of failure requiring operator decision | `grep -n 'kwalletd' scripts/backup/restic-run.sh` (returns nothing) |
 
-**Operator approval required before production declaration.** This deviation and its compensating
+**Operator approval required before production declaration.** This specified design and its required
 controls must be explicitly approved by the operator before any production declaration. The
-deviation touches secrets, credentials, and a live running service (README §4.1 rules 12 and 14).
+design touches secrets, credentials, and a live running service (README §4.1 rules 12 and 14).
 
 ### 14.1.1 KDE Wallet Secret Management
 
 KDE Wallet is the operator-side secret and credential store for this host. This subsection
-documents the integration. The unattended-delivery deviation is recorded in **§14.1** (policy
+documents the integration. The specified login-gated delivery design is stated in **§14.1** (policy
 box above), the rotation and recovery procedure in **§14.2**.
 
 **Runtime.** Daemon `kwalletd6` on the `org.kde.kwalletd6` D-Bus name, wallet `kdewallet`,
@@ -4668,7 +4686,7 @@ File.write('/tmp/bot_token', tok.token)
 Three traps: there is no `accounts.local` column;
 `owner_id` and `resource_owner_id` reference the **`users`** table, not
 `accounts`; and `expires_in: 0` produces an already-expired token.
-### 14.1.6 Recorded deviation — env-file delivery instead of Podman secrets
+### 14.1.6 Specified delivery — env-file delivery via Podman `EnvironmentFile`
 
 **Forbidden plaintext copy: `%h/.local/share/ao-secrets/legacy-alwayson-folder.env`.** This
 path must not exist: it is mode `0600`, holds one credential for each of the four DB domains
@@ -4708,12 +4726,12 @@ backup set, or an external network; rotation becomes required only if the operat
 host's local user account to be untrusted. The deletion decision is recorded in
 `README-ACTION_ITEMS/status-and-references.md`.
 
-**This deviation requires operator ratification.** This subsection exists because
-§14.1 mandates Podman secrets or systemd credentials while every implemented path is a
-wallet-materialised `0600` env file. The deviation is recorded here rather than left silent.
+**This specified design requires operator ratification.** This subsection states the
+specified delivery mechanism: every implemented path is a
+wallet-materialised `0600` env file consumed via Podman `EnvironmentFile=`.
 **It is not self-approving** — README §4.1 rule 14 reserves the decision to the operator.
 
-**Scope of the deviation.** Secret *storage* is the KDE Wallet, encrypted at rest. Secret
+**Scope of the specified design.** Secret *storage* is the KDE Wallet, encrypted at rest. Secret
 *delivery* is a `0600` env file under `%h/.local/share/ao-secrets/`, refreshed at start-up by
 `fetch-kwallet-secret.sh`. Env files are **delivery copies, not stores**: the wallet is the
 only system of record, and every file is rewritten from the wallet on each refresh, so losing
@@ -4734,9 +4752,9 @@ The delivery set is **eight secret-bearing env files**, not four:
 
 Plus `mastodon.env` (1041 bytes, mode `0640`, wallet entry `ao-mastodon/mastodon-env`,
 byte-identical to the file per §14.1.3), consumed by `ao-mastodon-web`, `-streaming` and
-`-sidekiq` and by the repair `ExecStartPost`. **The operator is therefore being asked to
-ratify a deviation covering nine files across fifteen units, not four files across four
-units.** The four-database framing was inherited from the SEC-01 acceptance criterion, which
+`-sidekiq` and by the repair `ExecStartPost`. **The operator SHALL therefore ratify
+nine files across fifteen units, not four files across four
+units (Open work items `SEC-01`/`SEC-02` in §19.1).** The four-database framing was inherited from the SEC-01 acceptance criterion, which
 names only mastodon-db, sales-db and webodm-db; the criterion is narrower than the
 implementation, and the implementation is what needs approving.
 
@@ -4750,14 +4768,14 @@ The other eight env files are `0600 scottw:scottw` with no ACL. So "all delivery
 `0600`" is true of eight files and false of the ninth: `mastodon.env` is `0640` with an
 ACL granting `ao-sales` read (§14.1.4).
 
-**Why the mandated mechanism is not used.** Podman secrets (`podman secret ls` returns an
+**Why Podman secrets / systemd credentials are not the delivery path.** Podman secrets (`podman secret ls` returns an
 empty list; Podman 5.7.0) would have to be populated *from* the wallet by a root or
 podman-owned helper at start-up, which relocates the plaintext to a second long-lived store
 rather than removing it, and `Secret=` cannot be populated from a login-gated wallet at all.
 Systemd `LoadCredential=` is available to the systemd user manager but is not usable by
 Podman-managed containers, which take `EnvironmentFile=`/`Secret=`, not systemd credentials.
 
-**Compensating controls** (each verified, not asserted):
+**Required controls** (each verified, not asserted):
 
 | Control | Evidence |
 |---|---|
@@ -4774,7 +4792,7 @@ lifetime of the unit and are overwritten in place at the next start. Only the tr
 is removed, and only with `rm -f`, not `shred`. The scripts that *do* shred are
 `scripts/mastodon/post.sh` (`trap 'shred -u "$ENV"' EXIT`) and `scripts/ledger/sign-manifest.sh`.
 So the accurate statement is: **delivery copies persist on disk at `0600` between start-ups and
-are replaced, not shredded.** This is the accepted residual exposure of the deviation and is
+are replaced, not shredded.** This is the specified residual handling of this design and is
 why the wallet — not these files — is designated the system of record.
 
 **Two file-layout facts this subsection depends on:**
@@ -5828,8 +5846,9 @@ The off-site repository must satisfy all of the following.
 1. **Exist as a valid restic repository** and decrypt with the production
    credential (`restic cat config` succeeds).
 2. **Hold a snapshot series, not a single snapshot.** A one-snapshot repository
-   proves a copy once; it does not prove a copy is maintained. Schedule it, or
-   record an explicit approved deviation.
+   proves a copy once; it does not prove a copy is maintained. The repository
+   SHALL be on a schedule; until the schedule exists the gap is tracked as Open
+   work item `OPS-30` in §19.1.
 3. **Cover every path class the nightly repository covers** (see §17.4). A
    repository holding only a subset is not a restore source.
 4. **Verify** — `restic check` must pass against it.
@@ -6061,8 +6080,8 @@ the following.
 13. Sales receipt-manifest test without payment secrets.
 14. Backup execution result.
 15. At least one isolated restore-test result.
-16. A current list of unresolved blockers, deviations, risks and actions requiring
-    human approval.
+16. A current list of unresolved blockers, open work items, risks and actions
+    requiring human approval.
 
 ## 17.4 Restic path set
 

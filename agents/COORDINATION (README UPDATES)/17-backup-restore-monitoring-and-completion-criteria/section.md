@@ -42,8 +42,9 @@ The off-site repository must satisfy all of the following.
 1. **Exist as a valid restic repository** and decrypt with the production
    credential (`restic cat config` succeeds).
 2. **Hold a snapshot series, not a single snapshot.** A one-snapshot repository
-   proves a copy once; it does not prove a copy is maintained. Schedule it, or
-   record an explicit approved deviation.
+   proves a copy once; it does not prove a copy is maintained. The repository
+   SHALL be on a schedule; until the schedule exists the gap is tracked as Open
+   work item `OPS-30` in §19.1.
 3. **Cover every path class the nightly repository covers** (see §17.4). A
    repository holding only a subset is not a restore source.
 4. **Verify** — `restic check` must pass against it.
@@ -275,8 +276,8 @@ the following.
 13. Sales receipt-manifest test without payment secrets.
 14. Backup execution result.
 15. At least one isolated restore-test result.
-16. A current list of unresolved blockers, deviations, risks and actions requiring
-    human approval.
+16. A current list of unresolved blockers, open work items, risks and actions
+    requiring human approval.
 
 ## 17.4 Restic path set
 

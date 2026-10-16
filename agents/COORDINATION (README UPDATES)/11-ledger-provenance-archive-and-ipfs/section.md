@@ -784,10 +784,10 @@ sudo -u postgres psql -tAc "\du corda"   # inspect role state; do not print the 
 
 ### The node build is native, not containerised — and that is deliberate
 
-Corda 5 ships no official container image. Ledger core therefore runs as a native
-systemd user unit for `ao-ledger`, bound to loopback PostgreSQL. This is a
-**documented deviation** from the Podman-and-Quadlet-only rule (README §4.1 rule
-5) and is the single place it applies. It is recorded here so it is not later
+Corda 5 ships no official container image. Ledger core therefore SHALL run as a native
+systemd user unit for `ao-ledger`, bound to loopback PostgreSQL. This is the single
+specified exception to the Podman-and-Quadlet-only rule (README §4.1 rule
+5) and is the single place it applies. It is specified here so it is not later
 mistaken for an oversight. It widens **no** listener and uses **no**
 `--privileged`; the node is not reachable from any workload network. The two
 `ao-ledger-core` and `ao-ledger-ingest` Quadlet networks are nevertheless

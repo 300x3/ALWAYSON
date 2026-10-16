@@ -2,17 +2,23 @@
 
 ## 14.1 Secret Delivery
 
-**Policy.** Use Podman secrets or systemd credentials. Prefer file-based secret delivery
+**Policy.** Secret storage SHALL be the KDE Wallet, encrypted at rest. Secret delivery
+SHALL be a wallet-materialised `0600` env file under `%h/.local/share/ao-secrets/`,
+consumed by the unit via Podman `EnvironmentFile=` and refreshed at start-up by
+`fetch-kwallet-secret.sh` (Open work items `SEC-01`/`SEC-02` in §19.1 track operator
+ratification of the nine-file/fifteen-unit delivery set). Prefer file-based secret delivery
 rather than environment variables.
 
-**Authorised deviation (SEC-01/SEC-02).** The login-gated KDE Wallet
-design is the authorised deviation from the policy. Services that consume wallet secrets start
+**Specified design (SEC-01/SEC-02).** The login-gated KDE Wallet
+design is the specified secret-delivery mechanism for this host, implementing the §4.1 rule 7
+requirement (`Only use KDE Wallet for passwords, tokens, keys, and other secret material`).
+Services that consume wallet secrets start
 after Plasma login (`WantedBy=graphical-session.target`) and are not expected to start
 unattended before a password is entered. The ~60 s wait in `fetch-kwallet-secret.sh` is the
 bounded startup allowance for that login, not a fallback for a passwordless boot. Auto-login is
 an operator convenience, not a requirement of this design.
 
-**Compensating controls for the deviation.**
+**Required controls for the specified design.**
 
 | Control | Implementation | Verification |
 |---|---|---|
@@ -24,14 +30,14 @@ an operator convenience, not a requirement of this design.
 | No cross-domain folder | One `ao-*` folder per credential domain; service reads only its owning folder | `kwallet-provision.sh list kdewallet` |
 | Wallet backup gap acknowledged | KDE Wallet (`~/.local/share/kwalletd/`) is **not** in the restic path set; §14.2.4 records this as a known single point of failure requiring operator decision | `grep -n 'kwalletd' scripts/backup/restic-run.sh` (returns nothing) |
 
-**Operator approval required before production declaration.** This deviation and its compensating
+**Operator approval required before production declaration.** This specified design and its required
 controls must be explicitly approved by the operator before any production declaration. The
-deviation touches secrets, credentials, and a live running service (README §4.1 rules 12 and 14).
+design touches secrets, credentials, and a live running service (README §4.1 rules 12 and 14).
 
 ### 14.1.1 KDE Wallet Secret Management
 
 KDE Wallet is the operator-side secret and credential store for this host. This subsection
-documents the integration. The unattended-delivery deviation is recorded in **§14.1** (policy
+documents the integration. The specified login-gated delivery design is stated in **§14.1** (policy
 box above), the rotation and recovery procedure in **§14.2**.
 
 **Runtime.** Daemon `kwalletd6` on the `org.kde.kwalletd6` D-Bus name, wallet `kdewallet`,
@@ -329,7 +335,7 @@ File.write('/tmp/bot_token', tok.token)
 Three traps: there is no `accounts.local` column;
 `owner_id` and `resource_owner_id` reference the **`users`** table, not
 `accounts`; and `expires_in: 0` produces an already-expired token.
-### 14.1.6 Recorded deviation — env-file delivery instead of Podman secrets
+### 14.1.6 Specified delivery — env-file delivery via Podman `EnvironmentFile`
 
 **Forbidden plaintext copy: `%h/.local/share/ao-secrets/legacy-alwayson-folder.env`.** This
 path must not exist: it is mode `0600`, holds one credential for each of the four DB domains
@@ -369,12 +375,12 @@ backup set, or an external network; rotation becomes required only if the operat
 host's local user account to be untrusted. The deletion decision is recorded in
 `README-ACTION_ITEMS/status-and-references.md`.
 
-**This deviation requires operator ratification.** This subsection exists because
-§14.1 mandates Podman secrets or systemd credentials while every implemented path is a
-wallet-materialised `0600` env file. The deviation is recorded here rather than left silent.
+**This specified design requires operator ratification.** This subsection states the
+specified delivery mechanism: every implemented path is a
+wallet-materialised `0600` env file consumed via Podman `EnvironmentFile=`.
 **It is not self-approving** — README §4.1 rule 14 reserves the decision to the operator.
 
-**Scope of the deviation.** Secret *storage* is the KDE Wallet, encrypted at rest. Secret
+**Scope of the specified design.** Secret *storage* is the KDE Wallet, encrypted at rest. Secret
 *delivery* is a `0600` env file under `%h/.local/share/ao-secrets/`, refreshed at start-up by
 `fetch-kwallet-secret.sh`. Env files are **delivery copies, not stores**: the wallet is the
 only system of record, and every file is rewritten from the wallet on each refresh, so losing
@@ -395,9 +401,9 @@ The delivery set is **eight secret-bearing env files**, not four:
 
 Plus `mastodon.env` (1041 bytes, mode `0640`, wallet entry `ao-mastodon/mastodon-env`,
 byte-identical to the file per §14.1.3), consumed by `ao-mastodon-web`, `-streaming` and
-`-sidekiq` and by the repair `ExecStartPost`. **The operator is therefore being asked to
-ratify a deviation covering nine files across fifteen units, not four files across four
-units.** The four-database framing was inherited from the SEC-01 acceptance criterion, which
+`-sidekiq` and by the repair `ExecStartPost`. **The operator SHALL therefore ratify
+nine files across fifteen units, not four files across four
+units (Open work items `SEC-01`/`SEC-02` in §19.1).** The four-database framing was inherited from the SEC-01 acceptance criterion, which
 names only mastodon-db, sales-db and webodm-db; the criterion is narrower than the
 implementation, and the implementation is what needs approving.
 
@@ -411,14 +417,14 @@ The other eight env files are `0600 scottw:scottw` with no ACL. So "all delivery
 `0600`" is true of eight files and false of the ninth: `mastodon.env` is `0640` with an
 ACL granting `ao-sales` read (§14.1.4).
 
-**Why the mandated mechanism is not used.** Podman secrets (`podman secret ls` returns an
+**Why Podman secrets / systemd credentials are not the delivery path.** Podman secrets (`podman secret ls` returns an
 empty list; Podman 5.7.0) would have to be populated *from* the wallet by a root or
 podman-owned helper at start-up, which relocates the plaintext to a second long-lived store
 rather than removing it, and `Secret=` cannot be populated from a login-gated wallet at all.
 Systemd `LoadCredential=` is available to the systemd user manager but is not usable by
 Podman-managed containers, which take `EnvironmentFile=`/`Secret=`, not systemd credentials.
 
-**Compensating controls** (each verified, not asserted):
+**Required controls** (each verified, not asserted):
 
 | Control | Evidence |
 |---|---|
@@ -435,7 +441,7 @@ lifetime of the unit and are overwritten in place at the next start. Only the tr
 is removed, and only with `rm -f`, not `shred`. The scripts that *do* shred are
 `scripts/mastodon/post.sh` (`trap 'shred -u "$ENV"' EXIT`) and `scripts/ledger/sign-manifest.sh`.
 So the accurate statement is: **delivery copies persist on disk at `0600` between start-ups and
-are replaced, not shredded.** This is the accepted residual exposure of the deviation and is
+are replaced, not shredded.** This is the specified residual handling of this design and is
 why the wallet — not these files — is designated the system of record.
 
 **Two file-layout facts this subsection depends on:**

@@ -61,12 +61,11 @@ here. Two are specific to this model:
 - Explicit bind mounts are limited to approved mapping paths (§5.3).
 - systemd resource limits and a restart policy are set on every unit.
 
-### 13.2.1 Recorded deviation — per-service accounts exist but run nothing
+### 13.2.1 Tracked gap — per-service accounts exist but run nothing
 
 The design forbids a per-service store, and no workload uses one. **However, the accounts and
-one system unit from that rejected design are still present on the host.** Recording them here
-is what closes the disagreement between this section and the §19.2 row that described a
-"mixed-store deviation": there is no mixed store. What exists is unused scaffolding.
+one system unit from that rejected design are still present on the host.** They are tracked
+here as Open work item `OPS-14` in §19.1: there is no mixed store. What exists is unused scaffolding.
 
 | Artefact | State | Meaning |
 |---|---|---|
@@ -77,9 +76,10 @@ is what closes the disagreement between this section and the §19.2 row that des
 | `/run/ao-podman/` | `No such file or directory` | the rejected socket directory was never created |
 | `/var/lib/containers/storage` | exists, `db.sql` last written before the rootless migration | enumerated — zero containers/pods/volumes; residual images unverified, see below |
 
-**Deviation.** The host carries three unused service accounts and one disabled system unit
+**Tracked gap (Open work item `OPS-14`).** The host carries three unused service accounts and one disabled system unit
 that this design does not authorise. They hold no container store, no socket and no process,
-so the single-store designation above is unaffected. They are **left in place**: removing an
+so the single-store designation above is unaffected. They SHALL be removed by operator action
+(recorded in §19.1 `OPS-14`): removing an
 account or a unit file is a deletion, and README §4.1 rule 3 requires explicit operator
 approval. **This is an OPEN item for the operator**, not a defect in the running system.
 
