@@ -54,13 +54,13 @@
 | Social media | Most closely tied to the **remote fediverse**: public marketing/contact across website chat, email, Mastodon, and approved social channels, with the fediverse chatbot eventually routing into other social media systems. **OpenClaw** is the direct Mastodon publisher; its local output is standardized PDFs for order/follow-up/support/payment workflows, processed into the sales, payment, and ledger records. `ao-sales` connects to the remote fediverse only (§4.3) |
 | LM Studio | Fundamental local LLM host for OpenClaw |
 | Browser | Konqueror — dedicated browser for automation |
-| Automated testing | Testing is being done with Playwright and Chrome (see section 20) |
+| Automated testing | Playwright and Chrome verify loopback service reachability per `config/platform/loopback-services.yaml`; results are recorded in §19.2 |
 | RNode client A — PEOPLE-RADIO | **MeshChatX**, which is the coordination system for the ALWAYS ON Reticulum network stack and the LoRa radios. It only needs to speak to the **Reticulum network stack**, and the RNode is its radio. **LoRaWAN for communication only** — the public human side (§9.2.2). **End-to-end encryption** is built into the stack: strong modern encryption by default, ephemeral keys, forward secrecy by default, and no unencrypted links or packets possible |
 | RNode client B — DRONE-RADIO | **LoRa mesh RNode for drones only** — the private drone side. Carries a **dedicated RNS-enabled connection** from QGroundControl to the drones over DRONE-RADIO, so local QGC missions reach the QGC session on the Pi5 drone and missions can be **updated midflight** (§9.2.2) |
 | Radios | **Wi-Fi** — Wi-Fi/Ethernet from the main desktop reaches the main internet; that desktop manages all DHCP. **2 LoRa radios** — `PEOPLE-RADIO` (915 MHz) = public human chat, `DRONE-RADIO` (917 MHz) = authenticated private drone mission/status traffic (§9.2.2) |
 | QGroundControl | Desktop primary mission planning; KaliOS RPi5 fallback/out-of-range mission-update operation; and drone — KaliOS on the Raspberry Pi 5 with the Autopilot Module, running ArduPilot. It holds a **dedicated RNS-enabled connection to the drones over DRONE-RADIO**, and so receives **midflight mission updates** relayed by DRONE-RADIO to the QGC session on the Pi5 drone (§9.2.2) |
 | **Email endpoint** | The storefront routes the buyer through the **EMAIL TEMPLATE** (not an inbox); the host reviews every purchase request against that template. Complete → published as a PDF, a **WORK ORDER REQUEST**; incomplete → sent back by email requesting the remaining information (§4.3) |
-| Prometheus | Prometheus is for security only. It acts alone and independently, operating on the other systems to ensure security and to address any problems: time-series store, rule evaluation, alerting, and security evidence — **continuously hardened over the life of the system via ad-hoc security AI review** |
+| Prometheus | Prometheus is for security only. It acts alone and independently, operating on the other systems to ensure security and to address any problems: time-series store, rule evaluation, alerting, and security evidence; operated under the §17 security controls |
 | Grafana | Dashboards and metrics only; it reads the databases that already exist and does not write to them |
 | Metabase | Reporting only, and it does ad-hoc read-only reporting, so it requires **its own dedicated PostgreSQL application database** to hold its Metabase schema, saved questions, dashboards, and subscriptions. That application database holds Metabase's own state only — it is not a system of record for business data, and it never receives data from the reporting sources. Metabase connects to the other PostgreSQL and MySQL databases, and to local desktop-application SQLite files, as a **read-only** user in order to report on them, and it never writes to them. Ad-hoc reports that become recurring are promoted into stable Grafana dashboards |
 | Corda | Blockchain-enabled accounting, ledger, receipt, entitlement, fulfillment, provenance, and approved state-transition system. Built on **Corda 5.2.2** against `cordadb` — one database within the regular host PostgreSQL 18 cluster, with its own roles and backup scope (§11.1) |
@@ -213,15 +213,13 @@ of the operator console, and of Domoticz.
 
 This is the single authoritative document for the ALWAYS ON project. It contains the
 intended architecture, implemented configuration, operational requirements, validation
-evidence, approved deviations, known issues, and work queue. The remaining tables,
+evidence, approved deviations. The remaining tables,
 commands, evidence, paths, full interface inventory, operational requirements,
 payment/ledger forms, Mastodon details, installation procedures, backup rules, and
-service records follow, numbered 1–21. Where an older statement conflicts with ES.1,
+service records follow, numbered 1–17. Status, work queue, and references live in §19–20 (`README-ACTION_ITEMS/status-and-references.md`), never in this body. Where an older statement conflicts with ES.1,
 ES.1 governs. When the current implementation differs from an architecture
 requirement, the difference must be recorded in **Approved Deviations and Open
 Decisions** with a rationale, compensating controls, owner, and resolution condition.
-
-**Last consolidated review:** 2026-09-30
 
 > **Operator warning.** Everything here is difficult until it is easy. These tools
 > are sharp and dangerous, and if you disrespect them they will can/will harm you —
@@ -407,7 +405,7 @@ the control case above is the proof that a passing result means something. The `
 true` defect that §12.3 carried is gone — the replacement never wraps a privileged command in
 `sudo`, and `aa-enforce` is reported as a WARN when missing rather than passed on `aa-status`.
 
-**PLAT-04 is closed by this script existing and being tested.** The requirement was "add real
+The requirement was "add real
 assertions" to the install verification; §12.3 now delegates to an asserting script, and §12.3's
 own text records the old block's three defects and the replacement. No further change is
 needed in §12.3 — it already names the script and documents the test in both directions.
@@ -1267,8 +1265,7 @@ means the service is not enabled to start at boot). No container is attached to
 > has.** Segment-level enforcement needs a firewall rule set on the bridge, a
 > filtering proxy, or per-destination proxies — all firewall policy, all
 > requiring explicit operator approval (Rule 6, §4.1 rule 13). Until that is
-> approved and built, do not attach any container to this network. NET-01 is open
-> on exactly this point; see `proposals/net-NET-01.md`.
+> approved and built, do not attach any container to this network. NET-01 tracks this point; see §19.1.
 
 **What it is.** `ao-build-update` is the controlled acquisition stage of the
 software-update path. It resolves candidate container images and host package
@@ -1383,12 +1380,12 @@ signature, normalizes it, and emits the verified payment event on `ao-payment`
 Rate limiting must be implemented **before** any Cloudflare Tunnel or relay route that would
 front the listener is enabled, or that enablement must be refused — an unthrottled inbound
 payment webhook endpoint is exactly where an unthrottled listener is worth attacking. The
-absence of rate limiting today is a latent gap, not a live exposure, because the endpoint is
+absence of rate limiting is a latent gap, not a live exposure, because the endpoint is
 loopback-bound and the fronting tunnel route is not enabled (see §19.1 PAY-11, NET-01).
 
 #### 5.2.3 The three `Internal=false` networks are a prohibition boundary, and §4.3 now says which rule governs them
 
-This section is where the NET-04 completeness check landed,
+This section records the prohibition boundary,
 because the question — *which prohibition covers a non-internal workload network*
 — is answerable only by reading §5.1 and §4.3.2 together.
 
@@ -1415,8 +1412,7 @@ anything else attached can reach the internet.** `ao-sales` and
 the public internet. Their containment rests on the one-network-per-component
 rule (§5.1) plus the fact that nothing else is attached to them — a
 convention, not a control. `ao-build-update` is the one case where the
-convention is load-bearing and unenforced; §5.2.1 covers it and NET-01 is open
-on it.
+convention is load-bearing and unenforced; §5.2.1 covers it and NET-01 is tracked in §19.1.
 
 ## 5.3 Approved Local Data Paths
 
