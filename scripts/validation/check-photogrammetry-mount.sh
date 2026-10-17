@@ -38,4 +38,52 @@ if (( available_gb < PHOTOGRAM_MIN_FREE_GB )); then
   exit 24
 fi
 
+# ----- §8.5 refusal conditions (FIELD-10) -----
+# Required directories: the fixed set of the §8.2 tree. The <mission-id>-
+# suffixed directories under validated/, rejected/ and deliverables/ are
+# intentionally variable and are NOT required to exist at validation time.
+required_dirs=(
+  incoming/drone
+  incoming/operator
+  incoming/quarantine
+  manifests/intake
+  manifests/processing
+  manifests/ledger-submissions
+  exports/pcloud-staging
+  exports/ipfs-staging
+  backups/mapping-db
+  tmp/processing
+)
+
+missing_dirs=()
+for d in "${required_dirs[@]}"; do
+  if [[ ! -d "${PHOTOGRAM_MOUNT}/${d}" ]]; then
+    missing_dirs+=("$d")
+  fi
+done
+
+if (( ${#missing_dirs[@]} > 0 )); then
+  echo "ERROR: required photogrammetry tree directories are missing: ${missing_dirs[*]}" >&2
+  exit 25
+fi
+
+# Mapping service ownership / permissions: the WebODM service runs as scottw
+# (uid 1000, group ao-mapping gid 1001). Every required directory must be
+# writable by scottw, or by the mapping group. Nothing may be world-writable
+# (§8.2). The validator MUST run as the mapping operator (scottw), not root,
+# so the -w test reflects the service's real access.
+bad_perm=()
+for d in "${required_dirs[@]}" \
+         retention/pending-review retention/eligible-for-archive \
+         webodm/media webodm/projects webodm/nodeodm webodm/temp webodm/logs; do
+  if [[ ! -w "${PHOTOGRAM_MOUNT}/${d}" ]]; then
+    bad_perm+=("$d")
+  fi
+done
+
+if (( ${#bad_perm[@]} > 0 )); then
+  echo "ERROR: mapping service ownership/permissions incorrect: ${bad_perm[*]}" >&2
+  exit 26
+fi
+
 echo "OK: photogrammetry mount valid: ${source_device}; ${available_gb}G free"

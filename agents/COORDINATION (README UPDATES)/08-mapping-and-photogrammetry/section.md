@@ -176,4 +176,23 @@ df -hT /media/scottw/500GBPHOTOGRAM
 Begin with CPU-only validation. Enable GTX 1080 access only after validated
 container GPU runtime, driver compatibility, measurable workload benefit, and a
 documented CPU-only recovery path.
+## 8.5.5 FIELD-10 measurement (2026-10-16)
+
+- Support top level: `scottw:ao-mapping` mode `2770` — operator-writable; `scottw` is a member of
+  `ao-mapping` (gid 1001), but **not** of `alwayson-mapping` (gid 975), which has no members at
+  all.
+- 8 of the 18 fixed sub-trees still sit under parents owned `ao-mapping:alwayson-mapping` mode
+  `770`: `backups`, `deliverables`, `exports`, `incoming`, `manifests`, `rejected`, `tmp`,
+  `validated`.
+- 10 depth-2 directories are missing because they sit under those denied parents:
+  `incoming/{drone,operator,quarantine}`, `manifests/{intake,processing,ledger-submissions}`,
+  `exports/{pcloud-staging,ipfs-staging}`, `backups/mapping-db`, `tmp/processing`.
+- Measured 2026-10-16 by attempting creation 10×: all `MKDIR-DENIED`, with a control under
+  `webodm/` that succeeds.
+- The §8.5 refusal conditions are now enforced by `scripts/validation/check-photogrammetry-mount.sh`
+  (exit 25 when the required directories are missing; exit 26 when ownership/permissions are
+  incorrect; exit 0 once remediated).
+- Remediation remains an operator action: `sudo usermod -aG alwayson-mapping scottw` (then re-login)
+  so that scottw is a member of `alwayson-mapping`, after which the 8 parents are writable and the
+  10 directories can be created.
 
