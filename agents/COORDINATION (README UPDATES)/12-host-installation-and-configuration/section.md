@@ -431,7 +431,7 @@ installed=0  already-present=8  manual=0  refused=0  failed=0
 ```
 
 **All eight must be present and verified.** Five have no vendor URL and
-so cannot be fetched unattended even in principle — a property of the vendors,
+so cannot be fetched unattended by design — a property of the vendors,
 not a gap in the provisioner, and the honest residue of OPS-17. Three (gh, bun,
 cline) are installable; the first two verify against a recorded `installed_sha256`.
 
@@ -846,7 +846,7 @@ because a PDF that hides it reintroduces the same dead end. Member names are
 HTML-escaped: they come from `.desktop` files on disk and are not trusted.
 
 The two apt roll-ups must carry their members — verify the rendered output rather than
-trusting the code: `Ubuntu archive packages` and `ROS 2 lyrical (whole train)` may not
+trusting the code: `Ubuntu archive packages` and `ROS 2 lyrical (whole train)` SHALL NOT
 render as bare counts. Both lists are already in `inv`, so both attach theirs; the ROS one
 matters most because the train is FROZEN, making "which 351 packages are affected" the
 question an operator will actually ask. `test_the_apt_rollups_carry_their_members` is the
@@ -861,6 +861,6 @@ roll-ups render one member per row with the version in its own column, in their 
 collapsible block; the launcher grouping keeps its joined cell, where members are short and
 few. The roll-up emitter is extracted from `render()` into `rollup_details_md()` so this
 is unit-testable — `render()` spends hundreds of apt round trips, which no test
-should pay to assert a formatting rule.
+needs to pay to assert a formatting rule.
 
 ---

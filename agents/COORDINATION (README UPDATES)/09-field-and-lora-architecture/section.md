@@ -164,7 +164,7 @@ LAN-reachable**: the mesh protocol is intended to be reachable by peers.
 So `:4242` is reachable from the local network by design. This is **not** a finding against
 the isolation model, which governs `ao-*` workloads: Reticulum and MeshChatX are separate
 host tooling. It does mean that a loopback-only web UI does not make the underlying gateway
-private, and anyone auditing exposure should expect `:4242` to be visible on the LAN. For
+private, and anyone auditing exposure SHALL treat `:4242` as visible on the LAN. For
 contrast, PostgreSQL is explicitly `5432/tcp DENY` from any non-loopback source, and KDE
 Connect `:1716` is denied too.
 

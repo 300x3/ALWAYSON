@@ -3,7 +3,7 @@
 ## 7.1 Storefront Boundary
 
 The public storefront is static HTML hosted in the pCloud Public Folder. It carries no
-secrets, no local ports and no internal hosts. What it may and must never contain is listed in
+secrets, no local ports and no internal hosts. Its permitted and forbidden content is listed in
 §7.1.1.
 
 ## 7.1.1 Frontend Website Details
@@ -82,7 +82,7 @@ internal hosts — see Section 7.1 prohibitions):
 4. No payment-card data, webhook secrets, OAuth tokens, or ledger keys ever
    appear in the static HTML, pCloud folder, or Git history.
 
-The public site may include:
+The public site SHALL contain only:
 
 - Product catalog and documentation.
 - Hosted payment checkout links.
@@ -128,7 +128,7 @@ substance of the constraint column.
 | 6 | **Mapbox** | Maps / digital | Mapping tiles, San Vicente Reservoir | Requires a Mapbox account and an access token held **outside** the repository. A public browser token is publishable by design; a secret-classified token is not (§4.2, §7.1) |
 | 7 | **Mastodon — live forum** | Discussion | A live forum view inside the modal | `mastodon.social` refuses to be framed, and that refusal is enforced by the remote. The local instance UI is `https://127.0.0.1:3300/`, loopback-only, so it is not a substitute without a new approved public entry |
 | 8 | **Gazebo/Foxglove — simulation** | Modal, three views | Kitchen; storage/CNC; vehicle | Both origins are loopback-only (sim console `127.0.0.1:8099/sim`, Gazebo portal `127.0.0.1:8765/` and its `/viewer` 3D view, §5.1.2), as is the bridge on `127.0.0.1:8081`. A live embed is a new public entry requiring explicit operator approval under §4.1 rule 6, and depends on §19.1 |
-| 9 | **Trimble SketchUp — grid of 3D views** | Modal grid | The SketchUp model views | SketchUp is a desktop/paid service; what may be linked or embedded publicly must be confirmed before use |
+| 9 | **Trimble SketchUp — grid of 3D views** | Modal grid | The SketchUp model views | SketchUp is a desktop/paid service; no SketchUp view SHALL be linked or embedded publicly without explicit operator confirmation before use |
 
 **No public port is opened by this section.** Rows 2, 7 and 8 each require explicit operator
 authorisation before any live view is published, and none of them may be satisfied by

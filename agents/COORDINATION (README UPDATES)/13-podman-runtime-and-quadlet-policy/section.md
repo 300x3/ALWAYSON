@@ -2,16 +2,16 @@
 
 ## 13.1 Rootless and System-Level Podman
 
-Ordinary application workloads should use rootless Podman and user-level
+Ordinary application workloads SHALL use rootless Podman and user-level
 Quadlet units.
 
-Rootless Quadlet definitions are normally stored in:
+Rootless Quadlet definitions SHALL be stored in:
 
 ```text
 ~/.config/containers/systemd/
 ```
 
-System-level Quadlet definitions are stored in:
+System-level Quadlet definitions SHALL be stored in:
 
 ```text
 /etc/containers/systemd/

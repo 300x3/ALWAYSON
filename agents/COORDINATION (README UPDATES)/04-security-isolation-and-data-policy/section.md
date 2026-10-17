@@ -153,6 +153,6 @@ All cross-domain requests require:
 
 Mutual TLS authenticates transport peers. Detached manifest signatures permit
 independent verification after storage, export, or audit. These are separate
-controls and should be used together for provenance-bearing artifacts.
+controls and SHALL be used together for provenance-bearing artifacts.
 
 ---

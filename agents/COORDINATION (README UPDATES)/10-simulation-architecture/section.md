@@ -60,12 +60,11 @@ sim_vehicle.py -v ArduCopter -f gazebo-iris --model JSON --map --console
 
 ArduPilot SITL can simulate multi-rotor aircraft, fixed-wing aircraft, ground
 vehicles, underwater vehicles, camera gimbals, antenna trackers, and a wide
-variety of optional sensors. The vehicle profiles below therefore must be
-selectable at run time, ideally at rapid speed, by changing the ArduPilot
+variety of optional sensors. The vehicle profiles below SHALL therefore be
+selectable at run time, at rapid speed, by changing the ArduPilot
 vehicle type and the Gazebo model, not by rebuilding anything.
 
-Vehicle profiles must allow for switching between the following, ideally at
-rapid speed, by changing the ArduPilot vehicle type and the Gazebo model:
+Vehicle profiles SHALL switch between the following at rapid speed, by changing the ArduPilot vehicle type and the Gazebo model:
 
 - Bicopter profile.
 - Fixed-wing VTOL tailsitter profile.

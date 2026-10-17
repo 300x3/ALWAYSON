@@ -70,7 +70,7 @@
 | Secret authority | KDE Wallet; services needing Wallet secrets start after KDE login |
 | GPU policy | Priority: desktop/Konqueror → SketchUp/SketchUp Web → active LM Studio/OpenClaw → ROS/Gazebo/SITL → WebODM batch |
 | Additive fabrication | Real machines, not simulated cells: **MainsailOS/Moonraker/Klipper operate on each individual 3D printing machine**, each on its own BigTreeTech CB1 / Raspberry Pi; individual CNC machines likewise. These are **real peers**, not children of the simulated domain. `ao-sim-fabrication` **rehearses** the flow for the **kitchen, cooler/freezer/pantry carousel, storage carousel, and their robot-arm boxes** (2 arms in 2 boxes at storage, which organize and manage the additive-manufacturing machines; 2 arms on independent rails at the kitchen, which cook); it runs the kitchen and holds no production data. **The simulation does not manage those robot arms or carousels** — they need the separate future `ao-auto(kitchen,cool,store,fab)-` domain (§10.2) |
-| **Real fabrication** | **`ao-fabrication`** is the real (non-simulated) fabrication domain, distinct from `ao-sim-fabrication` in every respect (§3.3.0): it **pulls data into its own database** for industrial engineering and fabrication optimisation — per-machine production data lands in **`a_fab`** (`10.89.12.0/24`, `Internal=true`). **bCNC** may be used on individual CNC machines and their own RPis where necessary — ideally tied to Klipper/MainsailOS |
+| **Real fabrication** | **`ao-fabrication`** is the real (non-simulated) fabrication domain, distinct from `ao-sim-fabrication` in every respect (§3.3.0): it **pulls data into its own database** for industrial engineering and fabrication optimisation — per-machine production data lands in **`a_fab`** (`10.89.12.0/24`, `Internal=true`). Individual CNC machines on their own RPis SHALL run **bCNC** where a machine-side sender is required, tied to Klipper/MainsailOS where the machine supports it |
 | Simulation (fabrication) | `ao-sim-fabrication` requires, as baseline capability and not optional extras: **3D world setup** (its own world), **boning** (alignment and datum structure built into that world), **reinforcement learning objects** (the trainable entities for scenario and policy work), and an **HTML portal to operation** — set up and operated from a browser, with no desktop GUI client (§10.2) |
 | Simulation (vehicles) | `ao-sim-vehicle` requires the same four baseline capabilities as `ao-sim-fabrication` (§10.1) |
 | Home automation | Domoticz/RPi for the usual Domoticz home automation features: HVAC, doors/locks/access, security/alarms, lighting/scenes, cameras, weather, environmental sensing, media, and other typical Domoticz device classes; separate from printers and future building robotics |
@@ -433,7 +433,7 @@ ES.2** and must not contradict it. For the whole project, read ES.2.
 
 *Figure 3.1 — The controlled adapter column of the ES.2 master topology, enlarged. It is a
 zoom of that one graphic, not a separate diagram: the adapter column is the only place a
-controlled ingress or egress process may exist, and every route into or out of the host passes
+controlled ingress or egress process SHALL exist, and every route into or out of the host passes
 through it.*
 
 The public storefront has no direct route to the host's field, mapping, simulation, database,
@@ -478,7 +478,7 @@ dashboard**, where it becomes stable and curated.
 brokering, transient coordination. It is not the authoritative system of record; business,
 payment, user and application metadata stay in PostgreSQL.
 
-**SQLite and H2** are not approved application databases for Grafana or Metabase. They may
+**SQLite and H2** are not approved application databases for Grafana or Metabase. They SHALL
 exist only where an individual application requires embedded local storage — the browser,
 Akonadi, Podman, MeshChatX, QGroundControl — or in retained migration backups.
 
@@ -712,7 +712,7 @@ for domain-operational source data.
 
 Before building sales reporting, initialize and verify the `salesdb` schema and
 confirm that the reporting identity can read it and produce the standard PDF
-reports and receipts where appropriate. Before enabling blockchain-related
+reports and receipts listed in §15.1. Before enabling blockchain-related
 flows, complete the Corda key/certificate ceremony and implement the
 ledger-ingest manifest, correlation-ID, signature, idempotency, and audit
 requirements.
@@ -874,7 +874,7 @@ All cross-domain requests require:
 
 Mutual TLS authenticates transport peers. Detached manifest signatures permit
 independent verification after storage, export, or audit. These are separate
-controls and should be used together for provenance-bearing artifacts.
+controls and SHALL be used together for provenance-bearing artifacts.
 
 ---
 
@@ -1504,7 +1504,7 @@ operator-access implementation must comply with this subsection and §§4, 5, 14
   projection, API, relay, tunnel, or push paths. It must not join every
   workload network.
 - `ao-data` is not a shared unrestricted database, general-purpose shell, or
-  authorization bypass. It may carry narrowly approved local data paths.
+  authorization bypass. It SHALL carry only narrowly approved local data paths.
 - No GUI may add a public listener, broad host networking, unrestricted Podman
   socket access, `--privileged`, shared writable storage, or unrelated-domain
   secret merely to simplify deployment or troubleshooting.
@@ -1520,7 +1520,7 @@ The machine-readable inventory that implements this requirement is
 ## 7.1 Storefront Boundary
 
 The public storefront is static HTML hosted in the pCloud Public Folder. It carries no
-secrets, no local ports and no internal hosts. What it may and must never contain is listed in
+secrets, no local ports and no internal hosts. Its permitted and forbidden content is listed in
 §7.1.1.
 
 ## 7.1.1 Frontend Website Details
@@ -1599,7 +1599,7 @@ internal hosts — see Section 7.1 prohibitions):
 4. No payment-card data, webhook secrets, OAuth tokens, or ledger keys ever
    appear in the static HTML, pCloud folder, or Git history.
 
-The public site may include:
+The public site SHALL contain only:
 
 - Product catalog and documentation.
 - Hosted payment checkout links.
@@ -1645,7 +1645,7 @@ substance of the constraint column.
 | 6 | **Mapbox** | Maps / digital | Mapping tiles, San Vicente Reservoir | Requires a Mapbox account and an access token held **outside** the repository. A public browser token is publishable by design; a secret-classified token is not (§4.2, §7.1) |
 | 7 | **Mastodon — live forum** | Discussion | A live forum view inside the modal | `mastodon.social` refuses to be framed, and that refusal is enforced by the remote. The local instance UI is `https://127.0.0.1:3300/`, loopback-only, so it is not a substitute without a new approved public entry |
 | 8 | **Gazebo/Foxglove — simulation** | Modal, three views | Kitchen; storage/CNC; vehicle | Both origins are loopback-only (sim console `127.0.0.1:8099/sim`, Gazebo portal `127.0.0.1:8765/` and its `/viewer` 3D view, §5.1.2), as is the bridge on `127.0.0.1:8081`. A live embed is a new public entry requiring explicit operator approval under §4.1 rule 6, and depends on §19.1 |
-| 9 | **Trimble SketchUp — grid of 3D views** | Modal grid | The SketchUp model views | SketchUp is a desktop/paid service; what may be linked or embedded publicly must be confirmed before use |
+| 9 | **Trimble SketchUp — grid of 3D views** | Modal grid | The SketchUp model views | SketchUp is a desktop/paid service; no SketchUp view SHALL be linked or embedded publicly without explicit operator confirmation before use |
 
 **No public port is opened by this section.** Rows 2, 7 and 8 each require explicit operator
 authorisation before any live view is published, and none of them may be satisfied by
@@ -2098,7 +2098,7 @@ LAN-reachable**: the mesh protocol is intended to be reachable by peers.
 So `:4242` is reachable from the local network by design. This is **not** a finding against
 the isolation model, which governs `ao-*` workloads: Reticulum and MeshChatX are separate
 host tooling. It does mean that a loopback-only web UI does not make the underlying gateway
-private, and anyone auditing exposure should expect `:4242` to be visible on the LAN. For
+private, and anyone auditing exposure SHALL treat `:4242` as visible on the LAN. For
 contrast, PostgreSQL is explicitly `5432/tcp DENY` from any non-loopback source, and KDE
 Connect `:1716` is denied too.
 
@@ -2210,12 +2210,11 @@ sim_vehicle.py -v ArduCopter -f gazebo-iris --model JSON --map --console
 
 ArduPilot SITL can simulate multi-rotor aircraft, fixed-wing aircraft, ground
 vehicles, underwater vehicles, camera gimbals, antenna trackers, and a wide
-variety of optional sensors. The vehicle profiles below therefore must be
-selectable at run time, ideally at rapid speed, by changing the ArduPilot
+variety of optional sensors. The vehicle profiles below SHALL therefore be
+selectable at run time, at rapid speed, by changing the ArduPilot
 vehicle type and the Gazebo model, not by rebuilding anything.
 
-Vehicle profiles must allow for switching between the following, ideally at
-rapid speed, by changing the ArduPilot vehicle type and the Gazebo model:
+Vehicle profiles SHALL switch between the following at rapid speed, by changing the ArduPilot vehicle type and the Gazebo model:
 
 - Bicopter profile.
 - Fixed-wing VTOL tailsitter profile.
@@ -2553,7 +2552,7 @@ These fields link records across PostgreSQL domains and approved ledger records:
 - `receipt_number` identifies the approved commercial transaction or receipt.
 - `event_timestamp_utc` identifies when the source event occurred, using ISO-8601 UTC.
 
-The tuple should be accompanied by a source event identifier and schema version:
+The tuple SHALL be accompanied by a source event identifier and schema version:
 
 ```text
 correlation_id
@@ -2583,9 +2582,9 @@ Example:
 }
 ```
 
-The same correlation fields should be carried into approved records from sales,
+The same correlation fields SHALL be carried into approved records from sales,
 mapping, field, fulfillment, simulation, and release workflows where the event
-is relevant. A database view or reporting projection should join the records by
+is relevant. A database view or reporting projection SHALL join the records by
 the correlation tuple rather than by free-text names or presentation labels.
 
 ### Sales and marketing reporting flow
@@ -2607,8 +2606,8 @@ Sales PostgreSQL salesdb
                 └── Corda receipt/entitlement/provenance state
 ```
 
-Marketing and sales reporting should use approved PostgreSQL views or
-projections. The reporting layer may join:
+Marketing and sales reporting SHALL use approved PostgreSQL views or
+projections. The reporting layer SHALL join only:
 
 ```text
 product/SKU
@@ -2792,7 +2791,7 @@ The ingest gateway must enforce all of the following. Each maps to a control in
 | 7 | Replay defence — reject a re-presented digest/timestamp | Gateway | gateway-side only |
 | 8 | Audit log of accept **and** reject, with reason code | Gateway | gateway-side only |
 
-Two design points an implementer should not get wrong:
+Two design points an implementer SHALL satisfy:
 
 - **Minimization is enforced at the schema, not by convention.** The manifest
   schema is `additionalProperties: false` and requires no field outside
@@ -2865,14 +2864,14 @@ submitted body.
 
 ## 11.3 Corda Stores and Private Data
 
-Corda may retain approved private transaction data as an encrypted private
+Corda SHALL retain approved private transaction data as an encrypted private
 payload or encrypted attachment. Corda does not make plaintext private data
 safe merely by being on a ledger: confidentiality depends on encryption,
 authorized recipients, key management, access policy, and audit controls.
 
 ### Corda contract state
 
-Corda state should contain the small, shared, verifiable business facts:
+Corda state SHALL contain only the small, shared, verifiable business facts:
 
 ```text
 transaction_id
@@ -2894,7 +2893,7 @@ signatures/authorization metadata
 
 ### Encrypted private payload
 
-Approved private data may be encrypted before submission and stored as a
+Approved private data SHALL be encrypted before submission and stored as a
 private attachment or confidential private-state object:
 
 ```text
@@ -2985,7 +2984,7 @@ plus an explicit `FX_REVALUATION` event carrying `from_currency`,
 `to_currency`, `rate_source`, and `rate_as_of_utc`. The rate is a recorded input,
 never computed silently. There is no implicit conversion at read time.
 
-#### Posting rule (what may be posted, and when)
+#### Posting rule (what SHALL be posted, and when)
 
 ```text
 NO EVENT, NO POSTING
@@ -3046,7 +3045,7 @@ evidence and the Corda posting must both be present, or the line does not appear
 
 ## 11.4 Corda Does Not Store
 
-Corda may store approved encrypted private transaction data as described in §11.3. It must
+Corda SHALL store approved encrypted private transaction data as described in §11.3. It must
 never store plaintext secrets or unencrypted credentials.
 
 Never store:
@@ -3681,7 +3680,7 @@ installed=0  already-present=8  manual=0  refused=0  failed=0
 ```
 
 **All eight must be present and verified.** Five have no vendor URL and
-so cannot be fetched unattended even in principle — a property of the vendors,
+so cannot be fetched unattended by design — a property of the vendors,
 not a gap in the provisioner, and the honest residue of OPS-17. Three (gh, bun,
 cline) are installable; the first two verify against a recorded `installed_sha256`.
 
@@ -4096,7 +4095,7 @@ because a PDF that hides it reintroduces the same dead end. Member names are
 HTML-escaped: they come from `.desktop` files on disk and are not trusted.
 
 The two apt roll-ups must carry their members — verify the rendered output rather than
-trusting the code: `Ubuntu archive packages` and `ROS 2 lyrical (whole train)` may not
+trusting the code: `Ubuntu archive packages` and `ROS 2 lyrical (whole train)` SHALL NOT
 render as bare counts. Both lists are already in `inv`, so both attach theirs; the ROS one
 matters most because the train is FROZEN, making "which 351 packages are affected" the
 question an operator will actually ask. `test_the_apt_rollups_carry_their_members` is the
@@ -4111,7 +4110,7 @@ roll-ups render one member per row with the version in its own column, in their 
 collapsible block; the launcher grouping keeps its joined cell, where members are short and
 few. The roll-up emitter is extracted from `render()` into `rollup_details_md()` so this
 is unit-testable — `render()` spends hundreds of apt round trips, which no test
-should pay to assert a formatting rule.
+needs to pay to assert a formatting rule.
 
 ---
 
@@ -4119,16 +4118,16 @@ should pay to assert a formatting rule.
 
 ## 13.1 Rootless and System-Level Podman
 
-Ordinary application workloads should use rootless Podman and user-level
+Ordinary application workloads SHALL use rootless Podman and user-level
 Quadlet units.
 
-Rootless Quadlet definitions are normally stored in:
+Rootless Quadlet definitions SHALL be stored in:
 
 ```text
 ~/.config/containers/systemd/
 ```
 
-System-level Quadlet definitions are stored in:
+System-level Quadlet definitions SHALL be stored in:
 
 ```text
 /etc/containers/systemd/

@@ -9,7 +9,7 @@ ES.2** and must not contradict it. For the whole project, read ES.2.
 
 *Figure 3.1 — The controlled adapter column of the ES.2 master topology, enlarged. It is a
 zoom of that one graphic, not a separate diagram: the adapter column is the only place a
-controlled ingress or egress process may exist, and every route into or out of the host passes
+controlled ingress or egress process SHALL exist, and every route into or out of the host passes
 through it.*
 
 The public storefront has no direct route to the host's field, mapping, simulation, database,
@@ -54,7 +54,7 @@ dashboard**, where it becomes stable and curated.
 brokering, transient coordination. It is not the authoritative system of record; business,
 payment, user and application metadata stay in PostgreSQL.
 
-**SQLite and H2** are not approved application databases for Grafana or Metabase. They may
+**SQLite and H2** are not approved application databases for Grafana or Metabase. They SHALL
 exist only where an individual application requires embedded local storage — the browser,
 Akonadi, Podman, MeshChatX, QGroundControl — or in retained migration backups.
 
@@ -288,7 +288,7 @@ for domain-operational source data.
 
 Before building sales reporting, initialize and verify the `salesdb` schema and
 confirm that the reporting identity can read it and produce the standard PDF
-reports and receipts where appropriate. Before enabling blockchain-related
+reports and receipts listed in §15.1. Before enabling blockchain-related
 flows, complete the Corda key/certificate ceremony and implement the
 ledger-ingest manifest, correlation-ID, signature, idempotency, and audit
 requirements.

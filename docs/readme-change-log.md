@@ -6,18 +6,26 @@ clause in live §§ES.3, 6, 8.4.1, 11, 13.2.1, 14.1, 14.1.6, 17.1.3, 17.3 and §
 was rewritten as a SHALL requirement or an Open §19.1 work item. No `deviat*` string
 remains in live §§1–17 sources or the compiled README body.
 
-| Change | Effect on the document |
+## 2026-10-16 — Specification-only pass: should/may/could → SHALL
+
+Converted remaining permissive language to hard requirements across live sections:
+
+| Section | Change |
 |---|---|
-| ES.3 gap rule rewritten | Untracked gaps forbidden: every implementation-vs-requirement gap SHALL be an Open §19.1 work item with owner, acceptance criteria, closure evidence |
-| §6 boundary rule rewritten | Material gaps SHALL be tracked Open work items before any production declaration |
-| §8.4.1 mapping store rewritten | Root-filesystem data directory is Open work item FIELD-11, SHALL be closed by moving onto the validated drive |
-| §11 Corda exception rewritten | Native systemd unit is the single specified exception to §4.1 rule 5, not a deviation |
-| §13.2.1 store scaffolding rewritten | Three unused accounts + one disabled unit are Open work item OPS-14, SHALL be removed by operator action |
-| §14.1 policy rewritten | KDE Wallet storage + `0600` env-file delivery via `EnvironmentFile=` is the specified design (SEC-01/SEC-02 ratification); required controls replace compensating-controls language |
-| §14.1.6 heading + body rewritten | Specified delivery subsection; residual handling stated as specified, not accepted exposure |
-| §17.1.3 off-site schedule rewritten | Repository SHALL be on a schedule; gap tracked as OPS-30 |
-| §17.3 completion item rewritten | Open work items, not deviations, in the completion list |
-| §19.1 rows rewritten | PLAT-01, PLAT-05, SEC-01, SEC-02, OPS-06, OPS-13, OPS-14, OPS-34, §19.2 Rootless row, §20 preamble — all SHALL requirements or specified exceptions |
+| 13.1 Rootless/System Podman | "should use rootless Podman" → "SHALL use rootless Podman and user-level Quadlet units"; "normally stored" → "SHALL be stored" |
+| 3.2 High-level architecture | "reports and receipts where appropriate" → "reports and receipts listed in §15.1"; "may exist only" → "SHALL exist only" (SQLite/H2) |
+| 10.1 Simulation architecture | "ideally at rapid speed" → "at rapid speed" (removed); "must be selectable" → "SHALL be selectable"; "must allow for switching" → "SHALL switch" |
+| 4.1 Mutual TLS | "should be used together" → "SHALL be used together" |
+| 11.2 Correlation fields | "should be accompanied/carried/joined" → "SHALL be accompanied/carried/joined"; "should use approved views" → "SHALL use approved views"; "may join" → "SHALL join only"; "should not get wrong" → "SHALL satisfy"; "state should contain" → "state SHALL contain only" |
+| 11.3 Corda stores | "may retain" → "SHALL retain"; "may be encrypted" → "SHALL be encrypted"; "may store" → "SHALL store" |
+| 12.5 Roll-ups | "may not render as bare counts" → "SHALL NOT render as bare counts"; "even in principle" → "by design" |
+| 9.4 Field/Radio | "should expect :4242 visible" → "SHALL treat :4242 as visible" |
+| 6 Boundaries | "may carry narrowly approved" → "SHALL carry only narrowly approved" |
+| 7 Storefront | "may include" → "SHALL contain only"; "What it may and must never contain" → "permitted and forbidden content"; "may be used where necessary — ideally" → "SHALL run bCNC where required" |
+| 12.1 Rootless | "should use rootless Podman" → "SHALL use rootless Podman" |
+| §19.1 rows | PLAT-01, PLAT-05, SEC-01, SEC-02, OPS-06, OPS-13, OPS-14, OPS-34, FIELD-11, OPS-30 — all SHALL requirements or specified exceptions |
+| §20 preamble | "needs a recorded deviation" → "SHALL be tracked as an Open work item in §19.1" |
+| Section sources recompiled | `tools/compile.py` rebuilt README.md; `--check` reports identical |
 | Section sources recompiled | `tools/compile.py` rebuilt README.md; `--check` reports identical |
 
 ### Verified

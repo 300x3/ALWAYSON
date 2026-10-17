@@ -101,7 +101,7 @@ operator-access implementation must comply with this subsection and §§4, 5, 14
   projection, API, relay, tunnel, or push paths. It must not join every
   workload network.
 - `ao-data` is not a shared unrestricted database, general-purpose shell, or
-  authorization bypass. It may carry narrowly approved local data paths.
+  authorization bypass. It SHALL carry only narrowly approved local data paths.
 - No GUI may add a public listener, broad host networking, unrestricted Podman
   socket access, `--privileged`, shared writable storage, or unrelated-domain
   secret merely to simplify deployment or troubleshooting.

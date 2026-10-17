@@ -100,7 +100,7 @@ These fields link records across PostgreSQL domains and approved ledger records:
 - `receipt_number` identifies the approved commercial transaction or receipt.
 - `event_timestamp_utc` identifies when the source event occurred, using ISO-8601 UTC.
 
-The tuple should be accompanied by a source event identifier and schema version:
+The tuple SHALL be accompanied by a source event identifier and schema version:
 
 ```text
 correlation_id
@@ -130,9 +130,9 @@ Example:
 }
 ```
 
-The same correlation fields should be carried into approved records from sales,
+The same correlation fields SHALL be carried into approved records from sales,
 mapping, field, fulfillment, simulation, and release workflows where the event
-is relevant. A database view or reporting projection should join the records by
+is relevant. A database view or reporting projection SHALL join the records by
 the correlation tuple rather than by free-text names or presentation labels.
 
 ### Sales and marketing reporting flow
@@ -154,8 +154,8 @@ Sales PostgreSQL salesdb
                 └── Corda receipt/entitlement/provenance state
 ```
 
-Marketing and sales reporting should use approved PostgreSQL views or
-projections. The reporting layer may join:
+Marketing and sales reporting SHALL use approved PostgreSQL views or
+projections. The reporting layer SHALL join only:
 
 ```text
 product/SKU
@@ -339,7 +339,7 @@ The ingest gateway must enforce all of the following. Each maps to a control in
 | 7 | Replay defence — reject a re-presented digest/timestamp | Gateway | gateway-side only |
 | 8 | Audit log of accept **and** reject, with reason code | Gateway | gateway-side only |
 
-Two design points an implementer should not get wrong:
+Two design points an implementer SHALL satisfy:
 
 - **Minimization is enforced at the schema, not by convention.** The manifest
   schema is `additionalProperties: false` and requires no field outside
@@ -412,14 +412,14 @@ submitted body.
 
 ## 11.3 Corda Stores and Private Data
 
-Corda may retain approved private transaction data as an encrypted private
+Corda SHALL retain approved private transaction data as an encrypted private
 payload or encrypted attachment. Corda does not make plaintext private data
 safe merely by being on a ledger: confidentiality depends on encryption,
 authorized recipients, key management, access policy, and audit controls.
 
 ### Corda contract state
 
-Corda state should contain the small, shared, verifiable business facts:
+Corda state SHALL contain only the small, shared, verifiable business facts:
 
 ```text
 transaction_id
@@ -441,7 +441,7 @@ signatures/authorization metadata
 
 ### Encrypted private payload
 
-Approved private data may be encrypted before submission and stored as a
+Approved private data SHALL be encrypted before submission and stored as a
 private attachment or confidential private-state object:
 
 ```text
@@ -532,7 +532,7 @@ plus an explicit `FX_REVALUATION` event carrying `from_currency`,
 `to_currency`, `rate_source`, and `rate_as_of_utc`. The rate is a recorded input,
 never computed silently. There is no implicit conversion at read time.
 
-#### Posting rule (what may be posted, and when)
+#### Posting rule (what SHALL be posted, and when)
 
 ```text
 NO EVENT, NO POSTING
@@ -593,7 +593,7 @@ evidence and the Corda posting must both be present, or the line does not appear
 
 ## 11.4 Corda Does Not Store
 
-Corda may store approved encrypted private transaction data as described in §11.3. It must
+Corda SHALL store approved encrypted private transaction data as described in §11.3. It must
 never store plaintext secrets or unencrypted credentials.
 
 Never store:
