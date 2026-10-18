@@ -517,3 +517,5 @@
 {"ts": "2026-10-18T20:14:05+00:00", "who": "coordinator", "level": "action", "text": "compile gate DIFFERS: a session hand-edited README.md -- needs split.py fold-in"}
 {"ts": "2026-10-18T20:19:06+00:00", "who": "coordinator", "level": "action", "text": "compile gate DIFFERS: a session hand-edited README.md -- needs split.py fold-in"}
 {"ts": "2026-10-18T20:24:06+00:00", "who": "coordinator", "level": "action", "text": "compile gate DIFFERS: a session hand-edited README.md -- needs split.py fold-in"}
+{"ts": "2026-10-18T20:49:17+00:00", "who": "coordinator", "level": "info", "text": "coordinator watch alive -- parallel mode (since 2026-10-10, no shifts): 9/11 sessions live"}
+{"ts": "2026-10-18T22:49:39+00:00", "who": "coordinator", "level": "info", "text": "coordinator watch alive -- parallel mode (since 2026-10-10, no shifts): 9/11 sessions live"}

@@ -173,10 +173,10 @@ Connect `:1716` is denied too.
 Each radio is defined by exactly one version-controlled profile. **The profile is the
 specification** — this section states how a profile is accepted, not what fields it contains.
 
-| Profile | Radio |
-|---|---|
-| `config/field/heltec-v3/radio-profile-us915.yaml` | `PEOPLE-RADIO` (Heltec V3) |
-| `config/drone/waveshare-lora/radio-profile-us915.yaml` | `DRONE-RADIO` (Waveshare SX1262) |
+| Profile | Radio | SX1262 MAC |
+|---|---|---|
+| `config/field/heltec-v3/radio-profile-us915.yaml` | `PEOPLE-RADIO` (Heltec V3) | `RECORD_FROM_HARDWARE` — read from physical radio |
+| `config/drone/waveshare-lora/radio-profile-us915.yaml` | `DRONE-RADIO` (Waveshare SX1262) | `RECORD_FROM_HARDWARE` — read from physical radio |
 
 **A profile is accepted only when all of the following hold.** These are testable conditions;
 any one failing rejects the profile rather than falling back to a default.
