@@ -1,0 +1,6 @@
+
+[2026-10-18 11:02:00 UTC] PDF->JPEG: Ran: pdftoppm -jpeg -r 300 "/home/scottw/Desktop/CANRAD DRONE PARTS/CANRAD_A3_RevAD_KDE4215_Motor_Selection-1.pdf" "/home/scottw/Desktop/CANRAD DRONE PARTS/CANRAD_A3_RevAD_KDE4215_Motor_Selection-1"
+-> Produced 2 JPEGs in same folder (A3 landscape @300 DPI, valid RGB):
+  CANRAD_A3_RevAD_KDE4215_Motor_Selection-1-1.jpg (4961x3508, 1492115 B)
+  CANRAD_A3_RevAD_KDE4215_Motor_Selection-1-2.jpg (4961x3508, 1177088 B)
+Toolchain: pdftoppm (poppler-utils) -jpeg output; images verified via PIL.

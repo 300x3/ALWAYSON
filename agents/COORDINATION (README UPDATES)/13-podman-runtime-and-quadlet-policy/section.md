@@ -64,8 +64,7 @@ here. Two are specific to this model:
 ### 13.2.1 Tracked gap — per-service accounts exist but run nothing
 
 The design forbids a per-service store, and no workload uses one. **However, the accounts and
-one system unit from that rejected design are still present on the host.** They are tracked
-here as Open work item `OPS-14` in §19.1: there is no mixed store. What exists is unused scaffolding.
+one system unit from that rejected design are still present on the host.** These SHALL be removed by operator action: they hold no container store, no socket and no process, so the single-store designation above is unaffected. What exists is unused scaffolding.
 
 | Artefact | State | Meaning |
 |---|---|---|
@@ -76,7 +75,7 @@ here as Open work item `OPS-14` in §19.1: there is no mixed store. What exists 
 | `/run/ao-podman/` | `No such file or directory` | the rejected socket directory was never created |
 | `/var/lib/containers/storage` | exists, `db.sql` last written before the rootless migration | enumerated — zero containers/pods/volumes; residual images unverified, see below |
 
-**Tracked gap (Open work item `OPS-14`).** The host carries three unused service accounts and one disabled system unit
+**Tracked removal: the host carries three unused service accounts and one disabled system unit that this design does not authorise.
 that this design does not authorise. They hold no container store, no socket and no process,
 so the single-store designation above is unaffected. They SHALL be removed by operator action
 (recorded in §19.1 `OPS-14`): removing an

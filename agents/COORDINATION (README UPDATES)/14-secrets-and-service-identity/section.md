@@ -5,9 +5,8 @@
 **Policy.** Secret storage SHALL be the KDE Wallet, encrypted at rest. Secret delivery
 SHALL be a wallet-materialised `0600` env file under `%h/.local/share/ao-secrets/`,
 consumed by the unit via Podman `EnvironmentFile=` and refreshed at start-up by
-`fetch-kwallet-secret.sh` (Open work items `SEC-01`/`SEC-02` in §19.1 track operator
-ratification of the nine-file/fifteen-unit delivery set). Prefer file-based secret delivery
-rather than environment variables.
+`fetch-kwallet-secret.sh`. Prefer file-based secret delivery rather than environment variables.
+The delivery set SHALL be ratified by the operator as nine files across fifteen units.
 
 **Specified design (SEC-01/SEC-02).** The login-gated KDE Wallet
 design is the specified secret-delivery mechanism for this host, implementing the §4.1 rule 7
@@ -403,7 +402,7 @@ Plus `mastodon.env` (1041 bytes, mode `0640`, wallet entry `ao-mastodon/mastodon
 byte-identical to the file per §14.1.3), consumed by `ao-mastodon-web`, `-streaming` and
 `-sidekiq` and by the repair `ExecStartPost`. **The operator SHALL therefore ratify
 nine files across fifteen units, not four files across four
-units (Open work items `SEC-01`/`SEC-02` in §19.1).** The four-database framing was inherited from the SEC-01 acceptance criterion, which
+units. The four-database framing was inherited from the SEC-01 acceptance criterion, which
 names only mastodon-db, sales-db and webodm-db; the criterion is narrower than the
 implementation, and the implementation is what needs approving.
 

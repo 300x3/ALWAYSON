@@ -82,9 +82,9 @@ real drone telemetry, payment services, customer records, or Corda core.
 ### 10.1.2 Baseline capability: 3D world, boning, reinforcement learning objects, HTML portal
 
 Required by ES.1 for **both** simulation domains. For `ao-sim-vehicle` these four are
-baseline deliverables, not optional extras, and they are tracked as §19.1 SIM-04 (ST-07).
-
-**3D world setup.** The domain stands up its own Gazebo world as a first-class artifact:
+baseline deliverables, not optional extras. Each SHALL be a first-class artifact
+for its simulation domain, created and scripted from a single entry point rather
+than assembled by hand.
 the world file, its models, their poses, the lighting and environment, the ground and
 surface materials, the physics and collision configuration, and the spawn points. World
 setup must be scripted and repeatable from a single entry point rather than assembled by
@@ -209,8 +209,10 @@ task plans, and launch configurations. Use Git LFS or a separate artifact
 repository for large meshes, textures, point clouds, and generated results.
 ### 10.2.1 Baseline capability: 3D world, boning, reinforcement learning objects, HTML portal
 
-The same four deliverables as §10.1.2, tracked as §19.1 SIM-05 (ST-08). What differs is
-what the world contains.
+The same four deliverables as §10.1.2, each SHALL be a separate and first-class
+artifact in the fabrication world, covering the robot-arm cells, the vehicle and
+shelving layout, and the kitchen and storage volumes. What differs is what the
+world contains.
 
 **3D world setup.** The fabrication world covers the robot-arm cells, the vehicle and
 shelving layout, and the kitchen and storage volumes shown in Figures 10.2a–10.2c, with

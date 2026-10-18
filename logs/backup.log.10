@@ -1,0 +1,16 @@
+# ALWAYS ON backup journal (README Section 16.3)
+# Appended after every backup run: timestamp, actor, script, repository,
+# snapshot ID, and success/failure.
+#
+# Created 2026-10-02 during the Section 16.3 audit. No prior entries exist
+# because no backup script wrote here; restic-run.sh previously recorded
+# only an audit.log line. Historical backup-run evidence is preserved in
+# logs/backup/ and logs/audit.log and was not moved.
+#
+# Format: <UTC timestamp> actor=<user> script=<name> repo=<restic repo> snapshot=<id> result=<OK|FAILED> <detail>
+# Never record a restic password or repository secret (Section 4.2).
+2026-10-03T01:00:16+00:00 actor=scottw script=restic-run.sh snapshot=none result=DRY-RUN restic backup not executed (--dry-run); no snapshot created
+2026-10-03T01:00:45+00:00 actor=scottw script=restic-run.sh snapshot=none result=DRY-RUN restic backup not executed (--dry-run); no snapshot created
+2026-10-03T03:24:50+00:00 actor=root script=restic-run.sh snapshot=548d9910 result=OK restic backup completed
+2026-10-03T10:40:03+00:00 actor=root script=restic-run.sh snapshot=548d9910 result=OK restic backup completed
+2026-10-03T15:12:25+00:00 actor=root script=restic-run.sh snapshot=548d9910 result=OK restic backup completed

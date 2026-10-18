@@ -1,8 +1,8 @@
 # 1. System Purpose
 
 ALWAYS ON is an on-premises platform supporting an automated modular live/fabricate facility
-of roughly 160 square feet, and an accompanying micro-aircraft carrier. Both scale in size
-and quantity without changing the architecture.
+of 160 square feet, and an accompanying micro-aircraft carrier. Both scale in size
+and quantity within the bounds of this architecture.
 
 | Capability | Scope |
 |---|---|
@@ -16,11 +16,11 @@ and quantity without changing the architecture.
 | Content | Static HTML and interactive iframe content from other servers |
 
 **Deployment roles.** The workstation is the development, integration and validation host. It
-runs Kubuntu 26.04 LTS on an Intel Core i7-8700K with an NVIDIA GTX 1080. Compute-intensive
-production workloads may move to an immersion-cooled server rack and a Raspberry Pi
+runs Ubuntu 26.04 LTS on an Intel Core i7-8700K with an NVIDIA GTX 1080. Compute-intensive
+production workloads shall be deployable to an immersion-cooled server rack and a Raspberry Pi
 edge-computing cluster.
 
-Kubuntu is the desktop for four reasons: it is built on Ubuntu LTS with standard security
+KDE Plasma is the desktop for four reasons: it is built on Ubuntu LTS with standard security
 maintenance to May 2031, giving a predictable maintenance horizon; it carries the ROS 2 and
 Gazebo toolchain plus
 QGroundControl that the simulation work depends on; KDE Plasma provides the login-gated KDE
@@ -36,9 +36,8 @@ the desktop.** Requirements that follow from this, and which the provisioner and
 verification step must be written against:
 
 - The base distribution is Ubuntu 26.04 LTS. The `kubuntu-desktop` metapackage is **not**
-  required and must not be assumed installed; only the Kubuntu-flavoured settings packages are
-  expected. Verification must not test for `kubuntu-desktop`, `/etc/kubuntu-release`, or any
-  `Kubuntu` distributor string — on this platform those correctly read as absent or as
+  required and must not be assumed installed; only the KDE settings packages shall be installed. Verification must not test for `kubuntu-desktop`, the `/etc/kubuntu-release` file, or a
+  Kubuntu distributor string — on this platform those correctly read as absent or as Ubuntu.
   `Ubuntu`.
 - The **KDE Plasma desktop is required**, because the login-gated KDE Wallet secret flow
   (§14.1) and Konqueror as the automation browser depend on it.
@@ -54,8 +53,8 @@ verification step must be written against:
 Gazebo Sim 10.5.0 is required but runs **containerised**, so `gzserver` must not be expected on
 the host `PATH`. QGroundControl is required as an operator tool but **is not a distribution
 package**: it is supplied as a user-level AppImage with a `.desktop` launcher under
-`~/.local/share/applications`, so neither a `qgroundcontrol` binary on `PATH` nor an entry under
-`/usr/share/applications` may be assumed. Any inventory, install list or verification step must
+`~/.local/share/applications`, so a `qgroundcontrol` binary on `PATH` or an entry under
+`/usr/share/applications` must not be assumed. Any inventory, install list or verification step must
 treat AppImage-supplied and locally-built tools as a distinct class from packaged software, and
 must not report them as missing merely because no package owns them.
 

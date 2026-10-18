@@ -67,10 +67,10 @@
    "ts": "2026-10-11 18:52"
   },
   "poolside/laguna-xs-2.1:free": {
-   "verdict": "DRY",
-   "detail": "Failed to create stream: inference request failed: failed to generate stream from OpenRouter: failed to invoke model 'poolside/laguna-xs-2.1:free' with streaming: request failed with status 404: {\"err",
+   "verdict": "ERROR",
+   "detail": "Z\",\"type\":\"error\",\"message\":\"Hub command session.create timed out after 30000ms (hub=ws://127.0.0.1:25463/hub, requestId=hubreq_1792287902366_oveil, clientId=core-j022lzmd-mvd5xw8m). Check hub-daemon.log for matching command.start/command.slow entries, or run 'cline doctor fix' to restart the hub.\"}",
    "task": "median-debug-v1",
-   "ts": "2026-10-12 10:33"
+   "ts": "2026-10-17 18:45"
   },
   "cohere/north-mini-code:free": {
    "verdict": "TIMEOUT",
@@ -115,5 +115,5 @@
    "ts": "2026-10-11 19:33"
   }
  },
- "updated": "2026-10-12T10:33:09"
+ "updated": "2026-10-17T18:45:32"
 }

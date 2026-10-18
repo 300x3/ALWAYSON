@@ -138,14 +138,18 @@ database. Measured 2026-10-16: `webodm_dev` holds 32 public tables (10 projects,
 and changing it is an operator action.
 
 The data directory resides on the root filesystem rather than the photogrammetry
-drive; this gap is tracked as Open work item FIELD-11 in §19.1. Moving
-a live PostgreSQL data directory is an operator decision and service-configuration
+drive; the authoritative mapping database SHALL be `webodm_dev` in the
+mapped data directory, with `~/webodm/dbdata` and the empty `webodm` database
+removed. Moving a live PostgreSQL data directory is an operator decision and
+service-configuration
 change. Measured 2026-10-16: the drive top level is now operator-writable
 (`scottw:ao-mapping`, and `scottw` is in `ao-mapping`), but eight subdirectories
 (`backups`, `deliverables`, `exports`, `incoming`, `manifests`, `rejected`, `tmp`,
 `validated`) remain `ao-mapping:alwayson-mapping` mode `770` with `alwayson-mapping`
-empty, so they are still operator-denied; see FIELD-10. Any move must fix that
-ownership first, or the database lands on a volume its own operator cannot manage.
+empty, so they are still operator-denied; remediation is: add the operator to the
+`alwayson-mapping` group (`sudo usermod -aG alwayson-mapping scottw`, then
+re-login), after which the eight parents become writable and the ten
+sub-directories are created.
 
 `/ALWAYSON/data/mapping/postgres/` and `/ALWAYSON/data/mapping/redis/` are not part of
 the design and must stay empty; neither is a bind mount for the running services.

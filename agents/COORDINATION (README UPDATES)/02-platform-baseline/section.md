@@ -4,7 +4,7 @@
 
 | Area | Architecture requirement |
 |---|---|
-| Host OS | Kubuntu 26.04 LTS workstation; the selection rationale is in §1 |
+| Host OS | Ubuntu 26.04 LTS workstation with KDE Plasma desktop; the platform identity is defined in §1 (Ubuntu 26.04 LTS base + KDE Plasma; not Kubuntu; `kubuntu-desktop` not required) |
 | Current CPU/GPU | AMD CPU and EVGA NVIDIA GTX 1080 |
 | Future compute | Immersion-cooled server rack and Raspberry Pi edge cluster |
 | Container engine | Podman only |
@@ -15,7 +15,7 @@
 | Drone compute | Raspberry Pi 5 with Waveshare SX1262-class LoRa top-hat |
 | Drone autopilot | 3DR N1 connected to Raspberry Pi 5 by MAVLink |
 | Desktop radios | Two Heltec LoRa 32 V3 (SX1262), distinguished by USB port topology as `/dev/ao-drone-radio` (ttyUSB0, DRONE-RADIO 917 MHz) and `/dev/ao-people-radio` (ttyUSB1, PEOPLE-RADIO 915 MHz) |
-| Field protocol | RNS/Reticulum and MeshChatX over raw LoRa unless a true LoRaWAN deployment is selected |
+| Field protocol | RNS/Reticulum and MeshChatX over raw LoRa, SHALL be the active field protocol; a true LoRaWAN deployment, if ever selected, requires its own requirement row and verification before it replaces raw LoRa |
 | Mapping | WebODM and supporting services under Podman |
 | Mapping storage | `/media/scottw/500GBPHOTOGRAM/` |
 | Vehicle simulation | ROS 2 Lyrical, Gazebo Sim 10.5.0, ArduPilot SITL, MAVLink, QGroundControl |
@@ -23,7 +23,7 @@
 | Ledger | Corda core behind a dedicated ledger-ingestion gateway |
 | Archive | Local source data, signed manifests, encrypted pCloud replication, private or encrypted IPFS workflow |
 | Monitoring | Prometheus-compatible metrics, alerts, health checks, and protected administration access |
-| Backup | PostgreSQL/Corda-aware backup, restic or equivalent encrypted backup, and scheduled restore testing |
+| Backup | PostgreSQL/Corda-aware backup via restic (single named tool), encrypted restic or equivalent only if independently verified; restore testing SHALL run monthly and after every backup-format change, tied to a unit/timer |
 
 ## 2.2 Platform Baseline
 
@@ -34,7 +34,7 @@ two disagree, the tracker is the fact and the requirement below is what must be 
 
 | Area | Baseline |
 |---|---|
-| Kernel | Ubuntu LTS kernel |
+| Kernel | Ubuntu 26.04 LTS kernel (matches §1 base distribution) |
 | Podman | Rootless for every workload (§13.1, §13.2) |
 | Podman networks | **Fourteen** `ao-*` networks, all registered in `config/platform/network-cidrs.yaml`, which is the only authoritative list. **Eleven** are `Internal=true`: the ten workload domains `ao-admin`, `ao-data`, `ao-fabrication`, `ao-field`, `ao-ledger-core`, `ao-ledger-ingest`, `ao-mapping`, `ao-payment`, `ao-sim-fabrication`, `ao-sim-vehicle`, plus `ao-html-window`. **Three** are deliberately `Internal=false`: `ao-sales` for ActivityPub delivery, `ao-reporting-egress` for Grafana and Metabase, and `ao-build-update` for software acquisition |
 | GPU | EVGA NVIDIA GTX 1080 |

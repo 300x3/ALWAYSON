@@ -4,7 +4,7 @@
 
 | Subject | Current plan; replaces any contrary older text below |
 |---|---|
-| Social media | Most closely tied to the **remote fediverse**: public marketing/contact across website chat, email, Mastodon, and approved social channels, with the fediverse chatbot eventually routing into other social media systems. **OpenClaw** is the direct Mastodon publisher; its local output is standardized PDFs for order/follow-up/support/payment workflows, processed into the sales, payment, and ledger records. `ao-sales` connects to the remote fediverse only (§4.3) |
+| Social media | Most closely tied to the **remote fediverse**: public marketing/contact across website chat, email, Mastodon, and approved social channels, with the fediverse chatbot routing into other social media systems. **OpenClaw** is the direct Mastodon publisher; its local output is standardized PDFs for order/follow-up/support/payment workflows, processed into the sales, payment, and ledger records. `ao-sales` connects to the remote fediverse only (§4.3) |
 | LM Studio | Fundamental local LLM host for OpenClaw |
 | Browser | Konqueror — dedicated browser for automation |
 | Automated testing | Playwright and Chrome verify loopback service reachability per `config/platform/loopback-services.yaml`; results are recorded in §19.2 |
@@ -17,16 +17,16 @@
 | Grafana | Dashboards and metrics only; it reads the databases that already exist and does not write to them |
 | Metabase | Reporting only, and it does ad-hoc read-only reporting, so it requires **its own dedicated PostgreSQL application database** to hold its Metabase schema, saved questions, dashboards, and subscriptions. That application database holds Metabase's own state only — it is not a system of record for business data, and it never receives data from the reporting sources. Metabase connects to the other PostgreSQL and MySQL databases, and to local desktop-application SQLite files, as a **read-only** user in order to report on them, and it never writes to them. Ad-hoc reports that become recurring are promoted into stable Grafana dashboards |
 | Corda | Blockchain-enabled accounting, ledger, receipt, entitlement, fulfillment, provenance, and approved state-transition system. Built on **Corda 5.2.2** against `cordadb` — one database within the regular host PostgreSQL 18 cluster, with its own roles and backup scope (§11.1) |
-| IPFS | **File-transfer verification and, potentially, sales listing on a blockchain** for approved map/imagery and telemetry/product-operational packages. **It is not a backup.** No Corda/ledger/accounting dependency |
+| IPFS | **File-transfer verification and sales listing on a blockchain** for approved map/imagery and telemetry/product-operational packages. **It is not a backup.** No Corda/ledger/accounting dependency |
 | Backup/restore | Local authority + **encrypted restic** (§17.1). Independent of IPFS and Corda. This is the *only* backup |
-| Sale transfer | `ao-egress-archive` holds packages **"archived for data transfer and sale"** — a transfer copy, **not** a backup. IPFS first (transfer verification + possible blockchain listing), then encrypted pCloud. **Requires `ao-sales` authorisation** first (§11.6) |
+| Sale transfer | `ao-egress-archive` holds packages **"archived for data transfer and sale"** — a transfer copy, **not** a backup. IPFS first (transfer verification **and** blockchain listing), then encrypted pCloud. **Requires `ao-sales` authorisation** first (§11.6) |
 | Secret authority | KDE Wallet; services needing Wallet secrets start after KDE login |
 | GPU policy | Priority: desktop/Konqueror → SketchUp/SketchUp Web → active LM Studio/OpenClaw → ROS/Gazebo/SITL → WebODM batch |
 | Additive fabrication | Real machines, not simulated cells: **MainsailOS/Moonraker/Klipper operate on each individual 3D printing machine**, each on its own BigTreeTech CB1 / Raspberry Pi; individual CNC machines likewise. These are **real peers**, not children of the simulated domain. `ao-sim-fabrication` **rehearses** the flow for the **kitchen, cooler/freezer/pantry carousel, storage carousel, and their robot-arm boxes** (2 arms in 2 boxes at storage, which organize and manage the additive-manufacturing machines; 2 arms on independent rails at the kitchen, which cook); it runs the kitchen and holds no production data. **The simulation does not manage those robot arms or carousels** — they need the separate future `ao-auto(kitchen,cool,store,fab)-` domain (§10.2) |
 | **Real fabrication** | **`ao-fabrication`** is the real (non-simulated) fabrication domain, distinct from `ao-sim-fabrication` in every respect (§3.3.0): it **pulls data into its own database** for industrial engineering and fabrication optimisation — per-machine production data lands in **`a_fab`** (`10.89.12.0/24`, `Internal=true`). Individual CNC machines on their own RPis SHALL run **bCNC** where a machine-side sender is required, tied to Klipper/MainsailOS where the machine supports it |
 | Simulation (fabrication) | `ao-sim-fabrication` requires, as baseline capability and not optional extras: **3D world setup** (its own world), **boning** (alignment and datum structure built into that world), **reinforcement learning objects** (the trainable entities for scenario and policy work), and an **HTML portal to operation** — set up and operated from a browser, with no desktop GUI client (§10.2) |
 | Simulation (vehicles) | `ao-sim-vehicle` requires the same four baseline capabilities as `ao-sim-fabrication` (§10.1) |
-| Home automation | Domoticz/RPi for the usual Domoticz home automation features: HVAC, doors/locks/access, security/alarms, lighting/scenes, cameras, weather, environmental sensing, media, and other typical Domoticz device classes; separate from printers and future building robotics |
+| Home automation | Domoticz/RPi for the Domoticz home automation features: HVAC, doors/locks/access, security/alarms, lighting/scenes, cameras, weather, environmental sensing, media, and other Domoticz device classes; separate from printers and future building robotics |
 
 ### ES.2 Master Topology
 
@@ -162,19 +162,17 @@ The only non-loopback listeners are ReticulumMeshChat (documented) and `dnsmasq`
 
 This is the single authoritative document for the ALWAYS ON project. It contains the
 intended architecture, implemented configuration, operational requirements, validation
-evidence, and the open work items that close the remaining gaps. The remaining tables,
+evidence, and the closing specification for each remaining gap. The remaining tables,
 commands, evidence, paths, full interface inventory, operational requirements,
 payment/ledger forms, Mastodon details, installation procedures, backup rules, and
 service records follow, numbered 1–17. Status, work queue, and references live in §19–20 (`README-ACTION_ITEMS/status-and-references.md`), never in this body. Where an older statement conflicts with ES.1,
 ES.1 governs. When the current implementation differs from an architecture
-requirement, the gap SHALL be tracked as an Open work item in §19.1 with owner,
-acceptance criteria, and closure evidence — no implementation ships with an
-untracked gap.
+requirement, the gap SHALL be recorded in §19.1 with its owner, acceptance criteria, and closure evidence — no implementation ships with an untracked gap.
 
 > **Operator warning.** Everything here is difficult until it is easy. These tools
-> are sharp and dangerous, and if you disrespect them they will can/will harm you —
-> the same as any trip, fall, or car ride. Perhaps not as bad, perhaps worse. In my
-> opinion, ignoring them is more dangerous than understanding them.
+> are sharp and dangerous, and if you disrespect them they will harm you —
+> the same as any trip, fall, or car ride. Ignoring them is more dangerous than
+> understanding them.
 
 ---
 

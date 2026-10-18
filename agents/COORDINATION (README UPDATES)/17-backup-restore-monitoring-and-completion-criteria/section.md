@@ -43,8 +43,8 @@ The off-site repository must satisfy all of the following.
    credential (`restic cat config` succeeds).
 2. **Hold a snapshot series, not a single snapshot.** A one-snapshot repository
    proves a copy once; it does not prove a copy is maintained. The repository
-   SHALL be on a schedule; until the schedule exists the gap is tracked as Open
-   work item `OPS-30` in §19.1.
+   SHALL be on a schedule; until a verified restore test exists on that schedule,
+   the off-site copy is not yet a completed restore source.
 3. **Cover every path class the nightly repository covers** (see §17.4). A
    repository holding only a subset is not a restore source.
 4. **Verify** — `restic check` must pass against it.
