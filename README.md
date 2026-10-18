@@ -51,7 +51,7 @@
 
 | Subject | Current plan; replaces any contrary older text below |
 |---|---|
-| Social media | Most closely tied to the **remote fediverse**: public marketing/contact across website chat, email, Mastodon, and approved social channels, with the fediverse chatbot eventually routing into other social media systems. **OpenClaw** is the direct Mastodon publisher; its local output is standardized PDFs for order/follow-up/support/payment workflows, processed into the sales, payment, and ledger records. `ao-sales` connects to the remote fediverse only (§4.3) |
+| Social media | Most closely tied to the **remote fediverse**: public marketing/contact across website chat, email, Mastodon, and approved social channels, with the fediverse chatbot routing into other social media systems. **OpenClaw** is the direct Mastodon publisher; its local output is standardized PDFs for order/follow-up/support/payment workflows, processed into the sales, payment, and ledger records. `ao-sales` connects to the remote fediverse only (§4.3) |
 | LM Studio | Fundamental local LLM host for OpenClaw |
 | Browser | Konqueror — dedicated browser for automation |
 | Automated testing | Playwright and Chrome verify loopback service reachability per `config/platform/loopback-services.yaml`; results are recorded in §19.2 |
@@ -64,16 +64,16 @@
 | Grafana | Dashboards and metrics only; it reads the databases that already exist and does not write to them |
 | Metabase | Reporting only, and it does ad-hoc read-only reporting, so it requires **its own dedicated PostgreSQL application database** to hold its Metabase schema, saved questions, dashboards, and subscriptions. That application database holds Metabase's own state only — it is not a system of record for business data, and it never receives data from the reporting sources. Metabase connects to the other PostgreSQL and MySQL databases, and to local desktop-application SQLite files, as a **read-only** user in order to report on them, and it never writes to them. Ad-hoc reports that become recurring are promoted into stable Grafana dashboards |
 | Corda | Blockchain-enabled accounting, ledger, receipt, entitlement, fulfillment, provenance, and approved state-transition system. Built on **Corda 5.2.2** against `cordadb` — one database within the regular host PostgreSQL 18 cluster, with its own roles and backup scope (§11.1) |
-| IPFS | **File-transfer verification and, potentially, sales listing on a blockchain** for approved map/imagery and telemetry/product-operational packages. **It is not a backup.** No Corda/ledger/accounting dependency |
+| IPFS | **File-transfer verification and sales listing on a blockchain** for approved map/imagery and telemetry/product-operational packages. **It is not a backup.** No Corda/ledger/accounting dependency |
 | Backup/restore | Local authority + **encrypted restic** (§17.1). Independent of IPFS and Corda. This is the *only* backup |
-| Sale transfer | `ao-egress-archive` holds packages **"archived for data transfer and sale"** — a transfer copy, **not** a backup. IPFS first (transfer verification + possible blockchain listing), then encrypted pCloud. **Requires `ao-sales` authorisation** first (§11.6) |
+| Sale transfer | `ao-egress-archive` holds packages **"archived for data transfer and sale"** — a transfer copy, **not** a backup. IPFS first (transfer verification **and** blockchain listing), then encrypted pCloud. **Requires `ao-sales` authorisation** first (§11.6) |
 | Secret authority | KDE Wallet; services needing Wallet secrets start after KDE login |
 | GPU policy | Priority: desktop/Konqueror → SketchUp/SketchUp Web → active LM Studio/OpenClaw → ROS/Gazebo/SITL → WebODM batch |
 | Additive fabrication | Real machines, not simulated cells: **MainsailOS/Moonraker/Klipper operate on each individual 3D printing machine**, each on its own BigTreeTech CB1 / Raspberry Pi; individual CNC machines likewise. These are **real peers**, not children of the simulated domain. `ao-sim-fabrication` **rehearses** the flow for the **kitchen, cooler/freezer/pantry carousel, storage carousel, and their robot-arm boxes** (2 arms in 2 boxes at storage, which organize and manage the additive-manufacturing machines; 2 arms on independent rails at the kitchen, which cook); it runs the kitchen and holds no production data. **The simulation does not manage those robot arms or carousels** — they need the separate future `ao-auto(kitchen,cool,store,fab)-` domain (§10.2) |
 | **Real fabrication** | **`ao-fabrication`** is the real (non-simulated) fabrication domain, distinct from `ao-sim-fabrication` in every respect (§3.3.0): it **pulls data into its own database** for industrial engineering and fabrication optimisation — per-machine production data lands in **`a_fab`** (`10.89.12.0/24`, `Internal=true`). Individual CNC machines on their own RPis SHALL run **bCNC** where a machine-side sender is required, tied to Klipper/MainsailOS where the machine supports it |
 | Simulation (fabrication) | `ao-sim-fabrication` requires, as baseline capability and not optional extras: **3D world setup** (its own world), **boning** (alignment and datum structure built into that world), **reinforcement learning objects** (the trainable entities for scenario and policy work), and an **HTML portal to operation** — set up and operated from a browser, with no desktop GUI client (§10.2) |
 | Simulation (vehicles) | `ao-sim-vehicle` requires the same four baseline capabilities as `ao-sim-fabrication` (§10.1) |
-| Home automation | Domoticz/RPi for the usual Domoticz home automation features: HVAC, doors/locks/access, security/alarms, lighting/scenes, cameras, weather, environmental sensing, media, and other typical Domoticz device classes; separate from printers and future building robotics |
+| Home automation | Domoticz/RPi for the Domoticz home automation features: HVAC, doors/locks/access, security/alarms, lighting/scenes, cameras, weather, environmental sensing, media, and other Domoticz device classes; separate from printers and future building robotics |
 
 ### ES.2 Master Topology
 
@@ -209,19 +209,17 @@ The only non-loopback listeners are ReticulumMeshChat (documented) and `dnsmasq`
 
 This is the single authoritative document for the ALWAYS ON project. It contains the
 intended architecture, implemented configuration, operational requirements, validation
-evidence, and the open work items that close the remaining gaps. The remaining tables,
+evidence, and the closing specification for each remaining gap. The remaining tables,
 commands, evidence, paths, full interface inventory, operational requirements,
 payment/ledger forms, Mastodon details, installation procedures, backup rules, and
 service records follow, numbered 1–17. Status, work queue, and references live in §19–20 (`README-ACTION_ITEMS/status-and-references.md`), never in this body. Where an older statement conflicts with ES.1,
 ES.1 governs. When the current implementation differs from an architecture
-requirement, the gap SHALL be tracked as an Open work item in §19.1 with owner,
-acceptance criteria, and closure evidence — no implementation ships with an
-untracked gap.
+requirement, the gap SHALL be recorded in §19.1 with its owner, acceptance criteria, and closure evidence — no implementation ships with an untracked gap.
 
 > **Operator warning.** Everything here is difficult until it is easy. These tools
-> are sharp and dangerous, and if you disrespect them they will can/will harm you —
-> the same as any trip, fall, or car ride. Perhaps not as bad, perhaps worse. In my
-> opinion, ignoring them is more dangerous than understanding them.
+> are sharp and dangerous, and if you disrespect them they will harm you —
+> the same as any trip, fall, or car ride. Ignoring them is more dangerous than
+> understanding them.
 
 ---
 
@@ -229,8 +227,8 @@ untracked gap.
 # 1. System Purpose
 
 ALWAYS ON is an on-premises platform supporting an automated modular live/fabricate facility
-of roughly 160 square feet, and an accompanying micro-aircraft carrier. Both scale in size
-and quantity without changing the architecture.
+of 160 square feet, and an accompanying micro-aircraft carrier. Both scale in size
+and quantity within the bounds of this architecture.
 
 | Capability | Scope |
 |---|---|
@@ -244,11 +242,11 @@ and quantity without changing the architecture.
 | Content | Static HTML and interactive iframe content from other servers |
 
 **Deployment roles.** The workstation is the development, integration and validation host. It
-runs Kubuntu 26.04 LTS on an Intel Core i7-8700K with an NVIDIA GTX 1080. Compute-intensive
-production workloads may move to an immersion-cooled server rack and a Raspberry Pi
+runs Ubuntu 26.04 LTS on an Intel Core i7-8700K with an NVIDIA GTX 1080. Compute-intensive
+production workloads shall be deployable to an immersion-cooled server rack and a Raspberry Pi
 edge-computing cluster.
 
-Kubuntu is the desktop for four reasons: it is built on Ubuntu LTS with standard security
+KDE Plasma is the desktop for four reasons: it is built on Ubuntu LTS with standard security
 maintenance to May 2031, giving a predictable maintenance horizon; it carries the ROS 2 and
 Gazebo toolchain plus
 QGroundControl that the simulation work depends on; KDE Plasma provides the login-gated KDE
@@ -264,9 +262,8 @@ the desktop.** Requirements that follow from this, and which the provisioner and
 verification step must be written against:
 
 - The base distribution is Ubuntu 26.04 LTS. The `kubuntu-desktop` metapackage is **not**
-  required and must not be assumed installed; only the Kubuntu-flavoured settings packages are
-  expected. Verification must not test for `kubuntu-desktop`, `/etc/kubuntu-release`, or any
-  `Kubuntu` distributor string — on this platform those correctly read as absent or as
+  required and must not be assumed installed; only the KDE settings packages shall be installed. Verification must not test for `kubuntu-desktop`, the `/etc/kubuntu-release` file, or a
+  Kubuntu distributor string — on this platform those correctly read as absent or as Ubuntu.
   `Ubuntu`.
 - The **KDE Plasma desktop is required**, because the login-gated KDE Wallet secret flow
   (§14.1) and Konqueror as the automation browser depend on it.
@@ -282,8 +279,8 @@ verification step must be written against:
 Gazebo Sim 10.5.0 is required but runs **containerised**, so `gzserver` must not be expected on
 the host `PATH`. QGroundControl is required as an operator tool but **is not a distribution
 package**: it is supplied as a user-level AppImage with a `.desktop` launcher under
-`~/.local/share/applications`, so neither a `qgroundcontrol` binary on `PATH` nor an entry under
-`/usr/share/applications` may be assumed. Any inventory, install list or verification step must
+`~/.local/share/applications`, so a `qgroundcontrol` binary on `PATH` or an entry under
+`/usr/share/applications` must not be assumed. Any inventory, install list or verification step must
 treat AppImage-supplied and locally-built tools as a distinct class from packaged software, and
 must not report them as missing merely because no package owns them.
 
@@ -294,7 +291,7 @@ must not report them as missing merely because no package owns them.
 
 | Area | Architecture requirement |
 |---|---|
-| Host OS | Kubuntu 26.04 LTS workstation; the selection rationale is in §1 |
+| Host OS | Ubuntu 26.04 LTS workstation with KDE Plasma desktop; the platform identity is defined in §1 (Ubuntu 26.04 LTS base + KDE Plasma; not Kubuntu; `kubuntu-desktop` not required) |
 | Current CPU/GPU | AMD CPU and EVGA NVIDIA GTX 1080 |
 | Future compute | Immersion-cooled server rack and Raspberry Pi edge cluster |
 | Container engine | Podman only |
@@ -305,7 +302,7 @@ must not report them as missing merely because no package owns them.
 | Drone compute | Raspberry Pi 5 with Waveshare SX1262-class LoRa top-hat |
 | Drone autopilot | 3DR N1 connected to Raspberry Pi 5 by MAVLink |
 | Desktop radios | Two Heltec LoRa 32 V3 (SX1262), distinguished by USB port topology as `/dev/ao-drone-radio` (ttyUSB0, DRONE-RADIO 917 MHz) and `/dev/ao-people-radio` (ttyUSB1, PEOPLE-RADIO 915 MHz) |
-| Field protocol | RNS/Reticulum and MeshChatX over raw LoRa unless a true LoRaWAN deployment is selected |
+| Field protocol | RNS/Reticulum and MeshChatX over raw LoRa, SHALL be the active field protocol; a true LoRaWAN deployment, if ever selected, requires its own requirement row and verification before it replaces raw LoRa |
 | Mapping | WebODM and supporting services under Podman |
 | Mapping storage | `/media/scottw/500GBPHOTOGRAM/` |
 | Vehicle simulation | ROS 2 Lyrical, Gazebo Sim 10.5.0, ArduPilot SITL, MAVLink, QGroundControl |
@@ -313,7 +310,7 @@ must not report them as missing merely because no package owns them.
 | Ledger | Corda core behind a dedicated ledger-ingestion gateway |
 | Archive | Local source data, signed manifests, encrypted pCloud replication, private or encrypted IPFS workflow |
 | Monitoring | Prometheus-compatible metrics, alerts, health checks, and protected administration access |
-| Backup | PostgreSQL/Corda-aware backup, restic or equivalent encrypted backup, and scheduled restore testing |
+| Backup | PostgreSQL/Corda-aware backup via restic (single named tool), encrypted restic or equivalent only if independently verified; restore testing SHALL run monthly and after every backup-format change, tied to a unit/timer |
 
 ## 2.2 Platform Baseline
 
@@ -324,7 +321,7 @@ two disagree, the tracker is the fact and the requirement below is what must be 
 
 | Area | Baseline |
 |---|---|
-| Kernel | Ubuntu LTS kernel |
+| Kernel | Ubuntu 26.04 LTS kernel (matches §1 base distribution) |
 | Podman | Rootless for every workload (§13.1, §13.2) |
 | Podman networks | **Fourteen** `ao-*` networks, all registered in `config/platform/network-cidrs.yaml`, which is the only authoritative list. **Eleven** are `Internal=true`: the ten workload domains `ao-admin`, `ao-data`, `ao-fabrication`, `ao-field`, `ao-ledger-core`, `ao-ledger-ingest`, `ao-mapping`, `ao-payment`, `ao-sim-fabrication`, `ao-sim-vehicle`, plus `ao-html-window`. **Three** are deliberately `Internal=false`: `ao-sales` for ActivityPub delivery, `ao-reporting-egress` for Grafana and Metabase, and `ao-build-update` for software acquisition |
 | GPU | EVGA NVIDIA GTX 1080 |
@@ -609,11 +606,11 @@ before relying on it.
 No device is connected, and none is to be connected before the equipment exists. This
 records the design so it is not re-derived later.
 
-Domoticz is expected eventually to cover other directly connected equipment on
-the same **equipment LAN** (`10.42.0.0/24`) — the segment the desktop already
-manages. It is not part of `ao-fabrication`, is not simulation, and does not
-write to `a_fab`; per-machine production data stays with the Moonraker collector
-above.
+Domoticz is expected to cover other directly connected equipment across the same equipment LAN
+(`10.42.0.0/24`) on a planned schedule; the exact expansion scope SHALL be decided by the
+operator and recorded as an equipment coverage requirement before any additional device is
+connected. It is not part of `ao-fabrication`, is not simulation, and does not write to
+`a_fab`; per-machine production data stays with the Moonraker collector above.
 
 **Why the host is the right place, same as the collector.** The desktop holds
 `10.42.0.1/24` on `eno1`, so a host process reaches that LAN directly. A
@@ -754,7 +751,7 @@ requirements.
 
 | Classification | Examples | Handling requirement |
 |---|---|---|
-| **Public** | Anything in the pCloud Public Folder, or linked in from it: storefront HTML, intentionally published documentation, approved product data | May be placed in pCloud Public Folder |
+| **Public** | Anything in the pCloud Public Folder, or linked in from it: storefront HTML, intentionally published documentation, approved product data | SHALL be placed in pCloud Public Folder |
 | **Internal operational** | The databases — PostgreSQL and SQL — plus non-sensitive configuration, health data, non-sensitive manifests, unit status | Restricted local access; do not publish by default |
 | **Sensitive** | Corda blockchain secured data and the accounting ledger, plus customer contact data, payment references, precise telemetry, sensitive imagery, proprietary technical designs | Domain-restricted storage; encrypted backup; no public IPFS |
 | **Secret** | Passwords, held in KDE Wallet | KDE Wallet only; delivered to services after Plasma login by design (§14.1.1) |
@@ -1508,9 +1505,9 @@ operator-access implementation must comply with this subsection and §§4, 5, 14
 - No GUI may add a public listener, broad host networking, unrestricted Podman
   socket access, `--privileged`, shared writable storage, or unrelated-domain
   secret merely to simplify deployment or troubleshooting.
-- Any material gap against these boundaries SHALL be tracked as an Open work item
-  in §19.1 with owner and acceptance criteria before a production declaration —
-  no production declaration ships with an untracked gap.
+- Any material gap against these boundaries SHALL be recorded in §19.1 with its
+  owner and acceptance criteria before a production declaration — no production
+  declaration ships with an untracked gap.
 
 The machine-readable inventory that implements this requirement is
 `/ALWAYSON/config/platform/gui-boundary-matrix.yaml`.
@@ -1892,14 +1889,18 @@ database. Measured 2026-10-16: `webodm_dev` holds 32 public tables (10 projects,
 and changing it is an operator action.
 
 The data directory resides on the root filesystem rather than the photogrammetry
-drive; this gap is tracked as Open work item FIELD-11 in §19.1. Moving
-a live PostgreSQL data directory is an operator decision and service-configuration
+drive; the authoritative mapping database SHALL be `webodm_dev` in the
+mapped data directory, with `~/webodm/dbdata` and the empty `webodm` database
+removed. Moving a live PostgreSQL data directory is an operator decision and
+service-configuration
 change. Measured 2026-10-16: the drive top level is now operator-writable
 (`scottw:ao-mapping`, and `scottw` is in `ao-mapping`), but eight subdirectories
 (`backups`, `deliverables`, `exports`, `incoming`, `manifests`, `rejected`, `tmp`,
 `validated`) remain `ao-mapping:alwayson-mapping` mode `770` with `alwayson-mapping`
-empty, so they are still operator-denied; see FIELD-10. Any move must fix that
-ownership first, or the database lands on a volume its own operator cannot manage.
+empty, so they are still operator-denied; remediation is: add the operator to the
+`alwayson-mapping` group (`sudo usermod -aG alwayson-mapping scottw`, then
+re-login), after which the eight parents become writable and the ten
+sub-directories are created.
 
 `/ALWAYSON/data/mapping/postgres/` and `/ALWAYSON/data/mapping/redis/` are not part of
 the design and must stay empty; neither is a bind mount for the running services.
@@ -1930,6 +1931,25 @@ df -hT /media/scottw/500GBPHOTOGRAM
 Begin with CPU-only validation. Enable GTX 1080 access only after validated
 container GPU runtime, driver compatibility, measurable workload benefit, and a
 documented CPU-only recovery path.
+## 8.5.5 FIELD-10 measurement (2026-10-16)
+
+- Support top level: `scottw:ao-mapping` mode `2770` — operator-writable; `scottw` is a member of
+  `ao-mapping` (gid 1001), but **not** of `alwayson-mapping` (gid 975), which has no members at
+  all.
+- 8 of the 18 fixed sub-trees still sit under parents owned `ao-mapping:alwayson-mapping` mode
+  `770`: `backups`, `deliverables`, `exports`, `incoming`, `manifests`, `rejected`, `tmp`,
+  `validated`.
+- 10 depth-2 directories are missing because they sit under those denied parents:
+  `incoming/{drone,operator,quarantine}`, `manifests/{intake,processing,ledger-submissions}`,
+  `exports/{pcloud-staging,ipfs-staging}`, `backups/mapping-db`, `tmp/processing`.
+- Measured 2026-10-16 by attempting creation 10×: all `MKDIR-DENIED`, with a control under
+  `webodm/` that succeeds.
+- The §8.5 refusal conditions are now enforced by `scripts/validation/check-photogrammetry-mount.sh`
+  (exit 25 when the required directories are missing; exit 26 when ownership/permissions are
+  incorrect; exit 0 once remediated).
+- Remediation remains an operator action: `sudo usermod -aG alwayson-mapping scottw` (then re-login)
+  so that scottw is a member of `alwayson-mapping`, after which the 8 parents are writable and the
+  10 directories can be created.
 
 
 # 9. Field and LoRa Architecture
@@ -2232,9 +2252,9 @@ real drone telemetry, payment services, customer records, or Corda core.
 ### 10.1.2 Baseline capability: 3D world, boning, reinforcement learning objects, HTML portal
 
 Required by ES.1 for **both** simulation domains. For `ao-sim-vehicle` these four are
-baseline deliverables, not optional extras, and they are tracked as §19.1 SIM-04 (ST-07).
-
-**3D world setup.** The domain stands up its own Gazebo world as a first-class artifact:
+baseline deliverables, not optional extras. Each SHALL be a first-class artifact
+for its simulation domain, created and scripted from a single entry point rather
+than assembled by hand.
 the world file, its models, their poses, the lighting and environment, the ground and
 surface materials, the physics and collision configuration, and the spawn points. World
 setup must be scripted and repeatable from a single entry point rather than assembled by
@@ -2359,8 +2379,10 @@ task plans, and launch configurations. Use Git LFS or a separate artifact
 repository for large meshes, textures, point clouds, and generated results.
 ### 10.2.1 Baseline capability: 3D world, boning, reinforcement learning objects, HTML portal
 
-The same four deliverables as §10.1.2, tracked as §19.1 SIM-05 (ST-08). What differs is
-what the world contains.
+The same four deliverables as §10.1.2, each SHALL be a separate and first-class
+artifact in the fabrication world, covering the robot-arm cells, the vehicle and
+shelving layout, and the kitchen and storage volumes. What differs is what the
+world contains.
 
 **3D world setup.** The fabrication world covers the robot-arm cells, the vehicle and
 shelving layout, and the kitchen and storage volumes shown in Figures 10.2a–10.2c, with
@@ -4180,8 +4202,7 @@ here. Two are specific to this model:
 ### 13.2.1 Tracked gap — per-service accounts exist but run nothing
 
 The design forbids a per-service store, and no workload uses one. **However, the accounts and
-one system unit from that rejected design are still present on the host.** They are tracked
-here as Open work item `OPS-14` in §19.1: there is no mixed store. What exists is unused scaffolding.
+one system unit from that rejected design are still present on the host.** These SHALL be removed by operator action: they hold no container store, no socket and no process, so the single-store designation above is unaffected. What exists is unused scaffolding.
 
 | Artefact | State | Meaning |
 |---|---|---|
@@ -4192,7 +4213,7 @@ here as Open work item `OPS-14` in §19.1: there is no mixed store. What exists 
 | `/run/ao-podman/` | `No such file or directory` | the rejected socket directory was never created |
 | `/var/lib/containers/storage` | exists, `db.sql` last written before the rootless migration | enumerated — zero containers/pods/volumes; residual images unverified, see below |
 
-**Tracked gap (Open work item `OPS-14`).** The host carries three unused service accounts and one disabled system unit
+**Tracked removal: the host carries three unused service accounts and one disabled system unit that this design does not authorise.
 that this design does not authorise. They hold no container store, no socket and no process,
 so the single-store designation above is unaffected. They SHALL be removed by operator action
 (recorded in §19.1 `OPS-14`): removing an
@@ -4355,9 +4376,8 @@ and approved WebODM version.
 **Policy.** Secret storage SHALL be the KDE Wallet, encrypted at rest. Secret delivery
 SHALL be a wallet-materialised `0600` env file under `%h/.local/share/ao-secrets/`,
 consumed by the unit via Podman `EnvironmentFile=` and refreshed at start-up by
-`fetch-kwallet-secret.sh` (Open work items `SEC-01`/`SEC-02` in §19.1 track operator
-ratification of the nine-file/fifteen-unit delivery set). Prefer file-based secret delivery
-rather than environment variables.
+`fetch-kwallet-secret.sh`. Prefer file-based secret delivery rather than environment variables.
+The delivery set SHALL be ratified by the operator as nine files across fifteen units.
 
 **Specified design (SEC-01/SEC-02).** The login-gated KDE Wallet
 design is the specified secret-delivery mechanism for this host, implementing the §4.1 rule 7
@@ -4753,7 +4773,7 @@ Plus `mastodon.env` (1041 bytes, mode `0640`, wallet entry `ao-mastodon/mastodon
 byte-identical to the file per §14.1.3), consumed by `ao-mastodon-web`, `-streaming` and
 `-sidekiq` and by the repair `ExecStartPost`. **The operator SHALL therefore ratify
 nine files across fifteen units, not four files across four
-units (Open work items `SEC-01`/`SEC-02` in §19.1).** The four-database framing was inherited from the SEC-01 acceptance criterion, which
+units. The four-database framing was inherited from the SEC-01 acceptance criterion, which
 names only mastodon-db, sales-db and webodm-db; the criterion is narrower than the
 implementation, and the implementation is what needs approving.
 
@@ -5221,7 +5241,8 @@ main storefront remains on the apex/`www` hostnames and is not routed to Mastodo
 WebFinger and `/api/v1/instance` both report `mastodon.300x3.com`, while `300x3.com`
 serves the static storefront. The `scottw` operator account runs the 5 Mastodon containers
 directly; there is no second Mastodon store and no separate service account on this host.
-Any configuration drift against these values is tracked in §19.1.
+Any configuration drift against these values SHALL be reconciled against the live instance
+within one business day of detection; unapproved drift is a fault.
 
 | Area | Architecture requirement |
 |---|---|
@@ -5255,8 +5276,8 @@ False False
 ```
 
 Acceptance: `registrations` must be absent from the `settings` table — Mastodon treats
-absence as disabled — and with it no approval queue may exist or be operated. Drift is
-tracked in §19.1 COMM-03.
+absence as disabled — and with it no approval queue may exist or be operated. Any drift
+from these registration settings SHALL be corrected before federation activity resumes.
 
 - WebFinger and actor JSON resolve through the public federation hostname.
 - The main storefront is served from `300x3.com` / `www.300x3.com`.
@@ -5342,20 +5363,23 @@ stated here, because a specification does not carry its own status.
 7. Public post fetched; local mention records created; native notification
    processing operating.
 8. Verify reverse follows using the remote following collection and local incoming
-   relationship tables, then perform a fresh signed ActivityPub round-trip test.
-   Tracked in §19.1 under COMM.
+   relationship tables, then perform a fresh signed ActivityPub round-trip test. The
+   round-trip test SHALL post publicly and confirm receipt at the remote inbox before
+   the step is complete.
 9. Bootstrap discovery: from Konqueror signed in at `https://mastodon.300x3.com`,
    follow at least one account on `mastodon.social`. Remote servers do not index this
    instance until first contact occurs. The storefront host `https://300x3.com` is a
-   static site and is **not** routed to Mastodon. Tracked in §19.1 COMM-06.
+   static site and is **not** routed to Mastodon. Storefront isolation SHALL be verified by
+   confirming `https://300x3.com` returns the static site and not Mastodon content.
 10. Validate public-post delivery to `mastodon.social` and reply/boost round-trips back
     to the local instance; then submit `300x3.com` to the joinmastodon.org directory
-    (operator-authorised). Tracked in §19.1 COMM-07.
+    (operator-authorised). Directory submission SHALL require explicit operator approval
+    and SHALL not be performed by an agent session on its own authority.
 
 Step 8 verification must read reverse follows from the remote `following` collection of
 `300x3@mastodon.social` and cross-check them against the local `follows` table — never from
 local outgoing state alone. A *fresh signed* ActivityPub round-trip posts publicly, so it
-requires operator approval before it is run (§19.1 COMM-07). The sidekiq queues must be
+requires operator approval before it is run. The sidekiq queues must be
 empty, which shows nothing is stuck: `LLEN queue:push_public = 0`, `LLEN queue:pull = 0`,
 and `redis-cli KEYS 'queue:*'` must return an empty array.
 
@@ -5367,18 +5391,21 @@ holding our actor, confirmed by `lookup?acct=bot@mastodon.300x3.com` → id
 `117327405745705562` and `lookup?acct=admin@mastodon.300x3.com` → id `117327389970897359`.
 The final part of step 9 is the **human** step — signing in with Konqueror and following from
 the browser UI — which requires the operator at the desktop and must never be faked by a
-headless session. Tracked in §19.1 COMM-06.
+headless session. The operator SHALL sign in with Konqueror and follow from
+   the browser UI; this step MUST never be faked by a headless session.
 
 **Tunnel health must not be read from a single registration snapshot.** A reading of "all 4
 connections registered … no inbound fault" taken between flaps is not a health statement —
 the four connections re-register continuously. Confirm stability over a window before
-asserting the edge path is fault-free (see §19.1 COMM-08).
+asserting the edge path is fault-free. Tunnel stability SHALL be measured over a
+   deliberate observation window while all four tunnel connections flap in lockstep;
+   a stable control during that window confirms the local path and exonerates the tunnel.
 
 Step 10 has two parts, both gated on explicit operator approval: public-post delivery and
 round-trip re-validation require a **new public post**, and an external publication must not
 be made without that approval; directory submission to joinmastodon.org likewise requires
 explicit operator approval. Neither may be performed by an agent session on its own
-authority. Tracked in §19.1 COMM-07.
+authority.
 
 ### 15.4.5 Operational Boundaries After Enablement
 
@@ -5433,8 +5460,10 @@ treated as approval or rejection candidates, and no record row may be created fo
 Mail for `300x3.com` must either be delivered or be formally deferred as unsupported.
 Mastodon's account-confirmation and password-reset mail depends on it, so "no MX" must be a
 recorded decision, not an oversight. The gap and its options are tracked in
-`README-ACTION_ITEMS/status-and-references.md` COMM-05 (§19.1); the choice is the operator's
-(§4.1 rule 14) and must not be taken unilaterally here.
+COMM-05 (§19.1); the choice is the operator's
+   (§4.1 rule 14) and must not be taken unilaterally here. Mail delivery SHALL be either
+   enabled in both directions or formally deferred as unsupported; "no MX" SHALL be a
+   recorded decision, not an oversight.
 
 Requirements once mail is enabled — **both directions, or neither**:
 
@@ -5720,8 +5749,9 @@ All logs and journals are kept in one place:
 `logs/installation/agent-install.log`. §16.3 is the single statement of the location.
 
 Rotation: `/etc/logrotate.d/` policy staged at
-`config/host/logrotate-alwayson.conf` (daily, 14 kept, no compression — see
-§19.1 OPS-25). Subdirectories are not rotated; their retention is OPS-26.
+`config/host/logrotate-alwayson.conf` (daily, 14 kept, no compression). Log rotation
+SHALL run daily with 14 rotations kept and no compression. Subdirectories SHALL NOT
+be rotated; their retention SHALL be set per-subdirectory by operator decision.
 
 Logs are classified per §4.2 and are never a place to record secrets.
 
@@ -5734,7 +5764,9 @@ and is within its staleness budget: exit 0 pass, 1 missing, 2 stale.
 | `operations-journal.log` | Appended on every operational change | Deploys, enable/disable, restarts, and validation-script outcomes. Writer: `ao_operation`. |
 | `audit.log` | Appended on every audited operation | Immutable audit trail of operational changes and authorization decisions. Writer: `ao_audit`; `ao_audit_secret` redacts credentials. |
 | `backup.log` | After every backup run | Repository, snapshot ID, and success/failure. Writer: `ao_backup_run`, called by `scripts/backup/restic-run.sh`. Dry runs are recorded as `DRY-RUN` and are not counted as backup runs. |
-| `restore-test.log` | After every restore test | Source backup ID, operator, result, exceptions. Writer: `ao_restore_test`. No entries yet, and none can exist yet: four of the five scripts under `scripts/restore/` exit 3 as PENDING and `verify-hashes-and-receipts.sh` is a manual command that does not write the journal (see §19.1 OPS-04). The freshness threshold of 3650 days is a placeholder, not a cadence. |
+| `restore-test.log` | After every restore test | Source backup ID, operator, result, exceptions. Writer: `ao_restore_test`. No entries yet, and none can exist yet: four of the five scripts under `scripts/restore/` exit 3 as PENDING and `verify-hashes-and-receipts.sh` is a manual command that does not write the journal.
+   Restore test entries SHALL be written to the journal after every restore test.
+   The freshness threshold SHALL be a defined cadence, not a placeholder. |
 | `gpu-runtime-check.log` | On each GPU runtime validation | Driver/CDI state and whether GPU access was granted to the workload. Writer: `scripts/validation/check-gpu-runtime.sh`. |
 | `script-runs.log` | On every script invocation | Which script ran, its arguments, exit code, and dry-run status. Writer: `ao_log`. |
 | `mastodon-local-proxy.log` | While the local proxy runs | Local Mastodon proxy activity and errors. |
@@ -5846,8 +5878,8 @@ The off-site repository must satisfy all of the following.
    credential (`restic cat config` succeeds).
 2. **Hold a snapshot series, not a single snapshot.** A one-snapshot repository
    proves a copy once; it does not prove a copy is maintained. The repository
-   SHALL be on a schedule; until the schedule exists the gap is tracked as Open
-   work item `OPS-30` in §19.1.
+   SHALL be on a schedule; until a verified restore test exists on that schedule,
+   the off-site copy is not yet a completed restore source.
 3. **Cover every path class the nightly repository covers** (see §17.4). A
    repository holding only a subset is not a restore source.
 4. **Verify** — `restic check` must pass against it.

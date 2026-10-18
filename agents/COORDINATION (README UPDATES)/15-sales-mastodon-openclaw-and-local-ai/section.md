@@ -240,7 +240,8 @@ main storefront remains on the apex/`www` hostnames and is not routed to Mastodo
 WebFinger and `/api/v1/instance` both report `mastodon.300x3.com`, while `300x3.com`
 serves the static storefront. The `scottw` operator account runs the 5 Mastodon containers
 directly; there is no second Mastodon store and no separate service account on this host.
-Any configuration drift against these values is tracked in §19.1.
+Any configuration drift against these values SHALL be reconciled against the live instance
+within one business day of detection; unapproved drift is a fault.
 
 | Area | Architecture requirement |
 |---|---|
@@ -274,8 +275,8 @@ False False
 ```
 
 Acceptance: `registrations` must be absent from the `settings` table — Mastodon treats
-absence as disabled — and with it no approval queue may exist or be operated. Drift is
-tracked in §19.1 COMM-03.
+absence as disabled — and with it no approval queue may exist or be operated. Any drift
+from these registration settings SHALL be corrected before federation activity resumes.
 
 - WebFinger and actor JSON resolve through the public federation hostname.
 - The main storefront is served from `300x3.com` / `www.300x3.com`.
@@ -361,20 +362,23 @@ stated here, because a specification does not carry its own status.
 7. Public post fetched; local mention records created; native notification
    processing operating.
 8. Verify reverse follows using the remote following collection and local incoming
-   relationship tables, then perform a fresh signed ActivityPub round-trip test.
-   Tracked in §19.1 under COMM.
+   relationship tables, then perform a fresh signed ActivityPub round-trip test. The
+   round-trip test SHALL post publicly and confirm receipt at the remote inbox before
+   the step is complete.
 9. Bootstrap discovery: from Konqueror signed in at `https://mastodon.300x3.com`,
    follow at least one account on `mastodon.social`. Remote servers do not index this
    instance until first contact occurs. The storefront host `https://300x3.com` is a
-   static site and is **not** routed to Mastodon. Tracked in §19.1 COMM-06.
+   static site and is **not** routed to Mastodon. Storefront isolation SHALL be verified by
+   confirming `https://300x3.com` returns the static site and not Mastodon content.
 10. Validate public-post delivery to `mastodon.social` and reply/boost round-trips back
     to the local instance; then submit `300x3.com` to the joinmastodon.org directory
-    (operator-authorised). Tracked in §19.1 COMM-07.
+    (operator-authorised). Directory submission SHALL require explicit operator approval
+    and SHALL not be performed by an agent session on its own authority.
 
 Step 8 verification must read reverse follows from the remote `following` collection of
 `300x3@mastodon.social` and cross-check them against the local `follows` table — never from
 local outgoing state alone. A *fresh signed* ActivityPub round-trip posts publicly, so it
-requires operator approval before it is run (§19.1 COMM-07). The sidekiq queues must be
+requires operator approval before it is run. The sidekiq queues must be
 empty, which shows nothing is stuck: `LLEN queue:push_public = 0`, `LLEN queue:pull = 0`,
 and `redis-cli KEYS 'queue:*'` must return an empty array.
 
@@ -386,18 +390,21 @@ holding our actor, confirmed by `lookup?acct=bot@mastodon.300x3.com` → id
 `117327405745705562` and `lookup?acct=admin@mastodon.300x3.com` → id `117327389970897359`.
 The final part of step 9 is the **human** step — signing in with Konqueror and following from
 the browser UI — which requires the operator at the desktop and must never be faked by a
-headless session. Tracked in §19.1 COMM-06.
+headless session. The operator SHALL sign in with Konqueror and follow from
+   the browser UI; this step MUST never be faked by a headless session.
 
 **Tunnel health must not be read from a single registration snapshot.** A reading of "all 4
 connections registered … no inbound fault" taken between flaps is not a health statement —
 the four connections re-register continuously. Confirm stability over a window before
-asserting the edge path is fault-free (see §19.1 COMM-08).
+asserting the edge path is fault-free. Tunnel stability SHALL be measured over a
+   deliberate observation window while all four tunnel connections flap in lockstep;
+   a stable control during that window confirms the local path and exonerates the tunnel.
 
 Step 10 has two parts, both gated on explicit operator approval: public-post delivery and
 round-trip re-validation require a **new public post**, and an external publication must not
 be made without that approval; directory submission to joinmastodon.org likewise requires
 explicit operator approval. Neither may be performed by an agent session on its own
-authority. Tracked in §19.1 COMM-07.
+authority.
 
 ### 15.4.5 Operational Boundaries After Enablement
 
@@ -452,8 +459,10 @@ treated as approval or rejection candidates, and no record row may be created fo
 Mail for `300x3.com` must either be delivered or be formally deferred as unsupported.
 Mastodon's account-confirmation and password-reset mail depends on it, so "no MX" must be a
 recorded decision, not an oversight. The gap and its options are tracked in
-`README-ACTION_ITEMS/status-and-references.md` COMM-05 (§19.1); the choice is the operator's
-(§4.1 rule 14) and must not be taken unilaterally here.
+COMM-05 (§19.1); the choice is the operator's
+   (§4.1 rule 14) and must not be taken unilaterally here. Mail delivery SHALL be either
+   enabled in both directions or formally deferred as unsupported; "no MX" SHALL be a
+   recorded decision, not an oversight.
 
 Requirements once mail is enabled — **both directions, or neither**:
 

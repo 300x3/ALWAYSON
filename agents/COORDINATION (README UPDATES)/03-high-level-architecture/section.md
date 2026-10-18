@@ -185,11 +185,11 @@ before relying on it.
 No device is connected, and none is to be connected before the equipment exists. This
 records the design so it is not re-derived later.
 
-Domoticz is expected eventually to cover other directly connected equipment on
-the same **equipment LAN** (`10.42.0.0/24`) — the segment the desktop already
-manages. It is not part of `ao-fabrication`, is not simulation, and does not
-write to `a_fab`; per-machine production data stays with the Moonraker collector
-above.
+Domoticz is expected to cover other directly connected equipment across the same equipment LAN
+(`10.42.0.0/24`) on a planned schedule; the exact expansion scope SHALL be decided by the
+operator and recorded as an equipment coverage requirement before any additional device is
+connected. It is not part of `ao-fabrication`, is not simulation, and does not write to
+`a_fab`; per-machine production data stays with the Moonraker collector above.
 
 **Why the host is the right place, same as the collector.** The desktop holds
 `10.42.0.1/24` on `eno1`, so a host process reaches that LAN directly. A

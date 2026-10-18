@@ -254,8 +254,9 @@ All logs and journals are kept in one place:
 `logs/installation/agent-install.log`. §16.3 is the single statement of the location.
 
 Rotation: `/etc/logrotate.d/` policy staged at
-`config/host/logrotate-alwayson.conf` (daily, 14 kept, no compression — see
-§19.1 OPS-25). Subdirectories are not rotated; their retention is OPS-26.
+`config/host/logrotate-alwayson.conf` (daily, 14 kept, no compression). Log rotation
+SHALL run daily with 14 rotations kept and no compression. Subdirectories SHALL NOT
+be rotated; their retention SHALL be set per-subdirectory by operator decision.
 
 Logs are classified per §4.2 and are never a place to record secrets.
 
@@ -268,7 +269,9 @@ and is within its staleness budget: exit 0 pass, 1 missing, 2 stale.
 | `operations-journal.log` | Appended on every operational change | Deploys, enable/disable, restarts, and validation-script outcomes. Writer: `ao_operation`. |
 | `audit.log` | Appended on every audited operation | Immutable audit trail of operational changes and authorization decisions. Writer: `ao_audit`; `ao_audit_secret` redacts credentials. |
 | `backup.log` | After every backup run | Repository, snapshot ID, and success/failure. Writer: `ao_backup_run`, called by `scripts/backup/restic-run.sh`. Dry runs are recorded as `DRY-RUN` and are not counted as backup runs. |
-| `restore-test.log` | After every restore test | Source backup ID, operator, result, exceptions. Writer: `ao_restore_test`. No entries yet, and none can exist yet: four of the five scripts under `scripts/restore/` exit 3 as PENDING and `verify-hashes-and-receipts.sh` is a manual command that does not write the journal (see §19.1 OPS-04). The freshness threshold of 3650 days is a placeholder, not a cadence. |
+| `restore-test.log` | After every restore test | Source backup ID, operator, result, exceptions. Writer: `ao_restore_test`. No entries yet, and none can exist yet: four of the five scripts under `scripts/restore/` exit 3 as PENDING and `verify-hashes-and-receipts.sh` is a manual command that does not write the journal.
+   Restore test entries SHALL be written to the journal after every restore test.
+   The freshness threshold SHALL be a defined cadence, not a placeholder. |
 | `gpu-runtime-check.log` | On each GPU runtime validation | Driver/CDI state and whether GPU access was granted to the workload. Writer: `scripts/validation/check-gpu-runtime.sh`. |
 | `script-runs.log` | On every script invocation | Which script ran, its arguments, exit code, and dry-run status. Writer: `ao_log`. |
 | `mastodon-local-proxy.log` | While the local proxy runs | Local Mastodon proxy activity and errors. |
