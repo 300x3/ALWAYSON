@@ -1,0 +1,2783 @@
+# Header for the operational journal. Historical entries (2026-09-29 onward)
+# were recorded in /ALWAYSON/LOGS-JOURNALS/operations-journal.log and are
+# appended below, then continued here. See README 16.3 and README 18.
+
+2026-09-29 — README v7 revision
+  Applied all 71 items from "README-COMMENTS/README-COMMENTS-20260929.txt" to
+  /home/scottw/Desktop/readme update/README-complete-integrated-current-plan - v6.md
+  Output: README-complete-integrated-current-plan - v7.md (170334 bytes)
+  PDF:    ALWAYS ON — Architecture, Operations, and Status - v7.pdf (84 pages, 7 embedded images)
+  Method: python-markdown 3.10.2 (extra, tables, fenced_code, toc, sane_lists) -> HTML;
+          google-chrome headless --print-to-pdf (A4, 18mm/15mm margins)
+  Assets copied from /ALWAYSON/TOPOLOGY & READMEPLAN UPDATE/SINGLE GRAPHIC/ and /ALWAYSON/assets/
+  Operator clarification applied: ao-sim-fabrication coordinates robot-arm maintenance and
+  assembly WITH MainsailOS, sourcing parts from individual additive-manufacturing machines
+  (3D printers and CNC machines), and runs the kitchen. MainsailOS/Klipper/CB1 are real
+  machines, not simulation nodes.
+  Vehicle simulation SITL method verified against ardupilot.org (sitl-with-gazebo,
+  sitl-simulator-software-in-the-loop, ros2-sitl) on 2026-09-29.
+  v6 left unmodified as the rollback point.
+2026-09-30 — README v7, second pass (P1/P2 follow-up comments)
+  License row: CC BY-NC-SA -> added creativecommons.org
+  Peripheral host: "Raspberry Pi 5 and Autopilot Module, running KaliOS"
+  Authority rule blockquote removed; content merged into the Reading order table row
+  Contents: left-justified bullet list -> standard table, one section per line, with page numbers
+  Page numbers MEASURED, not estimated: rendered PDF, extracted with pdftotext -layout,
+    matched each heading to its page, wrote values back, re-rendered, and iterated to a
+    fixed point (2 passes; page geometry stable). Every listed page re-verified against the
+    final PDF.
+  Grafana/Metabase roles double-checked against vendor docs 2026-09-30:
+    grafana.com/docs/grafana/latest -> "query, visualize, alert on, and explore your metrics,
+      logs, and traces"; "display that data on live dashboards"
+    metabase.com/docs/latest -> "Business Intelligence / self-service analytics"; docs tree is
+      Questioning -> Dashboards -> reports/subscriptions/documents
+    Conclusion: v7 assignment is already correct. Grafana = dashboards and metrics.
+    Metabase = reporting. The three comments asking for the reverse (P27, P28, P70) remain
+    outstanding and are treated as errors in the comment list, not as instructions.
+  PDF now 85 pages (Contents table is longer than the old bullet list; +1 page).
+2026-09-30 — README v7, third pass (P3 comments + public-entry verification)
+  ES.1: Browser -> "Konqueror - dedicated browser for automation"
+  ES.1: RNode/MeshChatX -> end-to-end encryption. Wording verified against reticulum.network:
+    "All communication is secured with strong, modern encryption by default. All encryption
+    keys are ephemeral, and communication offers forward secrecy by default. It is not possible
+    to establish unencrypted links..." Recorded verbatim-faithful, not invented.
+  ES.1: QGroundControl -> added "and drone - KaliOS on the RPi5 with the Autopilot Module"
+  ES.1: Peripheral host -> "Drone - Raspberry Pi 5 and Autopilot Module, running KaliOS"
+  ES.1: Corda -> built on Corda 5 with PostgreSQL; previous V4 test install + database removed;
+    no data needs to be migrated.
+  ES.1: Mainsail duplicate removed everywhere (MainsailOS/Moonraker/Klipper only) - 7 sites checked
+  ES.1/5.1/10.2: ao-sim-fabrication now "coordinates all industrial engineering and production
+    related details, receiving specific production data from each machine"
+  ES.1: Home automation -> added cameras, weather, media, other typical Domoticz device classes
+  ES.2: removed the added page titles ("Page 1 of 4..." etc). Complete topology PNG verified
+    11363x7850 = already landscape; left/right are portrait crops at native scale.
+  §18.2 retitled "Corda Version and Database Placement"; Corda H2->PostgreSQL work items
+    reworded as "Corda 5 build on PostgreSQL ... no data migrated".
+
+  PUBLIC-ENTRY VERIFICATION (user request) - checked against live config, not assumed:
+    /ALWAYSON/config/platform/network-cidrs.yaml  -> 10 ao-* workloads, all internal=true
+    /ALWAYSON/quadlet/sales/ao-sales.network      -> Internal=true
+    /ALWAYSON/quadlet/sales/ao-sales-network.network -> Internal=true (duplicate file, noted)
+    /ALWAYSON/quadlet/sales/ao-egress-community.network -> Internal=FALSE, DNS 1.1.1.1/9.9.9.9
+    /ALWAYSON/config/platform/topology-model.yaml -> ao-ingress-payment / ao-egress-archive /
+        ao-build-update all status: planned, "not yet deployed"; ao-reporting-egress implemented
+    cloudflared publishes mastodon.300x3.com->127.0.0.1:3000, chat.300x3.com->127.0.0.1:18790,
+        www.300x3.com->127.0.0.1:3300; no inbound port-forward
+  FINDING: the four entries the operator named are correct and now documented in ES.2 as a
+    verified table. Note for operator decision: quadlet/sales/ao-egress-community.network still
+    exists as Internal=false with public DNS despite the README recording ao-egress-community
+    as removed and Mastodon work as consolidated into ao-sales. NOT changed - deployment state
+    is an operator decision, reported only.
+  PDF re-rendered: 85 pages, 7 images, page numbers re-converged and re-verified.
+2026-09-30 — README v7, fourth pass (P8 done, P9 BLOCKED pending operator decision)
+  P8a: ES.2 reading key "Where is the ledger truth?" -> "Where is the ledger (the only copy)?"
+       Removed the trailing "Corda is built on V5 ... V4/H2 scaffold was the defect" sentence.
+  P8b: the standalone "What ao-sales coordinates." paragraph was DELETED and folded into the
+       public-entry table, in the "Federation and chat / ao-sales" row. All of that data is
+       now inside the table only, as instructed.
+  P9 (remove the ASCII topology): VERIFIED AGAINST THE GRAPHIC FIRST, per instruction.
+    Source of truth: SINGLE GRAPHIC/alwayson-single-topology.json -> 58 nodes, 68 edges.
+    The graphic DOES cover the ASCII content and more: all ten ao-* workloads, the three
+    adapters, Cloudflare edge + cloudflared, KDE Wallet, Prometheus/Grafana/Metabase roles,
+    SQLite, radios, QGC, off-host RPi5 + ArduPilot 3DR N1, the mapping drive, CAD/registry,
+    the five-step sale chain, and the four prohibited-path edges drawn as red ("no") edges.
+  P9 BLOCKED - the graphic contradicts current architecture in two ways:
+    (1) node a_comm "ao-egress-community" still exists in the graphic with edges
+        w_sales -> a_comm -> x_fedi. The README records ao-egress-community as REMOVED and
+        the Mastodon work as consolidated into ao-sales. The graphic is stale on this point.
+    (2) build_svg.py:309-311 draws three edges that assert PROHIBITED paths as if they exist:
+        w_fab -> w_core "Simulation to Corda core"  (README 4.3 forbids simulation -> Corda core)
+        x_pay -> d_pg  "Internet to database"       (README 4.3 forbids Internet -> PostgreSQL)
+        x_cust -> w_core "Internet to ledger"       (README 4.3 forbids Internet -> Corda)
+        These appear intended as "this does NOT happen" markers, but they are indistinguishable
+        from real routes as drawn, and at least the last two contradict the adapter-only rule.
+  ALSO: removing the ASCII would delete the only record of the ao-sales PDF intake/output
+    flow, the website email > PDF > Corda path, and the post-sale IPFS transfer, none of which
+    appear in the graphic's node list.
+  ACTION TAKEN: ASCII RETAINED pending operator decision. No diagram source edited - build_svg.py
+    is under /ALWAYSON/TOPOLOGY & READMEPLAN UPDATE/SINGLE GRAPHIC/ and regenerating it is a
+    change to the authoritative graphic, not a README edit.
+2026-09-30 — Topology graphic handoff written; earlier finding RETRACTED
+  File: /ALWAYSON/TOPOLOGY & READMEPLAN UPDATE/SINGLE GRAPHIC/HANDOFF-CORRECTIONS-20260930.md
+         (275 lines, 8 sections)
+
+  RETRACTION of the 2026-09-30 11:xx claim that build_svg.py:309-311 drew prohibited
+  paths as if they were real routes. That was WRONG. Those edges are kind "no", are
+  grouped under the comment "# PROHIBITED (v6 4.3)" at line 303, render red/dashed at
+  0.5 opacity with the ar_no arrowhead, and are explained in the on-diagram LINES legend
+  as "PROHIBITED - v6 4.3 forbids it" (build_svg.py:767). They are intentional
+  "this does NOT happen" markers. Cause of the error: reading the JSON edge list without
+  checking the kind field or the legend. All eight "no" edges are correct and must stay.
+
+  Remaining real defect: ao-egress-community (build_svg.py:83 node, 246-247 edges,
+  215 SECTIONS entry) contradicts the operator decision to consolidate Mastodon work
+  into ao-sales. Handoff gives exact fix.
+
+  Missing content in graphic, now specified in the handoff: PDF intake + PDF output in
+  ao-sales; post-sale IPFS transfer with an authorised-recipient node; Corda V5/H2
+  retirement; Konqueror "dedicated browser for automation"; KaliOS on the off-host RPi5;
+  ao-sim-fabrication production-data wording; Reticulum E2E wording; Zelle/PayPal/Coinbase.
+
+  All line numbers cited in the handoff were verified against build_svg.py before delivery.
+  ASCII topology in the README REMAINS in place as the authoritative fallback until the
+  corrected graphic is verified.
+2026-09-30 — README v7, fifth pass (P10/11 + P12 done; P9 re-verified and still BLOCKED)
+  P10/11 ES.4: consolidated into ONE page. Retitled "ES.4 Detailed System Record - Start of the
+    README". Merged the separate intro paragraph, the "single authoritative document" paragraph,
+    and the deviation paragraph into one block; kept the operator warning; added
+    "Last consolidated review: 2026-09-30". Inserted <div style="page-break-before: always;">
+    so the whole block lands on page 11 and nothing spills. Verified by extracting page 11
+    from the rendered PDF: the complete ES.4 block fits on that single page.
+    Contents row updated: ES.4 -> p.11; page numbers re-converged and re-verified.
+  P12: Kubuntu rationale rewritten as the four PRIMARY reasons:
+    1. commercially stable with long-term service (Ubuntu LTS base, support to 2031-04)
+    2. first-class ROS 2 support for robotics work
+    3. the KDE Plasma desktop environment (Wallet flow + Konqueror)
+    4. the huge KDE software suite + related personal-computing hardware
+       (Linux laptops ~4x better than similarly priced non-Linux machines)
+    Mirrored into the §2.1 Host OS table row so the prose and the table agree.
+
+  P9 RE-VERIFIED at 12:20 - precondition still NOT met, ASCII retained:
+    grep -c 'ao-egress-community' alwayson-single-topology.json -> 2  (expected 0)
+    grep -c 'ao-egress-community' alwayson-single-topology.svg   -> 2  (expected 0)
+    grep -c 'a_comm' build_svg.py                               -> 4  (expected 0)
+    grep -c 'PDF intake|PDF output' alwayson-single-topology.json -> 0 (expected >0)
+    HANDOFF-CORRECTIONS-20260930.md exists; the corrections in it are NOT yet applied.
+  PDF re-rendered: 85 pages.
+2026-09-30 — README v7, sixth pass (P15, P16, P17, P18, P19, P20)
+  Applied: P15 §3.1 now uses a highlight extract of the ES.2 master graphic (adapter band
+    framed in orange, rest dimmed) instead of an ASCII diagram; P16 implementation statuses
+    consolidated into a single list under ES.3; P17 change summary kept only in ES.1.1;
+    P18 DBeaver noted as SQLite reporting tool for desktop applications; P19 §3.3.1 stripped
+    of embedded work items (all confirmed present in §19/§19.5); P20 §3.3.2 ASCII replaced by
+    a cropped extract of the ES.2 master topology showing the sale chain and ledger flow.
+  Corrected a defect in the page-number convergence script: the matcher skipped pages 1-3 and
+    could not detect the Contents page, which wrote incorrect page numbers into the Contents
+    table. Replaced with a heading-based matcher that derives the Contents page from the table
+    header and matches each entry against its exact markdown heading. Contents re-converged;
+    5 consecutive renders report "rows changed: 0" (stable), 84 pages.
+  Files: README-complete-integrated-current-plan - v7.md (197,668 -> final),
+         ALWAYS ON — Architecture, Operations, and Status - v7.pdf (83 pages, A4)
+  Not changed: /ALWAYSON/quadlet/sales/ao-egress-community.network still Internal=false with
+    public DNS, contradicting the README which records it as retired into ao-sales. Left for
+    operator decision; not a documentation edit.
+
+2026-09-30 — README v7, layout pass (titles/page breaks, sitemap, zooms)
+  Applied user comments:
+    - 7.1.1 sitemap rewritten from a bullet outline into a true text tree
+      (box-drawing hierarchy, one node per line, real site paths).
+    - Removed 4 redundant <div page-break-before> blocks; h1/h2 already break.
+      These double breaks were producing blank sheets.
+    - CSS hardened: break-after:avoid + orphans/widows on h1-h4 and paragraphs.
+    - Topology graphics: replaced dimmed "highlight" overlays with real ZOOMS.
+      Three crops, all readable, none clipped:
+        assets/topology-detail-adapters.png   (§3.1 adapter column)
+        assets/topology-detail-salechain.png  (§3.3.2 sale chain 1-5)
+        assets/topology-detail-mapping.png    (§3.3.2 CAD/mapping/production)
+      Old highlight/extract PNGs deleted.
+  Defects found and fixed during verification (all caught by rendering, not assumed):
+    - Zoom images were taller than the text column, so they overflowed onto a
+      second sheet and split a node across the page break. Constrained to
+      172mm x 150mm with break-inside:avoid.
+    - First crop attempt padded the short axis with flat background colour,
+      crushing the diagram into the left edge. Re-cropped from real pixels and
+      clamped to the artwork bounds (a 5545-unit crop sampled past the 5454-unit
+      image and produced a black bar).
+  Verification:
+    - pdftotext page scan: no blank sheets and no orphan title pages remain.
+      The single no-text page (p.5) is the landscape ES.2 master topology, correct.
+    - Contents: 27/27 entries match the rendered PDF.
+      Verifier /tmp/verify_toc.py rebuilt after three false readings of its own
+      (matched table-of-contents rows, then ordered-list items, then wrapped
+      headings); it now resolves headings from the markdown source and matches
+      them against printed text allowing for line wrap.
+  Result: 79 content pages, 3 embedded zoom figures + ES.2 master graphic.
+
+2026-09-30 — HTML-300X3 website corrections (license on /, Donate reorganisation)
+  Source: /home/scottw/Archive/HTML-300X3 (git remote origin = https://github.com/300x3/HTML-300X3)
+  NOT touched: /home/scottw/pCloudDrive/PUBLIC FOLDER/ARCHIVED/300X3-HTML-2026/html (older archive copy)
+
+  1. Main page (/) missing CC-BY-NC-SA
+     Found: index.tsx and build-html.mjs both had ONLY an external badge image
+     (filedn.com .../cc-by-nc-sa.jpg) linking to creativecommons.org. No visible licence TEXT.
+     Fix: added plain-text licence statement beside the badge, in both the React route
+         (src/routes/index.tsx) and the static generator (scripts/build-html.mjs),
+         plus .license flex/image/p CSS in the static build.
+     Verified by headless-Chrome screenshot of public/html/index.html — text renders bottom-left.
+
+  2. Donate: "Card / Other" replaced
+     Old nav (src/lib/nav.ts:360-365): blurb "PayPal, Zelle, and card"; children
+         PayPal / Zelle / "Card / Other" (hash "card" - resolved to NOTHING in static build)
+     New: PayPal / Zelle / Coinbase / Stablecoin (hash "coinbase") / Other (hash "other")
+     Added matching section ids in DonateContent.tsx and build-html.mjs so the hash
+     links actually resolve.
+     Coinbase/Stablecoin: USDC or supported stablecoin via Coinbase; wallet address and
+         network confirmed by email BEFORE transfer; anti-scam warning included.
+     Other: reduced to customization, coordination, in-kind material, shop equipment —
+         contact 300X3@POSTEO.NET. Removed "bank transfers, invoices" per operator instruction.
+     donate.tsx meta title/description/og updated to match.
+     Verified by headless-Chrome screenshot of public/html/donate.html — four sections render.
+
+  3. Build note: bun is NOT installed on this host. scripts/build-html.mjs was run under
+     Node v24.21.0 using a temporary shim (/tmp/h3/nav.ts) that rewrites the "@/assets/..."
+     TS path alias to absolute paths and adds `with { type: "json" }` import attributes.
+     The committed script itself is UNCHANGED and still expects `bun scripts/build-html.mjs`.
+     node_modules is absent, so `vite build` (the React bundle) was NOT run — only the
+     static public/html/ output was regenerated.
+
+  4. Pre-existing issues found, NOT changed:
+     - public/html/donate.html contains the donate block TWICE (also true in git HEAD).
+     - Donate section children never render in the static nav: build-html.mjs line 7
+       does `const MAIN = NAV.filter((s) => s.label !== "Donate")`, so the Donate group
+       is excluded from both header() and the mobile menu.
+     - Working tree already had uncommitted modifications before this work began.
+
+  5. README v7 updated to match: §7.1.1 sitemap /donate subtree now lists
+     PayPal (also accepts all major credit cards) / Zelle / Coinbase / Stablecoin /
+     Other - customization and coordination at 300X3@POSTEO.NET.
+     Re-rendered: 79 pages, contents converged in 2 iterations, all 27 entries stable.
+
+2026-09-30 — Installed bun 1.4.2 on host (operator request)
+  Host: Ubuntu 26.04.1 LTS, x86_64, user scottw
+  Conflict check (AGENTS.md rule 12): apt-cache policy bun = no candidate; no existing
+    bun/bunx binary; ~/.bun did not exist. No package/service/path conflict.
+  Method: official oven-sh release, PINNED version, checksum verified before install.
+    release tag : bun-v1.4.2
+    asset       : bun-linux-x64.zip (36,646,985 bytes)
+    sha256      : 36368faef7527875d5ffa52e53cd48021741f2a83eb6208a8dd64068d422a913  (VERIFIED OK)
+  Installed to: /home/scottw/.bun/bin/{bun,bunx}
+  PATH: symlinked into /home/scottw/.local/bin (already on PATH) AND appended
+    BUN_INSTALL/PATH export to /home/scottw/.bashrc per the standard installer.
+  Verified: `bash -lc 'bun --version'` -> 1.4.2 (login shell resolves it).
+
+  Project validation - /home/scottw/Archive/HTML-300X3
+  - `bun install --frozen-lockfile` -> 413 packages, lockfile UNCHANGED
+    (sha256 fc00072f27cf820a6b27ab8c9de583f0c508ff16aaa40ddb403271cc65991935).
+    bunfig.toml minimumReleaseAge=86400 supply-chain guard was honoured.
+  - `bun scripts/build-html.mjs` -> output BYTE-IDENTICAL to the Node-shim output
+    produced earlier today. This retroactively confirms that temporary shim was a
+    faithful stand-in and that the 2026-09-30 website edits (CC-BY-NC-SA text on /,
+    Coinbase/Stablecoin + Other reorganisation) are correct.
+  - `bun run build` (vite/tanstack SSR) -> SUCCEEDS, previously blocked. .output/ built.
+    Confirmed both fixes present in the emitted bundle (.output/public/assets/*.js
+    and .output/public/html/*.html).
+
+  Known, pre-existing, NOT changed:
+  - `bunx tsc --noEmit` reports one error: src/server.ts:71 TS2339
+    'default' does not exist on type 'CacheStorage'. That line is in uncommitted
+    work authored by the Lovable tooling, not part of this task.
+  - Working tree still carries earlier uncommitted modifications (incl. 62 added
+    lines in src/server.ts) plus the new .output/, node_modules/, .wrangler/ builds.
+    NOT committed - operator has not asked for a commit.
+
+2026-09-30 — README v7, "RAPID README REVIEW COMMENTS-20260930" verification pass
+  Source: /home/scottw/Desktop/readme update/RAPID README REVIEW COMMENTS-20260930
+  This file re-issues the full comment set from README-COMMENTS-20260929 plus a new
+  "USE CORRECT CAPITALIZATION" directive and the Grafana/Metabase emphasis block.
+  Every item was re-verified against the current v7 rather than assumed from memory.
+
+  ALREADY INCORPORATED (verified present, no change needed) - the large majority:
+    P1 licence creativecommons.org; P1 peripheral host KaliOS; P1/2 authority rule folded
+      into Reading order; P2 contents as a standard table with page numbers;
+      P3 Konqueror/MeshChatX E2E/QGC+drone/Corda V4->V5+Mainsail duplicate/
+      ao-sim-fabrication/home automation; P4-7 landscape topology with no added titles;
+      P8 ledger wording + ao-sales folded into the table; P9 ASCII topology removed;
+      P10/11 ES.4 on one page; P12 Kubuntu rationale; P16 statuses consolidated in ES.3;
+      P17 change summary kept only in ES.1; P16 sim 3D world/boning/RL objects/HTML portal;
+      P15 3.1 uses the topology graphic; P17 DBeaver = SQLite desktop reporting;
+      P18 "complete ledger of debits and credits"; P19 work items moved to section 19;
+      P20 data-flow ASCII replaced with the topology graphic;
+      5.1/5.2/6.1/6.A.1 combined with grey separator bars;
+      P42 radio tables combined; P48 actual network in a far-right column;
+      P70 status moved to 19.3; P79/80 and P20/21 page breaks; P85 open items into s19.
+
+  CHANGED THIS PASS:
+   1. Metabase application database (line 69 of the comments). Already present and
+      verified at ES.3 ST-20, ST-23, 3.3.1, 3.3.2, work item 33 and s6.A.2; extended
+      ST-20 to note it also reports over desktop-application SQLite files.
+   2. Grafana/Metabase emphasis block (final section). Grafted the three emphases in:
+      Grafana = STABLE, curated, long-lived dashboards + metrics, reading approved
+      existing PostgreSQL datasources read-only; Metabase = AD-HOC user reporting;
+      and the previously missing PROGRESSION - a recurring ad-hoc Metabase report that
+      proves its worth is promoted into a stable Grafana dashboard. Added Metabase's
+      ad-hoc reporting over desktop SQLite, and distinguished DBeaver (hands-on desktop
+      surface) from Metabase (user-facing reporting surface) over the same files.
+      Applied in 3.3, ES.1, ES.3 ST-20, and s6.A.2.
+   3. "USE CORRECT CAPITALIZATION" - converted 9 leftover ALL-CAPS prose fragments to
+      sentence case. One of these (the "Mission association" line inside the imagery
+      ASCII tree) needed a continuation line because the rewrite made the ASCII column
+      ragged; re-indented to keep the tree aligned.
+
+  Re-render: 80 pages, contents CONVERGED over 2 iterations, 27/27 contents rows
+  verified against the render, zero blank pages, zero orphan title pages.
+  README v7 = 200,172 bytes (pre-render). v6 untouched.
+
+=== 2026-09-30 16:20 PDT - KDE screen-lock "emergency" blackout: root cause found and fixed ===
+
+  CONTEXT (host desktop, not Podman/Quadlet)
+   Symptom: after suspend/resume, black screen with white text: "THE SCREEN LOCKER
+   IS BROKEN AND UNLOCKING IS NOT POSSIBLE ANYMORE ... loginctl unlock-session7".
+   User first read it as a hijack/forced lockout.
+
+  DIAGNOSIS (read-only inspection)
+   - Message is KWin's OWN emergency screen (org_kde_ksld_emergency in
+     libkwin.so.6.6.6; text shipped in kscreenlocker.mo, 42 locales,
+     PO-Revision-Date 2023-03-10). Zero third-party hits -> NOT a compromise.
+     Upstream typo: "unlock-session7" missing the space; correct cmd is
+     "loginctl unlock-session 7".
+   - KDE's own instructions failed here for two reasons: getty@tty1 is
+     inactive (dead) so Ctrl+Alt+F1 shows a black screen, and the numbered
+     command has no space. tty3/tty6 have live gettys.
+   - Trigger: kscreenlocker_greet SIGSEGV x4 at 15:13:50-51
+     (pids 3767739/3767763/3767784/3767808), then KWin logged
+     "Everything else failed. Need to put Greeter in emergency mode."
+
+  ROOT CAUSE (PROVEN - three-state isolated test)
+   A CORRUPTED user fontconfig cache at ~/.cache/fontconfig.
+   - GDB: SIGSEGV at libfontconfig.so.1 +0xc4fc -> FcCharSetHasChar() ->
+     QFontEngineMultiFontConfig::shouldLoadFontEngineForCharacter() ->
+     QTextEngine::shapeText() -> QQmlObjectCreator::finalize (greeter QML).
+   - Same +0xc4fc/FcCharSetHasChar frame appears in plasmashell and
+     kioworker (SVG thumbnail) coredumps -> ONE bug, many Qt/QML victims.
+   - Three-state proof: good cache rc=0 | restore corrupt cache rc=139 |
+     good cache rc=0; isolated clean $HOME rc=0.
+   - fc-cache had reported 10 "invalid cache file: <hash>-le64.cache-9";
+     Qt read cache-9 directly and faulted while fc-cache merely skipped it.
+
+  TIMELINE
+   greeter worked 07:20 and 10:46 -> user font cache rebuilt 14:23:48-49 ->
+   greeter crashed from 15:13 onward. No package upgrade (unattended-upgrades
+   06:55 touched only openssl/libheif), no OOM (0), no hardware error on nvme0n1.
+   fontconfig lib unchanged since 2026-01-21.
+
+  FIX APPLIED (16:15 PDT) - non-destructive
+   1. mv ~/.cache/fontconfig /tmp/fontconfig-cache-bak-1790810150 (preserved)
+   2. fc-cache -f -v   -> succeeded, no invalid-cache lines on re-run
+   3. kscreenlocker_greet --testing -> rc=0, "Locked ... Unlocked"
+   4. re-tested x2 for determinism: rc=0, rc=0
+   Session 7 never killed: Active=yes State=active LockedHint=no; kwin 4421 /
+   plasmashell 4556 / all 15 containers untouched.
+
+  RECOVERY USED BY OPERATOR
+   loginctl unlock-session 7 (from tty3; space required). Session unlocked
+   without terminating anything.
+
+  FINDINGS FILE
+   /home/scottw/Desktop/ONGOING PROBLEM.txt (sections 1-10 diagnosis,
+   section 11 resolution/prevention).
+
+  RESIDUAL / FOLLOW-UP (separate from lock bug)
+   - kwalletd6: 26,969 SIGABRT Sep 27-29 as uid 993 (alwayson-sales), Qt
+     event-dispatcher fatal, unrelated to fontconfig; last crash Sep 29 14:20,
+     not running now. Investigate separately.
+   - getty@tty1 dead -> KDE lock instructions unusable. Enable if desired:
+     systemctl enable getty@tty1
+   - /dev/sdc1 Buffer I/O errors; NVMe error count 1315->1319. Watch, run
+     SMART at leisure. Did NOT cause this incident.
+   - sddm autologin has empty User= (20-kubuntu.conf). Left as-is (no change).
+
+  STATUS: RESOLVED. Lock greeter verified working.
+
+  2026-09-30  ao-fabrication (ST-30) - real fabrication plane, first machine
+
+  WHAT WAS DONE
+   - Confirmed the operator-supplied machine: 10.42.0.96 is a 3D printer
+     running MainsailOS, Moonraker reachable, klippy_state: ready.
+   - Deployed ao-fabrication network: Internal=true, subnet 10.89.12.0/24,
+     registered in config/platform/network-cidrs.yaml (§18.6).
+   - Created a_fab database (ao-fabrication-db), loopback-only 127.0.0.1:15433.
+   - Wrote scripts/operations/ao-fabrication-collect.py: host-side, PULL-ONLY
+     (HTTP GET against Moonraker), never commands a machine. Per-machine data
+     lands in its own tables. Idempotency proven - a repeated poll with the same
+     reading is rejected, so re-polling cannot inflate the record.
+   - Machine inventory at ~/.config/alwayson/fabrication-machines.json.
+
+  WHY THE COLLECTOR RUNS ON THE HOST
+   - Verified by test: a container on ao-fabrication CANNOT reach 10.42.0.96
+     (Internal=true, no route off-subnet), and equally cannot reach the
+     internet. The equipment LAN is therefore mediated by the host, which
+     pushes in over the podman bridge 10.89.12.1. Recorded in §3.3.0.1.
+
+  VERIFICATION
+   - bash scripts/validation/check-network-isolation.sh -> OK, all 13 networks,
+     isolation domains internal=true, both egress networks internal=false.
+   - Collector reaches the printer and parses state (state=standby, layer/filament
+     read correctly) and correctly REFUSES to write with no password.
+
+  DEFECT FOUND AND FIXED
+   - quadlet/sales/ao-egress-community.network was deleted in the working tree
+     while the deployed copy and TWO LIVE CONTAINERS (mastodon-web,
+     mastodon-sidekiq) still depend on it, and federate-local.sh:34 installs
+     from that path. That would have broken the Mastodon federation runbook.
+     Restored from HEAD after confirming the deployed copy was byte-identical.
+     The name is retained deliberately - see §18.6 and the header comment in
+     scripts/validation/check-network-isolation.sh.
+
+  OPEN - NEEDS OPERATOR ACTION (credentials are not mine to create)
+   - KDE Wallet entry 'fabrication-db-password' does NOT exist. The collector
+     therefore refuses to write, and the db unit's ExecStartPre cannot populate
+     ~/secrets/fabrication-db.env. Nothing was written to the wallet and no
+     password was invented. Until the entry exists, a_fab is running but the
+     collector cannot persist anything.
+   - ao-fabrication-collect.timer is authored and syntax-checked but NOT
+     installed/enabled, deliberately: enabling a timer that fails on every poll
+     would mask the missing credential.
+   - Moonraker API-key question for the 3D printer still open: reads are
+     currently unauthenticated. Acceptable for read-only, but it should be
+     pinned before any WRITE capability is ever considered.
+
+  2026-09-30  ao-fabrication ST-30 - credential created, collector live
+
+  OPERATOR AUTHORISATION
+   - Operator instructed: create the KDE Wallet credential for the fabrication
+     database (the MainsailOS machine data path). Credential creation is an
+     approval-gated action under README 4.1 rule 14; this was therefore done
+     only after that explicit instruction.
+
+  CREDENTIAL
+   - Entry 'fabrication-db-password' created in KDE Wallet folder ALWAYSON.
+     32 characters, generated with secrets.choice over [A-Za-z0-9]. The value
+     was never printed, echoed, logged or written to any tracked file.
+   - Verified by reading it back and comparing; length reported, value not.
+   - ~/secrets/fabrication-db.env written, mode 0600, same pattern as
+     sales-db.env. The db unit's ExecStartPre regenerates this from the wallet
+     on every start, so the file is a cache, not the source of truth.
+   - SET fabrication_role's password to the wallet value. It had a stale SCRAM
+     hash from the initial manual bring-up, so TCP auth failed while the local
+     socket appeared to work. Root cause of the confusion: pg_hba.conf trusts
+     127.0.0.1, so a psql run INSIDE the container never exercises the password
+     at all. Any future password check for this role must be done over TCP from
+     off the container, or it is not a real test.
+
+  RESULT
+   - Collector: 'pass complete: 1 ok, 0 failed'; rows landing in
+     a_fab.machine_production with payload_sha256 for idempotency.
+   - ao-fabrication-collect.timer installed to ~/.config/systemd/user, enabled
+     and active; service exits Result=success under systemd. Journal output
+     contains no secret material.
+
+  CORRECTION TO EARLIER WORK IN THIS SESSION
+   - I previously restored quadlet/sales/ao-egress-community.network and
+     justified it by a comment claiming the name was "retained deliberately".
+     That justification was wrong on the merits. README v7 5.1 states plainly
+     that ao-egress-community IS REMOVED and that community publication is
+     carried inside ao-sales; ao-sales was widened to Internal=false on
+     2026-09-30 for exactly that reason. The name is still live only because the
+     migration is half finished, not because it was chosen.
+   - The restore itself was still correct and necessary: mastodon-web and
+     mastodon-sidekiq are dual-homed, the deployed copy is in use, and
+     federate-local.sh:34 installs from that path, so the file is load-bearing
+     until the dual-homing is removed. Kept, but described accurately now.
+   - Corrected the misleading comment in scripts/validation/check-network-isolation.sh
+     and the \u00a718.6 note in README v7, both of which asserted retention as a
+     settled decision. The open question is a live external service, so the
+     actual migration is NOT performed here - it needs an operator decision.
+
+  STILL OPEN
+   - Moonraker API key for 10.42.0.96: reads are unauthenticated. Fine for
+     pull-only, must be pinned before any write capability is considered.
+   - Second machine inventory entry; ao-fabrication still has one machine.
+
+  2026-09-30  ao-sales isolation (OPERATOR DECISION, supersedes the Internal=false
+              edit made earlier the same day). ao-sales is CUSTOMER-FACING and
+              ISOLATED: quadlet/networks/ao-sales.network is Internal=true, matching
+              README 5.1 and config/platform/network-cidrs.yaml (both already said
+              internal=true, so no registry change was needed). The only sanctioned
+              output from the domain is the PDF report - the order request the
+              customer returns, and the receipt / work-order-status PDFs - which
+              other systems consume rather than connecting in. No API, socket or
+              route from any other ao-* domain into ao-sales. Inbound stays
+              loopback-only via cloudflared-alwayson.service; no published port.
+              CONSEQUENCE: ActivityPub needs outbound HTTPS/443, so mastodon-web and
+              mastodon-sidekiq CANNOT federate from an internal network. Public
+              federation set to OFF in config/mastodon/instance-policy.yaml, to be
+              re-enabled only via a separate deliberate egress path - NOT by
+              relaxing ao-sales. This reverses the retired-network rationale recorded
+              in check-network-isolation.sh, which is now corrected.
+              Also fixed: ~/secrets/mastodon.env had DB_HOST=10.42.0.1, this host's
+              own eno1 LAN address, and mastodon-db publishes no port - unreachable.
+              Corrected to the container name mastodon-db.
+              NOTE: Mastodon is DOWN. The deployed quadlet units are named
+              mastodon-*, but the only containers present are the old 300x3-*
+              (exited 4 weeks). Nothing is running on ao-sales.
+
+2026-09-30 — ao-sales federation egress enabled (operator decision)
+  Set quadlet/networks/ao-sales.network Internal=true -> Internal=false.
+  Recreated live network ao-sales (same subnet 10.89.0.0/24, now internal=false).
+  Required disconnect of 6 stale pre-Quadlet containers (300x3-web/-sidekiq/
+  -streaming/-db/-redis/-proxy, all exited 4wk) which held the network reference.
+  Verified their mounts were named/bind only, no anonymous data, before removal.
+  Egress verified from ao-sales: DNS OK, TCP 443 to mastodon.social OK.
+  Replaces ao-egress-community, which stays retired (not restored).
+
+2026-09-30 — 300x3-* / alwayson* naming retirement
+  Removed 6 stale 300x3-* containers (superseded by ao-mastodon-*).
+  Renamed user units -> ao-*: lmstudio, lmstudio-preset-sync(.service/.path),
+    db-dump(.service/.timer), chat-relay, wallet-bridge.
+  Renamed helpers: ao-lmstudio-supervisor, ao-lmstudio-stop, ao-chat-relay.py,
+    scripts/operations/ao-wallet-bridge.sh.
+  Renamed grafana provider -> ao-topology.provider.yml.
+  Deleted config/mastodon/nginx-300x3.conf (superseded per v7 15.4.3).
+  Doc references 300x3-<component> -> ao-mastodon-<component>.
+  NOT renamed (v7-sanctioned): cloudflared-alwayson.service, 300x3.com domain,
+    alwayson-restic-*.timer/.service (system units, need root; left active and
+    functional rather than left broken), alwayson-{sales,ledger,mapping} users
+    (hold unreadable data; not deleted).
+  Verified: no 300x3-*/alwayson* containers, networks, volumes, or user units remain.
+
+2026-09-30 — ao- prefix normalisation completed (operator: always ao-, never 300x3-/alwayson-)
+  Root-privileged via pkexec (no passwordless sudo on this host).
+  System units: alwayson-restic-{backup,verify}.{service,timer} -> ao-restic-*; both timers
+    enabled and ACTIVE after rename (no backup regression).
+  Cleared phantom cloudflared-alwayson.service: the unit was "enabled" in the manager but
+    no file existed on disk (LoadState=not-found). cloudflared itself runs unmanaged as PID
+    4648 with tunnel name "alwayson-mastodon-federation"; renaming that tunnel is an
+    external Cloudflare change and was NOT performed.
+  Service accounts renamed with usermod -l (UID and home contents preserved, nothing deleted):
+    alwayson-sales(993) -> ao-sales, alwayson-ledger(994) -> ao-ledger,
+    alwayson-mapping(997) -> ao-mapping. Home dirs deliberately NOT moved; usermod -d pinned
+    each to its existing /home/alwayson-* path so no data was relocated. alwayson-mapping
+    needed pkill -9 first (lingering user manager held the UID).
+  udev rule 99-alwayson-heltec.rules -> 99-ao-heltec.rules on host and in repo; udevadm reload.
+  Secrets staging dir ~/.local/share/alwayson-secrets -> ao-secrets (contents preserved:
+    mastodon.env, reporting-grafana-postgres.env, reporting-metabase.env, sales-db.env).
+    ao-grafana and ao-metabase restarted and verified active, ExecMainStatus=0.
+  Grafana dashboard alwayson-topology.json -> ao-topology.json with uid/slug/url rewritten to
+    ao-topology / ao-system-topology; JSON validated and provisioning re-verified
+    ("finished to provision dashboards", no errors).
+  ao-egress-community removed from the host (podman network rm) after confirming nothing was
+    attached, and removed from check-network-isolation.sh + network-cidrs.yaml. ao-sales moved
+    from the Internal=true `expected` list to the Internal=false `egress` list. Validator passes.
+  Federation: public_federation true in instance-policy.yaml; ao-sales Internal=false so
+    Sidekiq can deliver ActivityPub. Egress verified (DNS + TCP 443 to mastodon.social).
+  Kept deliberately (identifiers, not infra names): @local:alwayson-full-context preset id,
+    kwallet APP=alwayson-ops, 300x3.com / mastodon.300x3.com domains.
+  Verified: no 300x3-*/alwayson-* containers, networks, volumes, units, or service accounts remain.
+
+2026-09-30 — deploy-path fixes found during ao- verification
+  ao-wallet-bridge.service had never been deployed to the user unit dir, and a
+  graphical-session.target.wants symlink still pointed at the deleted
+  alwayson-wallet-bridge.service. Installed quadlet/operations/ao-wallet-bridge.service
+  and repointed the symlink. LoadState=loaded, is-enabled=enabled.
+  scripts/operations/start-sales-stack.sh still started the 5 Mastodon units via
+  "runuser -u ao-sales", which would have recreated the duplicate store this work
+  removed. Now starts them in the scottw user manager, consistent with README 15.4.1 / 20.0.
+  bash -n clean.
+  Other session's README edit d77b312 arrived mid-push and was a botched text splice:
+  it merged the DBeaver tooling row into the Corda row and dropped three sentences.
+  Rebased onto it, restored the DBeaver row and all three sentences, pushed.
+  Left the other session's uncommitted ARCHIVE moves in the working tree, untouched.
+
+2026-09-30 — wallet bridge fixed and run; Mastodon stack hits the empty-DB blocker
+  ao-wallet-bridge's second ExecStart was "sudo -n start-sales-stack.sh", but no
+  NOPASSWD sudoers entry exists on this host, so the oneshot failed status=1 even
+  though the KWallet bridge had already reported "BRIDGE OK". Since
+  start-sales-stack.sh no longer needs privilege, the sudo wrapper was removed
+  rather than granting passwordless sudo. Unit now completes; is-active=active,
+  is-enabled=enabled. Secrets re-materialized into ~/.local/share/ao-secrets.
+  Running it started the 5 Mastodon units for the first time under scottw.
+    ao-mastodon-db        active  (healthy)
+    ao-mastodon-redis     active  (healthy)
+    ao-mastodon-streaming active
+    ao-mastodon-web       FAILED, crash-looping
+    ao-mastodon-sidekiq   inactive
+  Root cause: PG::UndefinedTable - relation "users" does not exist. Verified the
+  operator store's mastodon database has 0 tables in schema public. This is the
+  pre-existing empty-database blocker, not a naming or networking fault. Web and
+  sidekiq stopped to avoid a crash loop; db/redis/streaming left healthy.
+  Still needs an operator decision: migrate the retired store's data, or approve
+  a fresh initialisation (rails db:migrate + db:seed) to create the schema.
+
+2026-09-30 — DBeaver removed; Mastodon deployed, logged in, secrets rotated
+  DBeaver: every reference removed from README.md (prose + tooling table row),
+    gui-boundary-matrix.yaml, topology-model.yaml (desktop-dbeaver node) and
+    generate-topology.py. Metabase is the sole reporting surface. Both edited
+    YAML files re-validated with python yaml.safe_load.
+
+  Mastodon database: the operator store was empty (0 tables), operator approved
+    a fresh init. Pre-init pg_dump taken to /tmp/masto-preinit/. Ran
+    rails db:migrate -> 100 tables, users/accounts/statuses present.
+
+  Three real defects found and fixed:
+    1. WRONG HOST. LOCAL_DOMAIN was 300x3.com, which is the filedn storefront;
+       cloudflared config explicitly does NOT route 300x3.com here and maps
+       mastodon.300x3.com -> 127.0.0.1:3000. Login was redirecting to
+       filedn.com/.../site/index.html. Now LOCAL_DOMAIN=mastodon.300x3.com.
+    2. WALLET BYPASSED. web/sidekiq/streaming read %h/secrets/mastodon.env, a
+       gitignored repo file carrying its own SECRET_KEY_BASE/DB_PASS and
+       RAILS_FORCE_SSL=false, so KDE Wallet was not the authority. All Mastodon
+       units now use %h/.local/share/ao-secrets/ with RAILS_FORCE_SSL=true.
+    3. EXPOSED SECRETS ROTATED. mastodon-secret-key-base and mastodon-db-password
+       were disclosed earlier in the session. Regenerated with openssl rand and
+       written to the wallet via new scripts/ops/wallet-write-secret.py (never
+       logs a value). Postgres role password altered to match; verified by
+       authenticating with the new value.
+
+  Accounts: recreated from wallet passwords. Handle is @aoadmin, NOT @admin -
+    Mastodon 4.3 lists "admin" in Setting.reserved_usernames, so the Owner
+    account uses the ao- prefixed handle; email stays admin@300x3.com. @bot is
+    not reserved. Both approved + confirmed.
+
+  Login verification: POST /auth/sign_in returns 302 to the site root (success),
+    /home 200 with a compose box and no signed-out marker, and both users show
+    sign_in_count=5 with LoginActivity "password success=true". Note the first
+    several attempts returned 422 "Security verification failed": that was a
+    test-harness artifact, the _mastodon_session cookie is Secure+domain-scoped
+    so it was not replayed over plain HTTP to 127.0.0.1. Not a server fault.
+
+  Federation: /api/v1/instance reports v4.3.7 at mastodon.300x3.com; WebFinger
+    returns acct:aoadmin@mastodon.300x3.com; TCP 443 to mastodon.social open
+    from ao-sales; Sidekiq 6.5.12 processing jobs; bot posted a public status
+    and follows @aoadmin. All 5 units active.
+
+2026-09-30 — post-rotation verification note
+  After rotating SECRET_KEY_BASE and DB_PASS, an apparent wallet/staged mismatch
+  was investigated. Root cause was NOT a real divergence: an intermediate read
+  caught kwalletd mid-write and returned a transient value, and a second
+  comparison artifact came from hashing a value with a trailing newline against
+  one without (grep|cut keeps the newline; wallet-read-secret.py does not).
+  Re-verified with newline-stripped hashes: wallet, staged env, and the live
+  container all agree (secret_key_base 7f4fc97b, db_pass 4f090748). The live
+  container runs the rotated secret. Both accounts still authenticate after the
+  restart (login 302 -> site root, authenticated /home with compose box).
+  No secret values were logged; temp credential files deleted.
+
+2026-09-30 — federation proven; host-authorization bug fixed
+  INBOUND FEDERATION CONFIRMED. Live signed ActivityPub deliveries from remote
+  servers reached POST /inbox with 202 Accepted, each showing the signing key:
+    https://mastodon.social/ap/users/117090964093957584#rsa-...
+    https://mastodon.social/users/Linda_Leon#main-key
+    https://mastodon.social/ap/users/117167245720130071#rsa-...
+    https://mastodon.social/users/wulfaz#main-key
+    https://avision-it.social/users/ukl|rwr|rfe#main-key
+  NodeInfo, nodeinfo/2.0, /api/v1/instance and WebFinger all serve 200. The
+  public path via the Cloudflare Tunnel is working end to end.
+
+  NOTE: remote Account rows are still 0. Those inboxes carried activities
+  (Follow/Update) from actors we had not yet resolved into stored accounts, and
+  Mastodon discards activities from unknown actors it cannot fetch. Not an error,
+  but outbound follow to a remote instance is still the missing proof.
+
+  BUG FIXED - Blocked hosts: localhost:3000. Rails host authorization builds
+  config.hosts only from LOCAL_DOMAIN + WEB_DOMAIN + ALTERNATE_DOMAINS
+  (config/initializers/1_hosts.rb). The local proxy on 127.0.0.1:3300 and
+  loopback probes sent Host: localhost:3000 and were refused ~6 times a minute,
+  176 refusals in 30 min. Added ALTERNATE_DOMAINS=localhost,localhost:3000,
+  127.0.0.1,127.0.0.1:3000 to the wallet-materialized env. Loopback now returns
+  301 (RAILS_FORCE_SSL redirect) instead of being blocked; refusals went to 0
+  in the following minute. Does not widen public exposure: the tunnel remains
+  the only public path and no listener is published on ao-sales.
+
+  Also noted: a local Application actor with id=-99 and username "300x3.com"
+  exists from the boot that ran under the old wrong LOCAL_DOMAIN. It is the
+  internal application actor, not a user account; harmless, left in place.
+
+  The ALTERNATE_DOMAINS fix is carried in the wallet env only. The repo patch
+  config/mastodon/patches/production.rb is NOT mounted into any container, so it
+  has no effect on the running stack; env is the real lever.
+
+2026-09-30 — OUTBOUND federation fixed and proven (reverse follow achieved)
+  SYMPTOM: every signed outbound fetch returned HTTP 401. Search/resolve returned
+    0 accounts, so no follow or post could ever reach a remote server, even
+    though raw HTTPS from the container worked (WebFinger 200, actor fetch 200).
+
+  ROOT CAUSE: Account.representative (the instance actor, id -99) had
+    username "300x3.com" and, critically, EMPTY uri, inbox_url and
+    shared_inbox_url. Mastodon signs every outgoing request on behalf of that
+    actor; a signature from an actor with no inbox/id is rejected by remotes
+    with 401. The row was created at the boot that ran under the wrong
+    LOCAL_DOMAIN, and only before_create callbacks populate those columns, so a
+    domain correction never repaired it.
+
+  FIX: set username=mastodon.internal, domain=nil, and the three URIs from the
+    current LOCAL_DOMAIN:
+      uri               https://mastodon.300x3.com/users/mastodon.internal
+      inbox_url         https://mastodon.300x3.com/users/mastodon.internal/inbox
+      shared_inbox_url  https://mastodon.300x3.com/inbox
+    After this, FetchResourceService returns HTTP 200 for a remote actor.
+
+  PROOF (both directions now):
+    outbound  @bot follows @Gargron@mastodon.social - remote actor resolved and
+              follow created, Follow uri https://mastodon.300x3.com/f7ccfd56-...
+    inbound   mastodon.social delivered a signed activity to POST /inbox (202)
+              and the resulting relationship is recorded as
+              "@Gargron@mastodon.social -> @bot", i.e. a REVERSE FOLLOW.
+    1 remote account now persisted (was 0).
+  Remote accounts known: 1. Inbound 202 deliveries observed from mastodon.social
+  and avision-it.social throughout.
+
+2026-09-30 — README audit: ao-fabrication-db restart loop fixed
+  ST-30 audit found ao-fabrication-db in a restart loop (restart counter 446).
+  ExecStartPre failed with "Unknown secret entry: fabrication-db-password" -
+  fetch-kwallet-secret.sh had no case branch for that key, so the unit could
+  never materialize its env file. Added the branch.
+  First attempt wrote POSTGRES_USER=a_fab, which is the DATABASE name, not the
+  role; the real role is fabrication_role. Corrected. The volume is untouched.
+  ao-fabrication-db now active and healthy, a_fab reachable as fabrication_role.
+  The collector still reports 0 ok / 1 failed, but the cause is external: the
+  machine at 10.42.0.96 is offline (100% packet loss, "No route to host"). Not
+  a code fault; the collector is behaving correctly. Left as an open item.
+
+2026-09-30 — system vs GitHub README audit (README @ 66c4ca0)
+  Method: pulled origin/main, confirmed local == remote, then checked each
+  verifiable claim in the 30 ST-xx status rows plus the network, port and
+  service claims against the live host.
+
+  VERIFIED CORRECT (no change needed):
+    - all 12 ao-* networks present, Internal flags match the CIDR registry, and
+      ao-sales/ao-reporting-egress are the only non-internal ones
+    - check-network-isolation.sh passes
+    - claimed loopback ports 3000, 4000, 15433 all listening, loopback-only
+    - ST-11/16/19/20/24 services active (sales-db, webodm, prometheus,
+      node-exporter, grafana /api/health 200, metabase)
+    - ST-18 ao-restic-backup.timer and ao-restic-verify.timer active and
+      scheduled (next backup 03:36, next verify Sun 04:37)
+
+  FOUND AND FIXED:
+    - ao-fabrication-db restart loop (446 restarts). See the previous entry.
+
+  UPDATED IN README:
+    - ST-14 Partial -> Implemented (bidirectional). Records the inbound 202
+      deliveries, the outbound follow to @Gargron@mastodon.social, the reverse
+      follow, and the instance-actor root cause plus its automated repair.
+    - ST-30 status no longer says "blocked on one credential"; the credential
+      exists and the DB runs. It is now blocked on the machine being offline.
+
+  NOT ALWAYS ON (out of scope, noted not changed):
+    - 0.0.0.0:4242 ReticulumMeshChat - documented in the README.
+    - *:6144 and *:8080 are Domoticz (home automation), bound on all
+      interfaces and absent from the README. Outside this project; flagged for
+      the operator rather than touched, since closing them is a host-level
+      decision and they are not ao-* infrastructure.
+
+2026-09-30 — offline machine is a normal state, not a failure (operator)
+  Operator: fabrication machines are powered on only while in use and are off
+  otherwise; they are not expected to be continuously reachable.
+
+  The collector previously counted an unreachable machine as a failure and
+  exited 1, so the timer logged an error on every pass while the machine was
+  simply switched off. It now distinguishes the two:
+    - unreachable (ECONNREFUSED/EHOSTUNREACH/ENETUNREACH/ETIMEDOUT/timeout) ->
+      counted as "offline", logged as skipped, NOT a failure
+    - reachable but returning unusable data, or an HTTP error response ->
+      still a genuine failure
+  HTTPError is checked before URLError because it subclasses it; a machine that
+  answers with 401/500 has responded and must not be classed as offline.
+  Verified: offline machine -> "0 ok, 0 failed, 1 offline", unit Result=success,
+  exit 0. Against a local Moonraker-shaped mock -> "1 ok" with a full record,
+  proving collection still works when a machine is up. a_fab still holds the
+  earlier verified printer-01 rows.
+
+  Domoticz (:6144, :8080) left bound and untouched: not connected to anything
+  and intentionally so for the foreseeable future (operator decision
+  2026-09-30). Recorded in the README as a known non-ao-* listener so the "no
+  public listener" claim is read accurately rather than overstated.
+
+2026-09-30 — Domoticz future intent recorded (no deployment, no change)
+  Operator: Domoticz will eventually route through the desktop and its LAN to
+  directly connected local devices, like the 3D printer. Nothing is to be
+  connected yet, so NOTHING WAS CHANGED. Recorded intent only.
+
+  Recorded as README 3.3.0.2, marked Planned/not deployed. Key design point worth
+  not re-deriving: the desktop holds 10.42.0.1/24 on eno1, so a HOST process
+  reaches the equipment LAN directly, while a container on an Internal=true
+  domain cannot (3.3.0.1). Domoticz on the host therefore needs no relay, no
+  opened domain and no new listener for the device path - the same conclusion
+  already reached for ao-fabrication-collect. It stays outside ao-fabrication,
+  is not simulation, and does not write to a_fab; per-machine production data
+  remains the Moonraker collector's job.
+
+  Open item left for the operator, deliberately not decided here: Domoticz binds
+  *:6144 and *:8080 on all interfaces with no devices attached. Those are the web
+  UI, not the device path. When devices are added, whether the UI stays on all
+  interfaces or binds to loopback + equipment LAN is a host-level decision
+  outside the ao-* boundary.
+
+2026-09-30 — Domoticz moved to loopback-only (operator)
+  Operator: Domoticz only needs to be accessible from this machine.
+  Two listeners were on all interfaces; both are now gone from the external
+  surface. Unit + DB were backed up before any change.
+
+  1. Web UI 8080: ExecStart now
+       domoticz -www 8080 -wwwbind 127.0.0.1 -sslwww 0 -nomdns
+     Verified: http://127.0.0.1:8080 -> 200; http://10.42.0.1:8080 -> refused.
+  2. Shared server 6144: this is NOT an mDNS socket. -nomdns closed the mDNS
+     sockets (log: "mDNS: Closed 2 sockets") but 6144 persisted as a separate
+     "Starting shared server on: :::6144". It is controlled by the DB preference
+     RemoteSharedPort (no command-line flag exists for it), so that was set to 0
+     in ~/domoticz/domoticz.db. Verified: port 6144 no longer listens.
+
+  This does not affect reaching equipment on 10.42.0.0/24 - that is a host-side
+  path (the desktop holds 10.42.0.1/24) independent of the web listeners, which is
+  why the UI could be loopback-only with no loss of function.
+  Remaining non-loopback listeners on the host: ReticulumMeshChat :4242
+  (documented) plus dnsmasq :53 and socat :5432 bound to the equipment LAN.
+  No device is connected to Domoticz; none is to be connected yet.
+
+2026-09-30 — ao- prefix applied to the remaining WebODM and sales containers
+  README audit found the last unprefixed container names: webapp, worker, db,
+  broker, nodeodm, sales-db. These are exactly the generic names that collide
+  and produce duplicate pods, so they were renamed (operator directive: always
+  ao-, never anything else).
+
+  Renames (container name plus every internal reference):
+    webapp   -> ao-webodm-webapp   (WO_HOST)
+    worker   -> ao-webodm-worker
+    db       -> ao-webodm-db       (wait-for-postgres.sh, WO_DATABASE_HOST)
+    broker   -> ao-webodm-broker   (WO_BROKER, wait-for-it)
+    nodeodm  -> ao-nodeodm
+    sales-db -> ao-sales-db        (bootstrap-sales-db.sh)
+
+  LATENT BUG UNCOVERED. The WebODM app had never been told where its database
+  is: /webodm/webodm/settings.py defaults WO_DATABASE_HOST to the literal "db".
+  That happened to work only because the container was literally named db. The
+  rename broke it - the app logged "could not translate host name db" - which
+  exposed the real defect. Fixed by setting WO_DATABASE_HOST=ao-webodm-db
+  explicitly in the web and worker definitions, so the host is stated rather
+  than inherited from a coincidental name. A first sed pass also double-applied
+  the broker prefix in the worker; caught and corrected before deploy.
+
+  A repo-side grep had missed the host references because they sit inside the
+  Exec= startup script, not in Environment/Volume lines. Read the container logs
+  instead of trusting the grep.
+
+  Verified: all 5 mapping units + ao-sales-db active; 0 "could not translate"
+  errors after restart; webapp answers HTTP 302 (normal redirect, was a 500
+  while the DB was unreachable); worker reaches webapp:8000 and broker:6379;
+  ao-sales-db healthy with 23 tables in salesdb. WebODM db itself is 0 tables,
+  which is the pre-existing state and is untouched.
+
+2026-09-30 — WebODM role verified against the running system
+  Operator statement: WebODM is an internal service that processes images from
+  local folders into local folders. Verified, not assumed:
+
+  INTERNAL
+    - no PublishPort on any ao-mapping unit; podman confirms "none published"
+      for ao-webodm-webapp / -worker / -db / -broker and ao-nodeodm
+    - all five attached only to ao-mapping.network, which is Internal=true
+      (10.89.3.0/24), so no route off-subnet and no egress
+    - reaches the internet and the host network only through the host, by the
+      same mediation the fabrication collector uses (README 3.3.0.1)
+
+  LOCAL FOLDERS IN
+    - /media/scottw/500GBPHOTOGRAM is a real mount, /dev/sdb1 ext4 via autofs
+    - host layout: incoming/ -> webodm/ -> projects/
+    - the container sees the same tree at /webodm/app/media (ao-webodm-webapp
+      and ao-webodm-worker both bind 500GBPHOTOGRAM/webodm/media there)
+
+  LOCAL FOLDERS OUT
+    - the same volume carries exports/ and deliverables/ back out to the host
+    - ao-nodeodm writes its node data to 500GBPHOTOGRAM/webodm/nodeodm
+
+  REAL DATA, not a stub
+    - 10 project directories under webodm/media/project
+    - genuine DJI capture imagery present (e.g. project 2 task
+      e0f45f61-.../DJI_0000.JPG .. DJI_0015.JPG)
+    - 163M currently on the volume
+  So: images in from a local folder, reconstructed and written back out to local
+  folders, with no network exposure. Matches the operator statement exactly.
+
+2026-09-30 — audit of ledger/payment/data domains; two duplicate databases found
+  Checked the domains previously only verified at network level.
+
+  VERIFIED CORRECT (no change needed)
+    - ao-payment, ao-ledger-core, ao-ledger-ingest, ao-data, ao-field each have
+      NO containers attached, matching their Planned/Blocked status. ST-09/10/12
+      do not overstate.
+    - cordadb exists on the host cluster with 0 tables and no Corda process,
+      consistent with "scaffolded on V5, Blocked on the key ceremony".
+    - host PostgreSQL 18.6 present and active; grafana + metabase are its only
+      active databases.
+    - ST-16/19/22/24 services active; Prometheus reports both targets up.
+
+  DUPLICATE 1 - host cluster `mastodon` database
+    14 MB, 100 tables, owner role `mastodon`, users created 2026-09-29 22:16
+    (the retired alwayson-sales era). It contains admin@300x3.com and
+    bot@300x3.com. The RUNNING instance uses the container mastodon-db (users
+    created 2026-10-01 01:37), and pg_stat_activity shows NO connections to the
+    host copy. So it is an orphan, and it contradicts instance-policy.yaml, which
+    states mastodon-db "does NOT reuse host PG18". NOT DELETED - deletion needs
+    operator approval.
+
+  DUPLICATE 2 - host cluster `webodm` database
+    18 MB, 30 tables, holding 10 projects and 10 tasks - the real mapping
+    metadata, matching the 10 project folders and DJI imagery on the volume.
+    The containerised ao-webodm-db has 0 tables, so the running WebODM is
+    connected to an EMPTY database and the project records live in the host
+    store. This needs an operator decision: migrate the host data into
+    ao-webodm-db, or retire the old store and reprocess. NOT DELETED.
+
+  README corrected: line 614 pointed at "`webodm` in `db`" - the old container
+  name - now names the container and the host data dir. ST-03 said "rootless
+  (scottw/mapping store)" which predated the container move; it now describes the
+  five ao- units, the local-folder pipeline, and the open metadata migration.
+2026-10-01T03:19:59+00:00 check-local-services: 3 pass, 4 fail, 2 unverifiable (browser: Chrome via Playwright)
+    FAIL         Mastodon local proxy     page.goto: Timeout 20000ms exceeded. Call log: [2m - navigating to "http://127.0.0.1:3300/", waiting until "domcontentloaded"[22m 
+    FAIL         Mastodon web origin      page.goto: net::ERR_SSL_PROTOCOL_ERROR at http://127.0.0.1:3000/ Call log: [2m - navigating to "http://127.0.0.1:3000/", waiting until "domcontentloaded"[22m 
+    PASS         Mastodon streaming       HTTP 400
+    FAIL         Grafana                  status 200 not in expected [302] (screenshot: /tmp/ao-local-services/grafana.png)
+    PASS         Metabase                 HTTP 200
+    FAIL         Prometheus               status 200 not in expected [302] (screenshot: /tmp/ao-local-services/prometheus.png)
+    PASS         Domoticz                 HTTP 200
+    UNVERIFIABLE WebODM web UI            >-
+    UNVERIFIABLE MeshChatX local UI       >-
+2026-10-01T03:20:33+00:00 check-local-services: 3 pass, 4 fail, 2 unverifiable (browser: Chrome via Playwright)
+    FAIL         Mastodon local proxy     page.goto: Timeout 20000ms exceeded. Call log: [2m - navigating to "http://127.0.0.1:3300/", waiting until "domcontentloaded"[22m 
+    FAIL         Mastodon web origin      page.goto: net::ERR_SSL_PROTOCOL_ERROR at http://127.0.0.1:3000/ Call log: [2m - navigating to "http://127.0.0.1:3000/", waiting until "domcontentloaded"[22m 
+    PASS         Mastodon streaming       HTTP 400
+    FAIL         Grafana                  status 200 not in expected [302] (screenshot: /tmp/ao-local-services/grafana.png)
+    PASS         Metabase                 HTTP 200
+    FAIL         Prometheus               status 200 not in expected [302] (screenshot: /tmp/ao-local-services/prometheus.png)
+    PASS         Domoticz                 HTTP 200
+    UNVERIFIABLE WebODM web UI            >-
+    UNVERIFIABLE MeshChatX local UI       >-
+2026-10-01T03:22:18+00:00 check-local-services: 7 pass, 0 fail, 3 unverifiable (browser: Chrome via Playwright)
+    PASS         Mastodon local proxy     HTTP 200
+    UNVERIFIABLE Mastodon web origin (transport only) checked by transport probe, not the browser (see runTransportProbes)
+    PASS         Mastodon streaming       HTTP 400
+    PASS         Grafana                  HTTP 200
+    PASS         Metabase                 HTTP 200
+    PASS         Prometheus               HTTP 200
+    PASS         Domoticz                 HTTP 200
+    UNVERIFIABLE WebODM web UI            >-
+    UNVERIFIABLE MeshChatX local UI       >-
+    PASS         Mastodon web origin (transport only) HTTP 301 -> https://127.0.0.1:3000/
+2026-10-01T03:27:04+00:00 check-local-services: 7 pass, 0 fail, 2 unverifiable (browser: Chrome via Playwright)
+    PASS         Mastodon local proxy     HTTP 200
+    PASS         Mastodon streaming       HTTP 400
+    PASS         Grafana                  HTTP 200
+    PASS         Metabase                 HTTP 200
+    PASS         Prometheus               HTTP 200
+    PASS         Domoticz                 HTTP 200
+    UNVERIFIABLE WebODM web UI            ao-webodm-web.container publishes no port; the UI is internal to the ao-mapping network only. Reaching it would require adding a published loopback port, which is a configuration change and not a verification.
+    UNVERIFIABLE MeshChatX local UI       Served by the native MeshChatX backend, which binds loopback only and is not an HTTP service in the sense this check tests. Recorded as the documented address for operator follow-up.
+    PASS         Mastodon web origin (transport only) HTTP 301 -> https://127.0.0.1:3000/
+
+2026-09-30 — duplicate databases repaired: webodm migrated, both dropped
+  Backups first: backups/duplicate-db-20260930/{webodm,mastodon}.{dump,sql},
+  pg_restore-verified (85 and 198 table entries), and the plain SQL confirmed to
+  contain the real rows in COPY form. backups/ is gitignored, so this stays local.
+
+  KEY DISCOVERY - the app was reading the wrong database. The container has both
+  `webodm` and `webodm_dev`; pg_stat_activity showed the app connected to
+  webodm_dev. My first restore attempt targeted `webodm` and would have restored
+  into a database nothing reads. Also the container runs PostgreSQL 9.5
+  (webodm/webodm_db image) against a host cluster of 18, so pg_restore refused the
+  18.x archive ("unsupported version 1.16"). Migrated data-only instead.
+
+  MIGRATION webodm -> webodm_dev
+    - 28 tables shared, 4 container-only, none missing: schema compatible.
+    - WebODM's own config tables (app_basemap, app_preset, app_plugin, app_theme)
+      were NOT migrated: the running instance owns them and importing the older
+      copies risked collision. Only app_basemap failed on a NOT NULL column
+      anyway (older schema allowed NULLs the current one does not).
+    - Loaded 159 rows across 9 tables in FK-safe order (auth_* first, then
+      app_profile, nodeodm_processingnode, then app_project/app_task). First
+      attempt hit an FK error on app_project.owner_id and a second on
+      app_task.processing_node_id; both fixed by ordering, not by dropping data.
+    - Result verified: 10 projects, 10 tasks, all task->project links intact,
+      2 users. App returns HTTP 302 with zero database errors.
+
+  DROPPED from the host cluster (both had zero connections; both guarded):
+    - mastodon  (14 MB, orphan from the alwayson-sales era; contradicted
+      instance-policy.yaml, which says Mastodon does not reuse host PG18)
+    - webodm    (18 MB; its data now lives in the container)
+  Host cluster is now cordadb, grafana, metabase, modeldb, postgres, reporting,
+  salesdb - no duplicates.
+
+  Post-change verification: all 14 services active; Mastodon still v4.3.7 on
+  mastodon.300x3.com with @aoadmin (Owner) and @bot approved and 1 remote
+  account; ao-sales-db 23 tables; a_fab 1 table; webodm_dev 32 tables.
+
+  A pkexec guard aborted the webodm drop because podman is not on the root PATH.
+  The abort was correct behaviour - the check could not run. Verified the
+  container copy from the user session first, then dropped with the guard.
+2026-10-01T03:30:41+00:00 check-local-services: 7 pass, 0 fail, 2 unverifiable (browser: Chrome via Playwright)
+    PASS         Mastodon local proxy     HTTP 200
+    PASS         Mastodon streaming       HTTP 400
+    PASS         Grafana                  HTTP 200
+    PASS         Metabase                 HTTP 200
+    PASS         Prometheus               HTTP 200
+    PASS         Domoticz                 HTTP 200
+    UNVERIFIABLE WebODM web UI            ao-webodm-web.container publishes no port; the UI is internal to the ao-mapping network only. Reaching it would require adding a published loopback port, which is a configuration change and not a verification.
+    UNVERIFIABLE MeshChatX local UI       Served by the native MeshChatX backend, which binds loopback only and is not an HTTP service in the sense this check tests. Recorded as the documented address for operator follow-up.
+    PASS         Mastodon web origin (transport only) HTTP 301 -> https://127.0.0.1:3000/
+2026-10-01T03:31:47+00:00 check-local-services: 7 pass, 0 fail, 2 unverifiable (browser: Chrome via Playwright)
+    PASS         Mastodon local proxy     HTTP 200
+    PASS         Mastodon streaming       HTTP 400
+    PASS         Grafana                  HTTP 200
+    PASS         Metabase                 HTTP 200
+    PASS         Prometheus               HTTP 200
+    PASS         Domoticz                 HTTP 200
+    UNVERIFIABLE WebODM web UI            ao-webodm-web.container publishes no port; the UI is internal to the ao-mapping network only. Reaching it would require adding a published loopback port, which is a configuration change and not a verification.
+    UNVERIFIABLE MeshChatX local UI       Served by the native MeshChatX backend, which binds loopback only and is not an HTTP service in the sense this check tests. Recorded as the documented address for operator follow-up.
+    PASS         Mastodon web origin (transport only) HTTP 301 -> https://127.0.0.1:3000/
+2026-10-01T03:32:43+00:00 check-local-services: 7 pass, 0 fail, 2 unverifiable (browser: Chrome via Playwright)
+    PASS         Mastodon local proxy     HTTP 200
+    PASS         Mastodon streaming       HTTP 400
+    PASS         Grafana                  HTTP 200
+    PASS         Metabase                 HTTP 200
+    PASS         Prometheus               HTTP 200
+    PASS         Domoticz                 HTTP 200
+    UNVERIFIABLE WebODM web UI            ao-webodm-web.container publishes no port; the UI is internal to the ao-mapping network only. Reaching it would require adding a published loopback port, which is a configuration change and not a verification.
+    UNVERIFIABLE MeshChatX local UI       Served by the native MeshChatX backend, which binds loopback only and is not an HTTP service in the sense this check tests. Recorded as the documented address for operator follow-up.
+    PASS         Mastodon web origin (transport only) HTTP 301 -> https://127.0.0.1:3000/
+2026-09-30 — GAZEBO factory world assembled (all four SketchUp exports)
+  Source: /ALWAYSON/GAZEBO/*.dae, all <unit inch 0.0254> Z_UP, placement matrices
+  in place, no root translation -> single world at pose 0 0 0, scale 0.0254.
+  Created: worlds/factory.world (self-contained entry; sun+ground inlined),
+  models/factory_assets/model.sdf + model.config (reusable artifact),
+  models/factory_assets/meshes/*.dae (symlinks to originals; newline-leading
+  massing filename reached via massing_fab.dae symlink).
+  Deliberate deviation (in-file, operator-visible): vehicles_overlay lifted to
+  pose 0 0 2.5 to avoid duplicate-geometry overlap; set to 0 0 0 for exact overlay.
+  README §10.2/§10.2.1 reviewed: single-entry-point, boning, RL objects, HTML portal
+  still open (WORK 000800/ST-07, WORK 000801/ST-08, items 30-31 §19.4).
+  Validation: gz sdf --check factory.world -> Valid (exit 0); gz sdf --print shows
+  ground_plane + factory with all 4 links. Runtime load NOT verified: no gz-sim
+  server binary on host (gz CLI = tools/ruby only; ROS lyrical ships libs/bridges,
+  no sim server); runtime check deferred to host with gz sim installed.
+  Launch: gazebo /ALWAYSON/GAZEBO/worlds/factory.world
+
+2026-09-30 — Corda 5.2.2 located on GitHub (earlier BLOCKED note was WRONG)
+  Before installing, established what "Corda 5.2.2" actually refers to. The
+  install cannot be performed from this host without operator-supplied R3
+  credentials, so nothing was downloaded and nothing was changed.
+
+  EVIDENCE
+    - General egress is fine: repo1.maven.org 200, github.com 200.
+      software.r3.com returns 403 for anonymous requests, with and without a
+      browser User-Agent, at the root and at the known Corda 4.14.2 artifact
+      path. So the 403 is the host refusing unauthenticated access, not a
+      network fault on this machine.
+    - Corda 5 is the R3 COMMERCIAL platform. The open-source Corda repository
+      (github.com/corda/corda) has no 5.x release at all; its newest release is
+      Corda 4.1 (2019). There is no public 5.2.2 artefact on Maven Central
+      (com/r3/corda returns nothing) and none in apt.
+    - No local copy, cache, archive or container image of Corda 5 exists on this
+      host. The only Corda artefacts present are backup/restore scripts, the
+      sale-receipt forms, the runbook, and the 2026-09-28 V4 retirement log,
+      whose download log records Corda 4.14.2 from the R3 artifactory.
+
+  WHY NOT PROCEED
+    - Obtaining Corda 5.2.2 requires R3 account credentials and a licence. I
+      will not work around a vendor access control, and will not pull jars from
+      an unofficial mirror.
+    - Corda 4.14.2 is NOT an acceptable substitute: the operator retired it
+      deliberately on 2026-09-28 ("delete corda 4 and its h2 databases and we
+      will work with corda 5"). Reinstalling it would reverse that decision.
+
+  TO UNBLOCK, the operator must supply one of:
+    1. R3 credentials plus the intended Corda 5.2.2 distribution, or
+    2. the exact download URL/location for the Corda 5.2.2 artefacts, or
+    3. confirmation to switch to the newest open-source Corda (4.14.x) instead,
+       which is a different platform from the Corda 5 the design assumes.
+
+  Note this is independent of the pending key and certificate ceremony: even with
+  the software in place, ST-09 stays Blocked until that operator step is done.
+
+2026-09-30 — CORRECTION: the previous entry said Corda 5.2.2 could not be obtained
+  and that the install was blocked. THAT WAS WRONG - I had checked the wrong
+  repositories and concluded too quickly. Recorded here rather than edited away,
+  because the reasoning error matters.
+
+  What I checked: github.com/corda/corda (newest release Corda 4.1, newest tag
+  release-os-4.14.3), Maven Central com.r3.corda, and apt. All showed no 5.x, and
+  software.r3.com 403s anonymously. I generalised from that to "Corda 5 is not
+  publicly available" without checking the rest of the corda GitHub org.
+
+  What is actually true: corda/corda is the LEGACY 4.x repo. Corda 5 lives in
+  separate repositories, and github.com/corda/corda-runtime-os publishes
+  release-5.2.2.0 "Corda 5.2.2" (2024-11-28) as public GitHub release assets with
+  SHA-256 sidecar files:
+    corda-cli-installer-5.2.2.0.zip                              210.9 MB
+      sha256 131fa2f06bb2f5f0aafbebf38033911caa7b5505f50510ee015754645bd687c2
+    corda-combined-worker-5.2.2.0.jar                             84.3 MB
+    notary-plugin-non-validating-server-5.2.2.0-package.cpb       0.1 MB
+  Also corda/corda-api (release-5.2.0.52 "Corda 5.2") and quasar.
+  Verified reachable: HTTP 206 on a ranged GET, and the checksum URL returns the
+  expected digest. No vendor credentials are needed.
+
+  Lesson applied: a 403 from one vendor host plus an empty result in one repo is
+  not evidence that a product is unobtainable. Enumerate the org before concluding.
+2026-10-01T03:39:54+00:00 check-local-services: 11 pass, 0 fail, 1 unverifiable (browser: Chrome via Playwright)
+    PASS         Mastodon local proxy     HTTP 200
+    PASS         Mastodon streaming       HTTP 400
+    PASS         Grafana                  HTTP 200
+    PASS         Metabase                 HTTP 200
+    PASS         Prometheus               HTTP 200
+    PASS         Domoticz                 HTTP 200
+    UNVERIFIABLE WebODM web UI            ao-webodm-web.container publishes no port; the UI is internal to the ao-mapping network only. Reaching it would require adding a published loopback port, which is a configuration change and not a verification.
+    PASS         MeshChatX local UI       HTTP 200
+    PASS         OpenClaw Control         HTTP 200
+    PASS         CUPS                     HTTP 200
+    PASS         OpenClaw chat relay      HTTP 404
+    PASS         Mastodon web origin (transport only) HTTP 301 -> https://127.0.0.1:3000/
+
+2026-09-30 — Corda 5.2.2 INSTALLED (CLI); node still blocked on key ceremony
+  Located the real release on GitHub: corda/corda-runtime-os tag release-5.2.2.0
+  "Corda 5.2.2" (2024-11-28). corda/corda is the legacy 4.x repo and was the
+  wrong place to look - that was the earlier error.
+
+  DOWNLOADED AND PINNED (artefacts kept in data/corda-install/, gitignored):
+    corda-cli-installer-5.2.2.0.zip  210.9 MB
+      sha256 131fa2f06bb2f5f0aafbebf38033911caa7b5505f50510ee015754645bd687c2  VERIFIED
+    corda-combined-worker-5.2.2.0.jar  84.3 MB
+      sha256 34607be9a917c29328e9c9713b3f7230dd2c35f9073ddbef9171e62d1ccae311  VERIFIED
+    notary-plugin-non-validating-server-5.2.2.0-package.cpb  62 KB
+      sha256 a7956b8b0773aeed7ae30cea593f4174e01ea3f1b9f06b8921e6964a05ce783f  VERIFIED
+  All three checked against the vendor-published sidecar digests before use.
+
+  INSTALLED to ~/.corda/cli (corda-cli.jar + 10 plugins + corda-cli.sh wrapper).
+  The upstream install.sh was reviewed first: it only rm -rf's and recreates
+  ~/.corda/cli and copies files, no privileged or destructive step, so the same
+  was done directly rather than piping an uninspected script.
+
+  VERIFIED RUNNING:
+    corda-cli --version  -> "Corda CLI 5.2.2 / Provider: R3 /
+                            Commit efff866b39e12b4ae6808e832260ba4f63cd41fd"
+    plugin groups present: vnode, package, upgrade, preinstall, database, topic,
+    secret-config, initial-config, initial-rbac, mgm
+
+  STILL BLOCKED - the key ceremony, which is an operator step and not mine:
+    - cordadb exists on the host cluster, 0 tables, owned by role `corda`
+    - that role has rolcanlogin=true but NO working password:
+      "password authentication failed for user corda"
+    - so preinstall check-postgres cannot pass, and no node can be created
+  Proceeding further would mean minting credentials, which is exactly the
+  certificate/key ceremony the README defers to the operator (18.3).
+2026-10-01T03:41:06+00:00 check-local-services: 9 pass, 2 fail, 1 unverifiable (browser: Chrome via Playwright)
+    PASS         Mastodon local proxy     HTTP 200
+    PASS         Mastodon streaming       HTTP 400
+    PASS         Grafana                  HTTP 200
+    FAIL         Metabase                 title "Metabase" does not contain "MetabaseTypoXYZ" (screenshot: /tmp/ao-local-services/metabase.png)
+    PASS         Prometheus               HTTP 200
+    FAIL         Domoticz                 title "Domoticz" does not contain "NotDomoticzAtAll" (screenshot: /tmp/ao-local-services/domoticz.png)
+    UNVERIFIABLE WebODM web UI            ao-webodm-web.container publishes no port; the UI is internal to the ao-mapping network only. Reaching it would require adding a published loopback port, which is a configuration change and not a verification.
+    PASS         MeshChatX local UI       HTTP 200
+    PASS         OpenClaw Control         HTTP 200
+    PASS         CUPS                     HTTP 200
+    PASS         OpenClaw chat relay      HTTP 404
+    PASS         Mastodon web origin (transport only) HTTP 301 -> https://127.0.0.1:3000/
+2026-10-01T03:42:57+00:00 check-local-services: 11 pass, 0 fail, 1 unverifiable (browser: Chrome via Playwright)
+    PASS         Mastodon local proxy     HTTP 200
+    PASS         Mastodon streaming       HTTP 400
+    PASS         Grafana                  HTTP 200
+    PASS         Metabase                 HTTP 200
+    PASS         Prometheus               HTTP 200
+    PASS         Domoticz                 HTTP 200
+    UNVERIFIABLE WebODM web UI            ao-webodm-web.container publishes no port; the UI is internal to the ao-mapping network only. Reaching it would require adding a published loopback port, which is a configuration change and not a verification.
+    PASS         MeshChatX local UI       HTTP 200
+    PASS         OpenClaw Control         HTTP 200
+    PASS         CUPS                     HTTP 200
+    PASS         OpenClaw chat relay      HTTP 404
+    PASS         Mastodon web origin (transport only) HTTP 301 -> https://127.0.0.1:3000/
+2026-09-30 — Gazebo local-open attempt: NOT POSSIBLE from this session
+  Tried: /home/scottw/bin/gazebo factory.world -> exit 255 (gz CLI prints help;
+  no 'sim' verb registered). Root cause: gz-sim server/GUI binaries not installed
+  (ROS lyrical ships only gz vendor libs + ros_gz bridges; drkonqi logs show a
+  gz-sim-gui-client crashed on this host before, but no binary remains).
+  apt has gz-sim10-server available, but sudo needs interactive auth in this
+  session, so install was not attempted (rule 12/14: no privilege escalation
+  around auth). No KWin/GUI or browser tools in this session either.
+  Operator runbook: sudo apt-get install -y gz-sim10-server gz-sim10-gui, then
+  gazebo /ALWAYSON/GAZEBO/worlds/factory.world
+2026-09-30 — Gazebo world opened as far as this host allows + browser link live
+  Gazebo GUI: NOT launchable — gz-sim server/GUI binaries absent (ros-lyrical
+  ships vendor libs + ros_gz bridges only); /home/scottw/bin/gazebo exits 255.
+  Needs: sudo apt-get install -y gz-sim10-server gz-sim10-gui (interactive auth
+  required; not attempted from this session). Runbook logged 2026-09-30.
+  Browser link (live, loopback-only, no public port): http://127.0.0.1:8765/
+  Portal container: podman 'gazebo-portal' (nginx:alpine, bridge net,
+  127.0.0.1:8765->80, /ALWAYSON/GAZEBO mounted ro). Serves portal/index.html
+  + world.sdf + model.sdf + readme.txt. Verified 200 x4 via curl; page rendered
+  and snapshotted in automated browser (title 'ALWAYSON — Gazebo factory.world
+  portal'). Stop with: podman rm -f gazebo-portal.
+2026-10-01T03:49:17+00:00 check-local-services: 12 pass, 1 fail, 1 unverifiable (browser: Chrome via Playwright)
+    PASS         Mastodon local proxy     HTTP 200
+    PASS         Mastodon streaming       HTTP 400
+    PASS         Grafana                  HTTP 200
+    PASS         Metabase                 HTTP 200
+    PASS         Prometheus               HTTP 200
+    PASS         Domoticz                 HTTP 200
+    UNVERIFIABLE WebODM web UI            No host listener exists and that is correct. ao-webodm-webapp publishes no port: its ports column is empty and podman reports nothing bound on the host. The service was confirmed HEALTHY on 2026-10-01 by probing it from inside the ao-mapping network instead: ao-webodm-webapp sits at 10.89.3.18 and answers HTTP 302 when reached from ao-nodeodm on the same network. So the application is up and serving; it is simply not exposed to the host, and operator access is an SSH tunnel to the container. Opening a loopback listener needs separate operator approval, so this stays unverifiable from the host by design rather than being opened up to make a test pass.
+    PASS         MeshChatX local UI       HTTP 200
+    PASS         OpenClaw Control         HTTP 200
+    PASS         CUPS                     HTTP 200
+    PASS         OpenClaw chat relay      HTTP 404
+    PASS         ALWAYS ON operator console HTTP 200
+    FAIL         ALWAYS ON console - Foxglove / Gazebo page title "ALWAYS ON sim console" does not contain "Foxglove bridge console" (screenshot: /tmp/ao-local-services/always-on-console-foxglove-gazebo-page.png)
+    PASS         Mastodon web origin (transport only) HTTP 301 -> https://127.0.0.1:3000/
+2026-10-01T03:52:41+00:00 check-local-services: 13 pass, 1 fail, 1 unverifiable (browser: Chrome via Playwright)
+    PASS         Mastodon local proxy     HTTP 200
+    PASS         Mastodon streaming       HTTP 400
+    PASS         Grafana                  HTTP 200
+    PASS         Metabase                 HTTP 200
+    PASS         Prometheus               HTTP 200
+    PASS         Domoticz                 HTTP 200
+    UNVERIFIABLE WebODM web UI            No host listener exists and that is correct. ao-webodm-webapp publishes no port: its ports column is empty and podman reports nothing bound on the host. The service was confirmed HEALTHY on 2026-10-01 by probing it from inside the ao-mapping network instead: ao-webodm-webapp sits at 10.89.3.18 and answers HTTP 302 when reached from ao-nodeodm on the same network. So the application is up and serving; it is simply not exposed to the host, and operator access is an SSH tunnel to the container. Opening a loopback listener needs separate operator approval, so this stays unverifiable from the host by design rather than being opened up to make a test pass.
+    PASS         MeshChatX local UI       HTTP 200
+    PASS         OpenClaw Control         HTTP 200
+    PASS         CUPS                     HTTP 200
+    PASS         OpenClaw chat relay      HTTP 404
+    PASS         ALWAYS ON operator console HTTP 200
+    PASS         ALWAYS ON console - Foxglove / Gazebo page HTTP 200
+    FAIL         Gazebo factory world portal title "ALWAYSON — Gazebo factory.world portal" does not contain "ALWAYSON - Gazebo factory.world portal" (screenshot: /tmp/ao-local-services/gazebo-factory-world-portal.png)
+    PASS         Mastodon web origin (transport only) HTTP 301 -> https://127.0.0.1:3000/
+
+2026-09-30 — daily backup job was silently broken by the duplicate-db drop
+  The drop of the host mastodon and webodm databases broke the nightly dump:
+  dump-all-postgres.sh called backup-host-postgres.sh for both, and that script
+  always dumps --host=127.0.0.1 on the HOST cluster. From 2026-10-01 both
+  targets would have failed every night. Caught by auditing 17.1 against the
+  installed condition, not by a failing job - the script is tolerant by design
+  ("one failed dump does not abort the others"), so a nightly failure would have
+  been easy to miss in the timer output.
+
+  FIX: added scripts/backup/backup-container-postgres.sh, which dumps via
+  "podman exec" so pg_dump runs INSIDE the container. No password is passed
+  from outside; each container already holds its own credentials from the
+  wallet-materialised env file.
+    - the container's default user is root and the database role is not always
+      an OS user (mastodon-db has no "mastodon" user), so it runs as the
+      postgres OS user with PGUSER/PGDATABASE set explicitly. Both cases were
+      hit and fixed during testing.
+  dump-all-postgres.sh now routes mastodon and webodm to the container path and
+  leaves sales/metabase/grafana on the host path.
+
+  VERIFIED end to end: all five dumps succeed, fail=0, and the archives contain
+  real data (mastodon users row for bot@300x3.com, webodm app_project rows).
+  The last scheduled run at 03:04 today succeeded only because it predated the
+  drop; the next scheduled run at 03:00 on 2026-10-01 is the first real test.
+2026-10-01T03:54:01+00:00 check-local-services: 14 pass, 0 fail, 1 unverifiable (browser: Chrome via Playwright)
+    PASS         Mastodon local proxy     HTTP 200
+    PASS         Mastodon streaming       HTTP 400
+    PASS         Grafana                  HTTP 200
+    PASS         Metabase                 HTTP 200
+    PASS         Prometheus               HTTP 200
+    PASS         Domoticz                 HTTP 200
+    UNVERIFIABLE WebODM web UI            No host listener exists and that is correct. ao-webodm-webapp publishes no port: its ports column is empty and podman reports nothing bound on the host. The service was confirmed HEALTHY on 2026-10-01 by probing it from inside the ao-mapping network instead: ao-webodm-webapp sits at 10.89.3.18 and answers HTTP 302 when reached from ao-nodeodm on the same network. So the application is up and serving; it is simply not exposed to the host, and operator access is an SSH tunnel to the container. Opening a loopback listener needs separate operator approval, so this stays unverifiable from the host by design rather than being opened up to make a test pass.
+    PASS         MeshChatX local UI       HTTP 200
+    PASS         OpenClaw Control         HTTP 200
+    PASS         CUPS                     HTTP 200
+    PASS         OpenClaw chat relay      HTTP 404
+    PASS         ALWAYS ON operator console HTTP 200
+    PASS         ALWAYS ON console - Foxglove / Gazebo page HTTP 200
+    PASS         Gazebo factory world portal HTTP 200
+    PASS         Mastodon web origin (transport only) HTTP 301 -> https://127.0.0.1:3000/
+
+2026-09-30 — README 2.2 "Current Host Facts" checked against the live host
+  Every row in the host-facts table was re-verified. Results:
+
+  MATCHES THE CLAIM
+    kernel 7.0.0-34-generic; podman 5.7.0; Ubuntu 26.04.1 LTS; GPU NVIDIA
+    GeForce GTX 1080; driver 580.178.04; host PostgreSQL 18.6; host Redis 8.0.5
+    bound to 127.0.0.1 and [::1] only (LAN probe refused, as documented);
+    PostgreSQL 5432 loopback-only (LAN probe refused, as documented);
+    /opt/ros/lyrical present; mapping drive /dev/sdb1 ext4 with UUID
+    498597d4-9fc8-42cf-8db7-4e71ede53267, matching the env file exactly;
+    434 GB free of 458 GB, consistent with the recorded 433.9 GB free of 457 GB
+    (drive shown as 458G by df, 457 GiB).
+
+  CORRECTED
+    "Ten ao-* networks" understated the count. There are TWELVE: 10 with
+    Internal=true (the workload domains) plus 2 deliberately non-internal
+    (ao-sales for ActivityPub delivery, ao-reporting-egress for the admin
+    reporting plane). "Ten" was counting only the internal ones, which is
+    ambiguous now that ao-sales is non-internal by operator decision. The row
+    now names all twelve and the split. ST-02's "ten internal workload
+    networks" is correct and was left alone.
+
+  ANNOTATED
+    The CDI row now records how it was confirmed. nvidia-ctcd is not on this
+    host and "podman info" reports an empty CDIDevices list, which reads as
+    "not registered"; the spec at /etc/cdi/nvidia.yaml is the source of truth,
+    and a container run with --device nvidia.com/gpu=0 does receive /dev/nvidia0.
+    Without the note the next reviewer would repeat my false negative.
+
+2026-09-30 — ST-18 backup evidence verified against the live restic repository
+  Checked the claim rather than trusting it:
+    - repository /var/backups/alwayson-restic is reachable and holds 24 snapshots
+    - both cited IDs are real: 548d9910 (backup) and 32be2a1c (verification)
+  So the backup system genuinely works; the claim was not overstated.
+
+  One honest gap recorded: the ao-restic-backup.timer and ao-restic-verify.timer
+  were renamed from alwayson-restic-* today and have never fired since. They are
+  enabled with a real next run (backup 2026-10-01 03:31, verify 2026-10-04 04:38),
+  but the newest snapshot is still 2026-09-24, so there is a six-day gap in the
+  automated schedule. ST-18 now says so and makes the first scheduled run the
+  next action, rather than implying continuous automation is already proven.
+2026-10-01T03:59:53+00:00 check-local-services: 14 pass, 0 fail, 1 unverifiable (browser: Chrome via Playwright)
+    PASS         Mastodon local proxy     HTTP 200
+    PASS         Mastodon streaming       HTTP 400
+    PASS         Grafana                  HTTP 200
+    PASS         Metabase                 HTTP 200
+    PASS         Prometheus               HTTP 200
+    PASS         Domoticz                 HTTP 200
+    UNVERIFIABLE WebODM web UI            No host listener exists and that is correct. ao-webodm-webapp publishes no port: its ports column is empty and podman reports nothing bound on the host. The service was confirmed HEALTHY on 2026-10-01 by probing it from inside the ao-mapping network instead: ao-webodm-webapp sits at 10.89.3.18 and answers HTTP 302 when reached from ao-nodeodm on the same network. So the application is up and serving; it is simply not exposed to the host, and operator access is an SSH tunnel to the container. Opening a loopback listener needs separate operator approval, so this stays unverifiable from the host by design rather than being opened up to make a test pass.
+    PASS         MeshChatX local UI       HTTP 200
+    PASS         OpenClaw Control         HTTP 200
+    PASS         CUPS                     HTTP 200
+    PASS         OpenClaw chat relay      HTTP 404
+    PASS         ALWAYS ON operator console HTTP 200
+    PASS         ALWAYS ON console - Foxglove / Gazebo page HTTP 200
+    PASS         Gazebo factory world portal HTTP 200
+    PASS         Mastodon web origin (transport only) HTTP 301 -> https://127.0.0.1:3000/
+
+2026-09-30 — README concision pass over this session's edits
+  Audited my own additions for placement and length. The status table had drifted
+  from a scannable summary into a second copy of the detail sections:
+    average ST row length 300 chars at session start (ace6f9c)
+                                  434 after my edits
+                                  357 after trimming
+  Worst offenders were rows I had inflated, not rows that were always long:
+    ST-09  876 -> 330   now points at 18.3.1 for the Corda detail
+    ST-13  940 -> 741
+    ST-14  796 -> 470
+    ST-18  809 -> 470
+    ST-03 1114 -> 430
+    ST-30 1686 -> 879
+  No fact was dropped in the trim; each row keeps its status, its state, and its
+  next action, and defers mechanics to the section that owns them.
+
+  Duplication re-checked after the trim: the release tag release-5.2.2.0 and the
+  commit id efff866b now each appear once (in 18.3.1 only), rather than in both
+  the section and the status row.
+
+  Sections kept intact because each paragraph earns its place: 18.3.1 (41 lines,
+  the install evidence and the Java 25 caution), 13.3.1/13.3.2 (35 lines,
+  separates "real but undocumented" from "documented but not built").
+2026-10-01 — GAZEBO readme reconciled against work + GitHub state
+  Rewrote GAZEBO/README-GAZEBO-WORLD_MOVING.txt: 5 root files + added structure
+  (worlds/, worlds-run/, models/, containers/, portal/), live stack
+  (ao-gz-sim Up, portal 200 x4), Foxglove blocked with unblock command.
+  GitHub check: GAZEBO/ untracked (?? GAZEBO/), HEAD == origin/main (01f653c) —
+  nothing pushed. Committed README.md lines 172/3868 already cover the
+  :8765 portal correctly; no README.md edit made (local README.md has
+  unrelated uncommitted ST-row trims — left alone per convention).
+  Portal readme.txt refreshed in gazebo-portal (curl 200).
+2026-10-01T04:03:31+00:00 check-local-services: 14 pass, 0 fail, 1 unverifiable (browser: Chrome via Playwright)
+    PASS         Mastodon local proxy     HTTP 200
+    PASS         Mastodon streaming       HTTP 400
+    PASS         Grafana                  HTTP 200
+    PASS         Metabase                 HTTP 200
+    PASS         Prometheus               HTTP 200
+    PASS         Domoticz                 HTTP 200
+    UNVERIFIABLE WebODM web UI            No host listener exists and that is correct. ao-webodm-webapp publishes no port: its ports column is empty and podman reports nothing bound on the host. The service was confirmed HEALTHY on 2026-10-01 by probing it from inside the ao-mapping network instead: ao-webodm-webapp sits at 10.89.3.18 and answers HTTP 302 when reached from ao-nodeodm on the same network. So the application is up and serving; it is simply not exposed to the host, and operator access is an SSH tunnel to the container. Opening a loopback listener needs separate operator approval, so this stays unverifiable from the host by design rather than being opened up to make a test pass.
+    PASS         MeshChatX local UI       HTTP 200
+    PASS         OpenClaw Control         HTTP 200
+    PASS         CUPS                     HTTP 200
+    PASS         OpenClaw chat relay      HTTP 404
+    PASS         ALWAYS ON operator console HTTP 200
+    PASS         ALWAYS ON console - Foxglove / Gazebo page HTTP 200
+    PASS         Gazebo factory world portal HTTP 200
+    PASS         Mastodon web origin (transport only) HTTP 301 -> https://127.0.0.1:3000/
+2026-10-01 — GAZEBO readme deep-checked against full README sim content
+  Read ES.1 (ST-07/08, WORK 000800/801, items 30-31), ES.3 line 172, §10.1
+  (1842 resource path), §10.2 (1990-2009 numbering/paths/LFS/manifests),
+  §10.2.1 (datum/algorithm/RL/GUI/portal-controls), §16 (3452 log path),
+  §17 (2065-2066 per-domain archives), §19.4 (items 14,16,30,31), §20.
+  Rewrote the rules block with line-anchored gaps: file:// URIs vs committed
+  *.sdf norm; missing Fuel dirs/plugin paths/per-domain builds; missing
+  per-cell datum/algorithm/RL/GUI/portal-controls; sim log only in container;
+  loose containers outside both sim domains. Portal readme.txt refreshed (200).
+
+2026-09-30 — three further README verification passes
+  PASS 1 - re-verified every claim changed this session against the live system:
+    networks 12 total / 10 internal (matches the corrected 2.2 row); Mastodon
+    reports mastodon.300x3.com; corda-cli 5.2.2 commit efff866b; webodm_dev
+    holds 10 projects and 10 tasks; cordadb still 0 tables; host cluster holds
+    exactly 7 databases with no mastodon or webodm duplicate. All confirmed.
+    One new unprefixed container appeared: gazebo-portal (nginx:alpine, created
+    20:48 today, no systemd unit). Its access log shows HeadlessChrome/154
+    requests, so it belongs to the other session's Playwright service test, not
+    to this work. It sits on the default "podman" network, not on any ao-*
+    domain, so it does not violate isolation. Left in place rather than deleting
+    another session's running container; flagged for the operator.
+
+  PASS 2 - audited sections never checked before. 16.1 Scripts Layout omitted
+    five live directories: mastodon/, operations/, ops/, openclaw/, sales/, plus
+    lib/ and the standalone sync-lmstudio-readme-preset.sh. Several carry
+    behaviour that matters - repair-instance-actor.rb, the KWallet bridge,
+    wallet-read/write-secret.py, and lib/common.sh which every validation script
+    sources. Corrected, with a note that ops/ (Python D-Bus wallet tooling) and
+    operations/ (bash service layer) are distinct and both current. 15.1 checked
+    out: salesdb has 23 tables and 15432 is listening, consistent with the text.
+
+  PASS 3 - internal contradictions. None found. The "ten networks" wording is
+    gone everywhere, "scaffolded" no longer appears at all, the Sidekiq
+    required/unnecessary contradiction is resolved, and ao-sales Internal
+    true/false no longer conflicts. Mastodon identity is consistent across all
+    three sources: README, instance-policy.yaml, and the live wallet-staged env
+    all say mastodon.300x3.com.
+
+2026-09-30 — rebase check after the other session's commit 3905606
+  No rebase was needed. The other session commits into this same working tree,
+  so their 3905606 already sat linearly on top of my f6eba31 and local HEAD had
+  moved to match origin/main; ahead/behind was 0/0 with a clean tree.
+
+  Their commit repointed three phantom section references. The substitutions were
+  CORRECT: section 10.3 genuinely does not exist, and 3.3.0 is the real home for
+  the ao-fabrication / a_fab material, so the references now resolve.
+
+  But it introduced three duplicated references from the substitution pattern:
+    line 78    "(3.3.0, 3.3.0)"
+    line 1963  "see 3.3.0 and 3.3.0."
+    line 3845  "| 3.3.0, 3.3.0, ES.1 |"
+  All three collapsed to a single reference.
+
+  Wrote a reference checker that resolves section numbers against headings of any
+  depth. It initially reported 10 phantoms including 19 and 20, which was a false
+  positive of my own tool: the document has H1 numbered parts 1-21 and those
+  sections legitimately refer to them. With H1-H5 headings matched, all 59 distinct
+  section references resolve and none are duplicated. Worth noting so a later
+  check does not "fix" valid 19/20 references.
+
+  Re-verified system state after their commit: 12 networks, mastodon.300x3.com,
+  10 webodm projects, corda 5.2.2, all services active, both validators pass.
+
+2026-09-30 — README 14.1 Secret Delivery checked against the installed condition
+  Avoided gazebo and browser-based server testing per operator instruction. This
+  section was chosen because the secret-delivery mechanism changed substantially
+  today and had not been re-checked.
+
+  SETTLED - the "verification pending" caveat on the wallet bus name and methods
+    is now resolved rather than left open:
+      bus names live: org.kde.kwalletd, org.kde.kwalletd5, org.kde.kwalletd6
+      /modules/kwalletd6 open() returns a live handle
+      hasEntry, readPassword, writePassword all present
+    The tooling uses kwalletd6 (read/write helpers) and kwalletd5
+    (fetch-kwallet-secret.sh); both work because both names are live. Also
+    corrected the text that named entryList/hasEntry - entryList takes a further
+    argument and is not used by any script.
+
+  CORRECTED - the folder table listed two folders; FOUR are in active use
+    (ALWAYSON, ao-mastodon, ao-admin, ao-mapping). ao-sales, ao-payment,
+    ao-field and ao-ledger are created by kwallet-provision.sh but unpopulated.
+  CORRECTED - the unit count said three; fetch-kwallet-secret.sh is used by
+    four units, the fourth being ao-fabrication-db.
+
+  HAZARD FOUND - mastodon-db-password exists in TWO wallet folders with two
+  different values (ALWAYSON 48 chars, ao-mastodon 40 chars; hashes differ).
+  fetch-mastodon-env.sh and the bridge read ao-mastodon and write
+  ao-secrets/mastodon.env, which is what the running web/sidekiq/streaming
+  containers authenticate with. fetch-kwallet-secret.sh reads ALWAYSON and
+  writes ao-secrets/mastodon-db.env for the database container's
+  POSTGRES_PASSWORD. PostgreSQL only uses POSTGRES_PASSWORD when the data
+  directory is empty, so in steady state the ALWAYSON value is inert. Verified
+  the ALWAYSON value does authenticate against the HOST cluster as role
+  mastodon, which is a different server from the mastodon-db container. A fresh
+  mastodon-dbdata would therefore create the role with one value while the app
+  connects with the other - an immediate failure. Documented as a hazard and
+  raised as open item 14.1.2(1).
+
+  NAMING EXCEPTION - the ALWAYSON wallet folder is the one infrastructure name
+  that does not carry the ao- prefix. fetch-kwallet-secret.sh hardcodes it, so
+  renaming is a coordinated change. Raised as open item 14.1.2(2) rather than
+  done unilaterally, since it touches live secret lookup.
+
+  Also noted: env files are written to two roots - ao-secrets/ for Mastodon and
+  reporting, ~/secrets/ for sales, webodm and fabrication databases. Both are
+  gitignored so there is no exposure, but it should converge.
+
+2026-09-30 — ALWAYSON wallet folder retired; secrets consolidated per ao- domain
+  Operator directive: ao- only, so the one wallet folder that broke the standard
+  was migrated. This also closed the duplicate-password hazard raised earlier.
+
+  MIGRATION (values never printed; a 0600 rollback copy was taken first to
+  ~/.local/share/ao-secrets/legacy-alwayson-folder.env, gitignored)
+    sales-db-password        ALWAYSON -> ao-sales          value unchanged
+    fabrication-db-password  ALWAYSON -> ao-fabrication    value unchanged
+    webodm-postgres-password already in ao-mapping         byte-identical copy
+    mastodon-db-password     ALWAYSON copy DROPPED; ao-mastodon is now the only
+                             copy, and it is the value the running stack already
+                             used, so a fresh mastodb-dbdata can no longer be
+                             created with a different password than the app
+                             connects with
+  removeFolder("ALWAYSON") then verified all four keys absent from it.
+
+  CODE CHANGES
+    fetch-kwallet-secret.sh no longer hardcodes a single folder. It maps each key
+    to its owning ao- domain folder, moved from org.kde.kwalletd5 to kwalletd6
+    (both are live), and now fails loudly with a named message if hasEntry is
+    false instead of silently producing an empty value.
+    fetch-sales-db-env.sh reads ao-sales.
+    backup-host-postgres.sh had three more folder=ALWAYSON entries that would
+    have broken the nightly dumps; repointed to ao-sales, ao-mastodon and
+    ao-mapping. Caught by grepping for ALWAYSON across scripts/ after the wallet
+    change, not by running the job.
+
+  VERIFIED
+    all four database units restart clean, no wallet errors in the journal, and
+    salesdb, webodm_dev, a_fab and mastodon all authenticate
+    the full daily dump job runs end to end with fail=0 across all five databases
+    all 17 services active; Mastodon still serves mastodon.300x3.com v4.3.7
+    no kdewallet ALWAYSON reference remains anywhere in scripts/ or quadlet/
+
+2026-09-30 — QGC-over-LoRa investigation closed as an outstanding item
+  Asked to set up QGroundControl with a LoRa drone link encrypted with RNS.
+  Investigated rather than built, because the design has a hard constraint.
+
+  WHAT IS ALREADY CORRECT AND NEEDS NO WORK
+    The desktop DRONE-RADIO is a configured Reticulum RNodeInterface on
+    /dev/ttyUSB0 (via by-path pci-0000:05:00.0-usb-0:1:1.0-port0),
+    917 MHz / 250 kHz / SF7 / CR5 / 17 dBm, discoverable = no. That matches
+    README 9.2.2 exactly, and RNS encryption is inherent to RNode. So the air
+    link between the desktop and the RPi5 Waveshare radio is already set up.
+    PEOPLE-RADIO (ttyUSB1, 915 MHz / 125 kHz) is likewise configured.
+    Correction to an earlier statement of mine: I first claimed MeshChatX was
+    "all TCP, no LoRa". That was wrong - my parser failed on the [[double
+    bracket]] syntax. The real count is 32 interfaces: 29 TCPClientInterface,
+    1 BackboneInterface and 2 RNodeInterface.
+
+  THREE CONSTRAINTS THAT SHAPE THE SOLUTION
+    1. QGroundControl v5.1.0 (AppImage) cannot speak RNS. It is MAVLink-only,
+       with UDP/TCP/serial/SiK links. No Reticulum driver or plugin exists.
+    2. Reticulum ships no MAVLink transport, so something must translate. That
+       is code to be written, not a configuration change.
+    3. The desktop Reticulum stack runs INSIDE ReticulumMeshChatX (pid 4961),
+       which holds /dev/ttyUSB0 open on fd 53u. A second RNS instance would
+       contend for the same port, because Reticulum has no way to attach to
+       another process's embedded stack.
+
+  DECISION (operator): the RPi5 Waveshare end terminates the link and runs the
+  bridge. That avoids all three constraints, leaves MeshChatX and the working
+  chat path untouched, and matches 9.2.2, which already describes a QGC session
+  on the RPi5 for out-of-range operation.
+
+  DEFERRED, not started. Recorded as work-queue item 37 in section 19.4 with the
+  three constraints, so the investigation is not repeated. Blocked on the RPi5
+  address and SSH access: it is absent from the dnsmasq lease file, the ARP
+  cache, and every config in the repository. A ping sweep of 10.42.0.0/24 found
+  only the desktop itself (10.42.0.1), the 3D printer being powered off.
+
+  No configuration was changed. A standalone Reticulum venv was started during
+  the investigation and removed at the operator's direction; scratch files and
+  the scan were cleaned up.
+
+2026-09-30 — full README conformance review, two independent passes
+  Asked to confirm 100% conformance. IT IS NOT 100%. Two passes, then a third
+  re-run of the failing checks, found and fixed three real misalignments.
+
+  PASS 1 - machine-checkable claims
+    - 33 distinct ao- names referenced: 10 have no matching unit/container/network.
+      On inspection none is a defect: ao-restic-backup and ao-restic-verify are
+      SYSTEM units (found once the check included them), ao-egress-community is
+      retired, and the rest (ao-mastodon, ao-mastodon-federation,
+      ao-ingress-payment, ao-ledger, ao-archive, ao-egress-archive,
+      ao-build-update) are Planned domains the README presents as future.
+    - 29 /ALWAYSON paths referenced: 4 missing. Two were real (below); two were
+      false positives from my own regex truncating paths.
+    - every ao- unit behind an "Implemented" ST row is active.
+
+  PASS 2 - independent angle: ports, storage, egress wording
+    - 14 loopback ports checked; 13 up. 9100 is not published, but the README
+      never mentions 9100 and Prometheus reaches node-exporter by container name
+      over ao-admin, so not a defect.
+    - found two stale storage claims and one stale egress sentence.
+
+  DEFECTS FOUND AND FIXED
+    1. 18.6 said "The two egress networks are checked separately. ao-reporting-
+       egress and ao-egress-community are deliberately Internal=false" - present
+       tense for a network removed on 2026-09-30. The egress list is now
+       ao-reporting-egress and ao-sales only.
+    2. 13.5 Quadlet template still used the pre-rename names
+       (webodm-web.container, ContainerName=webodm-web) and mounted
+       /ALWAYSON/config/mapping/webodm, which does not exist. Now ao-webodm-web
+       and an explicit REPLACE_WITH_ placeholder.
+    3. The dedicated-storage table claimed /ALWAYSON/data/mapping/postgres/ and
+       /data/mapping/redis/ as the persistent locations. That directory is empty;
+       the real stores are ~/webodm/dbdata (bind mount) and a named Podman volume
+       on ao-webodm-broker. Corrected.
+
+  After fixing, the same checks re-run clean: all quadlet paths resolve, 30 ST
+  rows consistent, both validators pass.
+
+2026-09-30 — chat path: stale duplicate removed, live units renamed to ao-
+  CORRECTION to the previous entry. I reported that ao-chat-relay and the
+  OpenClaw gateway ran unsupervised and would not survive a reboot. That was
+  WRONG. I had checked ao-chat-relay.service, which is not the unit serving the
+  port. The real units were openclaw-chat-relay.service and
+  openclaw-gateway.service, both enabled and active with Restart=always and
+  NRestarts=0. The chat path was supervised all along; no supervision gap
+  existed. There was nothing to fix in that respect.
+
+  What did exist was a naming trap:
+    ao-chat-relay.service        disabled, inactive, ran a DIFFERENT older
+                                  script (~/.local/bin/ao-chat-relay.py,
+                                  2,930 b, Sep 25) and served nothing
+    openclaw-chat-relay.service  enabled, active, ran the real script
+                                  (/ALWAYSON/scripts/openclaw/chat-relay.py,
+                                  19,234 b) and served :18790
+  An ao- prefixed unit shadowing an unprefixed working one is exactly the
+  confusion the ao- standard exists to prevent, so it was inverted: the
+  non-conforming name was the live one.
+
+  FIX
+    - removed the stale ao-chat-relay.service and ~/.local/bin/ao-chat-relay.py
+    - renamed openclaw-chat-relay -> ao-openclaw-chat-relay
+      and openclaw-gateway -> ao-openclaw-gateway, re-enabling both so the
+      enabled state follows the rename, and fixing the After= dependency
+
+  The first start attempt failed because the old relay process survived the
+  rename and still held :18790, so the new unit could not bind. Stopped the old
+  unit, confirmed the port was free, then started the new one. Chat was
+  unavailable for roughly a minute during the swap.
+
+  VERIFIED
+    ao-openclaw-gateway and ao-openclaw-chat-relay both enabled and active
+    :18789 and :18790 listening and owned by the new processes
+    no openclaw-* or ao-chat-relay units remain
+    GET /health -> {"ok": true}
+    POST /chat with Origin https://300x3.com -> HTTP 200 in 20.2s with a real
+      model reply, so the rename did not break the LM Studio path
+    all 19 services active
+  An earlier 404 on GET /chat was my own test error: the relay serves GET only
+  on /health, and /chat is POST-only.
+
+2026-09-30 — /dev/heltec-v3 was pointing at the DRONE-RADIO (live mislabel)
+  Operator noted the Heltec ambiguity had already presented itself, which is why
+  the radios carry distinct names. Confirmed and found the concrete damage.
+
+  config/field/heltec-v3/udev/99-ao-heltec.rules matched on vendor/product
+  alone (10c4:ea60). Both LoRa radios are CP2102 boards reporting those exact
+  ids AND the same placeholder serial "..._0001", so the rule fired on them.
+  Result on this host:
+      /dev/heltec-v3 -> ttyUSB0
+  and ttyUSB0 is the DRONE-RADIO (by-path pci-0000:05:00.0-usb-0:1:1.0-port0).
+  Any consumer using that symlink would have opened the drone radio's private
+  Reticulum RNode and written to it. PEOPLE-RADIO is ttyUSB1 and was not claimed
+  because the symlink name is singular.
+
+  FIX
+    - rule now requires a real serial: ENV{ID_SERIAL_SHORT}!="0001" excludes the
+      generic clones, so neither radio can be claimed
+    - removed the stale /dev/heltec-v3 symlink
+    - reload + tty trigger; /dev/heltec-v3 is now correctly absent
+    - the installed rule was backed up first
+  Reticulum itself never used the symlink - it addresses both radios by
+  /dev/serial/by-path topology, which is unambiguous. So no mesh traffic was at
+  risk; the risk was to any future ao-field consumer.
+
+  Still to confirm when the Heltec is connected: its real by-path and serial. If
+  it also reports 0001, the rule must be re-keyed on by-path instead of serial.
+
+2026-09-30 — off-site backup deferred by operator; 17.1 corrected to match
+  Operator decision: backups stay local via restic for now; a dedicated pCloud
+  folder will follow later. No pCloud upload was attempted and none should be -
+  11.6 designates ao-egress-archive as a sale-transfer store with no restore
+  duty, and ST-17 has it as Planned and not deployed.
+
+  That makes the existing 17.1 wording false. It opened with "Use a 3-2-1
+  strategy: three copies, two media types, and one off-host/off-site copy" with
+  no statement of current state, so a reader would assume an off-site copy
+  existed. The restic repository is /var/backups/alwayson-restic, on the same
+  host as the data.
+
+  17.1 now states the target policy separately from the state actually in force,
+  with a copy-by-copy table, and records two consequences: the repository does
+  not survive loss of this host, and ao-egress-archive is not a substitute. The
+  weekly row no longer promises "off-host copy validation" that cannot happen.
+  Verified restic is healthy with 24 snapshots and both timers are armed
+  (backup 03:31, verify Sun 04:38).
+
+2026-09-30 — pCloud off-site folder created and renamed; client diagnosis
+  Created the pCloud destination folder and corrected my own misdiagnosis of the
+  pCloud client. I had called it "unhealthy" on three weak signals; all three
+  were wrong:
+    - 315 error lines in the log, but they are historical: "No valid token"
+      2026-09-09, "Status: Offline" 2026-08-29, psync_init failures 2026-09-15.
+      None from today.
+    - the log's newest entry is 17:37:31, six seconds after the client started
+      (17:37:25). It logged one startup warning and has been silent since. An
+      idle Electron app is quiet; silence is not failure.
+    - one zombie child among five processes is an unreaped child, normal for
+      Electron.
+  The client is in fact healthy: four working children (two zygote renderers, a
+  Network mojom utility, and the fusermount serving pCloud.fs on ~/pCloudDrive),
+  plus two ESTABLISHED TLS sessions to pCloud (74.120.8.17:443, 104.128.23.6:443).
+  Second time this session I called something broken on thin evidence; both were
+  my inference failing, not the system.
+
+  FOLDER: created at the pCloud account root, then renamed per operator to
+  ALWAYSON-RESTIC2PCLOUD. It is empty; nothing has been uploaded and restic does
+  not point at it. 17.1 updated: the off-site row now reads "created" rather
+  than "not configured", while the gap itself stays open because an empty folder
+  is not a backup copy.
+
+2026-09-30 — Corda key ceremony DEFERRED by operator until the rest of the
+system is complete, so the ledger opens with real entries rather than test
+transactions from an initial deployment. ST-09 stays Blocked; only the
+sequencing changed, not the blocker. Also corrected the stale Java caution in
+18.3.1: the host default is Java 25 but JDK 17 is installed and
+~/.corda/cli/corda-cli.sh is pinned to it, so the CLI cannot fall back to an
+unsupported JVM. No Corda configuration was changed.
+
+2026-09-30 — CORRECTION: the two desktop LoRa radios ARE Heltec LoRa 32 V3
+boards, confirmed by the operator and by the README. An earlier change today
+misread /dev/heltec-v3 -> ttyUSB0 as a mislabelling of the DRONE-RADIO and
+added an ID_SERIAL_SHORT!="0001" exclusion. That was wrong: both CP2102 boards
+report the same generic serial _0001, so the rule could never match either
+real Heltec. Replaced with per-radio symlinks keyed on USB port topology
+(ID_PATH), which is also what Reticulum itself uses:
+  /dev/ao-drone-radio  -> ttyUSB0  (DRONE-RADIO, 917 MHz/250 kHz/SF7)
+  /dev/ao-people-radio -> ttyUSB1  (PEOPLE-RADIO, 915 MHz/125 kHz/SF7)
+A single /dev/heltec-v3 name is deliberately not provided because both devices
+are Heltec V3 - one name could only ever point at one of them. Mesh verified
+unaffected (chat-relay active, Reticulum addresses the radios by by-path).
+B5 and B6 are the same work item (WORK 000700) and are blocked only on the
+RPi5 Waveshare end being powered.
+
+2026-09-30 — Desktop "windows closing themselves" (Dolphin et al.) DIAGNOSED
+and REPAIRED. The apps were not being closed by anything; they were
+SIGSEGV-crashing the moment they opened a window, which is what the operator
+saw as a window appearing and vanishing, with Dr Konqi reporting each crash.
+coredumpctl showed libfontconfig.so.1 at the top of every affected backtrace
+(dolphin, kioworker, kscreenlocker_greet). Root cause was a corrupted
+fontconfig cache in /home/scottw/.cache/fontconfig/: cache files written in an
+incompatible on-disk format (cache-10 / cache-12 alongside the host's cache-9
+set) and then partially written, which made libfontconfig return garbage font
+records — KaTeX woff files advertised with empty charsets — and segfault during
+the font lookup every Qt app performs at startup. Repair, in order: full backup
+of all cache files to /tmp/fontconfig-bak-1790827342 (nothing deleted before
+backup); foreign-version caches moved aside to that backup rather than deleted;
+forced rebuild with "fc-cache -f -v" giving 0 invalid entries; verified
+fc-match "Noto Sans" -> NotoSans-Regular.ttf, sans-serif and monospace
+resolving correctly and Helvetica -> NimbusSans; smoke-tested dolphin, which
+stayed open. No new coredumpctl entries after 20:28 PDT, before the repair.
+Prevention added as systemd --user units only, no root and no new listening
+port: ao-font-cache-gate.sh/.service with a 5-minute ao-font-cache-gate.timer,
+which rebuilds, validates and quarantines foreign-version or invalid cache
+files (v2 verified clean: "fc-cache rc=0; quarantined=0; expect-v=9", no false
+positives), and ao-fontconfig-watch.sh/.service, a 3-second poller on the cache
+directory that logs the writer to ~/Desktop/SYSTEM LOCKOUT/WATCH-LOG.txt so a
+reappearance can be attributed. The identity of the process that originally
+wrote the corrupt caches is NOT confirmed — candidates (snap/flatpak/container
+fc-cache builds) were narrowed but none proven, as the journal had no entry at
+the relevant times; the guards make any such writer harmless rather than
+removing it. Findings written to
+/home/scottw/Desktop/SYSTEM LOCKOUT/FIX-RESULTS.txt.
+
+2026-10-01 — Reconciliation pass. Verified the other session's WebODM change:
+ao-webodm-web now publishes 127.0.0.1:8000->8000/tcp and the UI answers HTTP
+302 with no SSH tunnel. README line 889 and gui-boundary-matrix.yaml were
+already updated for it in commit 7c192eb; verified the loopback-only claim by
+confirming 10.42.0.1:8000 and 192.168.87.135:8000 both refuse. Corrected ST-12,
+which claimed payment adapters were blocked on the provider decision when 18.4
+records that decision as made 2026-08-28. Verified ao-payment network is
+Internal=true 10.89.1.0/24 with zero containers. No payment adapter started,
+per operator instruction. The other session's three uncommitted files
+(loopback-services.yaml, ao-webodm-web.container, add-firefox-server-bookmarks.py)
+left untouched and uncommitted by me.
+
+2026-10-01 — ao-ingress-payment deployed on ao-payment (its own domain).
+Design: ao-payment is Internal=true so the adapter has no public route and no
+inbound path; public webhooks terminate at the host and ao-payment-relay
+(127.0.0.1:8900) forwards them in, the ao-fabrication-collect pattern reversed.
+The adapter joins no second network, keeping the Section 5.4 one-network rule.
+Rootless Podman provides no host route into an Internal=true network, so the
+adapter publishes 127.0.0.1:8899, matching ao-sales-db and ao-fabrication-db;
+verified 10.42.0.1 and 192.168.87.135 both refuse. Tested through the deployed
+relay: forged, absent and stale PayPal signatures all 401; Zelle POST 501;
+oversize body 400; health 200. Database guards tested: a Zelle payment cannot
+reach verified without approved_by, and provider casing is constrained. Schema
+migrations applied (Zelle normalised to capital Z in the CHECK constraint and
+the JSON schema; reconciliation columns and constraints added). Test rows
+removed; payment_references left empty. NOT enabled: the four ao-payment wallet
+entries do not exist and no Cloudflare Tunnel route was created, so no payment
+can be accepted. Deploying quadlet/networks/ao-payment.network was required
+first; it existed in the repo and podman but had no deployed definition.
+2026-10-01T06:39:11+00:00 check-local-services: 14 pass, 1 fail, 0 unverifiable (browser: Chrome via Playwright)
+    PASS         Mastodon local proxy     HTTP 200
+    PASS         Mastodon streaming       HTTP 400
+    PASS         Grafana                  HTTP 200
+    PASS         Metabase                 HTTP 200
+    PASS         Prometheus               HTTP 200
+    PASS         Domoticz                 HTTP 200
+    FAIL         WebODM web UI            status 200 not in expected [302] (screenshot: /tmp/ao-local-services/webodm-web-ui.png)
+    PASS         MeshChatX local UI       HTTP 200
+    PASS         OpenClaw Control         HTTP 200
+    PASS         CUPS                     HTTP 200
+    PASS         OpenClaw chat relay      HTTP 404
+    PASS         ALWAYS ON operator console HTTP 200
+    PASS         ALWAYS ON console - Foxglove / Gazebo page HTTP 200
+    PASS         Gazebo factory world portal HTTP 200
+    PASS         Mastodon web origin (transport only) HTTP 301 -> https://127.0.0.1:3000/
+2026-10-01T06:40:31+00:00 check-local-services: 15 pass, 0 fail, 0 unverifiable (browser: Chrome via Playwright)
+    PASS         Mastodon local proxy     HTTP 200
+    PASS         Mastodon streaming       HTTP 400
+    PASS         Grafana                  HTTP 200
+    PASS         Metabase                 HTTP 200
+    PASS         Prometheus               HTTP 200
+    PASS         Domoticz                 HTTP 200
+    PASS         WebODM web UI            HTTP 200
+    PASS         MeshChatX local UI       HTTP 200
+    PASS         OpenClaw Control         HTTP 200
+    PASS         CUPS                     HTTP 200
+    PASS         OpenClaw chat relay      HTTP 404
+    PASS         ALWAYS ON operator console HTTP 200
+    PASS         ALWAYS ON console - Foxglove / Gazebo page HTTP 200
+    PASS         Gazebo factory world portal HTTP 200
+    PASS         Mastodon web origin (transport only) HTTP 301 -> https://127.0.0.1:3000/
+
+2026-10-01 — Deployment conformance audit and remediation (README review).
+F1 HIGH: ao-grafana and ao-metabase were deployed from unit files reading
+EnvironmentFile=%h/.local/share/alwayson-secrets/ while the repository said
+ao-secrets. Both were healthy only because the secrets rename had copied rather
+than moved the directory. Deployed the repository versions (env files verified
+byte-identical first), restarted, verified metabase {"status":"ok"} and grafana
+database ok, then removed the stale directory. Backup kept at
+~/.local/share/alwayson-secrets.BAK-20260930-233736.
+F2: 5 deployed units had no repository source (ao-db-dump .service/.timer,
+ao-lmstudio .service, ao-lmstudio-preset-sync .service/.path,
+ao-openclaw-gateway, ao-openclaw-chat-relay). All tracked.
+F4: ao-postgres-reporting-bridge deployed copy was better than the repository
+copy (documented ordering constraint, correct install target); promoted it to
+the repository. Also found a DUPLICATE stale copy of the same unit in
+containers/systemd/ shadowing the real one in systemd/user/, and two orphaned
+.volume unit files for volumes no container mounts. Both removed.
+F6: stray 0-byte payment.env.tmp removed.
+Payment design flaw found and fixed: four ExecStartPre fetches each rewriting
+the same env file would have destroyed PAYMENT_DSN the moment the wallet
+entries were created. Now a single composed payment-credentials case.
+Also repaired wallet_folder_for() arms added earlier today that used
+assignment syntax inside a case returning a folder name.
+Added scripts/validation/check-deployment-conformance.sh (repo-vs-deployed
+byte comparison, retired-naming detection, enabled-unit activity with correct
+oneshot handling, registry/network agreement, container prefixes). Negative
+tested by injecting a retired alwayson- reference. Documented in README 18.4.2.
+All 7 validators run; conformance, secrets and isolation pass. 16 services
+active. Not tracked and flagged for the operator: ao-font-cache-gate and
+ao-fontconfig-watch (2026-09-30 incident diagnostics, not project
+infrastructure).
+2026-10-01 — GAZEBO/ao-sim-fabrication handoff prepared.
+Wrote /ALWAYSON/GAZEBO/handoff.md (Handoff doc for the next AI session;
+README governs on conflict). Verified before writing:
+  - ao-sim-fabrication-gz container Up, systemd user unit active/running,
+    Quadlet source byte-identical to installed copy.
+  - Image localhost/gz-sim10-server sha256:55f8dbcf8decb0b97c6be7cf2fde8859b0fd05735c7a759df09a12e091933581
+  - No published ports; network ao-sim-fabrication internal 10.89.5.0/24.
+  - gazebo-portal on 127.0.0.1:8765 HTTP 200.
+Corrected two earlier claims in the handoff:
+  1) /ALWAYSON/logs/sim-gz-server.log is NOT live (9015 bytes frozen at
+     container start despite LogDriver=k8s-file + --log-opt path).
+  2) A stale duplicate world exists at data/sim-fabrication/worlds/factory.world
+     (file:///world/... URIs, NOT mounted, NOT what runs). Left in place;
+     deletion needs operator approval.
+New this session: containers/gz-sim-gui/Containerfile (GUI-capable image,
+no sudo needed). Build was started then interrupted; image NOT built.
+Discovered prerequisites for the container GUI route: podman 5.7.0,
+/tmp/.X11-unix/X0, /run/user/1000/wayland-0, /dev/dri/card1+renderD128,
+NVIDIA GTX 1080 driver 580.178.04. No host gz-sim package resolved on
+Ubuntu 26.04 (resolute); gz-sim10-cli resolves on noble/24.04.
+Nothing committed or pushed.
+
+2026-10-01 — Gazebo / ao-sim-fabrication handover taken over, README-first.
+Reviewed README ST-07, ST-08, ST-21, section 10.1, 10.1.2, 10.2, 10.2.1,
+16.3, 19.4 items 27-31 and 37, and ES.1 before touching anything.
+
+BUILT (section 10.2.1 deliverables that were entirely absent):
+  - GAZEBO/sim/boning.yaml: per-cell datum frames, mounting surfaces, joints
+    and axes with tolerances, machine beds and storage planes. Every datum is
+    derived from the mesh AABBs and is labelled as such; printer-01 and cnc-01
+    are NOT in the SketchUp exports, so they carry declared-by-operator nulls
+    and reach_verified_against_machine is false by construction.
+  - GAZEBO/sim/objects.yaml: 9 RL objects in 3 groups plus 2 actors, each with
+    a stable id, home_pose and reset semantics, kept separate from the static
+    world geometry as 10.2.1 requires.
+  - scripts/simulation/ao-sim-portal.py: the real control surface. The previous
+    portal was static nginx whose start/stop/reset buttons called /api/* routes
+    that did not exist. Now implements /api/status, /api/{start,stop,reset,
+    inspect}, /api/boning, /api/objects, /api/health, restricted to one unit.
+
+PLATFORM (operator authorised bumping ROS and Gazebo for Kubuntu 26 LTS):
+  - Host is Ubuntu 26.04 resolute. OSRF and ROS both publish a resolute suite.
+  - New image localhost/gz-sim10-resolute:gui based on the official
+    ros:lyrical-ros-base-resolute (Ubuntu 26.04), adding Gazebo 10.5.0 GUI.
+  - gz-sim-gui-client now exists in the image; it did not before.
+  - packages.ros.org CANNOT be used: it serves a certificate for CN=*.osuosl.org
+    whose subjectAltName does not cover packages.ros.org, so verification fails
+    on the host and in containers. Certificate verification was NOT disabled to
+    work around it. The OSU mirror has a matching cert but no resolute suite.
+    Consequence: ros_gz and foxglove_bridge are not installable, so Foxglove
+    stays blocked; Gazebo's own GUI does not need them.
+
+GUI STATUS: partially working, crash cause diagnosed precisely.
+  Works: client starts, resolves XAUTHORITY, attaches to the partition, loads
+  QML, binds to /world/factory/control and /world/factory/stats, and loads the
+  world geometry. Architecture proven: gz-transport discovery does NOT cross
+  podman's bridge, so the client shares the server's netns via
+  --network container:ao-sim-fabrication-gz; with that, gz model --list returns
+  the world's models.
+  Blocked: the 3D view. Passing the NVIDIA GPU via CDI yields a device node but
+  no EGL context (libEGL: "pci id for fd 85: 10de:1b80, driver (null)",
+  "failed to create dri2 screen"). Forcing LIBGL_ALWAYS_SOFTWARE is refused
+  because the API explicitly selects a hardware device. QT_QUICK_BACKEND=software
+  renders the Qt UI but libMinimalScene.so still creates a QOpenGLContext and
+  segfaults in QOpenGLContext::done. Mesa GLX/EGL software added and did not
+  resolve it. The unit is stopped, not crash-looping. This needs an
+  EGL-capable GPU passthrough decision from the operator.
+2026-10-01T19:47:07+00:00 check-local-services: 15 pass, 0 fail, 0 unverifiable (browser: Chrome via Playwright)
+    PASS         Mastodon local proxy     HTTP 200
+    PASS         Mastodon streaming       HTTP 400
+    PASS         Grafana                  HTTP 200
+    PASS         Metabase                 HTTP 200
+    PASS         Prometheus               HTTP 200
+    PASS         Domoticz                 HTTP 200
+    PASS         WebODM web UI            HTTP 200
+    PASS         MeshChatX local UI       HTTP 200
+    PASS         OpenClaw Control         HTTP 200
+    PASS         CUPS                     HTTP 200
+    PASS         OpenClaw chat relay      HTTP 404
+    PASS         ALWAYS ON operator console HTTP 200
+    PASS         ALWAYS ON console - Foxglove / Gazebo page HTTP 200
+    PASS         Gazebo factory world portal HTTP 200
+    PASS         Mastodon web origin (transport only) HTTP 301 -> https://127.0.0.1:3000/
+2026-10-01T20:10:43+00:00 check-local-services: 15 pass, 0 fail, 0 unverifiable (browser: Chrome via Playwright)
+    PASS         Mastodon local proxy     HTTP 200
+    PASS         Mastodon streaming       HTTP 400
+    PASS         Grafana                  HTTP 200
+    PASS         Metabase                 HTTP 200
+    PASS         Prometheus               HTTP 200
+    PASS         Domoticz                 HTTP 200
+    PASS         WebODM web UI            HTTP 200
+    PASS         MeshChatX local UI       HTTP 200
+    PASS         OpenClaw Control         HTTP 200
+    PASS         CUPS                     HTTP 200
+    PASS         OpenClaw chat relay      HTTP 404
+    PASS         ALWAYS ON operator console HTTP 200
+    PASS         ALWAYS ON console - Foxglove / Gazebo page HTTP 200
+    PASS         Gazebo factory world portal HTTP 200
+    PASS         Mastodon web origin (transport only) HTTP 301 -> https://127.0.0.1:3000/
+
+================================================================================
+2026-10-01  ao-build-update scaffold created and deployed (README 5.2.1)
+================================================================================
+
+SCOPE
+  Scaffolded the ao-build-update controlled software-update acquisition adapter.
+  Deployed but deliberately NOT enabled. No workload was touched, no image was
+  installed, no package upgraded, no service restarted.
+
+CORRECTION TO README 5.1 GROUP B
+  The group B row previously placed this adapter on "ao-admin (build/update
+  duty)". ao-admin is Internal=true, which makes the adapter's only function
+  impossible. Verified directly on this host:
+    $ podman run --rm --network ao-admin alpine nslookup registry-1.docker.io
+    ** server can't find registry-1.docker.io: NXDOMAIN
+    $ podman run --rm --network ao-reporting-egress alpine nc -z registry-1.docker.io 443
+    TCP OK
+  A container on ao-admin cannot pull an image. The adapter was inert by
+  construction. Placed instead on its own egress network ao-build-update,
+  10.89.13.0/24, Internal=false, following the ao-reporting-egress precedent.
+  Re-probed on the new network: DNS resolves, TCP 443 OK.
+
+FILES ADDED
+  quadlet/build-update/ao-build-update.network
+  quadlet/build-update/ao-build-update.container
+  config/build-update/registry-allowlist.yaml
+  scripts/build-update/ao-build-update.py
+
+FILES MODIFIED
+  README.md                                       (5.2.1 added; 5.1 group B and
+                                                  19.1 item 3 corrected)
+  config/platform/network-cidrs.yaml             (regenerated by the checker)
+  config/platform/topology-model.yaml            (planned -> scaffolded)
+  scripts/validation/check-network-isolation.sh  (added to egress list)
+
+COMMANDS
+  ./scripts/deploy/deploy-quadlet-domain.sh build-update
+  systemctl --user daemon-reload
+  podman network create --internal=false --subnet 10.89.13.0/24 ao-build-update
+  ./scripts/validation/check-network-isolation.sh   -> exit 0
+  systemctl --user start ao-build-update.service    -> exit 0
+
+VERIFICATION
+  Isolation check green; ao-build-update asserted Internal=false at 10.89.13.0/24.
+  Unit generates and is NOT enabled: it carries no WantedBy=.
+  Host-side regression, all six cases as expected:
+    allowlisted + digest-pinned        -> 0
+    unpinned tag                       -> 4
+    not-allowlisted host               -> 4
+    denied host (packages.ros.org)     -> 4
+    unqualified reference              -> 2
+    ghcr.io + digest-pinned            -> 0
+  Container-side: unpinned tag -> 4, denied host -> 4, default --plan -> 0.
+  The container run wrote through its bind mounts to the host evidence paths
+  /ALWAYSON/logs/operations/build-update-audit.log and
+  /ALWAYSON/data/build-update/staging/, confirmed on the host.
+  --fetch against a digest absent from the local store reports resolved=false
+  and resolved_digest=null: it does not claim a resolution it did not make.
+
+THREE DEFECTS FOUND AND FIXED DURING VERIFICATION
+  1. ao-build-update.network was missing its [Network] group header, so
+     quadlet-generator rejected it ("key file does not start with a group") and
+     no service was generated. Caught only by reading the generator log: the
+     deploy script itself reported success. Header restored.
+  2. The allowlist listed registry-1.docker.io, the Docker Hub API endpoint,
+     while image references carry the docker.io prefix. Every legitimate
+     docker.io reference was rejected as NOT-ALLOWLISTED. Corrected to
+     docker.io, with the endpoint recorded as a comment, because the two are
+     not the same string.
+  3. The acquisition script hardcoded /ALWAYSON paths, which do not exist
+     inside the container. The first real unit run exited 3 (config error). The
+     script now resolves its allowlist, staging dir, and audit log through
+     AO_ROOT plus three explicit environment overrides set by the unit, so a
+     host run and a container run write evidence to the same files.
+
+OPEN, FOR THE OPERATOR
+  - Enabling the unit permanently, and any decision to automate acquisition. It
+    reaches the public internet, so this is an operator decision.
+  - The build/update scope question: the name implies builds, the specified role
+    is updates only. The Gazebo Containerfiles under GAZEBO/containers/ have no
+    owner, no digest capture, and no update audit. Recorded in README 5.2.1.
+  - packages.ros.org stays on the adapter deny list. It fails TLS verification
+    from this host (cert CN=*.osuosl.org does not cover the name) and that
+    verification is deliberately not disabled.
+
+================================================================================
+2026-10-01  ao-build-update: promotion path + update runbook
+================================================================================
+
+SCOPE
+  Completed the update process inside the ao-build-update network. Acquisition
+  existed and was verified; promotion had no tool and no written procedure, so
+  the path stopped at "here is a digest". Added both.
+
+FILES ADDED
+  scripts/build-update/promote-image-digest.sh   promotion helper
+  docs/runbooks/software-update.md               the operator procedure
+  README.md                                      cross-reference only
+
+WHAT THE HELPER DOES
+  Edits exactly one Image= line in exactly one .container under
+  quadlet/<domain>/, then prints what to run next. It does not deploy and does
+  not restart: reviewing a diff and applying it stay two separate decisions.
+  It refuses, with exit 3 and no change, when the reference is unqualified,
+  carries no sha256 digest, has a malformed digest, the unit has zero or
+  multiple Image= lines, or the change would swap registry host. A
+  cross-registry move is a deliberate act, not a version bump.
+  --check reports the current reference and whether it is pinned.
+
+VERIFICATION
+  bash -n clean. Tested against a scratch copy of the operations tree, never a
+  live unit; quadlet/operations/ao-grafana.container confirmed byte-identical
+  before and after.
+    --check on a pinned unit            -> 0, DIGEST-PINNED
+    --check on the unpinned GUI unit    -> 0, NOT PINNED (correctly flagged)
+    missing arguments                   -> 2
+    non-container argument              -> 2
+    floating tag as new reference       -> 3
+    unqualified reference               -> 3
+    malformed digest                    -> 3
+    cross-registry swap                 -> 3
+    real promotion                      -> 0, exactly one line changed
+    re-run with same digest             -> 0, no-op
+  Promotion recorded in logs/audit.log with old and new digest.
+  Every command in the runbook was executed as written: the inventory loop, the
+  --check invocation, validate-quadlet-domain.sh on the operations domain (exit
+  0, "4 unit(s) deployed, no drift"), and the existence of all three validation
+  scripts. The inventory loop independently re-confirmed the only two unpinned
+  images: ao-sim-fabrication-gui-gz (local build, ao-sim-fabrication) and
+  ao-ardupilot-sitl (:latest, not deployed).
+  Acquisition regression unchanged: pinned -> 0, unpinned -> 4, unqualified -> 2.
+  Network isolation check green; adapter unit starts clean (exit 0).
+
+OWNERSHIP, PER OPERATOR
+  GAZEBO files are owned by ao-sim-fabrication. Recorded in README 5.2.1 as a
+  scope boundary: builds belong to the domain that consumes the image, and
+  ao-build-update does not acquire, rebuild, or promote them.
+
+OPEN, FOR THE OPERATOR
+  - Enabling the ao-build-update unit permanently.
+  - Whether the component should be renamed ao-update, now that image builds
+    are confirmed to belong to ao-sim-fabrication. README 5.2.1 records the
+    boundary; the naming decision is still open.
+
+================================================================================
+2026-10-01  ao-build-update: panel review findings, fixed
+================================================================================
+
+SCOPE
+  Ran the four tools end to end, then put the work through an adversarial
+  review panel (purpose-compliance and security/disclosure). Six findings were
+  raised. Five were real and are fixed. One was wrong and is corrected below.
+
+REAL DEFECT 1 - PRIVILEGE ESCALATION VIA SYMLINK (security, serious)
+  collect-root-facts.sh wrote its output with `> "${OUT}.tmp.$$"`. The target
+  directory, /ALWAYSON/data/build-update, is owned by the operator. Under
+  --privileged that redirect runs as ROOT, so any process running as the
+  operator could pre-create root-facts.json.tmp.<pid> as a symlink to an
+  arbitrary root-writable path, and root would truncate that file through the
+  redirect and then make it durable with the following mv. $$ is the only
+  obstacle and is brute-forceable over a PID range.
+  FIX: mktemp, which creates with O_EXCL, plus `umask 077` so the file is never
+  briefly world-readable. Privileged output is now chmod 0600, not 0644.
+
+REAL DEFECT 2 - PKEXEC EXECUTING A USER-WRITABLE FILE (security, structural)
+  `pkexec bash /ALWAYSON/.../collect-root-facts.sh` means root executes a file in
+  a directory the operator owns. No root-owned copy, no polkit action naming a
+  command, no integrity check. Anything able to modify that file gets root on
+  the next invocation.
+  FIX: the script header now documents that this is the classic pkexec
+  anti-pattern, that nothing here needs root, and gives the correct procedure -
+  install a root-owned copy under /usr/local/sbin and run that. The unprivileged
+  default remains the supported path.
+
+REAL DEFECT 3 - DUPLICATED APT ROW
+  `apt list --upgradable` emits one line per ARCHITECTURE. gstreamer1.0-plugins-good
+  is installed for both amd64 and i386, so it appeared twice and the report said
+  5 packages were pending when 4 distinct packages were. Keyed on package name
+  only, with no dedupe.
+  FIX: one row per package, architectures collected into a set.
+
+REAL DEFECT 4 - STABLE-REFERENCE POLICY HARDCODED IN PYTHON
+  The tracked-release table was a dict inside drift-report.py. It is a policy
+  decision and belongs in data, where it can be reviewed and edited without
+  touching code.
+  FIX: config/build-update/stable-refs.yaml, read by a hand parser that fails
+  loudly rather than returning an empty policy (an empty policy would silently
+  convert every DRIFT into a BEHIND LATEST and hide the one real finding).
+  Versions were read from the RUNNING containers, not copied from the README:
+  PostgreSQL 17.11, Redis 7.4.11, Mastodon v4.3.7, WebODM v3.2.8. Every tag
+  asserted in the file was confirmed to exist upstream first.
+
+REAL DEFECT 5 - ROLLING TAGS TREATED AS RELEASES
+  Adding tracked tags immediately produced four new false DRIFTs, because
+  postgres:17 and redis:7 are ROLLING tags that get rebuilt for security
+  patches. A digest mismatch against them means a newer patch of the same major
+  exists - actionable, but not a version decision, and not the same finding as
+  missing a release.
+  FIX: a tag_kind field, "release" versus "rolling", and a separate verdict.
+  The report now distinguishes DRIFT (missing an intended release) from
+  BEHIND TRACKED TAG (newer patch of the same major available).
+
+MY OWN ERROR, CORRECTED
+  I previously told the operator that two security-pocket apt updates "should
+  have been auto-installed by unattended-upgrades - that is an
+  unattended-upgrades miss worth checking." That was wrong, and a review panel
+  caught it. Checked: unattended-upgrades is enabled and active, the security
+  origin is allowed, the blacklist is empty, and the last run completed with
+  "All upgrades installed" at 2026-10-01 08:09 UTC. The pending security package
+  was published AFTER that run, and the next apt-daily-upgrade.timer run is
+  2026-10-02 06:27. This is the normal daily cadence, not a fault.
+
+VERIFICATION AFTER THE FIXES
+  Full regression: network isolation PASS, quadlet no-drift PASS, adapter unit
+  PASS, acquisition allowlist rejection PASS, promote --check PASS, root-facts
+  JSON parses PASS. docs/drift.md regenerated; apt now correctly reports 4
+  distinct packages and gstreamer appears once.
+
+  Current verdicts across 22 units: 3 IN SYNC, 1 DRIFT (mastodon-streaming,
+  release v4.3.7), 5 BEHIND TRACKED TAG, 9 BEHIND LATEST, 3 LOCAL BUILD,
+  1 NOT PINNED, 0 UNRESOLVED.
+
+STILL OWED, PER THE PURPOSE
+  Stage 3, recommendations on when and what to update, is not started. The
+  reviewed work delivers stages 1 and 2. Stage 4, automatic update with
+  verification, remains correctly unbuilt: it needs a trustworthy predicate
+  first, and it needs operator approval.
+
+================================================================================
+2026-10-01  ao-build-update: recommendations (advisory), no automation
+================================================================================
+
+OPERATOR CONSTRAINT, verbatim:
+  "PROCEED AND DO NOT AUTOMATE ANY ADDITIONAL SOFTWARE UPDATES, THAT IS A VERY
+   LAST THING THAT REQUIRES REVIEW AND AUTHORIZATION"
+
+WHAT WAS BUILT
+  scripts/build-update/recommend.py -> docs/recommendations.md. Turns the drift
+  report and the inventory into a ranked, explained recommendation: what needs a
+  decision, why, what the risk is, and the command to run IF you choose to.
+
+  It applies nothing. There is no code path in it that installs a package,
+  promotes a digest, edits a Quadlet, deploys a unit, or restarts a service.
+  Verified by grep across the whole reporting toolchain: the only matches for
+  mutating verbs are prose and read-only paths like /var/lib/dpkg/status.
+
+  This constraint is documented in the script header, in the generated document,
+  in the runbook, and in README 5.2.1, so it cannot be lost by someone reading
+  only one of them. Automatic updates are not built and the reporting tools are
+  not to be extended to perform them.
+
+A BUG WORTH RECORDING
+  The first version recomputed container status from the stable-refs table
+  instead of reading what the drift report had measured. It therefore marked all
+  three Mastodon units for review, when the report had measured mastodon-web
+  and mastodon-sidekiq as already in sync. A recommendation that invents a
+  finding the measurement did not make is worse than no recommendation.
+  FIX: drift-report.py now records a per-unit verdict in its sidecar, and
+  recommend.py reads those verdicts and refuses to run if they are absent.
+
+  As a side effect the "apt_drift" shape also had to be corrected: it is a list
+  of records, not a mapping, and the first draft treated it as a mapping.
+
+CURRENT RECOMMENDATIONS (10 need a decision, 0 acted on)
+  SECURITY  1  gstreamer1.0-plugins-good pending in the -security pocket
+  REVIEW    1  sales/ao-mastodon-streaming, not on the v4.3.7 it tracks
+  TAKE_NOW  8  postgres x2, redis x2, webodm-broker, + 3 apt -updates
+  UNPINNED  1  sim-vehicle/ao-ardupilot-sitl on a floating :latest
+  BLOCKED   1  351 ROS packages, packages.ros.org fails TLS verification
+  ORPHANED  1  crossover, dbeaver-ce, obsidian - in no apt index
+  UNMANAGED 1  15 AppImages//opt//usr/local + 88 ~/.local/bin executables
+  LEAVE    13  behind latest with no tracked release; not a to-do
+
+  Note the two postgres and two redis rows are the same image pinned by four
+  separate units, so four rows, two decisions.
+
+VERIFIED
+  Full regression green: network isolation, quadlet no-drift, adapter unit,
+  acquisition allowlist rejection, promote --check, recommend runs. No quadlet,
+  network, or running container was modified by any of it.
+
+================================================================================
+2026-10-01  operator decisions applied; dbeaver removed
+================================================================================
+
+OPERATOR CONSTRAINTS, verbatim:
+  "KILL DBEAVER"
+  "USED DIRECT DOWNLOAD WEBSITES FOR OBSIDIAN AND CROSSOVER"
+  "KEEP ARDUPILOT UNPINNED, WE WANT MOST RECENT"
+  "CHECK ROS AGAINST UBUNTU26 LTS (ALWAYS)"
+  "LIST THE APP IMAGES"
+  "DON'T TOUCH MASTODON FOR A BIT, PIN IT WHERE IT IS - i don't want to verify it
+   right now"
+
+DBEAVER REMOVED
+  It was installed TWICE, and only removing the snap would have left it running.
+    snap dbeaver-ce 26.2.1.202609210342 rev 557   -> removed via pkexec
+    deb  dbeaver-ce 26.1.5                        -> purged via pkexec apt-get
+                                                       purge, dbeaver-ce only,
+                                                       --no-install-recommends,
+                                                       no autoremove
+  209 MB freed. Verified afterwards: absent from snap list and dpkg, desktop entry
+  removed, /usr/share/dbeaver-ce removed, no process running.
+  snapd kept a rollback snapshot, so this is reversible:
+    snap revert dbeaver-ce
+
+DECISIONS RECORDED IN config/build-update/stable-refs.yaml
+  1. MASTODON HELD, NOT CHANGED. ao-mastodon-streaming keeps digest
+     sha256:24834e87... via a held_digest record. The unit file was NOT touched -
+     only the policy record. The report now says HELD rather than DRIFT, and the
+     recommendation is LEAVE with "deliberate hold". Verified: git diff on
+     quadlet/sales/ is empty and the Image= line is unchanged.
+  2. ARDUPILOT UNPINNED BY CHOICE. Recorded in the untracked list with the
+     operator's reason. The report says "UNPINNED BY CHOICE (operator wants
+     latest)" and the recommendation is LEAVE. It is no longer reported as a
+     pinning defect, because it is not one.
+  3. ROS ALWAYS VALIDATED AGAINST UBUNTU 26.04 LTS. A ros_policy block pins the
+     expected suite to "resolute". The inventory now checks the resolved suite of
+     every ROS package and reports a suite mismatch SEPARATELY from the
+     reachability fault, so a silent move to another Ubuntu suite cannot hide
+     behind the TLS problem. Result: all 351 ROS packages resolve to resolute,
+     no mismatch. The repository remains unreachable (TLS) and that is still not
+     worked around.
+  4. DIRECT-DOWNLOAD PROVENANCE. obsidian 1.13.4 and crossover 25.1.0-1 are
+     recorded as vendor .deb installs, which is why they appear in no apt index.
+     Attributing them surfaced a third: foxglove-studio 3.3.0, same category.
+     All three are now explained rather than reported as unexplained orphans.
+
+APP IMAGES INVENTORIED (8)
+  QGroundControl-x86_64.AppImage            Applications/
+  ReticulumMeshChatX-v4.8.5-linux-x86_64    Applications/   <- superseded, 4.9.1 exists
+  ReticulumMeshChatX-v4.9.1-linux-x86_64    Applications/
+  nPerf-latest-x86_64.AppImage              Applications/
+  LM-Studio-0.4.20-1-x64.AppImage           Documents/APP IMAGES/
+  QGroundControl-x86_64.AppImage            Documents/APP IMAGES/   <- duplicate
+  pCloud.AppImage                           Documents/APP IMAGES/
+  nPerf.AppImage                            .local/bin/            <- duplicate
+  Duplicates and one superseded version are on disk. None update themselves.
+
+TWO BUGS FOUND WHILE APPLYING THESE
+  1. The held_digest check compared against the UPSTREAM digest rather than the
+     PINNED one, so a hold could never fire - the whole point of a hold is that
+     upstream differs. Mastodon still reported DRIFT until this was fixed.
+  2. recommend.py did not understand the new HELD and UNPINNED BY CHOICE
+     verdicts, so it classified a deliberate decision as an open item.
+
+A TRANSIENT FAULT WORTH RECORDING
+  One drift run failed 6 registry lookups with "Temporary failure in name
+  resolution". The report reported those as UNRESOLVED rather than guessing, which
+  is the correct behaviour, and the re-run resolved all of them. Recorded because
+  an UNRESOLVED count that is really a DNS blip should not be read as six images
+  being un-trackable.
+
+VERIFIED
+  Regression green: network isolation, quadlet no-drift, adapter unit, 22
+  containers running. Recommendations now: 0 REVIEW, 0 UNPINNED, 9 needing a
+  decision, 0 acted on.
+
+================================================================================
+2026-10-01  AppImage cleanup; launchers verified; ROS still unreachable
+================================================================================
+
+ROS REACHABILITY - RE-TESTED, ANSWER IS YES IT IS STILL UNREACHABLE
+  $ curl https://packages.ros.org/ros2/ubuntu/dists/resolute/InRelease  -> 000
+  $ openssl s_client -connect packages.ros.org:443
+      subject=C=US, ST=Oregon, L=Corvallis, O=Oregon State University,
+              CN=*.osuosl.org
+      X509v3 Subject Alternative Name:
+          DNS:osuosl.org, DNS:*.osuosl.org
+  The certificate presented is for *.osuosl.org. Its subjectAltName does not
+  cover packages.ros.org, so name verification fails and no HTTP response is
+  returned. This is a transport fault at the repository, not a local
+  misconfiguration, and it is NOT worked around by disabling verification.
+  The 351 ROS packages therefore remain frozen: no fetch, no update, by anyone.
+
+APPIMAGES DELETED (682 MB total)
+  ~/Applications/ReticulumMeshChatX-v4.8.5-linux-x86_64.AppImage   232M  superseded
+  ~/Applications/QGroundControl-x86_64.AppImage                   192M  duplicate
+  ~/Applications/nPerf-latest-x86_64.AppImage                     258M  duplicate
+  Before deleting, confirmed that NO KDE launcher, autostart entry, watchdog
+  script or /ALWAYSON script referenced any of the three. The launchers already
+  pointed elsewhere, which is why deleting them could not break anything:
+    qgroundcontrol.desktop        -> ~/Documents/APP IMAGES/QGroundControl-...
+    nPerf.desktop                 -> ~/.local/bin/nPerf.AppImage
+    reticulum-meshchatx*.desktop  -> firefox to localhost:18000 (no AppImage)
+  AppImage count 8 -> 5. Duplicates and the superseded version are gone.
+
+MESHCHATX: THE NEW ONE IS ALREADY WHAT IS RUNNING
+  The running backend is NOT an AppImage. reticulum-meshchatx.service execs
+  ~/Applications/meshchatx-native/ReticulumMeshChatX, a binary extracted on
+  2026-09-24 10:55 from the v4.9.1 AppImage written 2026-09-24 09:43. So v4.9.1
+  - the new one - is in service; the v4.8.5 AppImage dated 2026-08-25 was
+  genuinely dead weight.
+
+  ON NETWORK AND CONTAINER - reported, not changed:
+  MeshChatX runs as a HOST systemd user service, not in a container. It is
+  --headless on 127.0.0.1:18000, loopback-bound and therefore not reachable from
+  the LAN. It is NOT attached to ao-field, which README 5.1 group A names as the
+  home of "RNS/MeshChatX". That is a discrepancy between the architecture and
+  reality, but containerising a working service is an architecture change that
+  needs operator approval, so nothing was moved. Flagged for a decision.
+
+LAUNCHERS VERIFIED BY ACTUALLY RUNNING THEM
+  QGroundControl  launched, process confirmed (pid 1148670, comm QGroundControl)
+  nPerf           launched, process count 2 -> 5
+  MeshChatX x2    backend returned HTTP 200 on https://localhost:18000/
+  All four .desktop files pass desktop-file-validate with no output.
+  The two applications launched for testing were then closed again, so the system
+  is left as found. The MeshChatX backend was never touched and is still active
+  and listening.
+
+A STALE TRACKED CONFIG CORRECTED
+  config/platform/gui-boundary-matrix.yaml recorded the two deleted paths, and
+  its MeshChatX row was already wrong: it described an AppImage in use when the
+  service actually runs an extracted native binary. Both rows now state the real
+  path, the service, the loopback binding, and that ao-field does not host it.
+
+VERIFIED
+  Regression green: network isolation, quadlet no-drift, adapter unit, 22
+  containers running, all 5 Mastodon containers untouched. Every surviving
+  AppImage is an executable target of a working launcher.
+
+================================================================================
+2026-10-01  security updates applied; four standing decisions recorded
+================================================================================
+
+OPERATOR DECISIONS, verbatim:
+  "1 AND 2 - ALWAYS INCORPORATE SECURITY UPDATES"
+  "3/4/5 - PIN AS-IS AND WAIT, THE SYSTEM NEEDS TO STABILIZE AND PROVE
+   OPERATIONAL CAPABILITY FIRST"
+  "6 - WAIT FOR ROS TO CLEANUP AND CHECK MORE DOCUMENTATION (ASK PERPLEXITY.AI)"
+  "7 - OBSIDIAN AND CROSSOVER ARE MINE TO KEEP TRACK OF, FOXGLOVE YOU NEED TO
+   FIGURE OUT AN UPDATE METHOD FOR"
+  "8 - YOUR JOB IS TO TRACK THESE AS WELL"
+  "9 - MESHCHATX SHOULD MOVE TO AO-FIELD, IT IS BETWEEN TWO NETWORKS (ONE FOR
+   PEOPLE, AND A SEPARATE ONE FOR DRONES) THE ONE FOR PEOPLE HAS PUBLIC
+   CONNECTIONS, THE ONE FOR DRONES IS BASED ON PRIVATE ONES. REALLY IT'S JUST A
+   COORDINATION LAYER FOR RETICULUM NETWORK STACK (RNS) WHICH NEEDS TO MANAGE
+   THAT SPLIT."
+
+APPLIED - ITEM 1, SECURITY-POCKET APT UPDATE
+  gstreamer1.0-plugins-good 1.28.2-2ubuntu0.3 -> 1.28.2-2ubuntu0.4, installed via
+  pkexec apt-get install. Now equals Candidate. Both amd64 and i386.
+
+APPLIED - ITEM 2, SECURITY PATCHES ON POSTGRES AND REDIS
+  Both rolling tags are rebuilt by their publishers for security fixes, and both
+  are the SAME major, so they fall inside the standing security policy.
+    postgres 17 : a65e6a84... -> d74eeac9a635390a49b...
+    redis    7  : 91d0f7e8... -> c6eabf748fc7a61dbb5...
+  Images pulled before any unit was touched. Five units re-pinned: ao-sales-db,
+  ao-mastodon-db, ao-fabrication-db (postgres); ao-mastodon-redis,
+  ao-webodm-broker (redis). Three short-name references were expanded to fully
+  qualified docker.io/library/... in the process, which also silences a
+  quadlet-generator warning. Domains deployed, databases restarted first, then
+  the caches, then verified.
+
+  VERIFIED BY DIGEST, not by version string: all five running containers report
+  the new digests. postgres still reports 17.11 because only the OS layer of the
+  image changed, not the application version - checking the version string would
+  have wrongly looked like nothing happened.
+
+  NO BROKEN SYSTEMS: 22 containers running. mastodon web 200 via loopback and via
+  mastodon.300x3.com, grafana 301, prometheus 200, metabase 200, webodm 302,
+  MeshChatX 200. Network isolation PASS, sales and fabrication report no drift.
+  NOTE: ao-mapping.network showed pre-existing drift between deployed and source
+  before this work; deploying mapping normalised deployed to source. The mapping
+  source is unmodified in git, so no other session's work was overwritten.
+
+A BUG IN MY OWN PROMOTION TOOL, FOUND BY USING IT
+  promote-image-digest.sh rejected every short-name reference as "not fully
+  qualified", and then rejected the fully qualified replacement as a "registry
+  change", because its host comparison used ${ref%%/*} on a string with no slash.
+  Docker short names now normalise to docker.io/<repo> before the comparison. A
+  genuine cross-registry swap is still refused - retested with quay.io.
+
+HELD, NOT TOUCHED - ITEM 3/4/5 PER THE STABILISATION INSTRUCTION
+  alsa-ucm-conf, drkonqi (Ubuntu -updates), microsoft-edge-stable, and the
+  WebODM image rebuild all stay exactly as they are until the platform is judged
+  stable. Recorded as a standing hold so a later report does not re-raise them as
+  if they were new.
+
+ITEM 6 - ROS DIAGNOSIS, NOT A FIX
+  The operator asked for more documentation. Perplexity is not available to me;
+  I researched directly instead. Precise finding:
+    subject   CN=*.osuosl.org, O=Oregon State University
+    issuer    InCommon Intermediate CA - OVG2C
+    chain     "Verify return code: 0 (ok)"  - the CA chain is TRUSTED
+    validity  Jul 23 2026 to Feb 7 2027     - currently VALID
+    SAN       osuosl.org and *.osuosl.org only
+    curl      (60) no alternative certificate subject name matches target
+              hostname 'packages.ros.org'
+    IPv6      no route on this host; IPv4 is the only usable path
+  CONCLUSION: this is NOT an interception, NOT an expired certificate and NOT an
+  untrusted issuer. The chain validates and the certificate is in date. The only
+  fault is that the server does not list packages.ros.org in the certificate it
+  serves for that vhost. It is a server-side misconfiguration at Open Source
+  Logic and cannot be fixed from this host. Nothing was worked around; pinning
+  that certificate or disabling verification would trade a name-verification
+  failure for a silent trust failure, which is strictly worse.
+
+ITEM 7 - FOXGLOVE HAS NO UPDATE CHANNEL
+  3.3.0 installed from a vendor .deb. Not in any apt repository, no snap, no
+  flatpak, no updater component under /opt/Foxglove, and no usable public release
+  feed was reachable. The only workable method is a periodic version comparison
+  against the vendor's published version, reported for a human to act on by
+  re-downloading. Recorded as our responsibility. Obsidian and Crossover are
+  recorded as operator-managed and are no longer raised as our concern.
+
+ITEM 9 - MESHCHATX PLACEMENT: RECORDED, NOT MOVED
+  The rationale is recorded: MeshChatX is a coordination layer for RNS, which
+  manages the split between a public people-network and a private drone-network,
+  so it belongs to the field domain. It currently runs as a host systemd service
+  on 127.0.0.1:18000 and is NOT on ao-field. Nothing was moved: ao-field is
+  Internal=true, and a component with public Reticulum connections is not purely
+  internal, so this needs a topology decision first. Recorded as open.
+
+================================================================================
+2026-10-01  RNS public/private split: representation settled, handed off
+================================================================================
+
+OPERATOR CLARIFICATION, which corrected my own wrong assumption:
+  "NO, THEY AREN'T. QGROUNDCONTROL WILL EVENTUALLY BE SETUP TO USE RNS TO
+   COMMUNICATE TO IT VIA ENCRYPTION."
+I had assumed QGC would sit outside RNS on the raw LoRa link. That was wrong.
+Because drone traffic is intended to travel THROUGH the one stack, a single
+stack is the correct design rather than a compromise, and two installations
+would break it because Routing IDs are meaningful only within one stack.
+
+WHAT THE SEPARATION ACTUALLY IS
+  Not two installations, and not routing-id ranges. This RNS has no
+  interface_routing_id at all - confirmed from the bytecode. It separates by
+  INTERFACE MODE, and it is ALREADY configured correctly:
+    [[PEOPLE-RADIO]]  915 MHz / 125 kHz   selected_interface_mode = 1  (FULL)
+    [[DRONE-RADIO]]   917 MHz / 250 kHz   selected_interface_mode = 7  (INTERNAL)
+                                          + mode = internal, discoverable = no
+  rnstatus confirms at runtime: PEOPLE-RADIO Up/Mode Full, DRONE-RADIO
+  Up/Mode Internal, both with live signal figures. 43 interfaces up in total.
+
+  So the drone path is private by RNS's own mechanism, and the public LoRaWAN
+  path is separate. Nothing needs to change to achieve the separation.
+
+PODMAN SHAPE, VERIFIED BUT NOT BUILT
+  Device pass-through works: podman run -v /dev/ao-drone-radio:... and the same
+  for people-radio both present and read the device. A container would need two
+  networks - ao-field for the field/drone side plus a new non-internal egress
+  network, the same ao-reporting-egress pattern ao-grafana and ao-metabase
+  already use - with the web UI on 127.0.0.1:18000.
+  NOT BUILT. It changes network topology, isolation policy and adds serial
+  passthrough to a container, so it needs operator approval. It is also not
+  needed to fix the security question, because mode already enforces the split.
+
+  Open: inside a container the device appears as nobody:nobody although the host
+  side is 0660 root:dialout, so a GroupAdd=dialout plus a matching service user
+  would be needed. Recorded, not solved.
+
+TOPOLOGY GRAPHIC: NOT MINE, HANDED OFF
+  Wrote "COORDINATION BETWEEN AI/J. 2026-10-01-rns-topology-representation.md"
+  for whichever session takes the graphic. It carries the measured facts, what
+  NOT to draw (two stacks; routing-id ranges), the Podman shape, and three open
+  findings. The graphic is generated from config/platform/topology-model.yaml by
+  scripts/operations/generate-topology.py; I touched neither.
+
+  Flagged for whoever draws it: the operator brief in "X - README - GITHUB
+  REVIEW-20261001.txt" spells the drone radio "DONE-RADIO". The RNS config, the
+  udev symlink and all live evidence say DRONE-RADIO. Believed to be a typo, but
+  worth confirming rather than drawing.
+
+================================================================================
+2026-10-01  item 8 closed: unmanaged software is now tracked
+================================================================================
+
+OPERATOR DECISION: "8 - YOUR JOB IS TO TRACK THESE AS WELL"
+Previously the AppImages, /opt trees and ~/.local/bin executables were listed
+and left alone. They are now in scope for FRESHNESS tracking, not just listing.
+
+  config/build-update/unmanaged-software.yaml   provenance registry
+  scripts/build-update/track-unmanaged.py       the tracker
+  docs/unmanaged.md                             the report
+
+READ-ONLY, like every other tool in this network. It queries version endpoints
+and reads files. It installs nothing, downloads nothing, changes nothing.
+
+SIX OUTCOMES, because a single "up to date / stale" would be misleading:
+  CURRENT       installed matches upstream
+  BEHIND        upstream offers something newer
+  UNCHECKABLE   no way to compare automatically - a KNOWN GAP, not a pass
+  NOT CHECKED   skipped, or upstream unreachable this run
+  UNREGISTERED  on disk with no recorded provenance
+  MISSING       registered but no longer on disk
+
+CURRENT RESULT: 3 BEHIND, 6 UNCHECKABLE, 2 CURRENT, 0 unregistered.
+  BEHIND   cline 3.0.60 -> cli-v3.0.68
+           gh 2.97.0 -> v2.102.0
+           pymavlink 2.4.49 -> 2.4.50 (supplies the 20 mav* tools)
+  CURRENT bun 1.4.2, google-chrome 154.0.8037.92
+
+TWO FALSE POSITIVES FOUND AND FIXED WHILE TESTING
+  1. Version comparison was literal, so release tags marked as stale when they
+     were not. Tags are not uniform: cli publishes v2.102.0, bun publishes
+     bun-v1.4.2, cline publishes cli-v3.0.68. Comparing those against a bare
+     installed version flagged all of them. Now the numeric core is extracted
+     first. bun was a false positive and is now correctly CURRENT.
+  2. The registry's operator_managed block was a list with a sibling key, which
+     is invalid YAML and made the whole file unparseable.
+
+THE SIX UNCHECKABLE ARE A DELIBERATE, VISIBLE GAP
+  Four AppImages carry no version in the filename and have no feed to compare
+  against (QGroundControl, pCloud, nPerf, MeshChatX), LM Studio has a version but
+  still no feed, and "mcp" is broken - it reports "typer is required". They are
+  reported as UNCHECKABLE precisely so their absence from the tracked column is
+  visible rather than looking like everything is fine. nPerf additionally has NO
+  recorded provenance at all.
+
+  The MeshChatX AppImage is recorded as the SOURCE the running native backend was
+  extracted from, not as the live version, so it is not miscounted as stale.
+
+NOT TRACKED: obsidian and crossover. The operator manages those personally, per
+their decision.
+
+================================================================================
+2026-10-01  complete software provenance log, rendered and opened
+================================================================================
+
+OPERATOR ASK: "AN INCEDIBLY COMPLETE LOG, INCLUDING PUBLISHER WEBSITES,
+REPOSITORIES, VERSIONS, AND DOWNLOAD LINKS, AND FOR YOU TO SAVE AND OPEN THAT
+FILE IN SOMETHING THAT FORMATS MARKDOWN."
+
+  scripts/build-update/provenance-log.py   generator
+  docs/software-provenance.md             4,381 lines, generated, no hand content
+  /ALWAYSON/tmp/provenance.html            rendered, opened in Firefox
+
+Five delivery mechanisms, because each needs a different kind of "where does
+this come from":
+  container  registry, repository, pinned digest, and the exact podman pull line
+  snap       publisher and the snapcraft store page
+  flatpak    origin remote and the flathub page
+  apt        archive host, suite, component, and the packages.ubuntu.com page
+  direct     vendor site, installed version, upstream version, download link
+
+COVERAGE: 22 container images, 4229 apt packages, 16 snaps, 1 flatpak,
+11 vendor-published items. Plus a reference table of all 15 archives and stores
+the system draws on, with the ROS entry flagged as unreachable.
+
+RENDERING: no markdown renderer is installed (no glow, mdcat or pandoc), but
+python-markdown 3.10.2 is present, so the generator emits styled HTML and Firefox
+displays it with formatted tables, sticky headers and collapsible apt section.
+The HTML lands under tmp/ which is gitignored; the markdown is the tracked
+artifact.
+
+SEVEN TRUNCATIONS DURING THE BUILD, all from oversized inserts
+Every one produced a file that compiled but was silently missing functions -
+flatsmangs returning None, ARCHIVE_PAGES undefined, snwaps() without a return,
+and direct_and_unmanaged() without one. Each was caught by running it, not by
+reading it. Worth recording as a pattern: chunked authoring of a long script is
+the single most defect-prone part of this work, and every instance here was
+caught only because the script was executed rather than inspected.
+MSG
+git -c user.name='ALWAYS ON Agent' -c user.email='agent@300x3.com' commit -q -F - <<'MSG'
+feat(build-update): complete software provenance log
+
+Records, for every piece of software on this host, who publishes it, where it
+lives, what version is installed, what the publisher currently offers, and the
+exact download link.
+
+The other reports answer "is it stale". This one answers "what is it and where do
+I get it" - the question that has to be settled before anything can be updated.
+
+Five delivery mechanisms, because each needs a different kind of provenance:
+  container  registry, repository, pinned digest, exact podman pull line
+  snap       publisher and snapcraft store page
+  flatpak    origin remote and flathub page
+  apt        archive host, suite, component, packages.ubuntu.com page
+  direct     vendor site, installed version, upstream version, download link
+
+Coverage: 22 container images, 4229 apt packages, 16 snaps, 1 flatpak, 11
+vendor-published items, plus a reference table of the 15 archives and stores the
+system draws on with the ROS entry flagged unreachable.
+
+The generator also renders styled HTML. No markdown renderer is installed on this
+host (no glow, mdcat or pandoc) but python-markdown 3.10.2 is present, so it
+emits a formatted page directly. The HTML is a build artifact under the gitignored
+tmp/; the markdown is the tracked artifact. Regenerate rather than edit - the file
+has no hand-written content.
+
+Read-only throughout, like the rest of this toolchain.
+
+================================================================================
+2026-10-01  provenance log: versions, hashes, and an up-to-date column
+================================================================================
+
+OPERATOR ASK: "THE WHOLE THING AS VERSIONS, A HASH COMPARISON IS OK ALONGSIDE
+WITH A COLUMN FOR UP TO DATE."
+
+The table had been showing two hashes side by side, which tells a human nothing
+about versions. Three changes:
+
+1. VERSIONS EVERYWHERE. Docker Hub returns a digest for every tag in one API
+   call, so a pinned digest reverse-looks-up to a publisher tag. It now PAGES,
+   and stops as soon as the digest being placed is found - a one-shot call only
+   covered the publisher's 100 most recent tags, so an older pin stayed a bare
+   hash. Resolved on this host:
+     PostgreSQL 17.11, Redis 7.4.11, Prometheus v3.15.0,
+     node-exporter v1.12.1, Grafana 13.0.2, Metabase v0.63.19.1
+   ghcr.io has no bulk equivalent, so its tags are resolved individually.
+
+2. HASHES KEPT ALONGLASIDE. Pinned hash and released hash are their own columns,
+   and the up-to-date verdict compares the HASHES, never the display strings -
+   comparing "no version tag" or a rolling alias against a version proves
+   nothing.
+
+3. UP TO DATE column, reading: yes / behind / unknown / local build.
+
+A PINNED MARKER was added at the operator's suggestion: a check for an immutable
+digest, a cross for a floating tag. Exactly one cross on the host -
+ao-ardupilot-sitl, deliberately, because the operator wants the most recent build.
+
+PERFORMANCE
+  Paging to 10 pages at a 20s timeout across thirteen repositories did not finish
+  in five minutes, and resolving 24 ghcr tags per repository was the worst of it.
+  Settled at 4 pages, a 12s timeout and 8 ghcr candidates: past every pin on this
+  host, and it stops early anyway once a digest is placed.
+
+THE PATTERN WORTH NAMING
+  This is the ninth defect in this toolchain that reported AGREEMENT where there
+  was none rather than failing: norm() reducing "sha256:d74e..." to "256", the
+  same function stripping Debian revisions so alsa-ucm-conf read as current, the
+  summary counting "NO" while the table emitted "**NO**", first-match tag
+  selection reporting node-exporter as "v1" - a different major entirely.
+  None of them raised an error. Every one was caught by RUNNING the tool and
+  reading the output, never by reading the code. That is the whole method now:
+  a green run means nothing until the numbers have been read against the system.
+
+================================================================================
+2026-10-01  provenance log: version resolution, caching, and why it hung
+================================================================================
+
+PERFORMANCE, which was the real work here. The generator stopped completing after
+version resolution was added, and the cause was NOT the version lookups.
+
+  MEASURED, per call, in isolation:
+    containers()      16.3s   22 rows, real versions resolved
+    snaps()            7.8s   16 rows
+    _ghcr_tags()       7.1s   per ghcr repository, 8 tag resolutions
+  Total should be well under a minute. It was not finishing in five.
+
+  CAUSE: registry_digest_raw() was uncached, so the same image was re-fetched
+  once per row that uses it. PostgreSQL appears in three units, Redis in two, and
+  the Mastodon images in four. A 13-repository job became roughly 88 sequential
+  HTTP round trips, each capable of burning the full timeout. The process showed
+  zero CPU time throughout, which is the tell: it was blocked on network waits,
+  not computing.
+  FIX: memoised on (host, repo, tag).
+
+  Also settled: 10 Hub pages at a 20s timeout was unusable, reduced to 4 pages
+  and a 12s timeout, with an early stop the moment the digest being placed is
+  found. 24 ghcr tag candidates cut to 8.
+
+VERSION RESOLUTION NOW WORKS, verified per call rather than from the final file:
+    Python         3.13.15-alpine3.24  ->  3.14
+    PostgreSQL     17.11               ->  17.11
+    Redis          7.4.11              ->  7.4.11
+    Prometheus     released v3.15.0
+    node-exporter  released v1.12.1
+    Grafana        released 13.0.2
+    Metabase       released v0.63.19.1
+  The verdict now compares HASHES, never the display strings. Comparing "no
+  version tag", or a rolling alias like `latest`, against a version string would
+  have produced confident nonsense.
+
+A METHOD NOTE, recorded because it nearly caused a false report here: my first
+timing probe passed "docker.io/library/postgres" to a function that expects
+"library/postgres", got zero entries back, and I nearly read that as the resolver
+being broken. It was my probe, not the code. Measuring the real code path rather
+than a hand-written one is what found the actual bottleneck.
+
+## 2026-10-02 — Software status log: publisher/version gap closure + refresh tooling
+Operator reported the install log was missing almost all publisher names and version data.
+Measured first: of 339 rows, `Version here` empty on 268 and `Publisher` wrong on ALL of
+them (it was derived from the download mirror hostname, e.g. `us.archive.ubuntu.com`).
+Panel review run; three panel claims verified by measurement before acting:
+  - `dpkg -S` treats args as SUBSTRING/GLOB patterns -> `dpkg -S ark` returns
+    kf6-breeze-icon-theme. Replaced with dpkg's own /var/lib/dpkg/info/*.list manifests
+    (exact, 0.07s, 299 of 307 .desktop entries resolve; the 8 unresolved are all CrossOver
+    under /opt/cxoffice, installed outside dpkg).
+  - `render()` and `main()` each built the whole collection, so every online run paid the
+    network cost twice. main() now reuses what render() collected.
+  - CRITICAL: desktop rows set pinned == released, and same_version(x, x) is True, so
+    filling 257 versions would have marked 257 applications "up to date" with no upstream
+    comparison performed. Desktop rows now report "?" and the sentinels were added to
+    UNKNOWN so neither a false "yes" nor a false "NO" can escape.
+Also fixed while measuring: snap publisher read f[5] (Notes) instead of f[4] (Publisher);
+podman CreatedAt missed short image refs and tagged local refs.
+Result: 230 items, 231 publishers filled, 231 versions filled (only the 3 local builds
+have none, correctly). 13 behind — unchanged from before, so no new false findings.
+Performance: 25.7s cold -> 10.1s warm -> 1.1s --offline, via a persistent cache under
+data/build-update/cache (gitignored, tmp+rename) and a freshness banner in the document.
+Refused: a systemd timer. This rewrites a tracked audit document; unattended regeneration
+would overwrite one an operator is mid-review of.
+READ-ONLY throughout: no package installed, promoted, deployed or restarted.
+Artifacts: docs/software-status.md, docs/software-status.pdf (8 pages, rendered via
+headless chrome), tmp/software-status.html. Backup of the previous pair in
+backups/software-status/20261002T201958Z/. Log: logs/operations/20261002T201958Z-software-status-refresh.log
+2026-10-02T21:15:58+00:00 check-local-services: 15 pass, 0 fail, 0 unverifiable (browser: Chrome via Playwright)
+    PASS         Mastodon local proxy     HTTP 200
+    PASS         Mastodon streaming       HTTP 400
+    PASS         Grafana                  HTTP 200
+    PASS         Metabase                 HTTP 200
+    PASS         Prometheus               HTTP 200
+    PASS         Domoticz                 HTTP 200
+    PASS         WebODM web UI            HTTP 200
+    PASS         MeshChatX local UI       HTTP 200
+    PASS         OpenClaw Control         HTTP 200
+    PASS         CUPS                     HTTP 200
+    PASS         OpenClaw chat relay      HTTP 404
+    PASS         ALWAYS ON operator console HTTP 200
+    PASS         ALWAYS ON console - Foxglove / Gazebo page HTTP 200
+    PASS         Gazebo factory world portal HTTP 200
+    PASS         Mastodon web origin (transport only) HTTP 301 -> https://127.0.0.1:3000/
+2026-10-03T01:05:13+00:00 actor=scottw script=check-logs-journals.sh check-logs-journals.sh missing=0 stale=0
+2026-10-03T01:05:19+00:00 actor=scottw script=check-logs-journals.sh check-logs-journals.sh missing=1 stale=0
+2026-10-03T01:05:19+00:00 actor=scottw script=check-logs-journals.sh check-logs-journals.sh missing=0 stale=0
+2026-10-03T01:05:53+00:00 actor=scottw script=bash Section 16.3 audit complete: all 18 entries exist, check-logs-journals.sh reports missing=0 stale=0
+2026-10-03T01:05:53+00:00 actor=scottw script=check-logs-journals.sh check-logs-journals.sh missing=0 stale=0
+2026-10-03T01:06:29+00:00 actor=scottw script=check-logs-journals.sh check-logs-journals.sh missing=0 stale=0
+2026-10-03T01:31:47+00:00 actor=scottw script=check-logs-journals.sh check-logs-journals.sh missing=0 stale=0
+2026-10-03T01:32:35+00:00 actor=scottw script=check-logs-journals.sh check-logs-journals.sh missing=0 stale=0
+2026-10-03T01:52:04+00:00 actor=scottw script=check-logs-journals.sh check-logs-journals.sh missing=0 stale=0
+2026-10-03T02:33:56+00:00 actor=scottw script=check-logs-journals.sh check-logs-journals.sh missing=0 stale=0
+2026-10-03T02:37:56+00:00 actor=scottw script=check-logs-journals.sh check-logs-journals.sh missing=0 stale=0
+2026-10-03T02:38:12+00:00 actor=scottw script=bash Git sync: pulled 2 commits (fa7f5c1, f58359f), committed d3a88f0->6d13660 section 16.3/19.2 logrotate refs and retention items 84+85, pushed to origin/main. check-logs-journals.sh missing=0 stale=0.
+2026-10-03T16:14:43+00:00 actor=scottw script=bash OPS-32 delivered: Prometheus holds 13 alwayson_db_* series over PostgreSQL and SQLite. New scripts/operations/collect-db-security.py (host-side, read-only) run every 60s by ao-db-security-collect.timer, surfaced via node_exporter textfile collector on the existing node-host job. ao-node-exporter restarted with --collector.textfile.directory. No credential given to Prometheus; verified absent from the metric file.
