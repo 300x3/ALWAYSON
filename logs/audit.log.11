@@ -1,0 +1,169 @@
+2026-08-24T01:56:17+00:00 actor=scottw script=check-network-isolation.sh refreshed network CIDR registry
+2026-08-24T01:56:18+00:00 actor=scottw script=capture-version-matrix.sh captured host facts into version-matrix.yaml
+2026-08-24T01:56:42+00:00 actor=scottw script=check-network-isolation.sh refreshed network CIDR registry
+2026-08-24T01:57:16+00:00 actor=scottw script=check-network-isolation.sh refreshed network CIDR registry
+2026-09-01T02:49:48+00:00 actor=scottw script=backup-postgres.sh postgres backup role=sales db=salesdb file=20260901T024948Z-salesdb.sql.gz
+2026-09-01T02:49:48+00:00 actor=scottw script=backup-postgres.sh postgres backup role=webodm db=webodm file=20260901T024948Z-webodm.sql.gz
+2026-09-01T02:51:42+00:00 actor=scottw script=backup-postgres.sh postgres backup role=mastodon db=mastodon file=20260901T025142Z-mastodon.sql.gz
+2026-09-01T02:51:42+00:00 actor=scottw script=backup-postgres.sh postgres backup role=sales db=salesdb file=20260901T025142Z-salesdb.sql.gz
+2026-09-01T02:51:42+00:00 actor=scottw script=backup-postgres.sh postgres backup role=webodm db=webodm file=20260901T025142Z-webodm.sql.gz
+2026-09-01T02:51:52+00:00 actor=scottw script=backup-postgres.sh postgres backup role=mastodon db=mastodon file=20260901T025152Z-mastodon.sql.gz
+2026-09-01T02:51:52+00:00 actor=scottw script=backup-postgres.sh postgres backup role=sales db=salesdb file=20260901T025152Z-salesdb.sql.gz
+2026-09-01T02:51:53+00:00 actor=scottw script=backup-postgres.sh postgres backup role=webodm db=webodm file=20260901T025152Z-webodm.sql.gz
+2026-09-01T02:52:39+00:00 actor=root script=restic-run.sh restic backup completed
+2026-09-01T16:57:38+00:00 actor=scottw script=backup-postgres.sh postgres backup role=mastodon db=mastodon file=20260901T165738Z-mastodon.sql.gz
+2026-09-01T17:00:00+00:00 actor=root script=restic-run.sh restic backup completed
+2026-09-02T17:15:11+00:00 actor=root script=restic-run.sh restic backup completed
+2026-09-02T17:18:38+00:00 actor=scottw script=backup-postgres.sh postgres backup role=mastodon db=mastodon file=20260902T171838Z-mastodon.sql.gz
+2026-09-03T10:03:26+00:00 actor=scottw script=backup-postgres.sh postgres backup role=mastodon db=mastodon file=20260903T100326Z-mastodon.sql.gz
+2026-09-03T10:33:23+00:00 actor=root script=restic-run.sh restic backup completed
+2026-09-04T17:15:05+00:00 actor=root script=restic-run.sh restic backup completed
+2026-09-04T17:15:07+00:00 actor=scottw script=backup-postgres.sh postgres backup role=mastodon db=mastodon file=20260904T171507Z-mastodon.sql.gz
+2026-09-05T10:00:44+00:00 actor=scottw script=backup-postgres.sh postgres backup role=mastodon db=mastodon file=20260905T100044Z-mastodon.sql.gz
+2026-09-05T10:33:04+00:00 actor=root script=restic-run.sh restic backup completed
+2026-09-06T15:04:28+00:00 actor=root script=restic-run.sh restic backup completed
+2026-09-06T15:04:29+00:00 actor=scottw script=backup-postgres.sh postgres backup role=mastodon db=mastodon file=20260906T150428Z-mastodon.sql.gz
+2026-09-06T15:04:29+00:00 actor=root script=verify-backup.sh restic integrity check completed
+2026-09-07T17:58:11+00:00 actor=scottw script=backup-postgres.sh postgres backup role=mastodon db=mastodon file=20260907T175810Z-mastodon.sql.gz
+2026-09-07T17:58:54+00:00 actor=root script=restic-run.sh restic backup completed
+2026-09-08T10:00:59+00:00 actor=scottw script=backup-postgres.sh postgres backup role=mastodon db=mastodon file=20260908T100059Z-mastodon.sql.gz
+2026-09-08T10:38:45+00:00 actor=root script=restic-run.sh restic backup completed
+2026-09-10T01:25:44+00:00 actor=scottw script=backup-postgres.sh postgres backup role=mastodon db=mastodon file=20260910T012544Z-mastodon.sql.gz
+2026-09-10T01:28:31+00:00 actor=root script=restic-run.sh restic backup completed
+2026-09-11T15:46:11+00:00 actor=scottw script=backup-postgres.sh postgres backup role=mastodon db=mastodon file=20260911T154611Z-mastodon.sql.gz
+2026-09-11T15:49:34+00:00 actor=root script=restic-run.sh restic backup completed
+2026-09-13T02:44:20+00:00 actor=scottw script=backup-postgres.sh postgres backup role=mastodon db=mastodon file=20260913T024419Z-mastodon.sql.gz
+2026-09-13T02:44:39+00:00 actor=root script=restic-run.sh restic backup completed
+2026-09-13T10:00:25+00:00 actor=scottw script=backup-postgres.sh postgres backup role=mastodon db=mastodon file=20260913T100024Z-mastodon.sql.gz
+2026-09-13T10:39:37+00:00 actor=root script=restic-run.sh restic backup completed
+2026-09-13T11:37:34+00:00 actor=root script=verify-backup.sh restic integrity check completed
+2026-09-15T19:02:11+00:00 actor=scottw script=backup-postgres.sh postgres backup role=mastodon db=mastodon file=20260915T190211Z-mastodon.sql.gz
+2026-09-15T19:06:55+00:00 actor=root script=restic-run.sh restic backup completed
+2026-09-16T10:04:11+00:00 actor=scottw script=backup-postgres.sh postgres backup role=mastodon db=mastodon file=20260916T100411Z-mastodon.sql.gz
+2026-09-16T10:38:02+00:00 actor=root script=restic-run.sh restic backup completed
+2026-09-17T20:21:00+00:00 actor=scottw script=backup-postgres.sh postgres backup role=mastodon db=mastodon file=20260917T202100Z-mastodon.sql.gz
+2026-09-17T20:21:01+00:00 actor=root script=restic-run.sh restic backup completed
+2026-09-18T10:02:34+00:00 actor=scottw script=backup-postgres.sh postgres backup role=mastodon db=mastodon file=20260918T100234Z-mastodon.sql.gz
+2026-09-18T10:35:43+00:00 actor=root script=restic-run.sh restic backup completed
+2026-09-19T10:04:33+00:00 actor=scottw script=backup-postgres.sh postgres backup role=mastodon db=mastodon file=20260919T100433Z-mastodon.sql.gz
+2026-09-19T10:31:11+00:00 actor=root script=restic-run.sh restic backup completed
+2026-09-20T10:00:11+00:00 actor=scottw script=backup-postgres.sh postgres backup role=mastodon db=mastodon file=20260920T100010Z-mastodon.sql.gz
+2026-09-20T10:35:42+00:00 actor=root script=restic-run.sh restic backup completed
+2026-09-20T11:38:58+00:00 actor=root script=verify-backup.sh restic integrity check completed
+2026-09-21T10:01:19+00:00 actor=scottw script=backup-postgres.sh postgres backup role=mastodon db=mastodon file=20260921T100118Z-mastodon.sql.gz
+2026-09-21T10:31:44+00:00 actor=root script=restic-run.sh restic backup completed
+2026-09-22T10:04:12+00:00 actor=scottw script=backup-postgres.sh postgres backup role=mastodon db=mastodon file=20260922T100411Z-mastodon.sql.gz
+2026-09-22T10:04:12+00:00 actor=scottw script=backup-postgres.sh postgres backup role=sales db=salesdb file=20260922T100412Z-salesdb.sql.gz
+2026-09-22T10:04:12+00:00 actor=scottw script=backup-postgres.sh postgres backup role=webodm db=webodm file=20260922T100412Z-webodm.sql.gz
+2026-09-22T10:35:43+00:00 actor=root script=restic-run.sh restic backup completed
+2026-09-23T10:03:33+00:00 actor=scottw script=backup-postgres.sh postgres backup role=mastodon db=mastodon file=20260923T100333Z-mastodon.sql.gz
+2026-09-23T10:03:34+00:00 actor=scottw script=backup-postgres.sh postgres backup role=sales db=salesdb file=20260923T100333Z-salesdb.sql.gz
+2026-09-23T10:03:34+00:00 actor=scottw script=backup-postgres.sh postgres backup role=webodm db=webodm file=20260923T100334Z-webodm.sql.gz
+2026-09-23T10:36:29+00:00 actor=root script=restic-run.sh restic backup completed
+2026-09-24T16:20:53+00:00 actor=scottw script=backup-postgres.sh postgres backup role=sales db=salesdb file=20260924T162052Z-salesdb.sql.gz
+2026-09-24T16:20:53+00:00 actor=scottw script=backup-postgres.sh postgres backup role=webodm db=webodm file=20260924T162053Z-webodm.sql.gz
+2026-09-24T16:20:53+00:00 actor=root script=restic-run.sh restic backup completed
+2026-09-25T03:39:37+00:00 actor=scottw script=deploy-quadlet-domain.sh deployed quadlet domain operations
+2026-09-25T03:51:47+00:00 actor=scottw script=bash migrated accessible reporting/mapping/simulation credentials into KDE Wallet; added scripts/ops/wallet-read-secret.py; updated OpenClaw bridge to wallet-first token retrieval; no values logged
+2026-09-25T03:56:34+00:00 actor=scottw script=bash extended KDE Wallet migration: wallet-backed reporting env/backup, wallet-first OpenClaw bridge, wallet-backed simulation signing; no values logged
+2026-09-25T04:20:51+00:00 actor=scottw script=bash privileged KDE Wallet migration completed for restic/metaread/mapping/sales credentials; removed obsolete Mastodon backups; rotated metaread and removed legacy plaintext; no values logged
+2026-09-25T10:01:26+00:00 actor=scottw script=backup-postgres.sh postgres backup role=sales db=salesdb file=20260925T100126Z-salesdb.sql.gz
+2026-09-25T10:01:27+00:00 actor=scottw script=backup-postgres.sh postgres backup role=webodm db=webodm file=20260925T100127Z-webodm.sql.gz
+2026-09-25T20:04:41+00:00 actor=scottw script=backup-postgres.sh postgres backup role=mastodon db=mastodon file=20260925T200441Z-mastodon.sql.gz
+2026-09-25T20:04:46+00:00 actor=scottw script=backup-postgres.sh postgres backup role=mastodon db=mastodon file=20260925T200445Z-mastodon.sql.gz
+2026-09-25T20:04:46+00:00 actor=scottw script=backup-postgres.sh postgres backup role=sales db=salesdb file=20260925T200446Z-salesdb.sql.gz
+2026-09-25T20:04:46+00:00 actor=scottw script=backup-postgres.sh postgres backup role=webodm db=webodm file=20260925T200446Z-webodm.sql.gz
+2026-09-25T20:14:27+00:00 actor=scottw script=backup-postgres.sh postgres backup role=mastodon db=mastodon file=20260925T201427Z-mastodon.sql.gz
+2026-09-25T20:14:28+00:00 actor=scottw script=backup-postgres.sh postgres backup role=sales db=salesdb file=20260925T201427Z-salesdb.sql.gz
+2026-09-25T20:14:28+00:00 actor=scottw script=backup-postgres.sh postgres backup role=webodm db=webodm file=20260925T201428Z-webodm.sql.gz
+2026-09-26T10:00:07+00:00 actor=scottw script=backup-postgres.sh postgres backup role=sales db=salesdb file=20260926T100007Z-salesdb.sql.gz
+2026-09-26T10:00:07+00:00 actor=scottw script=backup-postgres.sh postgres backup role=webodm db=webodm file=20260926T100007Z-webodm.sql.gz
+2026-09-28T05:21:51+00:00 actor=scottw script=browser-sim-test action=foxglove-loopback-test ros=lyrical gz=10.5.0 bridge=3.5.0 result=PASS clock_bridge_ok talker_roundtrip_ok ports_closed_after_test
+2026-09-30T23:22:49+00:00 actor=scottw script=check-network-isolation.sh refreshed network CIDR registry
+2026-09-30T23:34:38+00:00 actor=scottw script=check-network-isolation.sh refreshed network CIDR registry
+2026-09-30T23:36:27+00:00 actor=scottw script=check-network-isolation.sh refreshed network CIDR registry
+2026-09-30T23:42:32+00:00 actor=scottw script=check-network-isolation.sh refreshed network CIDR registry
+2026-09-30T23:42:58+00:00 actor=scottw script=check-network-isolation.sh refreshed network CIDR registry
+2026-10-01T00:05:27+00:00 actor=scottw script=check-network-isolation.sh refreshed network CIDR registry
+2026-10-01T00:10:05+00:00 actor=scottw script=check-network-isolation.sh refreshed network CIDR registry
+2026-10-01T01:14:49+00:00 actor=scottw script=check-network-isolation.sh refreshed network CIDR registry
+2026-10-01T01:14:52+00:00 actor=scottw script=check-network-isolation.sh refreshed network CIDR registry
+2026-10-01T01:19:13+00:00 actor=scottw script=check-network-isolation.sh refreshed network CIDR registry
+2026-10-01T01:55:23+00:00 actor=scottw script=check-network-isolation.sh refreshed network CIDR registry
+2026-10-01T02:34:22+00:00 actor=scottw script=check-network-isolation.sh refreshed network CIDR registry
+2026-10-01T02:51:08+00:00 actor=scottw script=check-network-isolation.sh refreshed network CIDR registry
+2026-10-01T03:03:26+00:00 actor=scottw script=check-network-isolation.sh refreshed network CIDR registry
+2026-10-01T03:07:29+00:00 actor=scottw script=check-network-isolation.sh refreshed network CIDR registry
+2026-10-01T03:50:09+00:00 actor=scottw script=check-network-isolation.sh refreshed network CIDR registry
+2026-10-01T03:58:51+00:00 actor=scottw script=check-network-isolation.sh refreshed network CIDR registry
+2026-10-01T04:02:01+00:00 actor=scottw script=check-network-isolation.sh refreshed network CIDR registry
+2026-10-01T04:11:33+00:00 actor=scottw script=check-network-isolation.sh refreshed network CIDR registry
+2026-10-01T05:28:52+00:00 actor=scottw script=check-network-isolation.sh refreshed network CIDR registry
+2026-10-01T05:35:43+00:00 actor=scottw script=add-firefox-server-bookmarks.py firefox bookmarks created folder="SERVERS (THIS MACHINE)" profile=snap/dq8y9arf.default parent=toolbar entries=12 backup=/ALWAYSON/backups/firefox-places-20261001T052912Z verified="curl+podman ps"
+2026-10-01T06:02:43+00:00 actor=scottw script=check-network-isolation.sh refreshed network CIDR registry
+2026-10-01T06:04:58+00:00 actor=scottw script=deploy-quadlet-domain.sh webodm published loopback port=8000 detail="ao-webodm-web.container PublishPort=127.0.0.1:8000:8000; LAN verified refusing; backup=backups/ao-webodm-web.container.20261001T054816Z.bak"
+2026-10-01T06:04:58+00:00 actor=scottw script=add-firefox-server-bookmarks.py firefox bookmarks added folder="SERVERS (THIS MACHINE)" entries=14 note="added WebODM+CUPS; duplicate folder id=339 left in place pending operator decision"
+2026-10-01T06:11:32+00:00 actor=scottw script=check-network-isolation.sh refreshed network CIDR registry
+2026-10-01T06:18:40+00:00 actor=scottw script=ao-payment-reconcile.sh payment-reconcile provider=Zelle ref=CLI-TEST-1 approved_by=scottw
+2026-10-01T06:18:40+00:00 actor=scottw script=ao-payment-reconcile.sh payment-reconcile provider=Zelle ref=CLI-TEST-1 approved_by=scottw
+2026-10-01T06:18:46+00:00 actor=scottw script=ao-payment-reconcile.sh payment-reconcile provider=Zelle ref=CLI-TEST-1 approved_by=scottw
+2026-10-01T06:23:33+00:00 actor=scottw script=check-network-isolation.sh refreshed network CIDR registry
+2026-10-01T06:26:12+00:00 actor=scottw script=check-network-isolation.sh refreshed network CIDR registry
+2026-10-01T06:31:57+00:00 actor=scottw script=mastodon-local-proxy.py mastodon local-ui proxy given TLS listener=127.0.0.1:3300 cert=secrets/mastodon/mastodon-local.crt detail="fixes hanging page: render-blocking https asset URL never completed; load 262ms from 60s+ timeout; LAN verified refusing; federation verified intact"
+2026-10-01T06:31:57+00:00 actor=scottw script=mastodon-openclaw-bridge.py bridge api endpoint changed 3000->https://127.0.0.1:3300 detail="was crash-looping on SSL RECORD_LAYER_FAILURE and injecting TLS bytes into Puma every 10s; now reaches API (401 token issue remains - separate defect)"
+2026-10-01T06:42:15+00:00 actor=scottw script=check-network-isolation.sh refreshed network CIDR registry
+2026-10-01T06:49:46+00:00 actor=scottw script=check-network-isolation.sh refreshed network CIDR registry
+2026-10-01T07:31:51+00:00 actor=scottw script=add-firefox-server-bookmarks.py bookmarks pruned folder=339 note="deleted duplicate toolbar folder id=353 (14 bookmarks) and stale http://127.0.0.1:3300/ + :3000/ entries; backup=backups/firefox-places-20261001T065503Z"
+2026-10-01T07:31:51+00:00 actor=scottw script=deploy-mastodon.sh secrets consolidated detail="stale /ALWAYSON/secrets/mastodon/mastodon.env deleted; live ao-secrets copy preserved and mirrored to KDE Wallet ao-mastodon/mastodon-env (sha256 verified identical); genenv made non-destructive"
+2026-10-01T07:31:51+00:00 actor=scottw script=deploy-quadlet-domain.sh deploy path fixed detail="was writing to systemd/$domain/ which Quadlet ignores; now flat; rollback no longer rm -r the dir; validate now checks drift"
+2026-10-01T18:42:27+00:00 actor=scottw script=deploy-quadlet-domain.sh deployed quadlet domain sim-fabrication
+2026-10-01T19:42:09+00:00 actor=scottw script=deploy-quadlet-domain.sh deployed quadlet domain operations
+2026-10-01T19:48:48+00:00 actor=scottw script=deploy-quadlet-domain.sh images digest-pinned detail="ao-grafana, ao-metabase, ao-prometheus, ao-node-exporter, mastodon-streaming, ao-sim-fabrication-gz; all services restarted and re-verified; every running image now digest-pinned"
+2026-10-01T19:57:28+00:00 actor=scottw script=check-network-isolation.sh refreshed network CIDR registry
+2026-10-01T19:57:45+00:00 actor=scottw script=check-network-isolation.sh refreshed network CIDR registry
+2026-10-01T20:10:34+00:00 actor=scottw script=check-network-isolation.sh refreshed network CIDR registry
+2026-10-01T20:11:14+00:00 actor=scottw script=podman-system-connection podman connections aligned to README detail="removed dead ledger/mapping/sales connections; podman-connections.json Default was mapping (dead socket); now default local rootless store reports 19 containers/13 networks/8 volumes/30 images; backup=backups/podman-connections.json.20261001T200542Z.bak"
+2026-10-01T20:34:52+00:00 actor=scottw script=check-network-isolation.sh refreshed network CIDR registry
+2026-10-01T21:06:01+00:00 actor=scottw script=rails-runner mastodon bot token minted detail="app openclaw-mastodon-bridge id=3 owner=bot scopes=read:accounts read:notifications write:statuses read:statuses; expires_in=nil; stored in KDE Wallet ao-mastodon/openclaw-bot-access-token; bridge 0 restarts after 5119 prior 401 crash-loops"
+2026-10-01T21:06:25+00:00 actor=scottw script=deploy-quadlet-domain.sh deployed quadlet domain operations
+2026-10-01T21:12:44+00:00 actor=scottw script=bash grafana admin password migrated to KDE Wallet ao-admin/grafana-admin-password; cleartext config/platform/monitoring/grafana.env (0664) split into tracked non-secret grafana-admin.env plus wallet-materialized 0600 reporting-grafana-admin.env; ao-grafana restarted, /api/health 200, admin login verified 200; no values logged
+2026-10-01T21:12:44+00:00 actor=scottw script=bash removed 7 plaintext credential duplicates superseded by KDE Wallet entries (grafana.env, secrets/reporting/{grafana-postgres,metabase,metaread,sales-reporting}.env, secrets/mastodon/openclaw-mastodon.env, secrets/mastodon-db.env); each compared against its wallet entry before shredding; secrets/mastodon-db.env was stale (did not match wallet)
+2026-10-01T21:12:44+00:00 actor=scottw script=bash repointed secret consumers at KDE Wallet: fetch-kwallet-secret.sh (grafana-admin-password + ao-admin folder mapping), provision-metaread.sh, provision-sales-reporting.sh, provision-reporting-postgres.sh, mastodon/post.sh, mastodon/provision-openclaw-bot.sh; no service depends on a plaintext credential file
+2026-10-01T21:12:44+00:00 actor=scottw script=bash extended check-secrets-exposure.sh with three rule-7 checks (tracked .env must not carry a credential; quadlet EnvironmentFile from config/ or secrets/ must not be secret-bearing; secret env files must not be other-readable); negative-tested both file checks; scanner exits 0 clean
+2026-10-01T21:12:44+00:00 actor=scottw script=bash added ao_audit_secret() redaction guard to scripts/lib/common.sh so an accidental credential in an audit message is masked rather than journalled
+2026-10-02T00:48:31+00:00 actor=scottw script=check-network-isolation.sh refreshed network CIDR registry
+2026-10-02T00:48:32+00:00 actor=scottw script=deploy-quadlet-domain.sh deployed quadlet domain build-update
+2026-10-02T00:48:43+00:00 actor=scottw script=check-network-isolation.sh refreshed network CIDR registry
+2026-10-02T00:49:59+00:00 actor=scottw script=check-network-isolation.sh refreshed network CIDR registry
+2026-10-02T00:50:35+00:00 actor=scottw script=deploy-quadlet-domain.sh deployed quadlet domain build-update
+2026-10-02T00:51:26+00:00 actor=scottw script=deploy-quadlet-domain.sh deployed quadlet domain build-update
+2026-10-02T00:52:19+00:00 actor=scottw script=deploy-quadlet-domain.sh deployed quadlet domain build-update
+2026-10-02T00:55:33+00:00 actor=scottw script=check-network-isolation.sh refreshed network CIDR registry
+2026-10-02T01:09:40+00:00 actor=scottw script=deploy-quadlet-domain.sh deployed quadlet domain build-update
+2026-10-02T01:09:40+00:00 actor=scottw script=check-network-isolation.sh refreshed network CIDR registry
+2026-10-02T01:20:22+00:00 actor=scottw script=check-network-isolation.sh refreshed network CIDR registry
+2026-10-02T01:36:21+00:00 actor=scottw script=check-network-isolation.sh refreshed network CIDR registry
+2026-10-02T02:28:10+00:00 actor=scottw script=check-network-isolation.sh refreshed network CIDR registry
+2026-10-02T02:39:37+00:00 actor=scottw script=check-network-isolation.sh refreshed network CIDR registry
+2026-10-02T02:40:34+00:00 actor=scottw script=check-network-isolation.sh refreshed network CIDR registry
+2026-10-02T03:10:17+00:00 actor=scottw script=check-network-isolation.sh refreshed network CIDR registry
+2026-10-02T03:31:15+00:00 actor=scottw script=check-network-isolation.sh refreshed network CIDR registry
+2026-10-02T03:46:38+00:00 actor=scottw script=check-network-isolation.sh refreshed network CIDR registry
+2026-10-02T04:01:50+00:00 actor=scottw script=check-network-isolation.sh refreshed network CIDR registry
+2026-10-02T04:18:42+00:00 actor=scottw script=promote-image-digest.sh promoted sales/ao-mastodon-db.container image: docker.io/library/postgres@sha256:a65e6a841f6c4dbc4abda3d67fa3bc21824e9611064fcd82e87ea67aad60a0c3 -> docker.io/library/postgres@sha256:d74eeac9a635390a49bc21bd49fccd973de707e2a53a76ac49b552b8712ec46f
+2026-10-02T04:18:42+00:00 actor=scottw script=promote-image-digest.sh promoted sales/ao-mastodon-redis.container image: docker.io/library/redis@sha256:91d0f7e8c748ec7a4c2b4fb2c4f84edab794dd91d01e095e38dc906db9d684ab -> docker.io/library/redis@sha256:c6eabf748fc7a61dbb5a705c78bcf3d6377b1127a97d0ce965c11c44ba46896f
+2026-10-02T04:19:23+00:00 actor=scottw script=promote-image-digest.sh promoted sales/ao-sales-db.container image: postgres@sha256:a65e6a841f6c4dbc4abda3d67fa3bc21824e9611064fcd82e87ea67aad60a0c3 -> docker.io/library/postgres@sha256:d74eeac9a635390a49bc21bd49fccd973de707e2a53a76ac49b552b8712ec46f
+2026-10-02T04:19:23+00:00 actor=scottw script=promote-image-digest.sh promoted fabrication/ao-fabrication-db.container image: postgres@sha256:a65e6a841f6c4dbc4abda3d67fa3bc21824e9611064fcd82e87ea67aad60a0c3 -> docker.io/library/postgres@sha256:d74eeac9a635390a49bc21bd49fccd973de707e2a53a76ac49b552b8712ec46f
+2026-10-02T04:19:23+00:00 actor=scottw script=promote-image-digest.sh promoted mapping/ao-webodm-broker.container image: redis@sha256:91d0f7e8c748ec7a4c2b4fb2c4f84edab794dd91d01e095e38dc906db9d684ab -> docker.io/library/redis@sha256:c6eabf748fc7a61dbb5a705c78bcf3d6377b1127a97d0ce965c11c44ba46896f
+2026-10-02T04:19:42+00:00 actor=scottw script=deploy-quadlet-domain.sh deployed quadlet domain fabrication
+2026-10-02T04:19:42+00:00 actor=scottw script=deploy-quadlet-domain.sh deployed quadlet domain mapping
+2026-10-02T04:33:51+00:00 actor=scottw script=check-network-isolation.sh refreshed network CIDR registry
+2026-10-02T05:07:12+00:00 actor=scottw script=check-network-isolation.sh refreshed network CIDR registry
+2026-10-02T21:14:07+00:00 actor=scottw script=check-network-isolation.sh refreshed network CIDR registry
+2026-10-02T21:15:49+00:00 actor=scottw script=check-network-isolation.sh refreshed network CIDR registry
+2026-10-03T01:05:24+00:00 actor=scottw script=check-network-isolation.sh refreshed network CIDR registry
+2026-10-03T03:24:50+00:00 actor=root script=restic-run.sh restic backup completed
+2026-10-03T10:40:03+00:00 actor=root script=restic-run.sh restic backup completed
+2026-10-03T15:12:25+00:00 actor=root script=restic-run.sh restic backup completed
+2026-10-04T03:47:37+00:00 actor=scottw script=check-network-isolation.sh network isolation verified: 14 ao-* networks match registry (11 internal, 3 egress by decision)
+2026-10-04T03:51:55+00:00 actor=scottw script=check-network-isolation.sh network isolation verified: 14 ao-* networks match registry (11 internal, 3 egress by decision)
