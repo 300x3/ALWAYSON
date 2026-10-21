@@ -1,0 +1,202 @@
+
+# Voron 0.2 + OrcaSlicer Defaults Reference
+# Auto-generated for future AI sessions
+# See: /ALWAYSON/README.md / ALWAYSON/AGENTS.md
+
+#==========================================================================================
+# PRINTER IDENTITY
+#==========================================================================================
+# Machine: Voron 0.2 0.4 nozzle
+# klipper host: 10.42.0.96 (currently offline)
+# Printer variant: 0.4 direct drive
+# cli_machine.json (klipper flavor): type=machine, name=Voron 0.2 0.4 nozzle,
+#   inherits=fdm_klipper_common, from=system, setting_id=b8xMXcVS5LIY8TE,
+#   instantiation=true, printer_model=Voron 0.2, max_layer_height=[0.32],
+#   min_layer_height=[0.10], nozzle_diameter=[0.4], printable_area=[120x120],
+#   printable_height=120, printer_variant=0.4,
+#   printer_extruder_id=[1], printer_extruder_variant=[Direct Drive Standard],
+#   before_layer_gcode=";BEFORE_LAYER_CHANGE
+G92 E0",
+#   layer_gcode=";LAYER_CHANGE
+G92 E0",
+#   gcode_flavor=klipper, machine_start_gcode="PRINT_START",
+#   machine_end_gcode="PRINT_END", host_type=moonraker
+
+#==========================================================================================
+# KLIPPER CONFIGURATION (already in printer.cfg verified)
+#==========================================================================================
+# pressure_advance: 0.04  (durable across power cycle, verified)
+#   - Do NOT change without a live print test
+# smooth: 0.04  (recommended companion to PA 0.04)
+
+#==========================================================================================
+# FILAMENT PRESET (user default)
+#==========================================================================================
+# Path: /home/scottw/snap/orcaslicer/9/.config/OrcaSlicer/user/default/filament/Elegoo PLA @AO70.json
+# Keys (after fix - version key removed to match system preset format):
+#   type: filament
+#   name: Elegoo PLA @AO70
+#   inherits: Elegoo PLA @base
+#   from: user
+#   setting_id: aop70elegoopla20261018
+#   instantiation: true
+#   filament_max_volumetric_speed: ["21"]
+#   nozzle_temperature_initial_layer: ["210"]
+#   nozzle_temperature: ["210"]
+#   pressure_advance: ["0.04"]
+#   enable_pressure_advance: ["1"]
+#   slow_down_layer_time: ["4"]
+#   filament_start_gcode: ["; filament start gcode"]
+#   compatible_printers: []
+#   renamed_from: Elegoo PLA
+#   hot_plate_temp: ["70"]  # bed temp for initial layer
+#   hot_plate_temp_initial_layer: ["70"]
+#   textured_plate_temp: ["70"]
+#   textured_plate_temp_initial_layer: ["70"]
+# FIX APPLIED: Removed "version": "2.4.2.1" key — system presets have no version key,
+# and its presence was causing the GUI loader to silently skip this user preset.
+
+#==========================================================================================
+# PROCESS PRESET (user default)
+#==========================================================================================
+# Path: /home/scottw/snap/orcaslicer/9/.config/OrcaSlicer/user/default/process/0.20mm AO70 Calm @AO70.json
+# Keys (after fix):
+#   type: process
+#   version: 2.4.2.1
+#   name: 0.20mm AO70 Calm @AO70
+#   inherits: fdm_process_voron_common
+#   from: user
+#   setting_id: ao70calm02020261020
+#   instantiation: true
+#   compatible_printers: []
+#   travel_speed: ["120"]          # lowered from parent 350 (mm/min)
+#   travel_acceleration: ["2000"]  # lowered from parent 7000 (mm/s²)
+#   initial_layer_speed: ["25"]    # mm/s × 60 = 1500 mm/min
+#   initial_layer_infill_speed: ["50"]  # mm/s × 60 = 3000 mm/min
+#   skirt_loops: ["2"]
+#   skirt_distance: ["5"]  # slightly larger than default 4mm
+#   seam_position: ["aligned"]
+#   wipe: ["1"]
+#   retract_before_wipe: ["70%"]
+#   avoid_crossing_perimeters: ["all"]  # NEW — prevents edge globs at part transitions
+# FIX APPLIED: travel_speed and travel_acceleration lowered to reduce edge globs;
+# skirt_distance increased to 5mm; avoid_crossing_perimeters=all added.
+
+#==========================================================================================
+# SYSTEM PARENT PRESETS (do NOT edit these — they are the common base)
+#==========================================================================================
+# fdm_process_voron_common (Voron process profile):
+#   initial_layer_speed: 50, travel_speed: 350, travel_acceleration: 7000
+#   initial_layer_infill_speed: 105
+#   skirt_loops: 0, skirt_distance: 1
+#   wipe: 0, retract_before_wipe: 0, avoid_crossing_perimeters: 0
+#   These values are overridden by the user process preset above.
+#
+# Elegoo PLA @base (filament base profile):
+#   No version key. Has inherits=fdm_filament_pla, enable_pressure_advance,
+#   filament_max_volumetric_speed=[21], nozzle_temperature=[210],
+#   pressure_advance=[0.04], enable_pressure_advance=[1],
+#   slow_down_layer_time=[4], filament_start_gcode present.
+
+#==========================================================================================
+# CLI SLICE RECIPE (headless, with G92 E0 workaround)
+#==========================================================================================
+# Using cli_machine.json + process + filament:
+#   orcaslicer #     --load-settings '<process>:/home/scottw/snap/orcaslicer/9/.config/OrcaSlicer/user/default/process/0.20mm AO70 Calm @AO70.json' #     --load-filaments '<filament>:/home/scottw/snap/orcaslicer/9/.config/OrcaSlicer/user/default/filament/Elegoo PLA @AO70.json' #     --load-machine '<machine>:/home/scottw/cli_machine.json' #     --output /tmp/lid.gcode LIDPRINT4_clean.stl
+#   OR equivalent via GUI: load the process preset + filament preset + Voron 0.2 machine
+#   The cli_machine.json contains G92 E0 per-layer for extruder reset
+
+#==========================================================================================
+# G-CODE ACCEPTANCE CHECKS (OPS-46 Partial — needs live printer verify)
+#==========================================================================================
+# After slicing LIDPRINT4_clean.stl with the above defaults, the generated G-code MUST:
+#   1. Contain M140 S70 (bed 70°C at start — system preset, should NOT drop to S60)
+#   2. NOT contain M140 S60 mid-print (bed temp drop = curling cause)
+#   3. Skirt first-layer F value ≈ 1500 (25 mm/s × 60) — confirms initial_layer_speed wins
+#   4. Travel moves F value ≈ 7200 (120 mm/min × 60) — confirms travel_speed override wins
+#   5. Skirt loops = 2, skirt_distance = 5mm
+#   6. No bed temp drop from 70→60°C during print
+# If any of these fail, re-check the process/filament overrides above.
+
+#==========================================================================================
+# STL / MESH DELIVERABLES
+#==========================================================================================
+# LIDPRINT4_clean.stl — 21,545 tris, features intact, 184 layers, 21.11 cm³
+#   USE THIS FOR PRINTING — features intact, slices clean
+#
+# LIDPRINT4.stl — original untouched (checksum unchanged) — keep as reference
+#
+# LIDPRINT4_meshfix-experiment-REJECTED.stl — MeshFix made it watertight but ate features;
+#   kept for reference, DO NOT print
+
+#==========================================================================================
+# OUTSTANDING ITEMS (from status-and-references.md)
+#==========================================================================================
+# A1 — Home All in Mainsail: printer was power-cycled, axes unhomed;
+#   PRINT_START refuses unhomed by design — FIX FIRST when printer is back
+#
+# A2 — OPS-46 acceptance: slice part, confirm G-code footer shows
+#   filament_settings_id = "Elegoo PLA @AO70" and emits M140 S70 with no
+#   mid-print bed drop — pending printer power-on + slice
+#
+# A3 — Edge curling on large prints: root cause was bed drop 70→60°C mid-raft;
+#   once A2 passes, if curling remains: add brim for large footprints, ensure
+#   V0.2 panels/door on with no drafts, then revisit Z-offset one variable at a time
+#
+# A4 — Verify PA survives a print: config now has pressure_advance: 0.04
+#   (verified durable across power cycle), but hasn't been confirmed during actual print
+#
+# B1 — Elegoo filament JSON root cause: version key removal FIXED above;
+#   also need compatible_printers + renamed_from + setting_id alignment
+#
+# B2 — Fix overwrite risk: OrcaSlicer.conf rewritten from memory on exit;
+#   any edits MUST be made while app is fully closed
+#
+# B3 — Existing 3MF projects embed old system filament: must re-select filament
+#   manually in each project after GUI re-open
+#
+# C1 — Initial outline/skirt too fast: FIXED above (travel_speed 120, travel_accel 2000,
+#   avoid_crossing_perimeters=all, skirt settings)
+#
+# C2 — Travel between parts too fast / globs: FIXED above (same knobs + lower travel values)
+#
+# C3 — Process preset not loading: should now work with version key removed from filament
+#
+# D4 — Slic3r install: needs sudo apt-get install -y libgtk2.0-0t64 (one manual run)
+#
+# E1 — kwin-mcp MCP server wedged: restart before next GUI automation session
+#
+# F1 — OPS-46: needs bed-temp acceptance (A2) to close to §19.2
+#
+# F2 — OPS-47: full evidence recorded; LIDPRINT4_clean.stl import in GUI to confirm
+#
+# F3 — OPS-48+: speed issues (C1, C2) and filament loader issue (B1) need new tracker entries
+
+#==========================================================================================
+# REFERENCE END - do NOT edit these files without re-running the fix generation:
+#   - Filament: /home/scottw/snap/orcaslicer/9/.config/OrcaSlicer/user/default/filament/Elegoo PLA @AO70.json
+#   - Process: /home/scottw/snap/orcaslicer/9/.config/OrcaSlicer/user/default/process/0.20mm AO70 Calm @AO70.json
+#   - Machine: /home/scottw/cli_machine.json
+#   - Conf: /home/scottw/snap/orcaslicer/9/.config/OrcaSlicer/OrcaSlicer.conf
+#==========================================================================================
+#==========================================================================================
+# PRINTER NETWORK STATUS (runtime, as of verification)
+#==========================================================================================
+# Moonraker / Klipper reachability:
+#   Host: 10.42.0.96
+#   Port: 7125 (Moonraker/TornadoServer 6.5.8)
+#   ICMP ping: FAILS (likely firewall/ICMP blocked)
+#   HTTP on 7125: PASSES — printer fully operational
+#
+# Confirmed via curl:
+#   GET /api/printer → operational, klippy_connected: true, ready: true
+#     bed actual: 32.07°C, target: 0.0°C
+#     tool0 actual: 33.49°C, target: 0.0°C
+#   GET /api/job → state: Operational, no active print
+#   API endpoints tested: /api/printer, /api/job, /api/files, /storage, /files (404 paths)
+#   Mainsail (https://10.42.0.96/config) accessible via browser
+#
+# NOTE: Earlier ARP FAILED was transient; printer was in quiet period.
+# Now confirmed online and ready for print jobs.
+
+#==========================================================================================

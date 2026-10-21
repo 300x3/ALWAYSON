@@ -61,7 +61,8 @@ apt install -y \
   acl \
   python3 \
   python3-venv \
-  python3-pip
+  python3-pip \
+  apparmor-utils
 echo "Host dependencies installed (Section 2.4)"
 
 echo "===== PRIVILEGED BOOTSTRAP COMPLETE $(date --iso-8601=seconds) ====="
