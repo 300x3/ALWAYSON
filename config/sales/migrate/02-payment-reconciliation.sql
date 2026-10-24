@@ -8,7 +8,7 @@
 -- set as a wire transfer).
 --
 -- These columns are additive and nullable, so existing rows are unaffected and
--- no other table changes. Section 18.4 requires Zelle reconciliation to be
+-- no other table changes. §7.2 requires Zelle reconciliation to be
 -- manual and operator-approved; recording that approval needs somewhere to put
 -- it, which is what this provides.
 --

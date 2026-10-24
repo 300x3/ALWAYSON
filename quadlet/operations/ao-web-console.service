@@ -1,0 +1,14 @@
+[Unit]
+Description=ALWAYS ON operator web console (loopback only, 127.0.0.1:8099)
+Documentation=file:///ALWAYSON/scripts/operations/web-console-server.py
+# Loopback-only operator console — binds 127.0.0.1 only, no public port.
+After=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /ALWAYSON/scripts/operations/web-console-server.py 8099
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=default.target

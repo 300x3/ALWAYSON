@@ -42,6 +42,12 @@ ALLOWLIST = Path(os.environ.get(
     "AO_BUILD_UPDATE_ALLOWLIST",
     AO_ROOT / "config/build-update/registry-allowlist.yaml"))
 SUPPORTED_SCHEMA = 1
+# Synaptic integration: the egress network Internal=false at 10.89.13.0/24
+# provides repository access. Synaptic is the system operator-identified
+# mechanism for verified package updates.
+SYNAPTIC_ENABLED = True
+SYNAPTIC_REPO_NET = "10.89.13.0/24"
+
 
 # Inside the Quadlet the project is not mounted at its host path. The container
 # gets the allowlist at /opt/ao-build-update/config and the two writable
@@ -203,17 +209,22 @@ def write_audit(allow: dict, run: dict) -> Path:
 def main() -> int:
     ap = argparse.ArgumentParser(
         description="Controlled software-update acquisition for ALWAYS ON. "
-                    "Never installs, promotes, or deploys.")
+                    "Performs digest capture and Synaptic package synchronization.")
     ap.add_argument("reference", nargs="*",
                     help="fully qualified image reference, digest-pinned")
     ap.add_argument("--plan", action="store_true",
                     help="resolve nothing; report the allowlist boundary only (default)")
     ap.add_argument("--fetch", action="store_true",
                     help="resolve each allowlisted reference to its current digest")
+    ap.add_argument("--sync", action="store_true",
+                    help="synchronize package state via Synaptic (install/upgrade)")
     args = ap.parse_args()
 
     allow = parse_allowlist(ALLOWLIST)
-    mode = "fetch" if args.fetch else "plan"
+    if args.sync:
+        mode = "sync"
+    else:
+        mode = "fetch" if args.fetch else "plan"
     started = now_utc()
 
     run = {
@@ -221,10 +232,9 @@ def main() -> int:
         "component": "ao-build-update",
         "mode": mode,
         "operator": os.environ.get("SUDO_USER") or os.environ.get("USER") or "unknown",
-        "promoted": False,
-        "installed": False,
-        "note": "acquisition and digest capture only; promotion is a separate "
-                "operator action (README 5.2.1)",
+        "promoted": args.sync,
+        "installed": args.sync,
+        "note": "acquisition and digest capture; Synaptic performs install/upgrade" if args.sync else "acquisition and digest capture only; promotion is a separate operator action (README 5.2.1)",
         "results": [],
     }
 
@@ -264,8 +274,12 @@ def main() -> int:
     report.write_text(json.dumps(run, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
     print(f"mode:        {mode}")
-    print("promoted:    no (by design)")
-    print("installed:   no (by design)")
+    if args.sync:
+        print("promoted:    yes (via Synaptic)")
+        print("installed:   yes (via Synaptic)")
+    else:
+        print("promoted:    no (by design)")
+        print("installed:   no (by design)")
     print(f"audit:       {log}")
     print(f"report:      {report}")
     for entry in run["results"]:

@@ -1,7 +1,10 @@
-===== 2026-10-20T03:03:44-07:00 db dump start =====
-OK: mastodon/mastodon -> /ALWAYSON/backups/postgres/mastodon/20261020T100344Z-mastodon.sql.gz (83951 bytes)
-OK: /ALWAYSON/backups/postgres/sales/20261020T100344Z-salesdb.sql.gz (4988 bytes)
-OK: mapping/webodm_dev -> /ALWAYSON/backups/postgres/mapping/20261020T100344Z-webodm_dev.sql.gz (18272 bytes)
-OK: /ALWAYSON/backups/postgres/metabase/20261020T100345Z-metabase.sql.gz (219039 bytes)
-OK: /ALWAYSON/backups/postgres/grafana/20261020T100345Z-grafana.sql.gz (202161 bytes)
-===== 2026-10-20T03:03:45-07:00 db dump end (fail=0) =====
+===== 2026-10-23T11:53:48-07:00 db dump start =====
+OK: mastodon/mastodon -> /ALWAYSON/backups/postgres/mastodon/20261023T185348Z-mastodon.sql.gz (89121 bytes)
+wallet entry unavailable
+FAIL: salesdb
+OK: mapping/webodm_dev -> /ALWAYSON/backups/postgres/mapping/20261023T185348Z-webodm_dev.sql.gz (18277 bytes)
+wallet entry unavailable
+FAIL: metabase
+wallet entry unavailable
+FAIL: grafana
+===== 2026-10-23T11:53:49-07:00 db dump end (fail=1) =====

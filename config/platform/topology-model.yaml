@@ -579,12 +579,6 @@ networks:
     status: implemented
     note: "Grafana 127.0.0.1:3001, Metabase 127.0.0.1:3002, Prometheus 127.0.0.1:9090 (README 20.0)"
 
-  ao-egress-community:
-    purpose: "Approved Mastodon/community federation egress adapter"
-    adapter: true
-    includes: [mastodon-web, mastodon-sidekiq]
-    status: implemented
-    note: "Only Mastodon web/Sidekiq join this adapter network (README 5.2, quadlet/sales/*)"
   ao-reporting-egress:
     purpose: "Reporting-tool egress to the host PostgreSQL bridge (10.42.0.1:5432)"
     adapter: true

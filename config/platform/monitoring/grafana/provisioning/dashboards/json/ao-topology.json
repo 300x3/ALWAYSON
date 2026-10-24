@@ -1444,16 +1444,6 @@
           "status": "neutral"
         },
         {
-          "id": "net-ao-egress-community",
-          "title": "ao-egress-community",
-          "subTitle": "adapter",
-          "mainStat": "no subnet",
-          "secondaryStat": "",
-          "arc__": "",
-          "detail__": "implemented \u00b7 gw \u2014 \u00b7 Internal=None \u00b7 members: none",
-          "status": "neutral"
-        },
-        {
           "id": "net-ao-fabrication",
           "title": "ao-fabrication",
           "subTitle": "workload",
@@ -2152,14 +2142,6 @@
           "mainStat": "Internal=false",
           "secondaryStat": "planned",
           "detail__": "Encrypted pCloud replication and approved IPFS operations (outbound adapter)"
-        },
-        {
-          "id": "host=>net-ao-egress-community",
-          "source": "host",
-          "target": "net-ao-egress-community",
-          "mainStat": "Internal=false",
-          "secondaryStat": "implemented",
-          "detail__": "Approved Mastodon/community federation egress adapter"
         },
         {
           "id": "host=>net-ao-fabrication",

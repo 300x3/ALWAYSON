@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""ALWAYS ON - ao-ingress-payment webhook adapter (README Section 7.2, 18.4).
+"""ALWAYS ON - ao-ingress-payment webhook adapter (README Section 7.2).
 
 Receives provider payment events and emits normalized payment state into
 salesdb. It does NOT process cards, does NOT store provider secrets, and does
@@ -8,7 +8,7 @@ no public API or webhook, so it is a manual-reconciliation queue only and is
 never auto-validated. Coinbase/USDC settlement is recorded from an operator
 supply of settlement evidence, not scraped.
 
-Controls enforced here (Section 18.4):
+Controls enforced here (§7.2):
   - PayPal: signature verified before ANY row is written.
   - Zelle: manual reconciliation only; requires operator approval reference.
   - Coinbase: on-chain settlement is the verification.
@@ -39,7 +39,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 # config/sales/migrate/01-normalise-zelle-provider.sql.
 PROVIDERS = ("website", "paypal", "Zelle", "coinbase", "bank", "manual_reconciliation")
 # Providers that may be auto-validated from an inbound event. Zelle is
-# deliberately absent: Section 18.4 forbids automated Zelle verification.
+# deliberately absent: §7.2 confirms Zelle is manual-reconciliation only.
 AUTOMATED = ("paypal", "coinbase")
 MAX_BODY = 256 * 1024
 
@@ -212,9 +212,9 @@ class Handler(BaseHTTPRequestHandler):
                 self._reply(401, {"error": "signature verification failed"})
                 return
         elif provider == "Zelle":
-            # Refuse to treat any inbound POST as Zelle evidence. Section 18.4:
+            # Refuse to treat any inbound POST as Zelle evidence. §7.2:
             # Zelle has no webhook; reconciliation is operator-only.
-            self._reply(501, {"error": "Zelle is manual-reconciliation only (Section 18.4)"})
+            self._reply(501, {"error": "Zelle is manual-reconciliation only (§7.2)"})
             return
 
         try:

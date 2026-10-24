@@ -1,6 +1,6 @@
 # /ALWAYSON/quadlet/payment/ao-ingress-payment.container
 #
-# ALWAYS ON payment ingress adapter (README Section 7.2, 18.4). Owning domain is
+# ALWAYS ON payment ingress adapter (README Section 7.2). Owning domain is
 # ao-payment exclusively: this container is attached to ao-payment and to no
 # other ao-* network, per the Section 5.4 attachment rule.
 #
@@ -12,7 +12,7 @@
 # network is joined; reaching salesdb is done by the host-side relay, not by
 # broadening this container's membership.
 #
-# Written but NEVER enabled against live traffic by this unit alone. Section 18.4
+# Written but NEVER enabled against live traffic by this unit alone. §7.2
 # requires operator approval before payment acceptance is enabled; see README.
 [Unit]
 Description=ALWAYS ON payment ingress adapter (ao-ingress-payment)

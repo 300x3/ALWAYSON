@@ -99,7 +99,7 @@ entries:
     podman_network: ao-sales
     no_access_networks: [ao-admin, ao-data, ao-field, ao-ledger-core, ao-ledger-ingest, ao-mapping, ao-payment, ao-sim-fabrication, ao-sim-vehicle]
     data_source: "Local Mastodon web/streaming on loopback (verified listeners 127.0.0.1:3000 via nginx proxy, 127.0.0.1:4000 streaming); host PostgreSQL 127.0.0.1:5432 and Redis 127.0.0.1:6379 loopback-only"
-    access_boundary: "Tokodon uses approved localhost origin; external publication only through ao-egress-community when enabled."
+    access_boundary: "Tokodon uses approved localhost origin; external publication only through ao-sales when enabled."
     startup: "systemctl --user start ao-mastodon-db.service ao-mastodon-redis.service ao-mastodon-sidekiq.service ao-mastodon-web.service ao-mastodon-streaming.service (proxy as configured); then launch Tokodon"
     health_check: "Loopback HTTP 200 on web/streaming origins; systemctl --user is-active for all five units; ISSUE 000600 loopback SSL caveats apply"
     shutdown: "Quit Tokodon; systemctl --user stop mastodon units (web, streaming, sidekiq, then db/redis)"

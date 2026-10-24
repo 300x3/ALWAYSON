@@ -93,8 +93,8 @@ Store `client_id`/`client_secret` in KWallet `ao-mastodon`:
 ```
 
 ## 6. Ledger/adapter notes (Section 3.8 carried over)
-- Outbound egress only to approved host (`approved_pub_host: 300x3.com`;
-  delivery path requires the scoped `ao-egress-community` Sidekiq route,
+- Outbound egress only to approved host (`approved_pub_host: mastodon.300x3.com`;
+  delivery path requires the scoped `ao-sales` Sidekiq route,
   WORK 000060 outstanding).
 - Any OpenClaw post must be draft-by-default; human approval mandatory for
   pricing/orders/shipping/warranty/financial/technical safety/legal.

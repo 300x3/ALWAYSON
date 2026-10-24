@@ -14,9 +14,9 @@ client_secret="$("$WALLET_HELPER" kdewallet ao-mastodon openclaw-bot-client-secr
   exit 3
 }
 {
-  printf 'MASTODON_SERVER=https://300x3.com\n'
+  printf 'MASTODON_SERVER=https://mastodon.300x3.com\n'
   printf 'MASTODON_BOT_HANDLE=bot\n'
-  printf 'MASTODON_BOT_EMAIL=300x3@posteo.net\n'
+  printf 'MASTODON_BOT_EMAIL=bot@300x3.com\n'
   printf 'MASTODON_BOT_PASSWORD=%s\n' "$bot_password"
   printf 'MASTODON_ACCESS_TOKEN=%s\n' "$access_token"
   printf 'MASTODON_CLIENT_ID=%s\n' "$client_id"

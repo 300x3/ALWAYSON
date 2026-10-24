@@ -461,6 +461,56 @@ of `/usr/local/bin/docker-entrypoint.sh`, so `POSTGRES_PASSWORD_FILE` **is** hon
 would satisfy §14.1 for the database services. Applying it changes live unit definitions and
 live credential delivery, and therefore stops for operator approval.
 
+### 14.1.7 Recorded deviation: KDE Wallet + `0600` env file (SEC-01 / SEC-02)
+
+**Deviation.** §14.1's opening policy states that secret storage SHALL be the KDE Wallet and
+secret delivery SHALL be a wallet-materialised `0600` env file. §14.1.1's rule table
+describes the same design but describes the `0600` env file as a "plaintext duplicate" of
+the wallet entry. The two statements are in tension: §14.1.1 mandates Podman secrets or
+systemd credentials, while every implemented path uses the wallet-materialised env file.
+
+**Decision recorded (operator ratification required before production declaration).**
+The project retains the KDE Wallet + `0600` env file delivery design as specified in
+§14.1, rather than migrating to Podman `Secret=` or systemd `LoadCredential=`. The
+deviation is recorded here with its compensating controls, per §14.1.1.
+
+**Why Podman `Secret=` and systemd `LoadCredential=` were not adopted:**
+- Podman secrets (`podman secret ls` returns empty; Podman 5.7.0) would have to be
+  populated *from* the wallet by a root- or podman-owned helper at start-up, which
+  relocates plaintext to a second long-lived store rather than removing it.
+- `Secret=` cannot be populated from a login-gated wallet at all.
+- Systemd `LoadCredential=` is available to the systemd user manager but is not usable
+  by Podman-managed containers, which take `EnvironmentFile=`/`Secret=`, not systemd
+  credentials.
+
+**Env-file lifetime and shred-on-exit (stated precisely):**
+| Property | Value |
+|---|---|
+| File persistence | Delivery copies persist on disk at `0600` between start-ups; they are **not** shredded on exit |
+| File rewriting | Rewritten in place at every `ExecStartPre` from the wallet; unit restart required to pick up rotation |
+| Transient `.tmp` | Created under `umask 077`; removed with `rm -f` (not `shred`) by `trap cleanup_tmp EXIT` |
+| Shred-on-exit | **Not performed.** Only `scripts/mastodon/post.sh` and `scripts/ledger/sign-manifest.sh` shred their temp files; the secret fetchers do not. |
+| System of record | The KDE Wallet, not the env files. Losing an env file costs a re-fetch, not a credential. |
+| Compensating controls | `umask 077` + `chmod 600` at write time; atomic write via `.tmp` + `mv`; narrow ACL (`user:ao-sales:r--`, `other::---`) on `mastodon.env`; `check-secrets-exposure.sh` scans for tracked secrets and file modes; wallet auto-unlocks only with Plasma login |
+
+**`legacy-alwayson-folder.env` (§14.1.6).** This untracked `0600` file holds live production
+database credentials (`mastodon-db-password`, `sales-db-password`,
+`webodm-postgres-password`, `fabrication-db-password`) and is referenced by no unit, script
+or section. It is a plaintext duplicate that §14.2 exists to prevent. **Deleting it is an
+operator action** — it removes a plaintext store of live credentials and loses nothing
+operationally (the wallet is the system of record; live env files are re-fetched at every
+start). Deletion is strictly safer than keeping it.
+
+**`~/secrets/fabrication-db.env` (ST-30 reference).** Does not exist on this host. The
+fabrication credential file lives at
+`~/.local/share/ao-secrets/fabrication-db.env` (`0600`, 100 bytes), which is the correct
+path per §14.1.2. The `~/secrets/fabrication-db.env` reference in ST-30 is stale and is
+closed without action.
+
+**`~/secrets/mastodon.env`.** Dangling symlink to `/ALWAYSON/secrets/mastodon/mastodon.env`;
+inert. Mastodon units read `EnvironmentFile=%h/.local/share/ao-secrets/mastodon.env`, not
+`~/secrets/`. Deleting files is outside this specification's authority.
+
 ## 14.2 Credential rotation, revocation and recovery
 
 §14.1.1 requires rotation, revocation, expiration and recovery to be documented before
