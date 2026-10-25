@@ -1,0 +1,16 @@
+[Unit]
+Description=ALWAYS ON weekly restic repository integrity check (Sun 04:30)
+Documentation=file:///ALWAYSON/README.md#171-restic-integrity
+PartOf=graphical-session.target
+
+[Service]
+Type=oneshot
+# RESTIC_ENV_FILE comes from the operator wallet session via fetch-restic-env.sh.
+# The script never writes secrets and never modifies the repository.
+ExecStart=/ALWAYSON/scripts/backup/verify-backup.sh
+# Restart on failure only - a failed integrity check is an alert condition.
+Restart=on-failure
+RestartSec=300
+
+[Install]
+WantedBy=graphical-session.target

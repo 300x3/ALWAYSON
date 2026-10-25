@@ -1,0 +1,13 @@
+[Unit]
+Description=ALWAYS ON weekly restic repository integrity timer
+Documentation=file:///ALWAYSON/README.md#171-restic-integrity
+PartOf=graphical-session.target
+
+[Timer]
+OnCalendar=Sun *-*-* 04:30:00
+Persistent=true
+RandomizedDelaySec=600
+AccuracySec=1min
+
+[Install]
+WantedBy=graphical-session.target

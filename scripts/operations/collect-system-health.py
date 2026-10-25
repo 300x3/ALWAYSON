@@ -37,7 +37,7 @@ import time
 VERSION = "1.0.0"
 DB_HOST = "/var/run/postgresql"
 DB_NAME = "grafana"
-DB_USER = "grafana_app"
+DB_USER = "ao_health_writer"
 
 # The SQLite stores named in README 4.3 / 3.3. Those rows are: MeshChatX,
 # QGroundControl, Akonadi, browser profile stores, Podman metadata. An earlier

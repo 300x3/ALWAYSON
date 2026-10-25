@@ -26,7 +26,7 @@ DropCapability=all
 # (both probed and measured NOT-reachable). The textfile collector is the only
 # path that works, and it exists only in node_exporter -- the prom/prometheus
 # binary has no such collector.
-Exec=--path.rootfs=/host --collector.textfile.directory=/textfile
+Exec=--path.rootfs=/host --collector.textfile.directory=/textfile --collector.systemd
 
 
 [Service]
