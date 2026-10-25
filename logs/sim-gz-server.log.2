@@ -1,793 +1,101 @@
-2026-10-17T19:53:15.083138418-07:00 stdout F (2026-10-18 02:53:15.083) [info] [gz.cc:407] Gazebo Sim Server v10.5.0
-2026-10-17T19:53:15.276701937-07:00 stdout F (2026-10-18 02:53:15.276) [info] [ServerPrivate.cc:697] Loading SDF world file[/ALWAYSON/GAZEBO/worlds/factory.world].
-2026-10-17T19:53:17.211239627-07:00 stdout F (2026-10-18 02:53:17.211) [info] [SystemManager.cc:54] Serving entity system service on [/entity/system/add]
-2026-10-17T19:53:17.215753105-07:00 stdout F (2026-10-18 02:53:17.215) [info] [SimulationRunner.cc:347] Serving world controls on [/world/factory/control], [/world/factory/control/state] and [/world/factory/playback/control]
-2026-10-17T19:53:17.215780561-07:00 stderr F (2026-10-18 02:53:17.215) [warning] [Conversions.cc:736] <gui><camera> can't be converted yet
-2026-10-17T19:53:17.216194790-07:00 stdout F (2026-10-18 02:53:17.216) [info] [SimulationRunner.cc:373] Serving GUI information on [/world/factory/gui/info]
-2026-10-17T19:53:17.216194790-07:00 stdout F (2026-10-18 02:53:17.216) [info] [SimulationRunner.cc:376] World [factory] initialized with [default_physics] physics profile.
-2026-10-17T19:53:17.216323857-07:00 stdout F (2026-10-18 02:53:17.216) [info] [SimulationRunner.cc:383] Serving world SDF generation service on [/world/factory/generate_world_sdf]
-2026-10-17T19:53:17.216583914-07:00 stdout F (2026-10-18 02:53:17.216) [info] [ServerPrivate.cc:357] Serving world names on [/gazebo/worlds]
-2026-10-17T19:53:17.216630733-07:00 stdout F (2026-10-18 02:53:17.216) [info] [ServerPrivate.cc:370] Resource path add service on [/gazebo/resource_paths/add].
-2026-10-17T19:53:17.216678296-07:00 stdout F (2026-10-18 02:53:17.216) [info] [ServerPrivate.cc:383] Resource path get service on [/gazebo/resource_paths/get].
-2026-10-17T19:53:17.216721052-07:00 stdout F (2026-10-18 02:53:17.216) [info] [ServerPrivate.cc:398] Resource path resolve service on [/gazebo/resource_paths/resolve].
-2026-10-17T19:53:17.216765999-07:00 stdout F (2026-10-18 02:53:17.216) [info] [ServerPrivate.cc:412] Resource paths published on [/gazebo/resource_paths].
-2026-10-17T19:53:17.217231058-07:00 stdout F (2026-10-18 02:53:17.217) [info] [ServerPrivate.cc:425] Server control service on [/server_control].
-2026-10-17T19:53:17.217651101-07:00 stdout F (2026-10-18 02:53:17.217) [info] [SimulationRunner.cc:868] Found no publishers on /stats, adding root stats topic
-2026-10-17T19:53:17.217774379-07:00 stdout F (2026-10-18 02:53:17.217) [info] [SimulationRunner.cc:902] Found no publishers on /clock, adding root clock topic
-2026-10-17T19:53:17.488668057-07:00 stdout F (2026-10-18 02:53:17.488) [debug] [Sensors.cc:697] Configuring Sensors system
-2026-10-17T19:53:17.488734836-07:00 stdout F (2026-10-18 02:53:17.488) [debug] [Sensors.cc:557] SensorsPrivate::Run
-2026-10-17T19:53:17.488805512-07:00 stdout F (2026-10-18 02:53:17.488) [debug] [SystemManager.cc:80] Loaded system [gz::sim::systems::Sensors] for entity [1]
-2026-10-17T19:53:17.489108880-07:00 stdout F (2026-10-18 02:53:17.489) [debug] [Sensors.cc:532] SensorsPrivate::RenderThread started
-2026-10-17T19:53:17.489108880-07:00 stdout F (2026-10-18 02:53:17.489) [debug] [Sensors.cc:337] Waiting for init
-2026-10-17T19:53:17.492657888-07:00 stdout F (2026-10-18 02:53:17.492) [info] [UserCommands.cc:751] Create service on [/world/factory/create_multiple] (async)
-2026-10-17T19:53:17.492657888-07:00 stdout F (2026-10-18 02:53:17.492) [info] [UserCommands.cc:753] Create service on [/world/factory/create_multiple/blocking] (blocking)
-2026-10-17T19:53:17.492800151-07:00 stdout F (2026-10-18 02:53:17.492) [info] [UserCommands.cc:751] Remove service on [/world/factory/remove] (async)
-2026-10-17T19:53:17.492800151-07:00 stdout F (2026-10-18 02:53:17.492) [info] [UserCommands.cc:753] Remove service on [/world/factory/remove/blocking] (blocking)
-2026-10-17T19:53:17.492915672-07:00 stdout F (2026-10-18 02:53:17.492) [info] [UserCommands.cc:751] Pose service on [/world/factory/set_pose] (async)
-2026-10-17T19:53:17.492915672-07:00 stdout F (2026-10-18 02:53:17.492) [info] [UserCommands.cc:753] Pose service on [/world/factory/set_pose/blocking] (blocking)
-2026-10-17T19:53:17.493019063-07:00 stdout F (2026-10-18 02:53:17.493) [info] [UserCommands.cc:751] Pose service on [/world/factory/set_pose_vector] (async)
-2026-10-17T19:53:17.493019063-07:00 stdout F (2026-10-18 02:53:17.493) [info] [UserCommands.cc:753] Pose service on [/world/factory/set_pose_vector/blocking] (blocking)
-2026-10-17T19:53:17.493151940-07:00 stdout F (2026-10-18 02:53:17.493) [info] [UserCommands.cc:751] Light configuration service on [/world/factory/light_config] (async)
-2026-10-17T19:53:17.493151940-07:00 stdout F (2026-10-18 02:53:17.493) [info] [UserCommands.cc:753] Light configuration service on [/world/factory/light_config/blocking] (blocking)
-2026-10-17T19:53:17.493343811-07:00 stdout F (2026-10-18 02:53:17.493) [info] [UserCommands.cc:751] Physics service on [/world/factory/set_physics] (async)
-2026-10-17T19:53:17.493343811-07:00 stdout F (2026-10-18 02:53:17.493) [info] [UserCommands.cc:753] Physics service on [/world/factory/set_physics/blocking] (blocking)
-2026-10-17T19:53:17.493473757-07:00 stdout F (2026-10-18 02:53:17.493) [info] [UserCommands.cc:751] SphericalCoordinates service on [/world/factory/set_spherical_coordinates] (async)
-2026-10-17T19:53:17.493473757-07:00 stdout F (2026-10-18 02:53:17.493) [info] [UserCommands.cc:753] SphericalCoordinates service on [/world/factory/set_spherical_coordinates/blocking] (blocking)
-2026-10-17T19:53:17.493553506-07:00 stdout F (2026-10-18 02:53:17.493) [info] [UserCommands.cc:751] Enable collision service on [/world/factory/enable_collision] (async)
-2026-10-17T19:53:17.493553506-07:00 stdout F (2026-10-18 02:53:17.493) [info] [UserCommands.cc:753] Enable collision service on [/world/factory/enable_collision/blocking] (blocking)
-2026-10-17T19:53:17.493628696-07:00 stdout F (2026-10-18 02:53:17.493) [info] [UserCommands.cc:751] Disable collision service on [/world/factory/disable_collision] (async)
-2026-10-17T19:53:17.493628696-07:00 stdout F (2026-10-18 02:53:17.493) [info] [UserCommands.cc:753] Disable collision service on [/world/factory/disable_collision/blocking] (blocking)
-2026-10-17T19:53:17.493759028-07:00 stdout F (2026-10-18 02:53:17.493) [info] [UserCommands.cc:751] Material service on [/world/factory/visual_config] (async)
-2026-10-17T19:53:17.493759028-07:00 stdout F (2026-10-18 02:53:17.493) [info] [UserCommands.cc:753] Material service on [/world/factory/visual_config/blocking] (blocking)
-2026-10-17T19:53:17.493860972-07:00 stdout F (2026-10-18 02:53:17.493) [info] [UserCommands.cc:751] Material service on [/world/factory/wheel_slip] (async)
-2026-10-17T19:53:17.493860972-07:00 stdout F (2026-10-18 02:53:17.493) [info] [UserCommands.cc:753] Material service on [/world/factory/wheel_slip/blocking] (blocking)
-2026-10-17T19:53:17.493883795-07:00 stdout F (2026-10-18 02:53:17.493) [debug] [SystemManager.cc:80] Loaded system [gz::sim::systems::UserCommands] for entity [1]
-2026-10-17T19:53:17.496243989-07:00 stdout F (2026-10-18 02:53:17.496) [debug] [SystemManager.cc:80] Loaded system [gz::sim::systems::SceneBroadcaster] for entity [1]
-2026-10-17T19:53:17.556746815-07:00 stdout F (2026-10-18 02:53:17.556) [debug] [Physics.cc:1053] Loaded [gz::physics::dartsim::Plugin] from library [/usr/lib/x86_64-linux-gnu/gz-physics-9/engine-plugins/libgz-physics-dartsim-plugin.so]
-2026-10-17T19:53:17.556746815-07:00 stdout F (2026-10-18 02:53:17.556) [debug] [SystemManager.cc:80] Loaded system [gz::sim::systems::Physics] for entity [1]
-2026-10-17T19:53:17.557175642-07:00 stdout F (2026-10-18 02:53:17.557) [info] [LevelManager.cc:646] Loaded level [default]
-2026-10-17T19:53:17.557874600-07:00 stdout F (2026-10-18 02:53:17.557) [debug] [ServerConfig.cc:1042] Loading (3) plugins from file [/gzhome/.gz/sim/10/server.config]
-2026-10-17T19:53:17.557874600-07:00 stdout F (2026-10-18 02:53:17.557) [debug] [SimulationRunner.cc:1926] Additional plugins to load:
-2026-10-17T19:53:17.559592383-07:00 stdout F (2026-10-18 02:53:17.559) [debug] [SimulationRunner.cc:655] Creating PostUpdate worker threads: 3
-2026-10-17T19:53:17.559592383-07:00 stdout F (2026-10-18 02:53:17.559) [debug] [SimulationRunner.cc:666] Creating postupdate worker thread (0)
-2026-10-17T19:53:17.559624410-07:00 stdout F (2026-10-18 02:53:17.559) [debug] [SimulationRunner.cc:666] Creating postupdate worker thread (1)
-2026-10-17T19:53:17.580396229-07:00 stdout F (2026-10-18 02:53:17.580) [debug] [Sensors.cc:953] Initialization needed
-2026-10-17T19:53:17.580453312-07:00 stdout F (2026-10-18 02:53:17.580) [debug] [Sensors.cc:349] Initializing render context
-2026-10-17T19:53:17.580846937-07:00 stdout F (2026-10-18 02:53:17.580) [info] [RenderEngineManager.cc:513] Loading plugin [gz-rendering-ogre2]
-2026-10-17T19:53:17.582462016-07:00 stdout F (2026-10-18 02:53:17.582) [info] [SceneBroadcaster.cc:654] Serving scene information on [/world/factory/scene/info]
-2026-10-17T19:53:17.582493126-07:00 stdout F (2026-10-18 02:53:17.582) [info] [SceneBroadcaster.cc:663] Serving graph information on [/world/factory/scene/graph]
-2026-10-17T19:53:17.582669582-07:00 stdout F (2026-10-18 02:53:17.582) [info] [SceneBroadcaster.cc:674] Serving full state on [/world/factory/state]
-2026-10-17T19:53:17.582680235-07:00 stdout F (2026-10-18 02:53:17.582) [info] [SceneBroadcaster.cc:683] Serving full state (async) on [/world/factory/state_async]
-2026-10-17T19:53:17.582777259-07:00 stdout F (2026-10-18 02:53:17.582) [info] [SceneBroadcaster.cc:691] Publishing scene information on [/world/factory/scene/info]
-2026-10-17T19:53:17.583166154-07:00 stdout F (2026-10-18 02:53:17.583) [info] [SceneBroadcaster.cc:700] Publishing entity deletions on [/world/factory/scene/deletion]
-2026-10-17T19:53:17.583180733-07:00 stdout F (2026-10-18 02:53:17.583) [info] [SceneBroadcaster.cc:709] Publishing state changes on [/world/factory/state]
-2026-10-17T19:53:17.583250690-07:00 stdout F (2026-10-18 02:53:17.583) [info] [SceneBroadcaster.cc:720] Publishing pose messages on [/world/factory/pose/info]
-2026-10-17T19:53:17.583260316-07:00 stdout F (2026-10-18 02:53:17.583) [info] [SceneBroadcaster.cc:731] Publishing dynamic pose messages on [/world/factory/dynamic_pose/info]
-2026-10-17T19:53:17.661055398-07:00 stderr F (2026-10-18 02:53:17.661) [warning] [Ogre2RenderEngine.cc:556] Unable to open display: . Trying to run in headless mode.
-2026-10-17T19:53:18.296241952-07:00 stdout F (2026-10-18 02:53:18.296) [debug] [RenderUtil.cc:2646] Create scene [scene]
-2026-10-17T19:53:18.784106571-07:00 stdout F (2026-10-18 02:53:18.784) [debug] [Sensors.cc:391] Rendering Thread initialized
-2026-10-17T19:53:18.784125573-07:00 stdout F (2026-10-18 02:53:18.784) [debug] [Sensors.cc:953] Initialization needed
-2026-10-17T19:53:19.576206257-07:00 stdout F (2026-10-18 02:53:19.576) [debug] [CameraSensor.cc:339] Camera images for [camera_rig::camera_rig::user_camera] advertised on [/factory/camera/image]
-2026-10-17T19:53:19.576294721-07:00 stdout F (2026-10-18 02:53:19.576) [debug] [CameraSensor.cc:629] Camera info for [camera_rig::camera_rig::user_camera] advertised on [/factory/camera/camera_info]
-2026-10-17T19:53:19.583048186-07:00 stderr F (2026-10-18 02:53:19.582) [warning] [Ogre2Camera.cc:423] Ogre2Camera::SetVisibilityMask: Mask bits c0000000 are set but will be ignored as they conflict with the reserved bits used internally by the ogre2 backend.
-2026-10-17T19:53:19.583396529-07:00 stdout F (2026-10-18 02:53:19.583) [debug] [CameraSensor.cc:339] Camera images for [camera_arms_ne::camera_arms_ne::camera_arms_ne] advertised on [/factory/camera/arms_ne]
-2026-10-17T19:53:19.583396529-07:00 stdout F (2026-10-18 02:53:19.583) [debug] [CameraSensor.cc:629] Camera info for [camera_arms_ne::camera_arms_ne::camera_arms_ne] advertised on [/factory/camera/camera_info]
-2026-10-17T19:53:19.583418811-07:00 stderr F (2026-10-18 02:53:19.583) [warning] [Ogre2Camera.cc:423] Ogre2Camera::SetVisibilityMask: Mask bits c0000000 are set but will be ignored as they conflict with the reserved bits used internally by the ogre2 backend.
-2026-10-17T19:53:19.583655647-07:00 stdout F (2026-10-18 02:53:19.583) [debug] [CameraSensor.cc:339] Camera images for [camera_arms_n::camera_arms_n::camera_arms_n] advertised on [/factory/camera/arms_n]
-2026-10-17T19:53:19.583655647-07:00 stdout F (2026-10-18 02:53:19.583) [debug] [CameraSensor.cc:629] Camera info for [camera_arms_n::camera_arms_n::camera_arms_n] advertised on [/factory/camera/camera_info]
-2026-10-17T19:53:19.583673675-07:00 stderr F (2026-10-18 02:53:19.583) [warning] [Ogre2Camera.cc:423] Ogre2Camera::SetVisibilityMask: Mask bits c0000000 are set but will be ignored as they conflict with the reserved bits used internally by the ogre2 backend.
-2026-10-17T19:53:19.583893005-07:00 stdout F (2026-10-18 02:53:19.583) [debug] [CameraSensor.cc:339] Camera images for [camera_arms_se::camera_arms_se::camera_arms_se] advertised on [/factory/camera/arms_se]
-2026-10-17T19:53:19.583893005-07:00 stdout F (2026-10-18 02:53:19.583) [debug] [CameraSensor.cc:629] Camera info for [camera_arms_se::camera_arms_se::camera_arms_se] advertised on [/factory/camera/camera_info]
-2026-10-17T19:53:19.583902664-07:00 stderr F (2026-10-18 02:53:19.583) [warning] [Ogre2Camera.cc:423] Ogre2Camera::SetVisibilityMask: Mask bits c0000000 are set but will be ignored as they conflict with the reserved bits used internally by the ogre2 backend.
-2026-10-17T19:53:19.584117472-07:00 stdout F (2026-10-18 02:53:19.584) [debug] [CameraSensor.cc:339] Camera images for [camera_arms_e::camera_arms_e::camera_arms_e] advertised on [/factory/camera/arms_e]
-2026-10-17T19:53:19.584117472-07:00 stdout F (2026-10-18 02:53:19.584) [debug] [CameraSensor.cc:629] Camera info for [camera_arms_e::camera_arms_e::camera_arms_e] advertised on [/factory/camera/camera_info]
-2026-10-17T19:53:19.584135368-07:00 stderr F (2026-10-18 02:53:19.584) [warning] [Ogre2Camera.cc:423] Ogre2Camera::SetVisibilityMask: Mask bits c0000000 are set but will be ignored as they conflict with the reserved bits used internally by the ogre2 backend.
-2026-10-17T19:53:19.584357098-07:00 stdout F (2026-10-18 02:53:19.584) [debug] [CameraSensor.cc:339] Camera images for [camera_elev_arms::camera_elev_arms::camera_elev_arms] advertised on [/factory/camera/elev_arms]
-2026-10-17T19:53:19.584357098-07:00 stdout F (2026-10-18 02:53:19.584) [debug] [CameraSensor.cc:629] Camera info for [camera_elev_arms::camera_elev_arms::camera_elev_arms] advertised on [/factory/camera/camera_info]
-2026-10-17T19:53:19.584366823-07:00 stderr F (2026-10-18 02:53:19.584) [warning] [Ogre2Camera.cc:423] Ogre2Camera::SetVisibilityMask: Mask bits c0000000 are set but will be ignored as they conflict with the reserved bits used internally by the ogre2 backend.
-2026-10-17T19:53:19.584603164-07:00 stdout F (2026-10-18 02:53:19.584) [debug] [CameraSensor.cc:339] Camera images for [camera_elev_conveyor::camera_elev_conveyor::camera_elev_conveyor] advertised on [/factory/camera/elev_conveyor]
-2026-10-17T19:53:19.584603164-07:00 stdout F (2026-10-18 02:53:19.584) [debug] [CameraSensor.cc:629] Camera info for [camera_elev_conveyor::camera_elev_conveyor::camera_elev_conveyor] advertised on [/factory/camera/camera_info]
-2026-10-17T19:53:19.584614564-07:00 stderr F (2026-10-18 02:53:19.584) [warning] [Ogre2Camera.cc:423] Ogre2Camera::SetVisibilityMask: Mask bits c0000000 are set but will be ignored as they conflict with the reserved bits used internally by the ogre2 backend.
-2026-10-17T19:53:19.584829668-07:00 stdout F (2026-10-18 02:53:19.584) [debug] [CameraSensor.cc:339] Camera images for [camera_elev_massing::camera_elev_massing::camera_elev_massing] advertised on [/factory/camera/elev_massing]
-2026-10-17T19:53:19.584829668-07:00 stdout F (2026-10-18 02:53:19.584) [debug] [CameraSensor.cc:629] Camera info for [camera_elev_massing::camera_elev_massing::camera_elev_massing] advertised on [/factory/camera/camera_info]
-2026-10-17T19:53:19.584839236-07:00 stderr F (2026-10-18 02:53:19.584) [warning] [Ogre2Camera.cc:423] Ogre2Camera::SetVisibilityMask: Mask bits c0000000 are set but will be ignored as they conflict with the reserved bits used internally by the ogre2 backend.
-2026-10-17T19:53:19.620604128-07:00 stdout F (2026-10-18 02:53:19.620) [debug] [CameraSensor.cc:438] Enabling camera sensor: 'camera_rig::camera_rig::user_camera' data generation.
-2026-10-17T19:53:19.929515336-07:00 stdout F (2026-10-18 02:53:19.929) [debug] [CameraSensor.cc:438] Enabling camera sensor: 'camera_arms_ne::camera_arms_ne::camera_arms_ne' data generation.
-2026-10-17T19:53:19.953311760-07:00 stdout F (2026-10-18 02:53:19.953) [debug] [CameraSensor.cc:438] Enabling camera sensor: 'camera_arms_n::camera_arms_n::camera_arms_n' data generation.
-2026-10-17T19:53:19.981311753-07:00 stdout F (2026-10-18 02:53:19.981) [debug] [CameraSensor.cc:438] Enabling camera sensor: 'camera_arms_se::camera_arms_se::camera_arms_se' data generation.
-2026-10-17T19:53:20.002920853-07:00 stdout F (2026-10-18 02:53:20.002) [debug] [CameraSensor.cc:438] Enabling camera sensor: 'camera_arms_e::camera_arms_e::camera_arms_e' data generation.
-2026-10-17T19:53:20.022081809-07:00 stdout F (2026-10-18 02:53:20.022) [debug] [CameraSensor.cc:438] Enabling camera sensor: 'camera_elev_arms::camera_elev_arms::camera_elev_arms' data generation.
-2026-10-17T19:53:20.038472674-07:00 stdout F (2026-10-18 02:53:20.038) [debug] [CameraSensor.cc:438] Enabling camera sensor: 'camera_elev_conveyor::camera_elev_conveyor::camera_elev_conveyor' data generation.
-2026-10-17T19:53:20.066392188-07:00 stdout F (2026-10-18 02:53:20.066) [debug] [CameraSensor.cc:438] Enabling camera sensor: 'camera_elev_massing::camera_elev_massing::camera_elev_massing' data generation.
-2026-10-17T22:16:45.177898801-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:45.178069149-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:45.178069149-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:45.178069149-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:45.178069149-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:45.178069149-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:45.178069149-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:45.178069149-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:45.178081773-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:45.178081773-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:45.178081773-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:45.178089058-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:45.178089058-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:45.178094872-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:45.178100531-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:45.178100531-07:00 stderr P Exception sending a multicast message:
-2026-10-17T22:16:45.178106374-07:00 stderr F Network is unreachable
-2026-10-17T22:16:45.178106374-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:45.178112102-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:45.178117803-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:45.178117803-07:00 stderr P Exception sending a multicast message:
-2026-10-17T22:16:45.178123543-07:00 stderr F Network is unreachable
-2026-10-17T22:16:45.178123543-07:00 stderr P Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:45.178129304-07:00 stderr F 
-2026-10-17T22:16:45.178129304-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:45.178135027-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:45.178140689-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:45.178140689-07:00 stderr P Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:45.178153751-07:00 stderr F 
-2026-10-17T22:16:45.178153751-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:45.178153751-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:45.178153751-07:00 stderr P Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:45.178160653-07:00 stderr F 
-2026-10-17T22:16:45.178160653-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:45.178165765-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:45.178170832-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:45.178170832-07:00 stderr P Exception sending a multicast message:
-2026-10-17T22:16:45.178191084-07:00 stderr F Network is unreachable
-2026-10-17T22:16:45.178191084-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:45.178196518-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:45.178201463-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:45.178201463-07:00 stderr P Exception sending a multicast message:
-2026-10-17T22:16:45.178206471-07:00 stderr F Network is unreachable
-2026-10-17T22:16:45.178206471-07:00 stderr P Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:45.178211485-07:00 stderr F 
-2026-10-17T22:16:45.178211485-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:45.178216475-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:45.178221362-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:45.178226272-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:45.178226272-07:00 stderr P Exception sending a multicast message:
-2026-10-17T22:16:45.178231274-07:00 stderr F Network is unreachable
-2026-10-17T22:16:45.178231274-07:00 stderr P Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:45.178236286-07:00 stderr F 
-2026-10-17T22:16:45.178236286-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:45.178256129-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:45.178261673-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:45.178266768-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:45.178266768-07:00 stderr P Exception sending a multicast message:
-2026-10-17T22:16:45.178271898-07:00 stderr F Network is unreachable
-2026-10-17T22:16:45.178271898-07:00 stderr P Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:45.178277032-07:00 stderr F 
-2026-10-17T22:16:45.178277032-07:00 stderr P Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:45.178282161-07:00 stderr F 
-2026-10-17T22:16:45.178282161-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:45.178287276-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:45.178292292-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:45.178297305-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:45.178302360-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:45.178302360-07:00 stderr P Exception sending a multicast message:
-2026-10-17T22:16:45.178307471-07:00 stderr F Network is unreachable
-2026-10-17T22:16:45.178307471-07:00 stderr P Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:45.178312602-07:00 stderr F 
-2026-10-17T22:16:46.105241618-07:00 stderr P Exception sending a multicast message:
-2026-10-17T22:16:46.105303251-07:00 stderr F Network is unreachable
-2026-10-17T22:16:46.105391317-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.105399911-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.105406910-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.105415769-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.105424595-07:00 stderr P Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.105431727-07:00 stderr F 
-2026-10-17T22:16:46.105431727-07:00 stderr P Exception sending a multicast message:
-2026-10-17T22:16:46.105439065-07:00 stderr F Network is unreachable
-2026-10-17T22:16:46.105446053-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.105453043-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.105461824-07:00 stderr P Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.105468871-07:00 stderr F 
-2026-10-17T22:16:46.105475924-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.105483204-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.105501545-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.105512911-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.105520103-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.105528781-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.105537372-07:00 stderr P Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.105544373-07:00 stderr F 
-2026-10-17T22:16:46.105551278-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.105558157-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.105566758-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.105575337-07:00 stderr P Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.105582293-07:00 stderr F 
-2026-10-17T22:16:46.105589224-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.105596225-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.105605034-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.105613808-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.105622557-07:00 stderr P Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.105629506-07:00 stderr F 
-2026-10-17T22:16:46.105636420-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.105643457-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.171089541-07:00 stdout F (2026-10-18 05:16:46.171) [debug] [SignalHandler.cc:278] Received signal[15].
-2026-10-17T22:16:46.171242170-07:00 stdout F (2026-10-18 05:16:46.171) [debug] [ServerPrivate.cc:129] Server received signal[15]
-2026-10-17T22:16:46.171251455-07:00 stdout F (2026-10-18 05:16:46.171) [debug] [Sensors.cc:565] SensorsPrivate::Stop
-2026-10-17T22:16:46.171801330-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.171801330-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.171828004-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.172199110-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.172199110-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.172199110-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.172558969-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.172558969-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.172558969-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.173003801-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.173003801-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.173003801-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.173328314-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.173328314-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.173328314-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.173682175-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.173682175-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.173682175-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.173971995-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.173971995-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.173971995-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.174040055-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.174040055-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.174040055-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.178367069-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.178470420-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.178477579-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.178483718-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.178505129-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.178505129-07:00 stderr P Exception sending a multicast message:
-2026-10-17T22:16:46.178512959-07:00 stderr F Network is unreachable
-2026-10-17T22:16:46.178512959-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.178518261-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.178518261-07:00 stderr P Exception sending a multicast message:
-2026-10-17T22:16:46.178523472-07:00 stderr F Network is unreachable
-2026-10-17T22:16:46.178523472-07:00 stderr P Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.178528639-07:00 stderr F 
-2026-10-17T22:16:46.178528639-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.178533811-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.178538852-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.178543856-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.178548829-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.178553822-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.178553822-07:00 stderr P Exception sending a multicast message:
-2026-10-17T22:16:46.178558915-07:00 stderr F Network is unreachable
-2026-10-17T22:16:46.178558915-07:00 stderr P Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.178572815-07:00 stderr F 
-2026-10-17T22:16:46.178572815-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.178572815-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.178572815-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.178579172-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.178584210-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.178584210-07:00 stderr P Exception sending a multicast message:
-2026-10-17T22:16:46.178589393-07:00 stderr F Network is unreachable
-2026-10-17T22:16:46.178589393-07:00 stderr P Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.178594485-07:00 stderr F 
-2026-10-17T22:16:46.178594485-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.178599642-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.178604641-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.178609707-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.178614711-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.178614711-07:00 stderr P Exception sending a multicast message:
-2026-10-17T22:16:46.178619791-07:00 stderr F Network is unreachable
-2026-10-17T22:16:46.178619791-07:00 stderr P Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.178624900-07:00 stderr F 
-2026-10-17T22:16:46.178624900-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.178629991-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.178635008-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.178640315-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.178640315-07:00 stderr P Exception sending a multicast message:
-2026-10-17T22:16:46.178645440-07:00 stderr F Network is unreachable
-2026-10-17T22:16:46.178645440-07:00 stderr P Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.178650504-07:00 stderr F 
-2026-10-17T22:16:46.178650504-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.178655568-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.178660536-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.178665545-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.178670539-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.178670539-07:00 stderr P Exception sending a multicast message:
-2026-10-17T22:16:46.178675618-07:00 stderr F Network is unreachable
-2026-10-17T22:16:46.178675618-07:00 stderr P Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.178680702-07:00 stderr F 
-2026-10-17T22:16:46.178680702-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.178685768-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.178690741-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.178695706-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.263798082-07:00 stdout F (2026-10-18 05:16:46.263) [debug] [Sensors.cc:551] SensorsPrivate::RenderThread stopped
-2026-10-17T22:16:46.263953503-07:00 stdout F (2026-10-18 05:16:46.263) [debug] [sim_main.cc:584] Shutting down gz-sim-server
-2026-10-17T22:16:46.263963329-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.264029210-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.264029210-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.264029210-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.264029210-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.264041192-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.269245841-07:00 stdout F (2026-10-18 05:16:46.269) [debug] [SimulationRunner.cc:682] Exiting postupdate worker thread (1)
-2026-10-17T22:16:46.269261345-07:00 stdout F (2026-10-18 05:16:46.269) [debug] [SimulationRunner.cc:682] Exiting postupdate worker thread (0)
-2026-10-17T22:16:46.269575192-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.269575192-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.269575192-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.269575192-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.269605853-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.269612467-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.269628363-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.269642642-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.269653826-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.269710859-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.276733300-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.276733300-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.276733300-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.276752973-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.276780754-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.276792968-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.276827439-07:00 stdout F (2026-10-18 05:16:46.276) [debug] [Sensors.cc:565] SensorsPrivate::Stop
-2026-10-17T22:16:46.277200319-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.277200319-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.277210085-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.277228958-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.277383232-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.277398320-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.277428544-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.277441440-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.277452926-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.277465465-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.277476665-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.277493498-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.277509797-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.277521559-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.277533916-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.277542280-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.277561893-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.277567987-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.277578830-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.277591883-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.277603599-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.277614963-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.277626508-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.277637513-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.277648841-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.277660219-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.277674326-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.277681355-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.277695012-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.277702295-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.277917940-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.277917940-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.277917940-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.277917940-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.277917940-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.277933588-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.277948121-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.277959602-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-17T22:16:46.277970388-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-18T09:58:19.019199700-07:00 stdout F (2026-10-18 16:58:19.019) [info] [gz.cc:407] Gazebo Sim Server v10.5.0
-2026-10-18T09:58:19.092071667-07:00 stdout F (2026-10-18 16:58:19.092) [info] [ServerPrivate.cc:697] Loading SDF world file[/ALWAYSON/GAZEBO/worlds/factory.world].
-2026-10-18T09:58:21.029768849-07:00 stdout F (2026-10-18 16:58:21.029) [info] [SystemManager.cc:54] Serving entity system service on [/entity/system/add]
-2026-10-18T09:58:21.035798280-07:00 stdout F (2026-10-18 16:58:21.035) [info] [SimulationRunner.cc:347] Serving world controls on [/world/factory/control], [/world/factory/control/state] and [/world/factory/playback/control]
-2026-10-18T09:58:21.035819833-07:00 stderr F (2026-10-18 16:58:21.035) [warning] [Conversions.cc:736] <gui><camera> can't be converted yet
-2026-10-18T09:58:21.036134252-07:00 stdout F (2026-10-18 16:58:21.036) [info] [SimulationRunner.cc:373] Serving GUI information on [/world/factory/gui/info]
-2026-10-18T09:58:21.036134252-07:00 stdout F (2026-10-18 16:58:21.036) [info] [SimulationRunner.cc:376] World [factory] initialized with [default_physics] physics profile.
-2026-10-18T09:58:21.036213217-07:00 stdout F (2026-10-18 16:58:21.036) [info] [SimulationRunner.cc:383] Serving world SDF generation service on [/world/factory/generate_world_sdf]
-2026-10-18T09:58:21.036595989-07:00 stdout F (2026-10-18 16:58:21.036) [info] [ServerPrivate.cc:357] Serving world names on [/gazebo/worlds]
-2026-10-18T09:58:21.036631855-07:00 stdout F (2026-10-18 16:58:21.036) [info] [ServerPrivate.cc:370] Resource path add service on [/gazebo/resource_paths/add].
-2026-10-18T09:58:21.036681527-07:00 stdout F (2026-10-18 16:58:21.036) [info] [ServerPrivate.cc:383] Resource path get service on [/gazebo/resource_paths/get].
-2026-10-18T09:58:21.036714218-07:00 stdout F (2026-10-18 16:58:21.036) [info] [ServerPrivate.cc:398] Resource path resolve service on [/gazebo/resource_paths/resolve].
-2026-10-18T09:58:21.036750369-07:00 stdout F (2026-10-18 16:58:21.036) [info] [ServerPrivate.cc:412] Resource paths published on [/gazebo/resource_paths].
-2026-10-18T09:58:21.037786623-07:00 stdout F (2026-10-18 16:58:21.037) [info] [ServerPrivate.cc:425] Server control service on [/server_control].
-2026-10-18T09:58:21.038372271-07:00 stdout F (2026-10-18 16:58:21.038) [info] [SimulationRunner.cc:868] Found no publishers on /stats, adding root stats topic
-2026-10-18T09:58:21.038470356-07:00 stdout F (2026-10-18 16:58:21.038) [info] [SimulationRunner.cc:902] Found no publishers on /clock, adding root clock topic
-2026-10-18T09:58:21.285308675-07:00 stdout F (2026-10-18 16:58:21.285) [debug] [Sensors.cc:697] Configuring Sensors system
-2026-10-18T09:58:21.285327662-07:00 stdout F (2026-10-18 16:58:21.285) [debug] [Sensors.cc:557] SensorsPrivate::Run
-2026-10-18T09:58:21.285376228-07:00 stdout F (2026-10-18 16:58:21.285) [debug] [SystemManager.cc:80] Loaded system [gz::sim::systems::Sensors] for entity [1]
-2026-10-18T09:58:21.285749304-07:00 stdout F (2026-10-18 16:58:21.285) [debug] [Sensors.cc:532] SensorsPrivate::RenderThread started
-2026-10-18T09:58:21.285749304-07:00 stdout F (2026-10-18 16:58:21.285) [debug] [Sensors.cc:337] Waiting for init
-2026-10-18T09:58:21.290026443-07:00 stdout F (2026-10-18 16:58:21.289) [info] [UserCommands.cc:751] Create service on [/world/factory/create_multiple] (async)
-2026-10-18T09:58:21.290026443-07:00 stdout F (2026-10-18 16:58:21.290) [info] [UserCommands.cc:753] Create service on [/world/factory/create_multiple/blocking] (blocking)
-2026-10-18T09:58:21.290146796-07:00 stdout F (2026-10-18 16:58:21.290) [info] [UserCommands.cc:751] Remove service on [/world/factory/remove] (async)
-2026-10-18T09:58:21.290146796-07:00 stdout F (2026-10-18 16:58:21.290) [info] [UserCommands.cc:753] Remove service on [/world/factory/remove/blocking] (blocking)
-2026-10-18T09:58:21.290263884-07:00 stdout F (2026-10-18 16:58:21.290) [info] [UserCommands.cc:751] Pose service on [/world/factory/set_pose] (async)
-2026-10-18T09:58:21.290263884-07:00 stdout F (2026-10-18 16:58:21.290) [info] [UserCommands.cc:753] Pose service on [/world/factory/set_pose/blocking] (blocking)
-2026-10-18T09:58:21.290363193-07:00 stdout F (2026-10-18 16:58:21.290) [info] [UserCommands.cc:751] Pose service on [/world/factory/set_pose_vector] (async)
-2026-10-18T09:58:21.290369266-07:00 stdout F (2026-10-18 16:58:21.290) [info] [UserCommands.cc:753] Pose service on [/world/factory/set_pose_vector/blocking] (blocking)
-2026-10-18T09:58:21.290510416-07:00 stdout F (2026-10-18 16:58:21.290) [info] [UserCommands.cc:751] Light configuration service on [/world/factory/light_config] (async)
-2026-10-18T09:58:21.290510416-07:00 stdout F (2026-10-18 16:58:21.290) [info] [UserCommands.cc:753] Light configuration service on [/world/factory/light_config/blocking] (blocking)
-2026-10-18T09:58:21.290723096-07:00 stdout F (2026-10-18 16:58:21.290) [info] [UserCommands.cc:751] Physics service on [/world/factory/set_physics] (async)
-2026-10-18T09:58:21.290723096-07:00 stdout F (2026-10-18 16:58:21.290) [info] [UserCommands.cc:753] Physics service on [/world/factory/set_physics/blocking] (blocking)
-2026-10-18T09:58:21.290860362-07:00 stdout F (2026-10-18 16:58:21.290) [info] [UserCommands.cc:751] SphericalCoordinates service on [/world/factory/set_spherical_coordinates] (async)
-2026-10-18T09:58:21.290860362-07:00 stdout F (2026-10-18 16:58:21.290) [info] [UserCommands.cc:753] SphericalCoordinates service on [/world/factory/set_spherical_coordinates/blocking] (blocking)
-2026-10-18T09:58:21.290937080-07:00 stdout F (2026-10-18 16:58:21.290) [info] [UserCommands.cc:751] Enable collision service on [/world/factory/enable_collision] (async)
-2026-10-18T09:58:21.290937080-07:00 stdout F (2026-10-18 16:58:21.290) [info] [UserCommands.cc:753] Enable collision service on [/world/factory/enable_collision/blocking] (blocking)
-2026-10-18T09:58:21.291025007-07:00 stdout F (2026-10-18 16:58:21.291) [info] [UserCommands.cc:751] Disable collision service on [/world/factory/disable_collision] (async)
-2026-10-18T09:58:21.291025007-07:00 stdout F (2026-10-18 16:58:21.291) [info] [UserCommands.cc:753] Disable collision service on [/world/factory/disable_collision/blocking] (blocking)
-2026-10-18T09:58:21.291173635-07:00 stdout F (2026-10-18 16:58:21.291) [info] [UserCommands.cc:751] Material service on [/world/factory/visual_config] (async)
-2026-10-18T09:58:21.291173635-07:00 stdout F (2026-10-18 16:58:21.291) [info] [UserCommands.cc:753] Material service on [/world/factory/visual_config/blocking] (blocking)
-2026-10-18T09:58:21.291308661-07:00 stdout F (2026-10-18 16:58:21.291) [info] [UserCommands.cc:751] Material service on [/world/factory/wheel_slip] (async)
-2026-10-18T09:58:21.291308661-07:00 stdout F (2026-10-18 16:58:21.291) [info] [UserCommands.cc:753] Material service on [/world/factory/wheel_slip/blocking] (blocking)
-2026-10-18T09:58:21.291308661-07:00 stdout F (2026-10-18 16:58:21.291) [debug] [SystemManager.cc:80] Loaded system [gz::sim::systems::UserCommands] for entity [1]
-2026-10-18T09:58:21.294550370-07:00 stdout F (2026-10-18 16:58:21.294) [debug] [SystemManager.cc:80] Loaded system [gz::sim::systems::SceneBroadcaster] for entity [1]
-2026-10-18T09:58:21.339174619-07:00 stdout F (2026-10-18 16:58:21.339) [debug] [Physics.cc:1053] Loaded [gz::physics::dartsim::Plugin] from library [/usr/lib/x86_64-linux-gnu/gz-physics-9/engine-plugins/libgz-physics-dartsim-plugin.so]
-2026-10-18T09:58:21.339198009-07:00 stdout F (2026-10-18 16:58:21.339) [debug] [SystemManager.cc:80] Loaded system [gz::sim::systems::Physics] for entity [1]
-2026-10-18T09:58:21.339578717-07:00 stdout F (2026-10-18 16:58:21.339) [info] [LevelManager.cc:646] Loaded level [default]
-2026-10-18T09:58:21.340005272-07:00 stdout F (2026-10-18 16:58:21.339) [debug] [ServerConfig.cc:1042] Loading (3) plugins from file [/gzhome/.gz/sim/10/server.config]
-2026-10-18T09:58:21.340017931-07:00 stdout F (2026-10-18 16:58:21.340) [debug] [SimulationRunner.cc:1926] Additional plugins to load:
-2026-10-18T09:58:21.341540012-07:00 stdout F (2026-10-18 16:58:21.341) [debug] [SimulationRunner.cc:655] Creating PostUpdate worker threads: 3
-2026-10-18T09:58:21.341540012-07:00 stdout F (2026-10-18 16:58:21.341) [debug] [SimulationRunner.cc:666] Creating postupdate worker thread (0)
-2026-10-18T09:58:21.341592088-07:00 stdout F (2026-10-18 16:58:21.341) [debug] [SimulationRunner.cc:666] Creating postupdate worker thread (1)
-2026-10-18T09:58:21.362301093-07:00 stdout F (2026-10-18 16:58:21.362) [debug] [Sensors.cc:953] Initialization needed
-2026-10-18T09:58:21.362322084-07:00 stdout F (2026-10-18 16:58:21.362) [debug] [Sensors.cc:349] Initializing render context
-2026-10-18T09:58:21.362630068-07:00 stdout F (2026-10-18 16:58:21.362) [info] [RenderEngineManager.cc:513] Loading plugin [gz-rendering-ogre2]
-2026-10-18T09:58:21.364103139-07:00 stdout F (2026-10-18 16:58:21.364) [info] [SceneBroadcaster.cc:654] Serving scene information on [/world/factory/scene/info]
-2026-10-18T09:58:21.364153010-07:00 stdout F (2026-10-18 16:58:21.364) [info] [SceneBroadcaster.cc:663] Serving graph information on [/world/factory/scene/graph]
-2026-10-18T09:58:21.364280263-07:00 stdout F (2026-10-18 16:58:21.364) [info] [SceneBroadcaster.cc:674] Serving full state on [/world/factory/state]
-2026-10-18T09:58:21.364323609-07:00 stdout F (2026-10-18 16:58:21.364) [info] [SceneBroadcaster.cc:683] Serving full state (async) on [/world/factory/state_async]
-2026-10-18T09:58:21.364375527-07:00 stdout F (2026-10-18 16:58:21.364) [info] [SceneBroadcaster.cc:691] Publishing scene information on [/world/factory/scene/info]
-2026-10-18T09:58:21.364769940-07:00 stdout F (2026-10-18 16:58:21.364) [info] [SceneBroadcaster.cc:700] Publishing entity deletions on [/world/factory/scene/deletion]
-2026-10-18T09:58:21.364824106-07:00 stdout F (2026-10-18 16:58:21.364) [info] [SceneBroadcaster.cc:709] Publishing state changes on [/world/factory/state]
-2026-10-18T09:58:21.364862193-07:00 stdout F (2026-10-18 16:58:21.364) [info] [SceneBroadcaster.cc:720] Publishing pose messages on [/world/factory/pose/info]
-2026-10-18T09:58:21.364907046-07:00 stdout F (2026-10-18 16:58:21.364) [info] [SceneBroadcaster.cc:731] Publishing dynamic pose messages on [/world/factory/dynamic_pose/info]
-2026-10-18T09:58:21.427922874-07:00 stderr F (2026-10-18 16:58:21.427) [warning] [Ogre2RenderEngine.cc:556] Unable to open display: . Trying to run in headless mode.
-2026-10-18T09:58:21.960681299-07:00 stdout F (2026-10-18 16:58:21.960) [debug] [RenderUtil.cc:2646] Create scene [scene]
-2026-10-18T09:58:22.102397653-07:00 stdout F (2026-10-18 16:58:22.102) [debug] [Sensors.cc:391] Rendering Thread initialized
-2026-10-18T09:58:22.102419163-07:00 stdout F (2026-10-18 16:58:22.102) [debug] [Sensors.cc:953] Initialization needed
-2026-10-18T09:58:23.027355566-07:00 stdout F (2026-10-18 16:58:23.027) [debug] [CameraSensor.cc:339] Camera images for [camera_rig::camera_rig::user_camera] advertised on [/factory/camera/image]
-2026-10-18T09:58:23.027509823-07:00 stdout F (2026-10-18 16:58:23.027) [debug] [CameraSensor.cc:629] Camera info for [camera_rig::camera_rig::user_camera] advertised on [/factory/camera/camera_info]
-2026-10-18T09:58:23.037184085-07:00 stderr F (2026-10-18 16:58:23.037) [warning] [Ogre2Camera.cc:423] Ogre2Camera::SetVisibilityMask: Mask bits c0000000 are set but will be ignored as they conflict with the reserved bits used internally by the ogre2 backend.
-2026-10-18T09:58:23.037629140-07:00 stdout F (2026-10-18 16:58:23.037) [debug] [CameraSensor.cc:339] Camera images for [camera_arms_ne::camera_arms_ne::camera_arms_ne] advertised on [/factory/camera/arms_ne]
-2026-10-18T09:58:23.037665712-07:00 stdout F (2026-10-18 16:58:23.037) [debug] [CameraSensor.cc:629] Camera info for [camera_arms_ne::camera_arms_ne::camera_arms_ne] advertised on [/factory/camera/camera_info]
-2026-10-18T09:58:23.037774062-07:00 stderr F (2026-10-18 16:58:23.037) [warning] [Ogre2Camera.cc:423] Ogre2Camera::SetVisibilityMask: Mask bits c0000000 are set but will be ignored as they conflict with the reserved bits used internally by the ogre2 backend.
-2026-10-18T09:58:23.038010878-07:00 stdout F (2026-10-18 16:58:23.037) [debug] [CameraSensor.cc:339] Camera images for [camera_arms_n::camera_arms_n::camera_arms_n] advertised on [/factory/camera/arms_n]
-2026-10-18T09:58:23.038074373-07:00 stdout F (2026-10-18 16:58:23.038) [debug] [CameraSensor.cc:629] Camera info for [camera_arms_n::camera_arms_n::camera_arms_n] advertised on [/factory/camera/camera_info]
-2026-10-18T09:58:23.038086853-07:00 stderr F (2026-10-18 16:58:23.038) [warning] [Ogre2Camera.cc:423] Ogre2Camera::SetVisibilityMask: Mask bits c0000000 are set but will be ignored as they conflict with the reserved bits used internally by the ogre2 backend.
-2026-10-18T09:58:23.038376082-07:00 stdout F (2026-10-18 16:58:23.038) [debug] [CameraSensor.cc:339] Camera images for [camera_arms_se::camera_arms_se::camera_arms_se] advertised on [/factory/camera/arms_se]
-2026-10-18T09:58:23.038412104-07:00 stdout F (2026-10-18 16:58:23.038) [debug] [CameraSensor.cc:629] Camera info for [camera_arms_se::camera_arms_se::camera_arms_se] advertised on [/factory/camera/camera_info]
-2026-10-18T09:58:23.038439197-07:00 stderr F (2026-10-18 16:58:23.038) [warning] [Ogre2Camera.cc:423] Ogre2Camera::SetVisibilityMask: Mask bits c0000000 are set but will be ignored as they conflict with the reserved bits used internally by the ogre2 backend.
-2026-10-18T09:58:23.038732410-07:00 stdout F (2026-10-18 16:58:23.038) [debug] [CameraSensor.cc:339] Camera images for [camera_arms_e::camera_arms_e::camera_arms_e] advertised on [/factory/camera/arms_e]
-2026-10-18T09:58:23.038768663-07:00 stdout F (2026-10-18 16:58:23.038) [debug] [CameraSensor.cc:629] Camera info for [camera_arms_e::camera_arms_e::camera_arms_e] advertised on [/factory/camera/camera_info]
-2026-10-18T09:58:23.038794333-07:00 stderr F (2026-10-18 16:58:23.038) [warning] [Ogre2Camera.cc:423] Ogre2Camera::SetVisibilityMask: Mask bits c0000000 are set but will be ignored as they conflict with the reserved bits used internally by the ogre2 backend.
-2026-10-18T09:58:23.039000108-07:00 stdout F (2026-10-18 16:58:23.038) [debug] [CameraSensor.cc:339] Camera images for [camera_elev_arms::camera_elev_arms::camera_elev_arms] advertised on [/factory/camera/elev_arms]
-2026-10-18T09:58:23.039032410-07:00 stdout F (2026-10-18 16:58:23.039) [debug] [CameraSensor.cc:629] Camera info for [camera_elev_arms::camera_elev_arms::camera_elev_arms] advertised on [/factory/camera/camera_info]
-2026-10-18T09:58:23.039056285-07:00 stderr F (2026-10-18 16:58:23.039) [warning] [Ogre2Camera.cc:423] Ogre2Camera::SetVisibilityMask: Mask bits c0000000 are set but will be ignored as they conflict with the reserved bits used internally by the ogre2 backend.
-2026-10-18T09:58:23.039261360-07:00 stdout F (2026-10-18 16:58:23.039) [debug] [CameraSensor.cc:339] Camera images for [camera_elev_conveyor::camera_elev_conveyor::camera_elev_conveyor] advertised on [/factory/camera/elev_conveyor]
-2026-10-18T09:58:23.039309904-07:00 stdout F (2026-10-18 16:58:23.039) [debug] [CameraSensor.cc:629] Camera info for [camera_elev_conveyor::camera_elev_conveyor::camera_elev_conveyor] advertised on [/factory/camera/camera_info]
-2026-10-18T09:58:23.039334324-07:00 stderr F (2026-10-18 16:58:23.039) [warning] [Ogre2Camera.cc:423] Ogre2Camera::SetVisibilityMask: Mask bits c0000000 are set but will be ignored as they conflict with the reserved bits used internally by the ogre2 backend.
-2026-10-18T09:58:23.039575331-07:00 stdout F (2026-10-18 16:58:23.039) [debug] [CameraSensor.cc:339] Camera images for [camera_elev_massing::camera_elev_massing::camera_elev_massing] advertised on [/factory/camera/elev_massing]
-2026-10-18T09:58:23.039623747-07:00 stdout F (2026-10-18 16:58:23.039) [debug] [CameraSensor.cc:629] Camera info for [camera_elev_massing::camera_elev_massing::camera_elev_massing] advertised on [/factory/camera/camera_info]
-2026-10-18T09:58:23.039652635-07:00 stderr F (2026-10-18 16:58:23.039) [warning] [Ogre2Camera.cc:423] Ogre2Camera::SetVisibilityMask: Mask bits c0000000 are set but will be ignored as they conflict with the reserved bits used internally by the ogre2 backend.
-2026-10-18T09:58:23.083224997-07:00 stdout F (2026-10-18 16:58:23.083) [debug] [CameraSensor.cc:438] Enabling camera sensor: 'camera_rig::camera_rig::user_camera' data generation.
-2026-10-18T09:58:23.396126486-07:00 stdout F (2026-10-18 16:58:23.396) [debug] [CameraSensor.cc:438] Enabling camera sensor: 'camera_arms_ne::camera_arms_ne::camera_arms_ne' data generation.
-2026-10-18T09:58:23.420782762-07:00 stdout F (2026-10-18 16:58:23.420) [debug] [CameraSensor.cc:438] Enabling camera sensor: 'camera_arms_n::camera_arms_n::camera_arms_n' data generation.
-2026-10-18T09:58:23.448332420-07:00 stdout F (2026-10-18 16:58:23.448) [debug] [CameraSensor.cc:438] Enabling camera sensor: 'camera_arms_se::camera_arms_se::camera_arms_se' data generation.
-2026-10-18T09:58:23.470916325-07:00 stdout F (2026-10-18 16:58:23.470) [debug] [CameraSensor.cc:438] Enabling camera sensor: 'camera_arms_e::camera_arms_e::camera_arms_e' data generation.
-2026-10-18T09:58:23.493074506-07:00 stdout F (2026-10-18 16:58:23.493) [debug] [CameraSensor.cc:438] Enabling camera sensor: 'camera_elev_arms::camera_elev_arms::camera_elev_arms' data generation.
-2026-10-18T09:58:23.512549443-07:00 stdout F (2026-10-18 16:58:23.512) [debug] [CameraSensor.cc:438] Enabling camera sensor: 'camera_elev_conveyor::camera_elev_conveyor::camera_elev_conveyor' data generation.
-2026-10-18T09:58:23.539727939-07:00 stdout F (2026-10-18 16:58:23.539) [debug] [CameraSensor.cc:438] Enabling camera sensor: 'camera_elev_massing::camera_elev_massing::camera_elev_massing' data generation.
-2026-10-22T01:56:24.525713770-07:00 stderr P Exception sending a multicast message:
-2026-10-22T01:56:24.529145457-07:00 stderr F Network is unreachable
-2026-10-22T01:56:24.529145457-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:24.529145457-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:24.529145457-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:24.529145457-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:24.529145457-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:24.529145457-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:24.529145457-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:24.529145457-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:24.529145457-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:24.529145457-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:24.529145457-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:24.529145457-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:24.529145457-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:24.529145457-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:24.529145457-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:24.529145457-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:24.529195624-07:00 stderr P Exception sending a multicast message:
-2026-10-22T01:56:24.529279692-07:00 stderr P Network is unreachable
-2026-10-22T01:56:24.529305867-07:00 stderr F 
-2026-10-22T01:56:24.529335331-07:00 stderr P Exception sending a multicast message:
-2026-10-22T01:56:24.529357302-07:00 stderr P Network is unreachable
-2026-10-22T01:56:24.529377770-07:00 stderr F 
-2026-10-22T01:56:24.529403222-07:00 stderr P Exception sending a multicast message:
-2026-10-22T01:56:24.529426264-07:00 stderr P Network is unreachable
-2026-10-22T01:56:24.529446783-07:00 stderr F 
-2026-10-22T01:56:24.529473982-07:00 stderr P Exception sending a multicast message:
-2026-10-22T01:56:24.529495952-07:00 stderr P Network is unreachable
-2026-10-22T01:56:24.529515525-07:00 stderr F 
-2026-10-22T01:56:24.529542226-07:00 stderr P Exception sending a multicast message:
-2026-10-22T01:56:24.529563377-07:00 stderr P Network is unreachable
-2026-10-22T01:56:24.529585415-07:00 stderr F 
-2026-10-22T01:56:24.529611166-07:00 stderr P Exception sending a multicast message:
-2026-10-22T01:56:24.529632717-07:00 stderr P Network is unreachable
-2026-10-22T01:56:24.529653678-07:00 stderr F 
-2026-10-22T01:56:24.529688138-07:00 stderr P Exception sending a multicast message:
-2026-10-22T01:56:24.529712209-07:00 stderr P Network is unreachable
-2026-10-22T01:56:24.529733326-07:00 stderr F 
-2026-10-22T01:56:24.529760597-07:00 stderr P Exception sending a multicast message:
-2026-10-22T01:56:24.529782480-07:00 stderr P Network is unreachable
-2026-10-22T01:56:24.529802497-07:00 stderr F 
-2026-10-22T01:56:24.529828702-07:00 stderr P Exception sending a multicast message:
-2026-10-22T01:56:24.529851109-07:00 stderr P Network is unreachable
-2026-10-22T01:56:24.529870959-07:00 stderr F 
-2026-10-22T01:56:24.529897888-07:00 stderr P Exception sending a multicast message:
-2026-10-22T01:56:24.529919734-07:00 stderr P Network is unreachable
-2026-10-22T01:56:24.529939882-07:00 stderr F 
-2026-10-22T01:56:24.529965440-07:00 stderr P Exception sending a multicast message:
-2026-10-22T01:56:24.529986418-07:00 stderr P Network is unreachable
-2026-10-22T01:56:24.530018248-07:00 stderr F 
-2026-10-22T01:56:24.530045171-07:00 stderr P Exception sending a multicast message:
-2026-10-22T01:56:24.530065240-07:00 stderr P Network is unreachable
-2026-10-22T01:56:24.530085496-07:00 stderr F 
-2026-10-22T01:56:24.530111450-07:00 stderr P Exception sending a multicast message:
-2026-10-22T01:56:24.530131016-07:00 stderr P Network is unreachable
-2026-10-22T01:56:24.530149584-07:00 stderr F 
-2026-10-22T01:56:24.530173365-07:00 stderr P Exception sending a multicast message:
-2026-10-22T01:56:24.530193425-07:00 stderr P Network is unreachable
-2026-10-22T01:56:24.530212133-07:00 stderr F 
-2026-10-22T01:56:24.530236065-07:00 stderr P Exception sending a multicast message:
-2026-10-22T01:56:24.530256760-07:00 stderr P Network is unreachable
-2026-10-22T01:56:24.530277478-07:00 stderr F 
-2026-10-22T01:56:24.530302337-07:00 stderr P Exception sending a multicast message:
-2026-10-22T01:56:24.530322542-07:00 stderr P Network is unreachable
-2026-10-22T01:56:24.530342109-07:00 stderr F 
-2026-10-22T01:56:24.530366703-07:00 stderr P Exception sending a multicast message:
-2026-10-22T01:56:24.530386645-07:00 stderr P Network is unreachable
-2026-10-22T01:56:24.530404998-07:00 stderr F 
-2026-10-22T01:56:24.530430362-07:00 stderr P Exception sending a multicast message:
-2026-10-22T01:56:24.530451523-07:00 stderr P Network is unreachable
-2026-10-22T01:56:24.530469579-07:00 stderr F 
-2026-10-22T01:56:24.530494116-07:00 stderr P Exception sending a multicast message:
-2026-10-22T01:56:24.530513260-07:00 stderr P Network is unreachable
-2026-10-22T01:56:24.530532198-07:00 stderr F 
-2026-10-22T01:56:24.530558955-07:00 stderr P Exception sending a multicast message:
-2026-10-22T01:56:24.530578400-07:00 stderr P Network is unreachable
-2026-10-22T01:56:24.530598198-07:00 stderr F 
-2026-10-22T01:56:24.530622690-07:00 stderr P Exception sending a multicast message:
-2026-10-22T01:56:24.530641625-07:00 stderr P Network is unreachable
-2026-10-22T01:56:24.530660551-07:00 stderr F 
-2026-10-22T01:56:24.530692583-07:00 stderr P Exception sending a multicast message:
-2026-10-22T01:56:24.530714533-07:00 stderr P Network is unreachable
-2026-10-22T01:56:24.530737707-07:00 stderr F 
-2026-10-22T01:56:24.530777057-07:00 stderr P Exception sending a multicast message:
-2026-10-22T01:56:24.530797993-07:00 stderr P Network is unreachable
-2026-10-22T01:56:24.530816475-07:00 stderr F 
-2026-10-22T01:56:24.530843385-07:00 stderr P Exception sending a multicast message:
-2026-10-22T01:56:24.530875469-07:00 stderr P Network is unreachable
-2026-10-22T01:56:24.530894256-07:00 stderr F 
-2026-10-22T01:56:24.530918740-07:00 stderr P Exception sending a multicast message:
-2026-10-22T01:56:24.530940172-07:00 stderr P Network is unreachable
-2026-10-22T01:56:24.530959611-07:00 stderr F 
-2026-10-22T01:56:24.530983306-07:00 stderr P Exception sending a multicast message:
-2026-10-22T01:56:24.531002491-07:00 stderr P Network is unreachable
-2026-10-22T01:56:24.531021060-07:00 stderr F 
-2026-10-22T01:56:24.531046423-07:00 stderr P Exception sending a multicast message:
-2026-10-22T01:56:24.531066884-07:00 stderr P Network is unreachable
-2026-10-22T01:56:24.531085045-07:00 stderr F 
-2026-10-22T01:56:24.531111370-07:00 stderr P Exception sending a multicast message:
-2026-10-22T01:56:24.531131283-07:00 stderr P Network is unreachable
-2026-10-22T01:56:24.531150350-07:00 stderr F 
-2026-10-22T01:56:24.531174720-07:00 stderr P Exception sending a multicast message:
-2026-10-22T01:56:24.531195223-07:00 stderr P Network is unreachable
-2026-10-22T01:56:24.531213574-07:00 stderr F 
-2026-10-22T01:56:24.531237447-07:00 stderr P Exception sending a multicast message:
-2026-10-22T01:56:24.531257062-07:00 stderr P Network is unreachable
-2026-10-22T01:56:24.531275969-07:00 stderr F 
-2026-10-22T01:56:24.531300145-07:00 stderr P Exception sending a multicast message:
-2026-10-22T01:56:24.531319136-07:00 stderr P Network is unreachable
-2026-10-22T01:56:24.531336961-07:00 stderr F 
-2026-10-22T01:56:24.531361349-07:00 stderr P Exception sending a multicast message:
-2026-10-22T01:56:24.531386780-07:00 stderr P Network is unreachable
-2026-10-22T01:56:24.531407217-07:00 stderr F 
-2026-10-22T01:56:24.531432119-07:00 stderr P Exception sending a multicast message:
-2026-10-22T01:56:24.531451673-07:00 stderr P Network is unreachable
-2026-10-22T01:56:24.531470318-07:00 stderr F 
-2026-10-22T01:56:24.531494454-07:00 stderr P Exception sending a multicast message:
-2026-10-22T01:56:24.531514556-07:00 stderr P Network is unreachable
-2026-10-22T01:56:24.531534626-07:00 stderr F 
-2026-10-22T01:56:24.531561128-07:00 stderr P Exception sending a multicast message:
-2026-10-22T01:56:24.531580991-07:00 stderr P Network is unreachable
-2026-10-22T01:56:24.531599057-07:00 stderr F 
-2026-10-22T01:56:24.531626263-07:00 stderr P Exception sending a multicast message:
-2026-10-22T01:56:24.531648324-07:00 stderr P Network is unreachable
-2026-10-22T01:56:24.532826316-07:00 stderr F 
-2026-10-22T01:56:24.532870846-07:00 stderr P Exception sending a multicast message:
-2026-10-22T01:56:24.532893921-07:00 stderr P Network is unreachable
-2026-10-22T01:56:24.532913761-07:00 stderr F 
-2026-10-22T01:56:24.532942066-07:00 stderr P Exception sending a multicast message:
-2026-10-22T01:56:24.532961571-07:00 stderr P Network is unreachable
-2026-10-22T01:56:24.532980516-07:00 stderr F 
-2026-10-22T01:56:24.533006275-07:00 stderr P Exception sending a multicast message:
-2026-10-22T01:56:24.533026255-07:00 stderr P Network is unreachable
-2026-10-22T01:56:24.533045917-07:00 stderr F 
-2026-10-22T01:56:24.533073213-07:00 stderr P Exception sending a multicast message:
-2026-10-22T01:56:24.533092293-07:00 stderr P Network is unreachable
-2026-10-22T01:56:24.533111240-07:00 stderr F 
-2026-10-22T01:56:24.931523159-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:24.931523159-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:24.931523159-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:24.931523159-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:24.931523159-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:24.931523159-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:24.931523159-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:24.931523159-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:24.931523159-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:24.931523159-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:24.931523159-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:24.931523159-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:24.931523159-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:24.931523159-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:24.931523159-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:24.931523159-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:24.931523159-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:24.931523159-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:24.931523159-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:24.931523159-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:24.931523159-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:24.931523159-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:24.931570300-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:24.931570300-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:24.931570300-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:24.931570300-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:24.931570300-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:24.931570300-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.047167715-07:00 stdout F (2026-10-22 08:56:25.044) [debug] [SignalHandler.cc:278] Received signal[15].
-2026-10-22T01:56:25.049329091-07:00 stdout F (2026-10-22 08:56:25.049) [debug] [ServerPrivate.cc:129] Server received signal[15]
-2026-10-22T01:56:25.050510206-07:00 stdout F (2026-10-22 08:56:25.050) [debug] [Sensors.cc:565] SensorsPrivate::Stop
-2026-10-22T01:56:25.110392319-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.110392319-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.110773254-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.111921056-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.111921056-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.112159822-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.112966997-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.112966997-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.112966997-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.113775039-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.113775039-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.113923726-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.114416521-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.114416521-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.114416521-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.115370707-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.115370707-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.115370707-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.115889053-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.115889053-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.115889053-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.116256713-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.116256713-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.116256713-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.533166658-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.533386367-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.533386367-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.533386367-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.533386367-07:00 stderr P Exception sending a multicast message:
-2026-10-22T01:56:25.533395671-07:00 stderr F Network is unreachable
-2026-10-22T01:56:25.533395671-07:00 stderr P Exception sending a multicast message:
-2026-10-22T01:56:25.533409941-07:00 stderr F Network is unreachable
-2026-10-22T01:56:25.533409941-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.533418710-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.533427767-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.533438147-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.533445911-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.533455942-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.533465710-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.533473242-07:00 stderr P Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.533479307-07:00 stderr F 
-2026-10-22T01:56:25.533485251-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.533492541-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.533506470-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.533514243-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.533525833-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.533533299-07:00 stderr P Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.533539267-07:00 stderr F 
-2026-10-22T01:56:25.533545159-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.533552427-07:00 stderr P Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.533558383-07:00 stderr F 
-2026-10-22T01:56:25.533564265-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.533571492-07:00 stderr P Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.533577393-07:00 stderr F 
-2026-10-22T01:56:25.533583254-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.533590507-07:00 stderr P Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.533596852-07:00 stderr F 
-2026-10-22T01:56:25.533604762-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.533613670-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.533621897-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.533629667-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.533638095-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.533648006-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.533655700-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.533668439-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.533686426-07:00 stderr P Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.533695052-07:00 stderr F 
-2026-10-22T01:56:25.533695052-07:00 stderr P Exception sending a multicast message:
-2026-10-22T01:56:25.533701174-07:00 stderr F Network is unreachable
-2026-10-22T01:56:25.533707063-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.533714305-07:00 stderr P Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.533720236-07:00 stderr F 
-2026-10-22T01:56:25.533726129-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.533738971-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.533746535-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.533755929-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.533767797-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.533775303-07:00 stderr P Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.533782071-07:00 stderr F 
-2026-10-22T01:56:25.533790322-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.533799184-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.533806884-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.533814535-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.533822934-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.794833743-07:00 stdout F (2026-10-22 08:56:25.794) [debug] [Sensors.cc:551] SensorsPrivate::RenderThread stopped
-2026-10-22T01:56:25.797204834-07:00 stdout F (2026-10-22 08:56:25.797) [debug] [sim_main.cc:584] Shutting down gz-sim-server
-2026-10-22T01:56:25.797570787-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.797570787-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.797783939-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.797783939-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.797783939-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.797783939-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.908643431-07:00 stdout F (2026-10-22 08:56:25.908) [debug] [SimulationRunner.cc:682] Exiting postupdate worker thread (0)
-2026-10-22T01:56:25.908662359-07:00 stdout F (2026-10-22 08:56:25.908) [debug] [SimulationRunner.cc:682] Exiting postupdate worker thread (1)
-2026-10-22T01:56:25.927008723-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.927008723-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.927008723-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.927008723-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.927032126-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.927032126-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.927032126-07:00 stderr P Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.927038209-07:00 stderr F 
-2026-10-22T01:56:25.927043389-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.927048405-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.927286766-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.931626843-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.931626843-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.931626843-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.931646025-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.931646025-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.931646025-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:25.931651831-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:26.000905778-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:26.001012134-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:26.001012134-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:26.001012134-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:26.001509890-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:26.001509890-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:26.001767984-07:00 stdout F (2026-10-22 08:56:26.001) [debug] [Sensors.cc:565] SensorsPrivate::Stop
-2026-10-22T01:56:26.003605394-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:26.004182644-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:26.004182644-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:26.004182644-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:26.008895433-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:26.008895433-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:26.008895433-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:26.008914186-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:26.008914186-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:26.008919747-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:26.008924839-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:26.008929795-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:26.008942485-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:26.008947774-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:26.008958759-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:26.008964026-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:26.008970350-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:26.008976750-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:26.008983269-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:26.008989530-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:26.008999973-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:26.009006403-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:26.009012650-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:26.009018873-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:26.009025083-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:26.009031409-07:00 stderr P Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:26.009036635-07:00 stderr F 
-2026-10-22T01:56:26.009036635-07:00 stderr P Exception sending a multicast message:
-2026-10-22T01:56:26.009041811-07:00 stderr F Network is unreachable
-2026-10-22T01:56:26.009046835-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:26.009051820-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:26.009058026-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:26.015005985-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:26.015005985-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:26.015005985-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:26.015005985-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:26.015005985-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:26.015005985-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:26.015032248-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:26.015032248-07:00 stderr F Exception sending a multicast message:Network is unreachable
-2026-10-22T01:56:26.015032248-07:00 stderr F Exception sending a multicast message:Network is unreachable
+2026-10-22T14:03:47.216729748-07:00 stdout F (2026-10-22 21:03:47.216) [info] [gz.cc:407] Gazebo Sim Server v10.5.0
+2026-10-22T14:03:47.323549222-07:00 stdout F (2026-10-22 21:03:47.323) [info] [ServerPrivate.cc:697] Loading SDF world file[/ALWAYSON/GAZEBO/worlds/factory.world].
+2026-10-22T14:03:49.236873589-07:00 stdout F (2026-10-22 21:03:49.236) [info] [SystemManager.cc:54] Serving entity system service on [/entity/system/add]
+2026-10-22T14:03:49.243333217-07:00 stdout F (2026-10-22 21:03:49.243) [info] [SimulationRunner.cc:347] Serving world controls on [/world/factory/control], [/world/factory/control/state] and [/world/factory/playback/control]
+2026-10-22T14:03:49.243389028-07:00 stderr F (2026-10-22 21:03:49.243) [warning] [Conversions.cc:736] <gui><camera> can't be converted yet
+2026-10-22T14:03:49.243680374-07:00 stdout F (2026-10-22 21:03:49.243) [info] [SimulationRunner.cc:373] Serving GUI information on [/world/factory/gui/info]
+2026-10-22T14:03:49.243680374-07:00 stdout F (2026-10-22 21:03:49.243) [info] [SimulationRunner.cc:376] World [factory] initialized with [default_physics] physics profile.
+2026-10-22T14:03:49.243873462-07:00 stdout F (2026-10-22 21:03:49.243) [info] [SimulationRunner.cc:383] Serving world SDF generation service on [/world/factory/generate_world_sdf]
+2026-10-22T14:03:49.244206110-07:00 stdout F (2026-10-22 21:03:49.244) [info] [ServerPrivate.cc:357] Serving world names on [/gazebo/worlds]
+2026-10-22T14:03:49.244250820-07:00 stdout F (2026-10-22 21:03:49.244) [info] [ServerPrivate.cc:370] Resource path add service on [/gazebo/resource_paths/add].
+2026-10-22T14:03:49.244290525-07:00 stdout F (2026-10-22 21:03:49.244) [info] [ServerPrivate.cc:383] Resource path get service on [/gazebo/resource_paths/get].
+2026-10-22T14:03:49.244328872-07:00 stdout F (2026-10-22 21:03:49.244) [info] [ServerPrivate.cc:398] Resource path resolve service on [/gazebo/resource_paths/resolve].
+2026-10-22T14:03:49.244457635-07:00 stdout F (2026-10-22 21:03:49.244) [info] [ServerPrivate.cc:412] Resource paths published on [/gazebo/resource_paths].
+2026-10-22T14:03:49.245362410-07:00 stdout F (2026-10-22 21:03:49.245) [info] [ServerPrivate.cc:425] Server control service on [/server_control].
+2026-10-22T14:03:49.246000975-07:00 stdout F (2026-10-22 21:03:49.245) [info] [SimulationRunner.cc:868] Found no publishers on /stats, adding root stats topic
+2026-10-22T14:03:49.246043867-07:00 stdout F (2026-10-22 21:03:49.246) [info] [SimulationRunner.cc:902] Found no publishers on /clock, adding root clock topic
+2026-10-22T14:03:49.602955526-07:00 stdout F (2026-10-22 21:03:49.602) [debug] [Sensors.cc:697] Configuring Sensors system
+2026-10-22T14:03:49.602955526-07:00 stdout F (2026-10-22 21:03:49.602) [debug] [Sensors.cc:557] SensorsPrivate::Run
+2026-10-22T14:03:49.602955526-07:00 stdout F (2026-10-22 21:03:49.602) [debug] [SystemManager.cc:80] Loaded system [gz::sim::systems::Sensors] for entity [1]
+2026-10-22T14:03:49.603847795-07:00 stdout F (2026-10-22 21:03:49.603) [debug] [Sensors.cc:532] SensorsPrivate::RenderThread started
+2026-10-22T14:03:49.603847795-07:00 stdout F (2026-10-22 21:03:49.603) [debug] [Sensors.cc:337] Waiting for init
+2026-10-22T14:03:49.609198783-07:00 stdout F (2026-10-22 21:03:49.609) [info] [UserCommands.cc:751] Create service on [/world/factory/create_multiple] (async)
+2026-10-22T14:03:49.610495081-07:00 stdout F (2026-10-22 21:03:49.609) [info] [UserCommands.cc:753] Create service on [/world/factory/create_multiple/blocking] (blocking)
+2026-10-22T14:03:49.610495081-07:00 stdout F (2026-10-22 21:03:49.609) [info] [UserCommands.cc:751] Remove service on [/world/factory/remove] (async)
+2026-10-22T14:03:49.610495081-07:00 stdout F (2026-10-22 21:03:49.609) [info] [UserCommands.cc:753] Remove service on [/world/factory/remove/blocking] (blocking)
+2026-10-22T14:03:49.610495081-07:00 stdout F (2026-10-22 21:03:49.609) [info] [UserCommands.cc:751] Pose service on [/world/factory/set_pose] (async)
+2026-10-22T14:03:49.610495081-07:00 stdout F (2026-10-22 21:03:49.609) [info] [UserCommands.cc:753] Pose service on [/world/factory/set_pose/blocking] (blocking)
+2026-10-22T14:03:49.610495081-07:00 stdout F (2026-10-22 21:03:49.609) [info] [UserCommands.cc:751] Pose service on [/world/factory/set_pose_vector] (async)
+2026-10-22T14:03:49.610495081-07:00 stdout F (2026-10-22 21:03:49.609) [info] [UserCommands.cc:753] Pose service on [/world/factory/set_pose_vector/blocking] (blocking)
+2026-10-22T14:03:49.610495081-07:00 stdout F (2026-10-22 21:03:49.609) [info] [UserCommands.cc:751] Light configuration service on [/world/factory/light_config] (async)
+2026-10-22T14:03:49.610495081-07:00 stdout F (2026-10-22 21:03:49.609) [info] [UserCommands.cc:753] Light configuration service on [/world/factory/light_config/blocking] (blocking)
+2026-10-22T14:03:49.610495081-07:00 stdout F (2026-10-22 21:03:49.610) [info] [UserCommands.cc:751] Physics service on [/world/factory/set_physics] (async)
+2026-10-22T14:03:49.610495081-07:00 stdout F (2026-10-22 21:03:49.610) [info] [UserCommands.cc:753] Physics service on [/world/factory/set_physics/blocking] (blocking)
+2026-10-22T14:03:49.610495081-07:00 stdout F (2026-10-22 21:03:49.610) [info] [UserCommands.cc:751] SphericalCoordinates service on [/world/factory/set_spherical_coordinates] (async)
+2026-10-22T14:03:49.610495081-07:00 stdout F (2026-10-22 21:03:49.610) [info] [UserCommands.cc:753] SphericalCoordinates service on [/world/factory/set_spherical_coordinates/blocking] (blocking)
+2026-10-22T14:03:49.610495081-07:00 stdout F (2026-10-22 21:03:49.610) [info] [UserCommands.cc:751] Enable collision service on [/world/factory/enable_collision] (async)
+2026-10-22T14:03:49.610495081-07:00 stdout F (2026-10-22 21:03:49.610) [info] [UserCommands.cc:753] Enable collision service on [/world/factory/enable_collision/blocking] (blocking)
+2026-10-22T14:03:49.610495081-07:00 stdout F (2026-10-22 21:03:49.610) [info] [UserCommands.cc:751] Disable collision service on [/world/factory/disable_collision] (async)
+2026-10-22T14:03:49.610495081-07:00 stdout F (2026-10-22 21:03:49.610) [info] [UserCommands.cc:753] Disable collision service on [/world/factory/disable_collision/blocking] (blocking)
+2026-10-22T14:03:49.610760898-07:00 stdout F (2026-10-22 21:03:49.610) [info] [UserCommands.cc:751] Material service on [/world/factory/visual_config] (async)
+2026-10-22T14:03:49.610803264-07:00 stdout F (2026-10-22 21:03:49.610) [info] [UserCommands.cc:753] Material service on [/world/factory/visual_config/blocking] (blocking)
+2026-10-22T14:03:49.611022961-07:00 stdout F (2026-10-22 21:03:49.611) [info] [UserCommands.cc:751] Material service on [/world/factory/wheel_slip] (async)
+2026-10-22T14:03:49.611054532-07:00 stdout F (2026-10-22 21:03:49.611) [info] [UserCommands.cc:753] Material service on [/world/factory/wheel_slip/blocking] (blocking)
+2026-10-22T14:03:49.611123944-07:00 stdout F (2026-10-22 21:03:49.611) [debug] [SystemManager.cc:80] Loaded system [gz::sim::systems::UserCommands] for entity [1]
+2026-10-22T14:03:49.615838874-07:00 stdout F (2026-10-22 21:03:49.615) [debug] [SystemManager.cc:80] Loaded system [gz::sim::systems::SceneBroadcaster] for entity [1]
+2026-10-22T14:03:49.705156532-07:00 stdout F (2026-10-22 21:03:49.705) [debug] [Physics.cc:1053] Loaded [gz::physics::dartsim::Plugin] from library [/usr/lib/x86_64-linux-gnu/gz-physics-9/engine-plugins/libgz-physics-dartsim-plugin.so]
+2026-10-22T14:03:49.705580027-07:00 stdout F (2026-10-22 21:03:49.705) [debug] [SystemManager.cc:80] Loaded system [gz::sim::systems::Physics] for entity [1]
+2026-10-22T14:03:49.706513505-07:00 stdout F (2026-10-22 21:03:49.706) [info] [LevelManager.cc:646] Loaded level [default]
+2026-10-22T14:03:49.707523068-07:00 stdout F (2026-10-22 21:03:49.707) [debug] [ServerConfig.cc:1042] Loading (3) plugins from file [/gzhome/.gz/sim/10/server.config]
+2026-10-22T14:03:49.707607588-07:00 stdout F (2026-10-22 21:03:49.707) [debug] [SimulationRunner.cc:1926] Additional plugins to load:
+2026-10-22T14:03:49.712247283-07:00 stdout F (2026-10-22 21:03:49.712) [debug] [SimulationRunner.cc:655] Creating PostUpdate worker threads: 3
+2026-10-22T14:03:49.712926538-07:00 stdout F (2026-10-22 21:03:49.712) [debug] [SimulationRunner.cc:666] Creating postupdate worker thread (0)
+2026-10-22T14:03:49.712926538-07:00 stdout F (2026-10-22 21:03:49.712) [debug] [SimulationRunner.cc:666] Creating postupdate worker thread (1)
+2026-10-22T14:03:49.762711253-07:00 stdout F (2026-10-22 21:03:49.762) [debug] [Sensors.cc:953] Initialization needed
+2026-10-22T14:03:49.763799996-07:00 stdout F (2026-10-22 21:03:49.763) [debug] [Sensors.cc:349] Initializing render context
+2026-10-22T14:03:49.764775220-07:00 stdout F (2026-10-22 21:03:49.764) [info] [RenderEngineManager.cc:513] Loading plugin [gz-rendering-ogre2]
+2026-10-22T14:03:49.767760230-07:00 stdout F (2026-10-22 21:03:49.767) [info] [SceneBroadcaster.cc:654] Serving scene information on [/world/factory/scene/info]
+2026-10-22T14:03:49.767873095-07:00 stdout F (2026-10-22 21:03:49.767) [info] [SceneBroadcaster.cc:663] Serving graph information on [/world/factory/scene/graph]
+2026-10-22T14:03:49.768297898-07:00 stdout F (2026-10-22 21:03:49.768) [info] [SceneBroadcaster.cc:674] Serving full state on [/world/factory/state]
+2026-10-22T14:03:49.768471924-07:00 stdout F (2026-10-22 21:03:49.768) [info] [SceneBroadcaster.cc:683] Serving full state (async) on [/world/factory/state_async]
+2026-10-22T14:03:49.768763658-07:00 stdout F (2026-10-22 21:03:49.768) [info] [SceneBroadcaster.cc:691] Publishing scene information on [/world/factory/scene/info]
+2026-10-22T14:03:49.769549077-07:00 stdout F (2026-10-22 21:03:49.769) [info] [SceneBroadcaster.cc:700] Publishing entity deletions on [/world/factory/scene/deletion]
+2026-10-22T14:03:49.769758049-07:00 stdout F (2026-10-22 21:03:49.769) [info] [SceneBroadcaster.cc:709] Publishing state changes on [/world/factory/state]
+2026-10-22T14:03:49.769929993-07:00 stdout F (2026-10-22 21:03:49.769) [info] [SceneBroadcaster.cc:720] Publishing pose messages on [/world/factory/pose/info]
+2026-10-22T14:03:49.770089917-07:00 stdout F (2026-10-22 21:03:49.770) [info] [SceneBroadcaster.cc:731] Publishing dynamic pose messages on [/world/factory/dynamic_pose/info]
+2026-10-22T14:03:49.880556908-07:00 stderr F (2026-10-22 21:03:49.875) [warning] [Ogre2RenderEngine.cc:556] Unable to open display: . Trying to run in headless mode.
+2026-10-22T14:03:50.756719358-07:00 stdout F (2026-10-22 21:03:50.756) [debug] [RenderUtil.cc:2646] Create scene [scene]
+2026-10-22T14:03:49.856428592-07:00 stdout F (2026-10-22 21:03:49.855) [debug] [Sensors.cc:391] Rendering Thread initialized
+2026-10-22T14:03:49.866182490-07:00 stdout F (2026-10-22 21:03:49.865) [debug] [Sensors.cc:953] Initialization needed
+2026-10-22T14:03:54.949471684-07:00 stdout F (2026-10-22 21:03:54.949) [debug] [CameraSensor.cc:339] Camera images for [camera_rig::camera_rig::user_camera] advertised on [/factory/camera/image]
+2026-10-22T14:03:54.950098351-07:00 stdout F (2026-10-22 21:03:54.950) [debug] [CameraSensor.cc:629] Camera info for [camera_rig::camera_rig::user_camera] advertised on [/factory/camera/camera_info]
+2026-10-22T14:03:54.961078069-07:00 stderr F (2026-10-22 21:03:54.959) [warning] [Ogre2Camera.cc:423] Ogre2Camera::SetVisibilityMask: Mask bits c0000000 are set but will be ignored as they conflict with the reserved bits used internally by the ogre2 backend.
+2026-10-22T14:03:54.961291532-07:00 stdout F (2026-10-22 21:03:54.961) [debug] [CameraSensor.cc:339] Camera images for [camera_arms_ne::camera_arms_ne::camera_arms_ne] advertised on [/factory/camera/arms_ne]
+2026-10-22T14:03:54.961489870-07:00 stdout F (2026-10-22 21:03:54.961) [debug] [CameraSensor.cc:629] Camera info for [camera_arms_ne::camera_arms_ne::camera_arms_ne] advertised on [/factory/camera/camera_info]
+2026-10-22T14:03:54.961698429-07:00 stderr F (2026-10-22 21:03:54.961) [warning] [Ogre2Camera.cc:423] Ogre2Camera::SetVisibilityMask: Mask bits c0000000 are set but will be ignored as they conflict with the reserved bits used internally by the ogre2 backend.
+2026-10-22T14:03:54.962486496-07:00 stdout F (2026-10-22 21:03:54.962) [debug] [CameraSensor.cc:339] Camera images for [camera_arms_n::camera_arms_n::camera_arms_n] advertised on [/factory/camera/arms_n]
+2026-10-22T14:03:54.962626560-07:00 stdout F (2026-10-22 21:03:54.962) [debug] [CameraSensor.cc:629] Camera info for [camera_arms_n::camera_arms_n::camera_arms_n] advertised on [/factory/camera/camera_info]
+2026-10-22T14:03:54.962725310-07:00 stderr F (2026-10-22 21:03:54.962) [warning] [Ogre2Camera.cc:423] Ogre2Camera::SetVisibilityMask: Mask bits c0000000 are set but will be ignored as they conflict with the reserved bits used internally by the ogre2 backend.
+2026-10-22T14:03:54.963132211-07:00 stdout F (2026-10-22 21:03:54.963) [debug] [CameraSensor.cc:339] Camera images for [camera_arms_se::camera_arms_se::camera_arms_se] advertised on [/factory/camera/arms_se]
+2026-10-22T14:03:54.963216752-07:00 stdout F (2026-10-22 21:03:54.963) [debug] [CameraSensor.cc:629] Camera info for [camera_arms_se::camera_arms_se::camera_arms_se] advertised on [/factory/camera/camera_info]
+2026-10-22T14:03:54.963267806-07:00 stderr F (2026-10-22 21:03:54.963) [warning] [Ogre2Camera.cc:423] Ogre2Camera::SetVisibilityMask: Mask bits c0000000 are set but will be ignored as they conflict with the reserved bits used internally by the ogre2 backend.
+2026-10-22T14:03:54.963808934-07:00 stdout F (2026-10-22 21:03:54.963) [debug] [CameraSensor.cc:339] Camera images for [camera_arms_e::camera_arms_e::camera_arms_e] advertised on [/factory/camera/arms_e]
+2026-10-22T14:03:54.963999290-07:00 stdout F (2026-10-22 21:03:54.963) [debug] [CameraSensor.cc:629] Camera info for [camera_arms_e::camera_arms_e::camera_arms_e] advertised on [/factory/camera/camera_info]
+2026-10-22T14:03:54.964090361-07:00 stderr F (2026-10-22 21:03:54.964) [warning] [Ogre2Camera.cc:423] Ogre2Camera::SetVisibilityMask: Mask bits c0000000 are set but will be ignored as they conflict with the reserved bits used internally by the ogre2 backend.
+2026-10-22T14:03:54.964629433-07:00 stdout F (2026-10-22 21:03:54.964) [debug] [CameraSensor.cc:339] Camera images for [camera_elev_arms::camera_elev_arms::camera_elev_arms] advertised on [/factory/camera/elev_arms]
+2026-10-22T14:03:54.964757985-07:00 stdout F (2026-10-22 21:03:54.964) [debug] [CameraSensor.cc:629] Camera info for [camera_elev_arms::camera_elev_arms::camera_elev_arms] advertised on [/factory/camera/camera_info]
+2026-10-22T14:03:54.964854596-07:00 stderr F (2026-10-22 21:03:54.964) [warning] [Ogre2Camera.cc:423] Ogre2Camera::SetVisibilityMask: Mask bits c0000000 are set but will be ignored as they conflict with the reserved bits used internally by the ogre2 backend.
+2026-10-22T14:03:54.965426078-07:00 stdout F (2026-10-22 21:03:54.965) [debug] [CameraSensor.cc:339] Camera images for [camera_elev_conveyor::camera_elev_conveyor::camera_elev_conveyor] advertised on [/factory/camera/elev_conveyor]
+2026-10-22T14:03:54.965548231-07:00 stdout F (2026-10-22 21:03:54.965) [debug] [CameraSensor.cc:629] Camera info for [camera_elev_conveyor::camera_elev_conveyor::camera_elev_conveyor] advertised on [/factory/camera/camera_info]
+2026-10-22T14:03:54.965633935-07:00 stderr F (2026-10-22 21:03:54.965) [warning] [Ogre2Camera.cc:423] Ogre2Camera::SetVisibilityMask: Mask bits c0000000 are set but will be ignored as they conflict with the reserved bits used internally by the ogre2 backend.
+2026-10-22T14:03:54.966233327-07:00 stdout F (2026-10-22 21:03:54.966) [debug] [CameraSensor.cc:339] Camera images for [camera_elev_massing::camera_elev_massing::camera_elev_massing] advertised on [/factory/camera/elev_massing]
+2026-10-22T14:03:54.966387751-07:00 stdout F (2026-10-22 21:03:54.966) [debug] [CameraSensor.cc:629] Camera info for [camera_elev_massing::camera_elev_massing::camera_elev_massing] advertised on [/factory/camera/camera_info]
+2026-10-22T14:03:54.966480982-07:00 stderr F (2026-10-22 21:03:54.966) [warning] [Ogre2Camera.cc:423] Ogre2Camera::SetVisibilityMask: Mask bits c0000000 are set but will be ignored as they conflict with the reserved bits used internally by the ogre2 backend.
+2026-10-22T14:03:55.052471747-07:00 stdout F (2026-10-22 21:03:55.052) [debug] [CameraSensor.cc:438] Enabling camera sensor: 'camera_rig::camera_rig::user_camera' data generation.
+2026-10-22T14:03:55.837813181-07:00 stdout F (2026-10-22 21:03:55.837) [debug] [CameraSensor.cc:438] Enabling camera sensor: 'camera_arms_ne::camera_arms_ne::camera_arms_ne' data generation.
+2026-10-22T14:03:56.076432203-07:00 stdout F (2026-10-22 21:03:56.076) [debug] [CameraSensor.cc:438] Enabling camera sensor: 'camera_arms_n::camera_arms_n::camera_arms_n' data generation.
+2026-10-22T14:03:56.284420075-07:00 stdout F (2026-10-22 21:03:56.284) [debug] [CameraSensor.cc:438] Enabling camera sensor: 'camera_arms_se::camera_arms_se::camera_arms_se' data generation.
+2026-10-22T14:03:56.410757026-07:00 stdout F (2026-10-22 21:03:56.410) [debug] [CameraSensor.cc:438] Enabling camera sensor: 'camera_arms_e::camera_arms_e::camera_arms_e' data generation.
+2026-10-22T14:03:56.542433746-07:00 stdout F (2026-10-22 21:03:56.541) [debug] [CameraSensor.cc:438] Enabling camera sensor: 'camera_elev_arms::camera_elev_arms::camera_elev_arms' data generation.
+2026-10-22T14:03:56.733041127-07:00 stdout F (2026-10-22 21:03:56.732) [debug] [CameraSensor.cc:438] Enabling camera sensor: 'camera_elev_conveyor::camera_elev_conveyor::camera_elev_conveyor' data generation.
+2026-10-22T14:03:56.909138617-07:00 stdout F (2026-10-22 21:03:56.909) [debug] [CameraSensor.cc:438] Enabling camera sensor: 'camera_elev_massing::camera_elev_massing::camera_elev_massing' data generation.

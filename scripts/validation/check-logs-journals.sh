@@ -40,6 +40,24 @@ stale=0
 printf '%-34s %-16s %s\n' "LOG (Section 16.3)" "STATE" "LAST WRITE (UTC)"
 printf '%s\n' "----------------------------------------------------------------------"
 
+# Check whether any live process holds the given path open for writing.
+# Used to detect the logrotate detached-writer defect (OPS-40): after
+# rotation, a fresh live file has recent mtime but the writer (e.g. a
+# Podman container) still holds the rotated inode, so its output is
+# discarded at the next rotation. fuser returns 0 when a process holds
+# the path; host-side journal logs (written by short-lived bash scripts)
+# are never held open, so fuser silence there is expected and not a fault.
+path_has_writer() {
+  local path="$1"
+  if command -v fuser >/dev/null 2>&1; then
+    fuser "$path" >/dev/null 2>&1
+  else
+    # No fuser available: cannot detect detached writers. Return 0 to
+    # avoid false alarms and fall back to mtime-only behaviour.
+    return 0
+  fi
+}
+
 for row in "${rows[@]}"; do
   name="${row%%|*}"
   budget="${row##*|}"
@@ -55,8 +73,17 @@ for row in "${rows[@]}"; do
   if (( budget < 0 )); then
     state="NOT-APPLICABLE"
   elif (( age_days > budget )); then
-    state="STALE (${age_days}d > ${budget}d)"
-    stale=$((stale + 1))
+    # Mtime says stale: check whether a live process is still holding the
+    # file open (detached writer after logrotate). If so, the file is
+    # actively being written to but to the wrong inode -- report as
+    # ACTIVE-BUT-OLD rather than STALE so the operator knows rotation
+    # is needed, not that the log has stopped.
+    if path_has_writer "$path"; then
+      state="ACTIVE-BUT-OLD (${age_days}d > ${budget}d, writer holds file)"
+    else
+      state="STALE (${age_days}d > ${budget}d)"
+      stale=$((stale + 1))
+    fi
   else
     state="OK (${age_days}d)"
   fi
