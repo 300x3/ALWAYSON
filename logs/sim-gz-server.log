@@ -1,0 +1,299 @@
+2026-10-25T11:53:37.824409454-07:00 stdout F (2026-10-25 18:53:37.824) [info] [gz.cc:407] Gazebo Sim Server v10.5.0
+2026-10-25T11:53:38.127057758-07:00 stdout F (2026-10-25 18:53:38.126) [info] [ServerPrivate.cc:697] Loading SDF world file[/ALWAYSON/GAZEBO/worlds/factory.world].
+2026-10-25T11:53:39.891093285-07:00 stdout F (2026-10-25 18:53:39.891) [info] [SystemManager.cc:54] Serving entity system service on [/entity/system/add]
+2026-10-25T11:53:39.957475783-07:00 stdout F (2026-10-25 18:53:39.957) [info] [SimulationRunner.cc:347] Serving world controls on [/world/factory/control], [/world/factory/control/state] and [/world/factory/playback/control]
+2026-10-25T11:53:39.957490838-07:00 stderr F (2026-10-25 18:53:39.957) [warning] [Conversions.cc:736] <gui><camera> can't be converted yet
+2026-10-25T11:53:39.958248982-07:00 stdout F (2026-10-25 18:53:39.958) [info] [SimulationRunner.cc:373] Serving GUI information on [/world/factory/gui/info]
+2026-10-25T11:53:39.958248982-07:00 stdout F (2026-10-25 18:53:39.958) [info] [SimulationRunner.cc:376] World [factory] initialized with [default_physics] physics profile.
+2026-10-25T11:53:39.958362117-07:00 stdout F (2026-10-25 18:53:39.958) [info] [SimulationRunner.cc:383] Serving world SDF generation service on [/world/factory/generate_world_sdf]
+2026-10-25T11:53:39.958969586-07:00 stdout F (2026-10-25 18:53:39.958) [info] [ServerPrivate.cc:357] Serving world names on [/gazebo/worlds]
+2026-10-25T11:53:39.958993854-07:00 stdout F (2026-10-25 18:53:39.958) [info] [ServerPrivate.cc:370] Resource path add service on [/gazebo/resource_paths/add].
+2026-10-25T11:53:39.959074276-07:00 stdout F (2026-10-25 18:53:39.959) [info] [ServerPrivate.cc:383] Resource path get service on [/gazebo/resource_paths/get].
+2026-10-25T11:53:39.959108950-07:00 stdout F (2026-10-25 18:53:39.959) [info] [ServerPrivate.cc:398] Resource path resolve service on [/gazebo/resource_paths/resolve].
+2026-10-25T11:53:39.959153533-07:00 stdout F (2026-10-25 18:53:39.959) [info] [ServerPrivate.cc:412] Resource paths published on [/gazebo/resource_paths].
+2026-10-25T11:53:39.960681168-07:00 stdout F (2026-10-25 18:53:39.960) [info] [ServerPrivate.cc:425] Server control service on [/server_control].
+2026-10-25T11:53:39.961254726-07:00 stdout F (2026-10-25 18:53:39.961) [info] [SimulationRunner.cc:868] Found no publishers on /stats, adding root stats topic
+2026-10-25T11:53:39.961370613-07:00 stdout F (2026-10-25 18:53:39.961) [info] [SimulationRunner.cc:902] Found no publishers on /clock, adding root clock topic
+2026-10-25T11:53:40.283287356-07:00 stdout F (2026-10-25 18:53:40.282) [debug] [Sensors.cc:697] Configuring Sensors system
+2026-10-25T11:53:40.283287356-07:00 stdout F (2026-10-25 18:53:40.283) [debug] [Sensors.cc:557] SensorsPrivate::Run
+2026-10-25T11:53:40.283287356-07:00 stdout F (2026-10-25 18:53:40.283) [debug] [SystemManager.cc:80] Loaded system [gz::sim::systems::Sensors] for entity [1]
+2026-10-25T11:53:40.283563244-07:00 stdout F (2026-10-25 18:53:40.283) [debug] [Sensors.cc:532] SensorsPrivate::RenderThread started
+2026-10-25T11:53:40.283563244-07:00 stdout F (2026-10-25 18:53:40.283) [debug] [Sensors.cc:337] Waiting for init
+2026-10-25T11:53:40.287105712-07:00 stdout F (2026-10-25 18:53:40.287) [info] [UserCommands.cc:751] Create service on [/world/factory/create_multiple] (async)
+2026-10-25T11:53:40.287105712-07:00 stdout F (2026-10-25 18:53:40.287) [info] [UserCommands.cc:753] Create service on [/world/factory/create_multiple/blocking] (blocking)
+2026-10-25T11:53:40.287235934-07:00 stdout F (2026-10-25 18:53:40.287) [info] [UserCommands.cc:751] Remove service on [/world/factory/remove] (async)
+2026-10-25T11:53:40.287235934-07:00 stdout F (2026-10-25 18:53:40.287) [info] [UserCommands.cc:753] Remove service on [/world/factory/remove/blocking] (blocking)
+2026-10-25T11:53:40.287282718-07:00 stdout F (2026-10-25 18:53:40.287) [info] [UserCommands.cc:751] Pose service on [/world/factory/set_pose] (async)
+2026-10-25T11:53:40.287282718-07:00 stdout F (2026-10-25 18:53:40.287) [info] [UserCommands.cc:753] Pose service on [/world/factory/set_pose/blocking] (blocking)
+2026-10-25T11:53:40.287358925-07:00 stdout F (2026-10-25 18:53:40.287) [info] [UserCommands.cc:751] Pose service on [/world/factory/set_pose_vector] (async)
+2026-10-25T11:53:40.287358925-07:00 stdout F (2026-10-25 18:53:40.287) [info] [UserCommands.cc:753] Pose service on [/world/factory/set_pose_vector/blocking] (blocking)
+2026-10-25T11:53:40.287469342-07:00 stdout F (2026-10-25 18:53:40.287) [info] [UserCommands.cc:751] Light configuration service on [/world/factory/light_config] (async)
+2026-10-25T11:53:40.287469342-07:00 stdout F (2026-10-25 18:53:40.287) [info] [UserCommands.cc:753] Light configuration service on [/world/factory/light_config/blocking] (blocking)
+2026-10-25T11:53:40.287610490-07:00 stdout F (2026-10-25 18:53:40.287) [info] [UserCommands.cc:751] Physics service on [/world/factory/set_physics] (async)
+2026-10-25T11:53:40.287616455-07:00 stdout F (2026-10-25 18:53:40.287) [info] [UserCommands.cc:753] Physics service on [/world/factory/set_physics/blocking] (blocking)
+2026-10-25T11:53:40.287744687-07:00 stdout F (2026-10-25 18:53:40.287) [info] [UserCommands.cc:751] SphericalCoordinates service on [/world/factory/set_spherical_coordinates] (async)
+2026-10-25T11:53:40.287744687-07:00 stdout F (2026-10-25 18:53:40.287) [info] [UserCommands.cc:753] SphericalCoordinates service on [/world/factory/set_spherical_coordinates/blocking] (blocking)
+2026-10-25T11:53:40.287772216-07:00 stdout F (2026-10-25 18:53:40.287) [info] [UserCommands.cc:751] Enable collision service on [/world/factory/enable_collision] (async)
+2026-10-25T11:53:40.287772216-07:00 stdout F (2026-10-25 18:53:40.287) [info] [UserCommands.cc:753] Enable collision service on [/world/factory/enable_collision/blocking] (blocking)
+2026-10-25T11:53:40.287856110-07:00 stdout F (2026-10-25 18:53:40.287) [info] [UserCommands.cc:751] Disable collision service on [/world/factory/disable_collision] (async)
+2026-10-25T11:53:40.287856110-07:00 stdout F (2026-10-25 18:53:40.287) [info] [UserCommands.cc:753] Disable collision service on [/world/factory/disable_collision/blocking] (blocking)
+2026-10-25T11:53:40.287931602-07:00 stdout F (2026-10-25 18:53:40.287) [info] [UserCommands.cc:751] Material service on [/world/factory/visual_config] (async)
+2026-10-25T11:53:40.287931602-07:00 stdout F (2026-10-25 18:53:40.287) [info] [UserCommands.cc:753] Material service on [/world/factory/visual_config/blocking] (blocking)
+2026-10-25T11:53:40.288011879-07:00 stdout F (2026-10-25 18:53:40.288) [info] [UserCommands.cc:751] Material service on [/world/factory/wheel_slip] (async)
+2026-10-25T11:53:40.288011879-07:00 stdout F (2026-10-25 18:53:40.288) [info] [UserCommands.cc:753] Material service on [/world/factory/wheel_slip/blocking] (blocking)
+2026-10-25T11:53:40.288029141-07:00 stdout F (2026-10-25 18:53:40.288) [debug] [SystemManager.cc:80] Loaded system [gz::sim::systems::UserCommands] for entity [1]
+2026-10-25T11:53:40.291076876-07:00 stdout F (2026-10-25 18:53:40.291) [debug] [SystemManager.cc:80] Loaded system [gz::sim::systems::SceneBroadcaster] for entity [1]
+2026-10-25T11:53:40.338156219-07:00 stdout F (2026-10-25 18:53:40.338) [debug] [Physics.cc:1053] Loaded [gz::physics::dartsim::Plugin] from library [/usr/lib/x86_64-linux-gnu/gz-physics-9/engine-plugins/libgz-physics-dartsim-plugin.so]
+2026-10-25T11:53:40.338156219-07:00 stdout F (2026-10-25 18:53:40.338) [debug] [SystemManager.cc:80] Loaded system [gz::sim::systems::Physics] for entity [1]
+2026-10-25T11:53:40.338512385-07:00 stdout F (2026-10-25 18:53:40.338) [info] [LevelManager.cc:646] Loaded level [default]
+2026-10-25T11:53:40.339248587-07:00 stdout F (2026-10-25 18:53:40.339) [debug] [ServerConfig.cc:1042] Loading (3) plugins from file [/gzhome/.gz/sim/10/server.config]
+2026-10-25T11:53:40.339259717-07:00 stdout F (2026-10-25 18:53:40.339) [debug] [SimulationRunner.cc:1926] Additional plugins to load:
+2026-10-25T11:53:40.340815251-07:00 stdout F (2026-10-25 18:53:40.340) [debug] [SimulationRunner.cc:655] Creating PostUpdate worker threads: 3
+2026-10-25T11:53:40.340815251-07:00 stdout F (2026-10-25 18:53:40.340) [debug] [SimulationRunner.cc:666] Creating postupdate worker thread (0)
+2026-10-25T11:53:40.340836033-07:00 stdout F (2026-10-25 18:53:40.340) [debug] [SimulationRunner.cc:666] Creating postupdate worker thread (1)
+2026-10-25T11:53:40.366977731-07:00 stdout F (2026-10-25 18:53:40.366) [debug] [Sensors.cc:953] Initialization needed
+2026-10-25T11:53:40.367001241-07:00 stdout F (2026-10-25 18:53:40.366) [debug] [Sensors.cc:349] Initializing render context
+2026-10-25T11:53:40.367401228-07:00 stdout F (2026-10-25 18:53:40.367) [info] [RenderEngineManager.cc:513] Loading plugin [gz-rendering-ogre2]
+2026-10-25T11:53:40.368406664-07:00 stdout F (2026-10-25 18:53:40.368) [info] [SceneBroadcaster.cc:654] Serving scene information on [/world/factory/scene/info]
+2026-10-25T11:53:40.368460982-07:00 stdout F (2026-10-25 18:53:40.368) [info] [SceneBroadcaster.cc:663] Serving graph information on [/world/factory/scene/graph]
+2026-10-25T11:53:40.368577107-07:00 stdout F (2026-10-25 18:53:40.368) [info] [SceneBroadcaster.cc:674] Serving full state on [/world/factory/state]
+2026-10-25T11:53:40.368621674-07:00 stdout F (2026-10-25 18:53:40.368) [info] [SceneBroadcaster.cc:683] Serving full state (async) on [/world/factory/state_async]
+2026-10-25T11:53:40.368673361-07:00 stdout F (2026-10-25 18:53:40.368) [info] [SceneBroadcaster.cc:691] Publishing scene information on [/world/factory/scene/info]
+2026-10-25T11:53:40.369270191-07:00 stdout F (2026-10-25 18:53:40.369) [info] [SceneBroadcaster.cc:700] Publishing entity deletions on [/world/factory/scene/deletion]
+2026-10-25T11:53:40.369325692-07:00 stdout F (2026-10-25 18:53:40.369) [info] [SceneBroadcaster.cc:709] Publishing state changes on [/world/factory/state]
+2026-10-25T11:53:40.369393284-07:00 stdout F (2026-10-25 18:53:40.369) [info] [SceneBroadcaster.cc:720] Publishing pose messages on [/world/factory/pose/info]
+2026-10-25T11:53:40.369448875-07:00 stdout F (2026-10-25 18:53:40.369) [info] [SceneBroadcaster.cc:731] Publishing dynamic pose messages on [/world/factory/dynamic_pose/info]
+2026-10-25T11:53:40.469406400-07:00 stderr F (2026-10-25 18:53:40.469) [warning] [Ogre2RenderEngine.cc:556] Unable to open display: . Trying to run in headless mode.
+2026-10-25T11:53:41.077024454-07:00 stdout F (2026-10-25 18:53:41.076) [debug] [RenderUtil.cc:2646] Create scene [scene]
+2026-10-25T11:53:41.277019622-07:00 stdout F (2026-10-25 18:53:41.276) [debug] [Sensors.cc:391] Rendering Thread initialized
+2026-10-25T11:53:41.277054863-07:00 stdout F (2026-10-25 18:53:41.276) [debug] [Sensors.cc:953] Initialization needed
+2026-10-25T11:53:42.141971006-07:00 stdout F (2026-10-25 18:53:42.141) [debug] [CameraSensor.cc:339] Camera images for [camera_rig::camera_rig::user_camera] advertised on [/factory/camera/image]
+2026-10-25T11:53:42.142042871-07:00 stdout F (2026-10-25 18:53:42.142) [debug] [CameraSensor.cc:629] Camera info for [camera_rig::camera_rig::user_camera] advertised on [/factory/camera/camera_info]
+2026-10-25T11:53:42.144236867-07:00 stderr F (2026-10-25 18:53:42.144) [warning] [Ogre2Camera.cc:423] Ogre2Camera::SetVisibilityMask: Mask bits c0000000 are set but will be ignored as they conflict with the reserved bits used internally by the ogre2 backend.
+2026-10-25T11:53:42.144541359-07:00 stdout F (2026-10-25 18:53:42.144) [debug] [CameraSensor.cc:339] Camera images for [camera_arms_ne::camera_arms_ne::camera_arms_ne] advertised on [/factory/camera/arms_ne]
+2026-10-25T11:53:42.144567568-07:00 stdout F (2026-10-25 18:53:42.144) [debug] [CameraSensor.cc:629] Camera info for [camera_arms_ne::camera_arms_ne::camera_arms_ne] advertised on [/factory/camera/camera_info]
+2026-10-25T11:53:42.144594817-07:00 stderr F (2026-10-25 18:53:42.144) [warning] [Ogre2Camera.cc:423] Ogre2Camera::SetVisibilityMask: Mask bits c0000000 are set but will be ignored as they conflict with the reserved bits used internally by the ogre2 backend.
+2026-10-25T11:53:42.144805321-07:00 stdout F (2026-10-25 18:53:42.144) [debug] [CameraSensor.cc:339] Camera images for [camera_arms_n::camera_arms_n::camera_arms_n] advertised on [/factory/camera/arms_n]
+2026-10-25T11:53:42.144845214-07:00 stdout F (2026-10-25 18:53:42.144) [debug] [CameraSensor.cc:629] Camera info for [camera_arms_n::camera_arms_n::camera_arms_n] advertised on [/factory/camera/camera_info]
+2026-10-25T11:53:42.144873796-07:00 stderr F (2026-10-25 18:53:42.144) [warning] [Ogre2Camera.cc:423] Ogre2Camera::SetVisibilityMask: Mask bits c0000000 are set but will be ignored as they conflict with the reserved bits used internally by the ogre2 backend.
+2026-10-25T11:53:42.145073835-07:00 stdout F (2026-10-25 18:53:42.145) [debug] [CameraSensor.cc:339] Camera images for [camera_arms_se::camera_arms_se::camera_arms_se] advertised on [/factory/camera/arms_se]
+2026-10-25T11:53:42.145113135-07:00 stdout F (2026-10-25 18:53:42.145) [debug] [CameraSensor.cc:629] Camera info for [camera_arms_se::camera_arms_se::camera_arms_se] advertised on [/factory/camera/camera_info]
+2026-10-25T11:53:42.145140400-07:00 stderr F (2026-10-25 18:53:42.145) [warning] [Ogre2Camera.cc:423] Ogre2Camera::SetVisibilityMask: Mask bits c0000000 are set but will be ignored as they conflict with the reserved bits used internally by the ogre2 backend.
+2026-10-25T11:53:42.145379266-07:00 stdout F (2026-10-25 18:53:42.145) [debug] [CameraSensor.cc:339] Camera images for [camera_arms_e::camera_arms_e::camera_arms_e] advertised on [/factory/camera/arms_e]
+2026-10-25T11:53:42.145422941-07:00 stdout F (2026-10-25 18:53:42.145) [debug] [CameraSensor.cc:629] Camera info for [camera_arms_e::camera_arms_e::camera_arms_e] advertised on [/factory/camera/camera_info]
+2026-10-25T11:53:42.145454541-07:00 stderr F (2026-10-25 18:53:42.145) [warning] [Ogre2Camera.cc:423] Ogre2Camera::SetVisibilityMask: Mask bits c0000000 are set but will be ignored as they conflict with the reserved bits used internally by the ogre2 backend.
+2026-10-25T11:53:42.145650408-07:00 stdout F (2026-10-25 18:53:42.145) [debug] [CameraSensor.cc:339] Camera images for [camera_elev_arms::camera_elev_arms::camera_elev_arms] advertised on [/factory/camera/elev_arms]
+2026-10-25T11:53:42.145691583-07:00 stdout F (2026-10-25 18:53:42.145) [debug] [CameraSensor.cc:629] Camera info for [camera_elev_arms::camera_elev_arms::camera_elev_arms] advertised on [/factory/camera/camera_info]
+2026-10-25T11:53:42.145726990-07:00 stderr F (2026-10-25 18:53:42.145) [warning] [Ogre2Camera.cc:423] Ogre2Camera::SetVisibilityMask: Mask bits c0000000 are set but will be ignored as they conflict with the reserved bits used internally by the ogre2 backend.
+2026-10-25T11:53:42.146062108-07:00 stdout F (2026-10-25 18:53:42.146) [debug] [CameraSensor.cc:339] Camera images for [camera_elev_conveyor::camera_elev_conveyor::camera_elev_conveyor] advertised on [/factory/camera/elev_conveyor]
+2026-10-25T11:53:42.146099845-07:00 stdout F (2026-10-25 18:53:42.146) [debug] [CameraSensor.cc:629] Camera info for [camera_elev_conveyor::camera_elev_conveyor::camera_elev_conveyor] advertised on [/factory/camera/camera_info]
+2026-10-25T11:53:42.146138970-07:00 stderr F (2026-10-25 18:53:42.146) [warning] [Ogre2Camera.cc:423] Ogre2Camera::SetVisibilityMask: Mask bits c0000000 are set but will be ignored as they conflict with the reserved bits used internally by the ogre2 backend.
+2026-10-25T11:53:42.146479331-07:00 stdout F (2026-10-25 18:53:42.146) [debug] [CameraSensor.cc:339] Camera images for [camera_elev_massing::camera_elev_massing::camera_elev_massing] advertised on [/factory/camera/elev_massing]
+2026-10-25T11:53:42.146522381-07:00 stdout F (2026-10-25 18:53:42.146) [debug] [CameraSensor.cc:629] Camera info for [camera_elev_massing::camera_elev_massing::camera_elev_massing] advertised on [/factory/camera/camera_info]
+2026-10-25T11:53:42.146553753-07:00 stderr F (2026-10-25 18:53:42.146) [warning] [Ogre2Camera.cc:423] Ogre2Camera::SetVisibilityMask: Mask bits c0000000 are set but will be ignored as they conflict with the reserved bits used internally by the ogre2 backend.
+2026-10-25T11:53:42.178560329-07:00 stdout F (2026-10-25 18:53:42.178) [debug] [CameraSensor.cc:438] Enabling camera sensor: 'camera_rig::camera_rig::user_camera' data generation.
+2026-10-25T11:53:42.339855024-07:00 stdout F (2026-10-25 18:53:42.339) [debug] [CameraSensor.cc:438] Enabling camera sensor: 'camera_arms_ne::camera_arms_ne::camera_arms_ne' data generation.
+2026-10-25T11:53:42.357048623-07:00 stdout F (2026-10-25 18:53:42.356) [debug] [CameraSensor.cc:438] Enabling camera sensor: 'camera_arms_n::camera_arms_n::camera_arms_n' data generation.
+2026-10-25T11:53:42.379805946-07:00 stdout F (2026-10-25 18:53:42.379) [debug] [CameraSensor.cc:438] Enabling camera sensor: 'camera_arms_se::camera_arms_se::camera_arms_se' data generation.
+2026-10-25T11:53:42.396779973-07:00 stdout F (2026-10-25 18:53:42.396) [debug] [CameraSensor.cc:438] Enabling camera sensor: 'camera_arms_e::camera_arms_e::camera_arms_e' data generation.
+2026-10-25T11:53:42.412320166-07:00 stdout F (2026-10-25 18:53:42.412) [debug] [CameraSensor.cc:438] Enabling camera sensor: 'camera_elev_arms::camera_elev_arms::camera_elev_arms' data generation.
+2026-10-25T11:53:42.429161069-07:00 stdout F (2026-10-25 18:53:42.429) [debug] [CameraSensor.cc:438] Enabling camera sensor: 'camera_elev_conveyor::camera_elev_conveyor::camera_elev_conveyor' data generation.
+2026-10-25T11:53:42.459059647-07:00 stdout F (2026-10-25 18:53:42.459) [debug] [CameraSensor.cc:438] Enabling camera sensor: 'camera_elev_massing::camera_elev_massing::camera_elev_massing' data generation.
+2026-10-25T11:55:55.305676739-07:00 stdout F (2026-10-25 18:55:55.305) [debug] [SignalHandler.cc:278] Received signal[15].
+2026-10-25T11:55:55.305676739-07:00 stdout F (2026-10-25 18:55:55.305) [debug] [ServerPrivate.cc:129] Server received signal[15]
+2026-10-25T11:55:55.305703646-07:00 stdout F (2026-10-25 18:55:55.305) [debug] [Sensors.cc:565] SensorsPrivate::Stop
+2026-10-25T11:55:55.306197752-07:00 stderr F Exception sending a multicast message:Network is unreachable
+2026-10-25T11:55:55.306197752-07:00 stderr F Exception sending a multicast message:Network is unreachable
+2026-10-25T11:55:55.306227189-07:00 stderr F Exception sending a multicast message:Network is unreachable
+2026-10-25T11:55:55.306548795-07:00 stderr F Exception sending a multicast message:Network is unreachable
+2026-10-25T11:55:55.306548795-07:00 stderr F Exception sending a multicast message:Network is unreachable
+2026-10-25T11:55:55.306548795-07:00 stderr F Exception sending a multicast message:Network is unreachable
+2026-10-25T11:55:55.306812833-07:00 stderr F Exception sending a multicast message:Network is unreachable
+2026-10-25T11:55:55.306812833-07:00 stderr F Exception sending a multicast message:Network is unreachable
+2026-10-25T11:55:55.306812833-07:00 stderr F Exception sending a multicast message:Network is unreachable
+2026-10-25T11:55:55.307076049-07:00 stderr F Exception sending a multicast message:Network is unreachable
+2026-10-25T11:55:55.307076049-07:00 stderr F Exception sending a multicast message:Network is unreachable
+2026-10-25T11:55:55.307076049-07:00 stderr F Exception sending a multicast message:Network is unreachable
+2026-10-25T11:55:55.307439591-07:00 stderr F Exception sending a multicast message:Network is unreachable
+2026-10-25T11:55:55.307439591-07:00 stderr F Exception sending a multicast message:Network is unreachable
+2026-10-25T11:55:55.307466366-07:00 stderr F Exception sending a multicast message:Network is unreachable
+2026-10-25T11:55:55.307746033-07:00 stderr F Exception sending a multicast message:Network is unreachable
+2026-10-25T11:55:55.307746033-07:00 stderr F Exception sending a multicast message:Network is unreachable
+2026-10-25T11:55:55.307746033-07:00 stderr F Exception sending a multicast message:Network is unreachable
+2026-10-25T11:55:55.308001888-07:00 stderr F Exception sending a multicast message:Network is unreachable
+2026-10-25T11:55:55.308001888-07:00 stderr F Exception sending a multicast message:Network is unreachable
+2026-10-25T11:55:55.308001888-07:00 stderr F Exception sending a multicast message:Network is unreachable
+2026-10-25T11:55:55.308026587-07:00 stderr F Exception sending a multicast message:Network is unreachable
+2026-10-25T11:55:55.308026587-07:00 stderr F Exception sending a multicast message:Network is unreachable
+2026-10-25T11:55:55.308040406-07:00 stderr F Exception sending a multicast message:Network is unreachable
+2026-10-25T11:55:55.415065721-07:00 stdout F (2026-10-25 18:55:55.415) [debug] [Sensors.cc:551] SensorsPrivate::RenderThread stopped
+2026-10-25T11:55:55.415216015-07:00 stdout F (2026-10-25 18:55:55.415) [debug] [sim_main.cc:584] Shutting down gz-sim-server
+2026-10-25T11:55:55.415253189-07:00 stderr F Exception sending a multicast message:Network is unreachable
+2026-10-25T11:55:55.415289937-07:00 stderr F Exception sending a multicast message:Network is unreachable
+2026-10-25T11:55:55.415309680-07:00 stderr F Exception sending a multicast message:Network is unreachable
+2026-10-25T11:55:55.415316709-07:00 stderr F Exception sending a multicast message:Network is unreachable
+2026-10-25T11:55:55.415325331-07:00 stderr F Exception sending a multicast message:Network is unreachable
+2026-10-25T11:55:55.415332946-07:00 stderr F Exception sending a multicast message:Network is unreachable
+2026-10-25T11:55:55.418632199-07:00 stdout F (2026-10-25 18:55:55.418) [debug] [SimulationRunner.cc:682] Exiting postupdate worker thread (0)
+2026-10-25T11:55:55.418650854-07:00 stdout F (2026-10-25 18:55:55.418) [debug] [SimulationRunner.cc:682] Exiting postupdate worker thread (1)
+2026-10-25T11:55:55.418840946-07:00 stderr F Exception sending a multicast message:Network is unreachable
+2026-10-25T11:55:55.418840946-07:00 stderr P Exception sending a multicast message:
+2026-10-25T11:55:55.418851764-07:00 stderr F Network is unreachable
+2026-10-25T11:55:55.418851764-07:00 stderr F Exception sending a multicast message:Network is unreachable
+2026-10-25T11:55:55.418859350-07:00 stderr F Exception sending a multicast message:Network is unreachable
+2026-10-25T11:55:55.418879527-07:00 stderr F Exception sending a multicast message:Network is unreachable
+2026-10-25T11:55:55.418888021-07:00 stderr F Exception sending a multicast message:Network is unreachable
+2026-10-25T11:55:55.418895224-07:00 stderr F Exception sending a multicast message:Network is unreachable
+2026-10-25T11:55:55.418902165-07:00 stderr F Exception sending a multicast message:Network is unreachable
+2026-10-25T11:55:55.418909178-07:00 stderr F Exception sending a multicast message:Network is unreachable
+2026-10-25T11:55:55.418925420-07:00 stderr F Exception sending a multicast message:Network is unreachable
+2026-10-25T11:55:55.423176830-07:00 stderr F Exception sending a multicast message:Network is unreachable
+2026-10-25T11:55:55.423176830-07:00 stderr F Exception sending a multicast message:Network is unreachable
+2026-10-25T11:55:55.423200952-07:00 stderr F Exception sending a multicast message:Network is unreachable
+2026-10-25T11:55:55.423200952-07:00 stderr F Exception sending a multicast message:Network is unreachable
+2026-10-25T11:55:55.423240647-07:00 stderr F Exception sending a multicast message:Network is unreachable
+2026-10-25T11:55:55.423248838-07:00 stderr F Exception sending a multicast message:Network is unreachable
+2026-10-25T11:55:55.423274054-07:00 stdout F (2026-10-25 18:55:55.423) [debug] [Sensors.cc:565] SensorsPrivate::Stop
+2026-10-25T11:55:55.423515383-07:00 stderr F Exception sending a multicast message:Network is unreachable
+2026-10-25T11:55:55.423527415-07:00 stderr F Exception sending a multicast message:Network is unreachable
+2026-10-25T11:55:55.423536345-07:00 stderr F Exception sending a multicast message:Network is unreachable
+2026-10-25T11:55:55.423543573-07:00 stderr F Exception sending a multicast message:Network is unreachable
+2026-10-25T11:55:55.423650943-07:00 stderr F Exception sending a multicast message:Network is unreachable
+2026-10-25T11:55:55.423659229-07:00 stderr F Exception sending a multicast message:Network is unreachable
+2026-10-25T11:55:55.423674255-07:00 stderr F Exception sending a multicast message:Network is unreachable
+2026-10-25T11:55:55.423681823-07:00 stderr F Exception sending a multicast message:Network is unreachable
+2026-10-25T11:55:55.423699781-07:00 stderr F Exception sending a multicast message:Network is unreachable
+2026-10-25T11:55:55.423699781-07:00 stderr F Exception sending a multicast message:Network is unreachable
+2026-10-25T11:55:55.423699781-07:00 stderr F Exception sending a multicast message:Network is unreachable
+2026-10-25T11:55:55.423707921-07:00 stderr F Exception sending a multicast message:Network is unreachable
+2026-10-25T11:55:55.423714882-07:00 stderr F Exception sending a multicast message:Network is unreachable
+2026-10-25T11:55:55.423721908-07:00 stderr F Exception sending a multicast message:Network is unreachable
+2026-10-25T11:55:55.423728832-07:00 stderr F Exception sending a multicast message:Network is unreachable
+2026-10-25T11:55:55.423735729-07:00 stderr F Exception sending a multicast message:Network is unreachable
+2026-10-25T11:55:55.423742724-07:00 stderr F Exception sending a multicast message:Network is unreachable
+2026-10-25T11:55:55.423749627-07:00 stderr F Exception sending a multicast message:Network is unreachable
+2026-10-25T11:55:55.423756640-07:00 stderr F Exception sending a multicast message:Network is unreachable
+2026-10-25T11:55:55.423763531-07:00 stderr F Exception sending a multicast message:Network is unreachable
+2026-10-25T11:55:55.423770415-07:00 stderr F Exception sending a multicast message:Network is unreachable
+2026-10-25T11:55:55.423777328-07:00 stderr F Exception sending a multicast message:Network is unreachable
+2026-10-25T11:55:55.423784284-07:00 stderr F Exception sending a multicast message:Network is unreachable
+2026-10-25T11:55:55.423791369-07:00 stderr F Exception sending a multicast message:Network is unreachable
+2026-10-25T11:55:55.423798284-07:00 stderr F Exception sending a multicast message:Network is unreachable
+2026-10-25T11:55:55.423805245-07:00 stderr F Exception sending a multicast message:Network is unreachable
+2026-10-25T11:55:55.423805245-07:00 stderr P Exception sending a multicast message:
+2026-10-25T11:55:55.423812610-07:00 stderr F Network is unreachable
+2026-10-25T11:55:55.423812610-07:00 stderr P Exception sending a multicast message:Network is unreachable
+2026-10-25T11:55:55.423819854-07:00 stderr F 
+2026-10-25T11:55:55.423819854-07:00 stderr F Exception sending a multicast message:Network is unreachable
+2026-10-25T11:55:55.423828648-07:00 stderr F Exception sending a multicast message:Network is unreachable
+2026-10-25T11:55:55.423944830-07:00 stderr F Exception sending a multicast message:Network is unreachable
+2026-10-25T11:55:55.423944830-07:00 stderr P Exception sending a multicast message:
+2026-10-25T11:55:55.423952831-07:00 stderr F Network is unreachable
+2026-10-25T11:55:55.423952831-07:00 stderr F Exception sending a multicast message:Network is unreachable
+2026-10-25T11:55:55.423959883-07:00 stderr F Exception sending a multicast message:Network is unreachable
+2026-10-25T11:55:55.423966694-07:00 stderr F Exception sending a multicast message:Network is unreachable
+2026-10-25T11:55:55.423975287-07:00 stderr F Exception sending a multicast message:Network is unreachable
+2026-10-25T11:55:55.423983827-07:00 stderr F Exception sending a multicast message:Network is unreachable
+2026-10-25T11:55:55.423990629-07:00 stderr F Exception sending a multicast message:Network is unreachable
+2026-10-25T11:55:55.423997761-07:00 stderr F Exception sending a multicast message:Network is unreachable
+2026-10-25T11:56:53.823190619-07:00 stdout F (2026-10-25 18:56:53.823) [info] [gz.cc:407] Gazebo Sim Server v10.5.0
+2026-10-25T11:56:54.091522326-07:00 stdout F (2026-10-25 18:56:54.091) [info] [ServerPrivate.cc:697] Loading SDF world file[/ALWAYSON/GAZEBO/worlds/factory.world].
+2026-10-25T11:56:55.870338796-07:00 stdout F (2026-10-25 18:56:55.870) [info] [SystemManager.cc:54] Serving entity system service on [/entity/system/add]
+2026-10-25T11:56:55.943056361-07:00 stdout F (2026-10-25 18:56:55.943) [info] [SimulationRunner.cc:347] Serving world controls on [/world/factory/control], [/world/factory/control/state] and [/world/factory/playback/control]
+2026-10-25T11:56:55.943094606-07:00 stderr F (2026-10-25 18:56:55.943) [warning] [Conversions.cc:736] <gui><camera> can't be converted yet
+2026-10-25T11:56:55.944358680-07:00 stdout F (2026-10-25 18:56:55.944) [info] [SimulationRunner.cc:373] Serving GUI information on [/world/factory/gui/info]
+2026-10-25T11:56:55.944358680-07:00 stdout F (2026-10-25 18:56:55.944) [info] [SimulationRunner.cc:376] World [factory] initialized with [default_physics] physics profile.
+2026-10-25T11:56:55.944456397-07:00 stdout F (2026-10-25 18:56:55.944) [info] [SimulationRunner.cc:383] Serving world SDF generation service on [/world/factory/generate_world_sdf]
+2026-10-25T11:56:55.945975222-07:00 stdout F (2026-10-25 18:56:55.945) [info] [ServerPrivate.cc:357] Serving world names on [/gazebo/worlds]
+2026-10-25T11:56:55.945975222-07:00 stdout F (2026-10-25 18:56:55.945) [info] [ServerPrivate.cc:370] Resource path add service on [/gazebo/resource_paths/add].
+2026-10-25T11:56:55.946066263-07:00 stdout F (2026-10-25 18:56:55.945) [info] [ServerPrivate.cc:383] Resource path get service on [/gazebo/resource_paths/get].
+2026-10-25T11:56:55.946066263-07:00 stdout F (2026-10-25 18:56:55.946) [info] [ServerPrivate.cc:398] Resource path resolve service on [/gazebo/resource_paths/resolve].
+2026-10-25T11:56:55.946066263-07:00 stdout F (2026-10-25 18:56:55.946) [info] [ServerPrivate.cc:412] Resource paths published on [/gazebo/resource_paths].
+2026-10-25T11:56:55.955007615-07:00 stdout F (2026-10-25 18:56:55.954) [info] [ServerPrivate.cc:425] Server control service on [/server_control].
+2026-10-25T11:56:55.959344956-07:00 stdout F (2026-10-25 18:56:55.959) [info] [SimulationRunner.cc:868] Found no publishers on /stats, adding root stats topic
+2026-10-25T11:56:55.959536229-07:00 stdout F (2026-10-25 18:56:55.959) [info] [SimulationRunner.cc:902] Found no publishers on /clock, adding root clock topic
+2026-10-25T11:56:56.574163502-07:00 stdout F (2026-10-25 18:56:56.574) [debug] [Sensors.cc:697] Configuring Sensors system
+2026-10-25T11:56:56.574181357-07:00 stdout F (2026-10-25 18:56:56.574) [debug] [Sensors.cc:557] SensorsPrivate::Run
+2026-10-25T11:56:56.574226027-07:00 stdout F (2026-10-25 18:56:56.574) [debug] [SystemManager.cc:80] Loaded system [gz::sim::systems::Sensors] for entity [1]
+2026-10-25T11:56:56.574584485-07:00 stdout F (2026-10-25 18:56:56.574) [debug] [Sensors.cc:532] SensorsPrivate::RenderThread started
+2026-10-25T11:56:56.574584485-07:00 stdout F (2026-10-25 18:56:56.574) [debug] [Sensors.cc:337] Waiting for init
+2026-10-25T11:56:56.578817273-07:00 stdout F (2026-10-25 18:56:56.578) [info] [UserCommands.cc:751] Create service on [/world/factory/create_multiple] (async)
+2026-10-25T11:56:56.578817273-07:00 stdout F (2026-10-25 18:56:56.578) [info] [UserCommands.cc:753] Create service on [/world/factory/create_multiple/blocking] (blocking)
+2026-10-25T11:56:56.578965743-07:00 stdout F (2026-10-25 18:56:56.578) [info] [UserCommands.cc:751] Remove service on [/world/factory/remove] (async)
+2026-10-25T11:56:56.578965743-07:00 stdout F (2026-10-25 18:56:56.578) [info] [UserCommands.cc:753] Remove service on [/world/factory/remove/blocking] (blocking)
+2026-10-25T11:56:56.579074436-07:00 stdout F (2026-10-25 18:56:56.579) [info] [UserCommands.cc:751] Pose service on [/world/factory/set_pose] (async)
+2026-10-25T11:56:56.579074436-07:00 stdout F (2026-10-25 18:56:56.579) [info] [UserCommands.cc:753] Pose service on [/world/factory/set_pose/blocking] (blocking)
+2026-10-25T11:56:56.579182019-07:00 stdout F (2026-10-25 18:56:56.579) [info] [UserCommands.cc:751] Pose service on [/world/factory/set_pose_vector] (async)
+2026-10-25T11:56:56.579182019-07:00 stdout F (2026-10-25 18:56:56.579) [info] [UserCommands.cc:753] Pose service on [/world/factory/set_pose_vector/blocking] (blocking)
+2026-10-25T11:56:56.579358594-07:00 stdout F (2026-10-25 18:56:56.579) [info] [UserCommands.cc:751] Light configuration service on [/world/factory/light_config] (async)
+2026-10-25T11:56:56.579358594-07:00 stdout F (2026-10-25 18:56:56.579) [info] [UserCommands.cc:753] Light configuration service on [/world/factory/light_config/blocking] (blocking)
+2026-10-25T11:56:56.579510020-07:00 stdout F (2026-10-25 18:56:56.579) [info] [UserCommands.cc:751] Physics service on [/world/factory/set_physics] (async)
+2026-10-25T11:56:56.579510020-07:00 stdout F (2026-10-25 18:56:56.579) [info] [UserCommands.cc:753] Physics service on [/world/factory/set_physics/blocking] (blocking)
+2026-10-25T11:56:56.579626018-07:00 stdout F (2026-10-25 18:56:56.579) [info] [UserCommands.cc:751] SphericalCoordinates service on [/world/factory/set_spherical_coordinates] (async)
+2026-10-25T11:56:56.579626018-07:00 stdout F (2026-10-25 18:56:56.579) [info] [UserCommands.cc:753] SphericalCoordinates service on [/world/factory/set_spherical_coordinates/blocking] (blocking)
+2026-10-25T11:56:56.579669318-07:00 stdout F (2026-10-25 18:56:56.579) [info] [UserCommands.cc:751] Enable collision service on [/world/factory/enable_collision] (async)
+2026-10-25T11:56:56.579675130-07:00 stdout F (2026-10-25 18:56:56.579) [info] [UserCommands.cc:753] Enable collision service on [/world/factory/enable_collision/blocking] (blocking)
+2026-10-25T11:56:56.579755865-07:00 stdout F (2026-10-25 18:56:56.579) [info] [UserCommands.cc:751] Disable collision service on [/world/factory/disable_collision] (async)
+2026-10-25T11:56:56.579761531-07:00 stdout F (2026-10-25 18:56:56.579) [info] [UserCommands.cc:753] Disable collision service on [/world/factory/disable_collision/blocking] (blocking)
+2026-10-25T11:56:56.579898951-07:00 stdout F (2026-10-25 18:56:56.579) [info] [UserCommands.cc:751] Material service on [/world/factory/visual_config] (async)
+2026-10-25T11:56:56.579904359-07:00 stdout F (2026-10-25 18:56:56.579) [info] [UserCommands.cc:753] Material service on [/world/factory/visual_config/blocking] (blocking)
+2026-10-25T11:56:56.580007690-07:00 stdout F (2026-10-25 18:56:56.579) [info] [UserCommands.cc:751] Material service on [/world/factory/wheel_slip] (async)
+2026-10-25T11:56:56.580013268-07:00 stdout F (2026-10-25 18:56:56.580) [info] [UserCommands.cc:753] Material service on [/world/factory/wheel_slip/blocking] (blocking)
+2026-10-25T11:56:56.580031595-07:00 stdout F (2026-10-25 18:56:56.580) [debug] [SystemManager.cc:80] Loaded system [gz::sim::systems::UserCommands] for entity [1]
+2026-10-25T11:56:56.583849900-07:00 stdout F (2026-10-25 18:56:56.583) [debug] [SystemManager.cc:80] Loaded system [gz::sim::systems::SceneBroadcaster] for entity [1]
+2026-10-25T11:56:56.634075005-07:00 stdout F (2026-10-25 18:56:56.634) [debug] [Physics.cc:1053] Loaded [gz::physics::dartsim::Plugin] from library [/usr/lib/x86_64-linux-gnu/gz-physics-9/engine-plugins/libgz-physics-dartsim-plugin.so]
+2026-10-25T11:56:56.634075005-07:00 stdout F (2026-10-25 18:56:56.634) [debug] [SystemManager.cc:80] Loaded system [gz::sim::systems::Physics] for entity [1]
+2026-10-25T11:56:56.634390978-07:00 stdout F (2026-10-25 18:56:56.634) [info] [LevelManager.cc:646] Loaded level [default]
+2026-10-25T11:56:56.635422155-07:00 stdout F (2026-10-25 18:56:56.635) [debug] [ServerConfig.cc:1042] Loading (3) plugins from file [/gzhome/.gz/sim/10/server.config]
+2026-10-25T11:56:56.635422155-07:00 stdout F (2026-10-25 18:56:56.635) [debug] [SimulationRunner.cc:1926] Additional plugins to load:
+2026-10-25T11:56:56.636750474-07:00 stdout F (2026-10-25 18:56:56.636) [debug] [SimulationRunner.cc:655] Creating PostUpdate worker threads: 3
+2026-10-25T11:56:56.636750474-07:00 stdout F (2026-10-25 18:56:56.636) [debug] [SimulationRunner.cc:666] Creating postupdate worker thread (0)
+2026-10-25T11:56:56.636763520-07:00 stdout F (2026-10-25 18:56:56.636) [debug] [SimulationRunner.cc:666] Creating postupdate worker thread (1)
+2026-10-25T11:56:56.660841034-07:00 stdout F (2026-10-25 18:56:56.660) [debug] [Sensors.cc:953] Initialization needed
+2026-10-25T11:56:56.660841034-07:00 stdout F (2026-10-25 18:56:56.660) [debug] [Sensors.cc:349] Initializing render context
+2026-10-25T11:56:56.661520481-07:00 stdout F (2026-10-25 18:56:56.661) [info] [RenderEngineManager.cc:513] Loading plugin [gz-rendering-ogre2]
+2026-10-25T11:56:56.662623652-07:00 stdout F (2026-10-25 18:56:56.662) [info] [SceneBroadcaster.cc:654] Serving scene information on [/world/factory/scene/info]
+2026-10-25T11:56:56.662645488-07:00 stdout F (2026-10-25 18:56:56.662) [info] [SceneBroadcaster.cc:663] Serving graph information on [/world/factory/scene/graph]
+2026-10-25T11:56:56.663025660-07:00 stdout F (2026-10-25 18:56:56.662) [info] [SceneBroadcaster.cc:674] Serving full state on [/world/factory/state]
+2026-10-25T11:56:56.663025660-07:00 stdout F (2026-10-25 18:56:56.662) [info] [SceneBroadcaster.cc:683] Serving full state (async) on [/world/factory/state_async]
+2026-10-25T11:56:56.663025660-07:00 stdout F (2026-10-25 18:56:56.662) [info] [SceneBroadcaster.cc:691] Publishing scene information on [/world/factory/scene/info]
+2026-10-25T11:56:56.663654926-07:00 stdout F (2026-10-25 18:56:56.663) [info] [SceneBroadcaster.cc:700] Publishing entity deletions on [/world/factory/scene/deletion]
+2026-10-25T11:56:56.663694039-07:00 stdout F (2026-10-25 18:56:56.663) [info] [SceneBroadcaster.cc:709] Publishing state changes on [/world/factory/state]
+2026-10-25T11:56:56.663742619-07:00 stdout F (2026-10-25 18:56:56.663) [info] [SceneBroadcaster.cc:720] Publishing pose messages on [/world/factory/pose/info]
+2026-10-25T11:56:56.663789504-07:00 stdout F (2026-10-25 18:56:56.663) [info] [SceneBroadcaster.cc:731] Publishing dynamic pose messages on [/world/factory/dynamic_pose/info]
+2026-10-25T11:56:56.753551990-07:00 stderr F (2026-10-25 18:56:56.753) [warning] [Ogre2RenderEngine.cc:556] Unable to open display: . Trying to run in headless mode.
+2026-10-25T11:56:57.304857891-07:00 stdout F (2026-10-25 18:56:57.304) [debug] [RenderUtil.cc:2646] Create scene [scene]
+2026-10-25T11:56:57.472506223-07:00 stdout F (2026-10-25 18:56:57.472) [debug] [Sensors.cc:391] Rendering Thread initialized
+2026-10-25T11:56:57.472524000-07:00 stdout F (2026-10-25 18:56:57.472) [debug] [Sensors.cc:953] Initialization needed
+2026-10-25T11:56:58.297959816-07:00 stdout F (2026-10-25 18:56:58.297) [debug] [CameraSensor.cc:339] Camera images for [camera_rig::camera_rig::user_camera] advertised on [/factory/camera/image]
+2026-10-25T11:56:58.297983891-07:00 stdout F (2026-10-25 18:56:58.297) [debug] [CameraSensor.cc:629] Camera info for [camera_rig::camera_rig::user_camera] advertised on [/factory/camera/camera_info]
+2026-10-25T11:56:58.300599643-07:00 stderr F (2026-10-25 18:56:58.300) [warning] [Ogre2Camera.cc:423] Ogre2Camera::SetVisibilityMask: Mask bits c0000000 are set but will be ignored as they conflict with the reserved bits used internally by the ogre2 backend.
+2026-10-25T11:56:58.300899956-07:00 stdout F (2026-10-25 18:56:58.300) [debug] [CameraSensor.cc:339] Camera images for [camera_arms_ne::camera_arms_ne::camera_arms_ne] advertised on [/factory/camera/arms_ne]
+2026-10-25T11:56:58.300899956-07:00 stdout F (2026-10-25 18:56:58.300) [debug] [CameraSensor.cc:629] Camera info for [camera_arms_ne::camera_arms_ne::camera_arms_ne] advertised on [/factory/camera/camera_info]
+2026-10-25T11:56:58.300912020-07:00 stderr F (2026-10-25 18:56:58.300) [warning] [Ogre2Camera.cc:423] Ogre2Camera::SetVisibilityMask: Mask bits c0000000 are set but will be ignored as they conflict with the reserved bits used internally by the ogre2 backend.
+2026-10-25T11:56:58.301169354-07:00 stdout F (2026-10-25 18:56:58.301) [debug] [CameraSensor.cc:339] Camera images for [camera_arms_n::camera_arms_n::camera_arms_n] advertised on [/factory/camera/arms_n]
+2026-10-25T11:56:58.301169354-07:00 stdout F (2026-10-25 18:56:58.301) [debug] [CameraSensor.cc:629] Camera info for [camera_arms_n::camera_arms_n::camera_arms_n] advertised on [/factory/camera/camera_info]
+2026-10-25T11:56:58.301178409-07:00 stderr F (2026-10-25 18:56:58.301) [warning] [Ogre2Camera.cc:423] Ogre2Camera::SetVisibilityMask: Mask bits c0000000 are set but will be ignored as they conflict with the reserved bits used internally by the ogre2 backend.
+2026-10-25T11:56:58.301413051-07:00 stdout F (2026-10-25 18:56:58.301) [debug] [CameraSensor.cc:339] Camera images for [camera_arms_se::camera_arms_se::camera_arms_se] advertised on [/factory/camera/arms_se]
+2026-10-25T11:56:58.301413051-07:00 stdout F (2026-10-25 18:56:58.301) [debug] [CameraSensor.cc:629] Camera info for [camera_arms_se::camera_arms_se::camera_arms_se] advertised on [/factory/camera/camera_info]
+2026-10-25T11:56:58.301433108-07:00 stderr F (2026-10-25 18:56:58.301) [warning] [Ogre2Camera.cc:423] Ogre2Camera::SetVisibilityMask: Mask bits c0000000 are set but will be ignored as they conflict with the reserved bits used internally by the ogre2 backend.
+2026-10-25T11:56:58.301682207-07:00 stdout F (2026-10-25 18:56:58.301) [debug] [CameraSensor.cc:339] Camera images for [camera_arms_e::camera_arms_e::camera_arms_e] advertised on [/factory/camera/arms_e]
+2026-10-25T11:56:58.301682207-07:00 stdout F (2026-10-25 18:56:58.301) [debug] [CameraSensor.cc:629] Camera info for [camera_arms_e::camera_arms_e::camera_arms_e] advertised on [/factory/camera/camera_info]
+2026-10-25T11:56:58.301692588-07:00 stderr F (2026-10-25 18:56:58.301) [warning] [Ogre2Camera.cc:423] Ogre2Camera::SetVisibilityMask: Mask bits c0000000 are set but will be ignored as they conflict with the reserved bits used internally by the ogre2 backend.
+2026-10-25T11:56:58.301945165-07:00 stdout F (2026-10-25 18:56:58.301) [debug] [CameraSensor.cc:339] Camera images for [camera_elev_arms::camera_elev_arms::camera_elev_arms] advertised on [/factory/camera/elev_arms]
+2026-10-25T11:56:58.301945165-07:00 stdout F (2026-10-25 18:56:58.301) [debug] [CameraSensor.cc:629] Camera info for [camera_elev_arms::camera_elev_arms::camera_elev_arms] advertised on [/factory/camera/camera_info]
+2026-10-25T11:56:58.301955516-07:00 stderr F (2026-10-25 18:56:58.301) [warning] [Ogre2Camera.cc:423] Ogre2Camera::SetVisibilityMask: Mask bits c0000000 are set but will be ignored as they conflict with the reserved bits used internally by the ogre2 backend.
+2026-10-25T11:56:58.302205059-07:00 stdout F (2026-10-25 18:56:58.302) [debug] [CameraSensor.cc:339] Camera images for [camera_elev_conveyor::camera_elev_conveyor::camera_elev_conveyor] advertised on [/factory/camera/elev_conveyor]
+2026-10-25T11:56:58.302205059-07:00 stdout F (2026-10-25 18:56:58.302) [debug] [CameraSensor.cc:629] Camera info for [camera_elev_conveyor::camera_elev_conveyor::camera_elev_conveyor] advertised on [/factory/camera/camera_info]
+2026-10-25T11:56:58.302212452-07:00 stderr F (2026-10-25 18:56:58.302) [warning] [Ogre2Camera.cc:423] Ogre2Camera::SetVisibilityMask: Mask bits c0000000 are set but will be ignored as they conflict with the reserved bits used internally by the ogre2 backend.
+2026-10-25T11:56:58.302467839-07:00 stdout F (2026-10-25 18:56:58.302) [debug] [CameraSensor.cc:339] Camera images for [camera_elev_massing::camera_elev_massing::camera_elev_massing] advertised on [/factory/camera/elev_massing]
+2026-10-25T11:56:58.302467839-07:00 stdout F (2026-10-25 18:56:58.302) [debug] [CameraSensor.cc:629] Camera info for [camera_elev_massing::camera_elev_massing::camera_elev_massing] advertised on [/factory/camera/camera_info]
+2026-10-25T11:56:58.302495556-07:00 stderr F (2026-10-25 18:56:58.302) [warning] [Ogre2Camera.cc:423] Ogre2Camera::SetVisibilityMask: Mask bits c0000000 are set but will be ignored as they conflict with the reserved bits used internally by the ogre2 backend.
+2026-10-25T11:56:58.335607393-07:00 stdout F (2026-10-25 18:56:58.335) [debug] [CameraSensor.cc:438] Enabling camera sensor: 'camera_rig::camera_rig::user_camera' data generation.
+2026-10-25T11:56:58.508152960-07:00 stdout F (2026-10-25 18:56:58.508) [debug] [CameraSensor.cc:438] Enabling camera sensor: 'camera_arms_ne::camera_arms_ne::camera_arms_ne' data generation.
+2026-10-25T11:56:58.524888729-07:00 stdout F (2026-10-25 18:56:58.524) [debug] [CameraSensor.cc:438] Enabling camera sensor: 'camera_arms_n::camera_arms_n::camera_arms_n' data generation.
+2026-10-25T11:56:58.548983437-07:00 stdout F (2026-10-25 18:56:58.548) [debug] [CameraSensor.cc:438] Enabling camera sensor: 'camera_arms_se::camera_arms_se::camera_arms_se' data generation.
+2026-10-25T11:56:58.566544852-07:00 stdout F (2026-10-25 18:56:58.566) [debug] [CameraSensor.cc:438] Enabling camera sensor: 'camera_arms_e::camera_arms_e::camera_arms_e' data generation.
+2026-10-25T11:56:58.582045921-07:00 stdout F (2026-10-25 18:56:58.581) [debug] [CameraSensor.cc:438] Enabling camera sensor: 'camera_elev_arms::camera_elev_arms::camera_elev_arms' data generation.
+2026-10-25T11:56:58.598217323-07:00 stdout F (2026-10-25 18:56:58.598) [debug] [CameraSensor.cc:438] Enabling camera sensor: 'camera_elev_conveyor::camera_elev_conveyor::camera_elev_conveyor' data generation.
+2026-10-25T11:56:58.623700981-07:00 stdout F (2026-10-25 18:56:58.623) [debug] [CameraSensor.cc:438] Enabling camera sensor: 'camera_elev_massing::camera_elev_massing::camera_elev_massing' data generation.

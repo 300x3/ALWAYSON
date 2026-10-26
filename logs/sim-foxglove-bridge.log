@@ -1,0 +1,50 @@
+2026-10-25T11:53:40.343521645-07:00 stdout F [entrypoint] gz-transport discovery will advertise GZ_IP=10.89.5.2
+2026-10-25T11:53:40.343521645-07:00 stdout F [entrypoint] starting gz-transport -> ROS 2 hop for /factory/camera/image
+2026-10-25T11:53:40.343818427-07:00 stdout F [entrypoint] starting Foxglove WebSocket on 8081
+2026-10-25T11:53:40.634272898-07:00 stderr F [INFO] [1792954420.634226930] [ros_gz_bridge]: Creating GZ->ROS Bridge: [/factory/camera/image (gz.msgs.Image) -> /factory/camera/image (sensor_msgs/msg/Image)] (Lazy 0)
+2026-10-25T11:53:40.641579395-07:00 stderr F [INFO] [1792954420.641541741] [foxglove_bridge]: Starting foxglove_bridge (lyrical, 3.5.0@)
+2026-10-25T11:53:40.655460516-07:00 stderr F [INFO] [1792954420.655402506] [ros_gz_bridge]: Creating GZ->ROS Bridge: [/factory/camera/arms_ne (gz.msgs.Image) -> /factory/camera/arms_ne (sensor_msgs/msg/Image)] (Lazy 0)
+2026-10-25T11:53:40.655793398-07:00 stderr F [INFO] [1792954420.655730825] [ros_gz_bridge]: Creating GZ->ROS Bridge: [/factory/camera/arms_n (gz.msgs.Image) -> /factory/camera/arms_n (sensor_msgs/msg/Image)] (Lazy 0)
+2026-10-25T11:53:40.656012019-07:00 stderr F [INFO] [1792954420.656000732] [ros_gz_bridge]: Creating GZ->ROS Bridge: [/factory/camera/arms_se (gz.msgs.Image) -> /factory/camera/arms_se (sensor_msgs/msg/Image)] (Lazy 0)
+2026-10-25T11:53:40.656268339-07:00 stderr F [INFO] [1792954420.656258159] [ros_gz_bridge]: Creating GZ->ROS Bridge: [/factory/camera/arms_e (gz.msgs.Image) -> /factory/camera/arms_e (sensor_msgs/msg/Image)] (Lazy 0)
+2026-10-25T11:53:40.656541856-07:00 stderr F [INFO] [1792954420.656531629] [ros_gz_bridge]: Creating GZ->ROS Bridge: [/factory/camera/elev_arms (gz.msgs.Image) -> /factory/camera/elev_arms (sensor_msgs/msg/Image)] (Lazy 0)
+2026-10-25T11:53:40.656806414-07:00 stderr F [INFO] [1792954420.656795153] [ros_gz_bridge]: Creating GZ->ROS Bridge: [/factory/camera/elev_conveyor (gz.msgs.Image) -> /factory/camera/elev_conveyor (sensor_msgs/msg/Image)] (Lazy 0)
+2026-10-25T11:53:40.657063522-07:00 stderr F [INFO] [1792954420.657053322] [ros_gz_bridge]: Creating GZ->ROS Bridge: [/factory/camera/elev_massing (gz.msgs.Image) -> /factory/camera/elev_massing (sensor_msgs/msg/Image)] (Lazy 0)
+2026-10-25T11:53:40.661547275-07:00 stderr F [2026-10-25T18:53:40Z INFO  foxglove::websocket::server] Started server on 0.0.0.0:8081
+2026-10-25T11:53:40.661568513-07:00 stderr F [INFO] [1792954420.661554705] [foxglove_bridge]: Server listening on port 8081
+2026-10-25T11:53:40.668753036-07:00 stderr F [INFO] [1792954420.668700583] [foxglove_bridge]: Advertising new channel 2 for topic "/rosout"
+2026-10-25T11:53:40.670595479-07:00 stderr F [INFO] [1792954420.670547783] [foxglove_bridge]: Advertising new channel 3 for topic "/parameter_events"
+2026-10-25T11:53:41.173403503-07:00 stderr F [INFO] [1792954421.173323120] [foxglove_bridge]: Advertising new channel 4 for topic "/factory/camera/image"
+2026-10-25T11:53:41.173403503-07:00 stderr F [INFO] [1792954421.173369588] [foxglove_bridge]: Advertising new channel 5 for topic "/factory/camera/elev_massing"
+2026-10-25T11:53:41.173442160-07:00 stderr F [INFO] [1792954421.173403406] [foxglove_bridge]: Advertising new channel 6 for topic "/factory/camera/elev_conveyor"
+2026-10-25T11:53:41.173442160-07:00 stderr F [INFO] [1792954421.173409586] [foxglove_bridge]: Advertising new channel 7 for topic "/factory/camera/elev_arms"
+2026-10-25T11:53:41.173442160-07:00 stderr F [INFO] [1792954421.173430276] [foxglove_bridge]: Advertising new channel 8 for topic "/factory/camera/arms_se"
+2026-10-25T11:53:41.173442160-07:00 stderr F [INFO] [1792954421.173435908] [foxglove_bridge]: Advertising new channel 9 for topic "/factory/camera/arms_ne"
+2026-10-25T11:53:41.173450229-07:00 stderr F [INFO] [1792954421.173442406] [foxglove_bridge]: Advertising new channel 10 for topic "/factory/camera/arms_n"
+2026-10-25T11:53:41.173456345-07:00 stderr F [INFO] [1792954421.173451642] [foxglove_bridge]: Advertising new channel 11 for topic "/factory/camera/arms_e"
+2026-10-25T11:55:54.906378520-07:00 stdout F [entrypoint] stopping gz hop (14)
+2026-10-25T11:55:54.906457136-07:00 stderr F [INFO] [1792954554.906374449] [rclcpp]: signal_handler(signum=15)
+2026-10-25T11:56:56.711427744-07:00 stdout F [entrypoint] gz-transport discovery will advertise GZ_IP=10.89.5.2
+2026-10-25T11:56:56.711427744-07:00 stdout F [entrypoint] starting gz-transport -> ROS 2 hop for /factory/camera/image
+2026-10-25T11:56:56.711657751-07:00 stdout F [entrypoint] starting Foxglove WebSocket on 8081
+2026-10-25T11:56:56.999825301-07:00 stderr F [INFO] [1792954616.999785379] [ros_gz_bridge]: Creating GZ->ROS Bridge: [/factory/camera/image (gz.msgs.Image) -> /factory/camera/image (sensor_msgs/msg/Image)] (Lazy 0)
+2026-10-25T11:56:57.007392862-07:00 stderr F [INFO] [1792954617.007358270] [foxglove_bridge]: Starting foxglove_bridge (lyrical, 3.5.0@)
+2026-10-25T11:56:57.019222304-07:00 stderr F [INFO] [1792954617.019191480] [ros_gz_bridge]: Creating GZ->ROS Bridge: [/factory/camera/arms_ne (gz.msgs.Image) -> /factory/camera/arms_ne (sensor_msgs/msg/Image)] (Lazy 0)
+2026-10-25T11:56:57.019560683-07:00 stderr F [INFO] [1792954617.019538089] [ros_gz_bridge]: Creating GZ->ROS Bridge: [/factory/camera/arms_n (gz.msgs.Image) -> /factory/camera/arms_n (sensor_msgs/msg/Image)] (Lazy 0)
+2026-10-25T11:56:57.019881692-07:00 stderr F [INFO] [1792954617.019854608] [ros_gz_bridge]: Creating GZ->ROS Bridge: [/factory/camera/arms_se (gz.msgs.Image) -> /factory/camera/arms_se (sensor_msgs/msg/Image)] (Lazy 0)
+2026-10-25T11:56:57.020139631-07:00 stderr F [INFO] [1792954617.020126963] [ros_gz_bridge]: Creating GZ->ROS Bridge: [/factory/camera/arms_e (gz.msgs.Image) -> /factory/camera/arms_e (sensor_msgs/msg/Image)] (Lazy 0)
+2026-10-25T11:56:57.020470851-07:00 stderr F [INFO] [1792954617.020459182] [ros_gz_bridge]: Creating GZ->ROS Bridge: [/factory/camera/elev_arms (gz.msgs.Image) -> /factory/camera/elev_arms (sensor_msgs/msg/Image)] (Lazy 0)
+2026-10-25T11:56:57.020838607-07:00 stderr F [INFO] [1792954617.020815637] [ros_gz_bridge]: Creating GZ->ROS Bridge: [/factory/camera/elev_conveyor (gz.msgs.Image) -> /factory/camera/elev_conveyor (sensor_msgs/msg/Image)] (Lazy 0)
+2026-10-25T11:56:57.021182710-07:00 stderr F [INFO] [1792954617.021169949] [ros_gz_bridge]: Creating GZ->ROS Bridge: [/factory/camera/elev_massing (gz.msgs.Image) -> /factory/camera/elev_massing (sensor_msgs/msg/Image)] (Lazy 0)
+2026-10-25T11:56:57.027232950-07:00 stderr F [2026-10-25T18:56:57Z INFO  foxglove::websocket::server] Started server on 0.0.0.0:8081
+2026-10-25T11:56:57.027232950-07:00 stderr F [INFO] [1792954617.027208608] [foxglove_bridge]: Server listening on port 8081
+2026-10-25T11:56:57.035705578-07:00 stderr F [INFO] [1792954617.035655651] [foxglove_bridge]: Advertising new channel 2 for topic "/rosout"
+2026-10-25T11:56:57.037166338-07:00 stderr F [INFO] [1792954617.037118697] [foxglove_bridge]: Advertising new channel 3 for topic "/parameter_events"
+2026-10-25T11:56:57.539973017-07:00 stderr F [INFO] [1792954617.539912123] [foxglove_bridge]: Advertising new channel 4 for topic "/factory/camera/image"
+2026-10-25T11:56:57.539973017-07:00 stderr F [INFO] [1792954617.539954762] [foxglove_bridge]: Advertising new channel 5 for topic "/factory/camera/elev_massing"
+2026-10-25T11:56:57.539973017-07:00 stderr F [INFO] [1792954617.539961654] [foxglove_bridge]: Advertising new channel 6 for topic "/factory/camera/elev_conveyor"
+2026-10-25T11:56:57.539973017-07:00 stderr F [INFO] [1792954617.539967596] [foxglove_bridge]: Advertising new channel 7 for topic "/factory/camera/elev_arms"
+2026-10-25T11:56:57.539993377-07:00 stderr F [INFO] [1792954617.539973785] [foxglove_bridge]: Advertising new channel 8 for topic "/factory/camera/arms_se"
+2026-10-25T11:56:57.539993377-07:00 stderr F [INFO] [1792954617.539979619] [foxglove_bridge]: Advertising new channel 9 for topic "/factory/camera/arms_ne"
+2026-10-25T11:56:57.539993377-07:00 stderr F [INFO] [1792954617.539986192] [foxglove_bridge]: Advertising new channel 10 for topic "/factory/camera/arms_n"
+2026-10-25T11:56:57.540001706-07:00 stderr F [INFO] [1792954617.539995770] [foxglove_bridge]: Advertising new channel 11 for topic "/factory/camera/arms_e"
