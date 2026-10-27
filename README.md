@@ -2,6 +2,8 @@
 
 # ALWAYS ON
 
+P.S. - I DO NOT LIKE CLAUDE, ITS MANAGEMENT PRACTICES - OR ITS AGENT IN MANY CASES. IT WAS FREE FOR A LONG PERIOD ON CLINE.BOT UNDER A DIFFERENT NAME WHICH IS WHY IT IS LISTED HERE.
+
 | Field | Value |
 |---|---|
 | Document | Complete single-file architecture, integration, security, operations, evidence, and active-work report |
