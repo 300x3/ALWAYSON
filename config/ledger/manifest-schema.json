@@ -4,12 +4,13 @@
   "type": "object",
   "required": ["object_id", "object_type", "origin_domain", "created_at_utc", "schema_version", "content_hash_sha256", "content_size_bytes"],
   "allOf": [
-    {"if": {"properties": {"object_type": {"const": "sales_receipt"}}}, "then": {"required": ["transaction_id"]}}
+    {"if": {"properties": {"object_type": {"const": "sales_receipt"}}}, "then": {"required": ["transaction_id"]}},
+    {"if": {"properties": {"object_type": {"const": "ledger_posting"}}}, "then": {"required": ["posting_type", "debit_account", "credit_account", "amount_major", "currency"]}}
   ],
   "properties": {
     "object_id": {"type": "string", "format": "uuid"},
-    "object_type": {"enum": ["sales_receipt", "telemetry_batch", "map_product", "vehicle_simulation", "fabrication_simulation"]},
-    "origin_domain": {"enum": ["sales", "field", "mapping", "sim_vehicle", "sim_fabrication"]},
+    "object_type": {"enum": ["sales_receipt", "telemetry_batch", "map_product", "vehicle_simulation", "fabrication_simulation", "ledger_posting"]},
+    "origin_domain": {"enum": ["sales", "payment", "field", "mapping", "sim_vehicle", "sim_fabrication", "archive", "ledger"]},
     "transaction_id": {"type": ["string", "null"], "pattern": "^TXN-[0-9]{8}T[0-9]{6}Z-[A-F0-9]{12}$"},
     "created_at_utc": {"type": "string", "format": "date-time"},
     "schema_version": {"const": "1.0"},
@@ -19,6 +20,14 @@
     "ipfs_cid": {"type": "string"},
     "pcloud_archive_reference": {"type": "string"},
     "authorization_policy_id": {"type": "string"},
+    "posting_type": {"enum": ["debit", "credit", "correction", "reversal", "adjustment"]},
+    "debit_account": {"type": "string"},
+    "credit_account": {"type": "string"},
+    "amount_major": {"type": "integer", "minimum": 0},
+    "currency": {"type": "string", "pattern": "^[A-Z]{3}$"},
+    "correction_of": {"type": ["string", "null"]},
+    "reversal_of": {"type": ["string", "null"]},
+    "adjustment_reason": {"type": ["string", "null"]},
     "producer_key_id": {"type": "string"},
     "signature": {"type": "string"}
   },

@@ -11,6 +11,7 @@ if [[ "$otype" == sales_receipt && ! "$transaction_id" =~ ^TXN-[0-9]{8}T[0-9]{6}
 fi
 [[ -f "$cpath" ]] || { echo "ERROR: content not found: $cpath" >&2; exit 10; }
 case "$otype" in sales_receipt|telemetry_batch|map_product|vehicle_simulation|fabrication_simulation) ;; *) echo "ERROR: bad object_type" >&2; exit 11;; esac
+case "$odomain" in sales|payment|field|mapping|sim_vehicle|sim_fabrication|archive|ledger) ;; *) echo "ERROR: origin_domain not in closed §11.1 set: $odomain" >&2; exit 13;; esac
 hash="$(sha256sum "$cpath" | awk '{print $1}')"
 size="$(stat -c %s "$cpath")"
 jq -n \

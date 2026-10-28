@@ -29,7 +29,10 @@ if [[ -n "$wallet_key" ]]; then
   [[ -s "$key_tmp" ]] || { echo "ERROR: KDE Wallet entry unavailable: $wallet_key/producer-private-key" >&2; exit 3; }
   k="$key_tmp"
 fi
-[[ -f "$m" && -f "$k" ]] || { echo "ERROR: manifest or key missing (keys live in KDE Wallet ao-sim-*; file path accepted for migration/testing)" >&2; exit 10; }
+if [[ -n "$wallet_key" && ! -f "$k" ]]; then
+  echo "ERROR: wallet key not implemented: $k (supported: wallet:ao-sim-vehicle, wallet:ao-sim-fabrication)" >&2; exit 10
+fi
+[[ -f "$m" && -f "$k" ]] || { echo "ERROR: manifest or key file missing" >&2; exit 10; }
 digest="$(sha256sum "$m" | awk '{print $1}')"
 sigfile="${m%.json}.sig"
 printf '%s' "$digest" > /tmp/.ao-digest-$$

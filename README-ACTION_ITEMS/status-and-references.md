@@ -336,6 +336,25 @@ requires — it is the order the operator intends to work in.
 | 4 | 3D printer fan repair |
 | 5 | Instructables outlining |
 
+## 19.4.1 Per-group closure targets (OPS-43)
+
+Each 2-hour rotation shift must close or measurably advance at least one tracked row and record which row was advanced in the session journal. The following per-group closure targets apply:
+
+| Group | Closure target per shift | Acceptance evidence |
+|-------|-------------------------|---------------------|
+| PLAT | Close or advance ≥1 PLAT row | Git commit referencing PLAT-NN |
+| NET | Close or advance ≥1 NET row | Git commit referencing NET-NN |
+| SEC | Close or advance ≥1 SEC row | Git commit referencing SEC-NN |
+| LEDGER | Close or advance ≥1 LEDGER row | Git commit referencing LEDGER-NN |
+| PAY | Close or advance ≥1 PAY row | Git commit referencing PAY-NN |
+| COMM | Close or advance ≥1 COMM row | Git commit referencing COMM-NN |
+| FIELD | Close or advance ≥1 FIELD row | Git commit referencing FIELD-NN |
+| SIM | Close or advance ≥1 SIM row | Git commit referencing SIM-NN |
+| OPS | Close or advance ≥1 OPS row | Git commit referencing OPS-NN |
+| DOC | Close or advance ≥1 DOC row | Git commit referencing DOC-NN |
+
+The 10 `In progress` rows shall be re-stated with per-session acceptance steps before the next rotation. Percent-complete shall climb ≥1 point per week over the next 3 samples (tracked completed-count trend, not just percent) without denominator growth masking it.
+
 ---
 
 
