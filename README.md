@@ -44,6 +44,7 @@ A genuine unspecified parameter SHALL be labeled narrowly at the affected interf
 | [13](#section-13) | Rootless runtime, repository layout and Quadlet templates |
 | [14](#section-14) | Wallet, delivery map, D-Bus, tokens and recovery |
 | [15](#section-15) | Sales, local AI, Mastodon, federation and mail |
+| [15.5](#section-15-5) | Marketplace listings – sales |
 | [16](#section-16) | Script layout, generator package, journals and compilation |
 | [17](#section-17) | Backup, restore, security monitoring, retention and acceptance |
 
@@ -3803,8 +3804,91 @@ Mail for `300x3.com` SHALL either support both required directions or be explici
 
 A hosted relay or local MTA SHALL be an explicit operator-selected deployment; a local MTA/public port SHALL NOT be installed unilaterally. MX alone SHALL NOT be counted as outbound submission. Credentials and mail services SHALL obey the login gate.
 
+<a id="section-15-5"></a>
+
+## 15.5 Marketplace Listings – Sales
+
+ALWAYS ON SHALL support listing physical assets for sale on external marketplaces as part of the sales workflow. Physical assets include fabricated goods, tools, machinery, equipment, furniture, and other tangible items produced or held by the facility. Marketplace listings are distinct from the static storefront (§10.2 / ES.3) and from Corda-backed receipt provenance (§11): marketplace listings are discovery and outbound sales channels; the storefront is the canonical public-facing catalogue; Corda records the authoritative receipt/entitlement state after a sale is confirmed.
+
+### 15.5.1 Marketplace Categories
+
+ALWAYS ON SHALL classify physical-asset sales destinations into three classes:
+
+| Class | Definition | Example destinations |
+|---|---|---|
+| General local | Local goods, furniture, tools, machinery, equipment, vehicles | Craigslist, Facebook Marketplace, OfferUp |
+| Broad e-commerce | Physical-product marketplaces with seller accounts | eBay, Amazon, Walmart Marketplace |
+| Niche/specialty | Curated furniture, art, fashion, antiques, collectibles | Etsy, Poshmark, Depop, Chairish, AptDeco, 1stDibs, Ruby Lane, Pinkoi |
+
+### 15.5.2 Marketplace Automation Policy
+
+Automated marketplace posting SHALL meet all of the following before any listing is published:
+
+1. **Operator approval.** Each marketplace destination SHALL be individually approved by the operator before any automated posting. No listing SHALL be published without explicit operator confirmation of the destination, pricing, and item eligibility.
+2. **No credential hardcoding.** Marketplace credentials SHALL be held only in KDE Wallet. No password, API key, OAuth token, or session secret SHALL appear in scripts, logs, HTML, Git, pCloud Public Folder, IPFS, Corda payloads, shell history, or this README (§4.1 rule 7).
+3. **Terms-of-service compliance.** Each destination’s terms of service SHALL be reviewed before automation. Where a platform restricts third-party posting (e.g., OfferUp), automation SHALL NOT proceed unless the operator confirms permitted methods.
+4. **Fee transparency.** Listing fees, insertion fees, final-value fees, and payment-processing charges SHALL be confirmed with the vendor before automation is enabled. Fees SHALL be recorded in the deployment record, not assumed from prior documentation.
+5. **No unattended crash loops.** Automated posting SHALL not enter a restart loop on 401/403/auth failures, CAPTCHA challenges, or rate limits. Errors SHALL be captured and reported to the operator for manual intervention.
+
+### 15.5.3 Zero-Fee Marketplace Automation (One-Week Workplan)
+
+ALWAYS ON SHALL maintain the capability to automate marketplace posting with zero monthly subscription fees where destination policies permit. The one-week workplan targets automated publication to:
+
+**Guaranteed 5 markets (no seller account required):**
+1. Facebook Marketplace — Graph API posting (operator Facebook auth required)
+2. Craigslist — Browser automation (Playwright, sandiego.craigslist.org)
+3. OfferUp — Browser automation (Playwright; third-party posting restrictions apply — confirm TOS before enabling)
+4. eBay — Foundational API (depends on operator eBay seller account)
+5. Etsy — REST API (depends on operator Etsy API access)
+
+**Possible additional markets (if operator accounts exist):**
+6. Mercari — API or browser automation (depends on operator account status)
+7. Poshmark — API or browser automation (depends on operator account status)
+
+**Excluded (require monthly fees or approvals):** Amazon, Walmart Marketplace, Chairish, 1stDibs, Grailed, and other marketplace platforms requiring paid plans or vetted-seller applications SHALL not be automated without separate operator approval.
+
+### 15.5.4 Automation Software Requirements
+
+The marketplace posting automation SHALL:
+
+- Expose a `/items` endpoint (save item JSON to PostgreSQL `salesdb`).
+- Expose a `/post` endpoint accepting `{title, description, price, photo_url, targets[]}` and dispatching to the correct marketplace module.
+- Generate signed manifests per §11 (build-manifest.sh) for each listing published.
+- Record content hash (SHA-256), size, and destination in the manifest.
+- Handle eight error categories: API error, policy violation, CAPTCHA, rate limit, category ineligible, photo rejection, account restrictions, delisted elsewhere.
+- Implement reposting rules per marketplace (e.g., eBay 30-day, Facebook manual, Craigslist 30-day).
+- Implement delisting-on-sale logic: when a sale is confirmed in Corda/PostgreSQL, corresponding listings elsewhere SHALL be removed.
+- Maintain posting_jobs and live_listings tables (id, item_id, marketplace, status, posted_at, post_id, url, error_msg).
+- Record operational journal entries per §16.3 (commands, versions, significant output, failures).
+- Never place credentials in scripts, logs, HTML, Git, pCloud Public Folder, IPFS, Corda payloads, shell history, or this README (§4.1 rule 7).
+
+### 15.5.5 Verification Before Automation
+
+Before automating any marketplace destination, the operator SHALL verify:
+
+| Capability | Required evidence |
+|---|---|
+| Automatic new-listing publication | One new product publishes to the destination, not merely into a dashboard |
+| Scheduled posting | Listings publish at specified times without repeated manual submission |
+| Automatic reposting | Ads renew/repost within each platform’s rules |
+| Price synchronization | A price change updates intended live listings |
+| Inventory synchronization | Stock changes propagate with a documented sync interval |
+| Automatic delisting | A sale closes/removes corresponding listings elsewhere |
+| Personal Facebook Marketplace | Actual Marketplace posting, not only Shops, catalogs, or ad feeds |
+| Account/policy compatibility | Posting method, permissions, and authorization explained |
+| Runtime requirements | Whether computer/browser/extension/phone must remain running |
+| Total cost | Subscription, add-ons, limits, marketplace fees, setup and service charges |
+
+### 15.5.6 Limits
+
+- No permanently free, authorized automated publisher covering OfferUp, Facebook Marketplace, and Craigslist together was verified as of this documentation.
+- OfferUp restricts third-party posting; advertised compatibility does not establish permission.
+- No turnkey connection from automation tools to blockchain-linked physical-asset markets was verified.
+- Category, approval, custody, delivery, and geographic requirements vary by destination.
+- This section documents the specification; it is not a fresh verification of every price or integration.
 
 <a id="section-16"></a>
+
 
 ## 16. Scripts and Operational Standards
 

@@ -1,0 +1,34 @@
+# /ALWAYSON/quadlet/operations/ao-field-gateway.container
+# ALWAYS ON field gateway (ao-field-gateway) — ST-22
+# Handles USB serial LoRa frames from Heltec V3 RNodes,
+# normalizes telemetry into manifests, and spools raw packets.
+# DRONE-RADIO on /dev/ao-drone-radio (ttyUSB0), PEOPLE-RADIO on /dev/ao-people-radio (ttyUSB1).
+[Unit]
+Description=ALWAYS ON Field Gateway (ao-field-gateway)
+After=network-online.target
+Wants=network-online.target
+
+[Container]
+Image=docker.io/library/python@sha256:79e7a9b9ff1cbceff819f856fb374477792a5967759d94df266de7b7b4120e6f
+ContainerName=ao-field-gateway
+Network=ao-field.network
+Volume=/dev/ao-drone-radio:/dev/ao-drone-radio:rw
+Volume=/dev/ao-people-radio:/dev/ao-people-radio:rw
+Volume=/ALWAYSON/config/field:/ALWAYSON/config/field:ro,Z
+Volume=/ALWAYSON/data/field:/var/lib/ao-field:rw,Z
+Environment=GATEWAY_DRONE_RADIO=/dev/ao-drone-radio
+Environment=GATEWAY_PEOPLE_RADIO=/dev/ao-people-radio
+Environment=GATEWAY_CONFIG_DIR=/ALWAYSON/config/field
+Environment=GATEWAY_SPOOL_DIR=/var/lib/ao-field
+NoNewPrivileges=true
+DropCapability=ALL
+# Default: --plan, no serial access
+Exec=/usr/bin/python3 /opt/ao-egress-archive/scripts/field-gateway.py --plan
+
+[Service]
+Type=oneshot
+Restart=no
+TimeoutStartSec=300
+
+[Install]
+WantedBy=graphical-session.target
