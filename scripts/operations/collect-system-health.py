@@ -986,9 +986,12 @@ def _literal(value):
 
 def write_projection(snapshot):
     """Replace the projection in one transaction, via the psql client."""
-    password = os.environ.get("GF_DATABASE_PASSWORD", "")
+    # PGPASSWORD is the dedicated ao_health_writer credential (OPS-32).
+    # GF_DATABASE_PASSWORD is the legacy shared grafana_app credential,
+    # retained as a fallback only for backward compatibility.
+    password = os.environ.get("PGPASSWORD", "") or os.environ.get("GF_DATABASE_PASSWORD", "")
     if not password:
-        raise SystemExit("GF_DATABASE_PASSWORD is not set")
+        raise SystemExit("PGPASSWORD (or GF_DATABASE_PASSWORD fallback) is not set")
     if not shutil.which("psql"):
         raise SystemExit("psql is not on PATH")
 

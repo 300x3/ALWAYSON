@@ -30,6 +30,7 @@ not published through Podman, Cloudflare or a router.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import subprocess
@@ -55,23 +56,55 @@ def log(msg: str) -> None:
     print(f"[ao-sim-portal] {msg}", file=sys.stderr, flush=True)
 
 
-def unit_state() -> dict:
-    """Read-only view of the simulation's data files. NO systemctl, NO control.
+def _unit_properties() -> dict:
+    """Read-only systemd metadata; never invokes start/stop/restart or transport."""
+    try:
+        proc = subprocess.run(
+            ["systemctl", "--user", "show", CONTROLLED_UNIT, "--property",
+             "ActiveState,SubState,ActiveEnterTimestamp,ExecMainStartTimestamp"],
+            capture_output=True, text=True, timeout=10, check=True,
+        )
+        return dict(line.split("=", 1) for line in proc.stdout.splitlines() if "=" in line)
+    except (OSError, subprocess.SubprocessError) as exc:
+        return {"error": str(exc)}
 
-    Deliberately does not shell out. It reports what exists on disk and when it
-    last changed, which is enough for an operator to tell whether the world has
-    been rebuilt, without this process holding any handle on the running
-    simulation. Probing a gz-transport control service instead would defeat the
-    view-only guarantee - see the module docstring.
-    """
+
+def _timestamp_epoch(value: str):
+    if not value:
+        return None
+    try:
+        proc = subprocess.run(["date", "-d", value, "+%s"], capture_output=True,
+                              text=True, timeout=5, check=True)
+        return int(proc.stdout.strip())
+    except (OSError, ValueError, subprocess.SubprocessError):
+        return None
+
+
+def unit_state() -> dict:
+    """Report disk identity and whether it postdates the running unit's start."""
+    props = _unit_properties()
+    started = props.get("ActiveEnterTimestamp") or props.get("ExecMainStartTimestamp")
+    started_epoch = _timestamp_epoch(started)
     out = {"unit": CONTROLLED_UNIT, "controlled": False,
+           "active_state": props.get("ActiveState", "unknown"),
+           "sub_state": props.get("SubState", "unknown"),
+           "service_start": started or None,
+           "service_start_epoch": started_epoch,
            "note": "view-only portal; it never acts on the unit. "
-                   "Use scripts/operations/ao-sim-portal.sh for control."}
+                   "restart_required compares the world mtime with the service start."}
     for label, path in (("world", WORLD), ("boning", BONING), ("objects", OBJECTS)):
         try:
             st = os.stat(path)
-            out[label] = {"path": path, "size_bytes": st.st_size,
-                          "modified_epoch": int(st.st_mtime)}
+            entry = {"path": path, "size_bytes": st.st_size,
+                     "modified_epoch": int(st.st_mtime)}
+            if label == "world":
+                with open(path, "rb") as fh:
+                    entry["sha256"] = hashlib.file_digest(fh, "sha256").hexdigest()
+                entry["modified_before_service_start"] = (
+                    started_epoch is not None and int(st.st_mtime) <= started_epoch)
+                out["restart_required"] = (
+                    started_epoch is not None and int(st.st_mtime) > started_epoch)
+            out[label] = entry
         except OSError as exc:
             out[label] = {"path": path, "error": str(exc)}
     return out

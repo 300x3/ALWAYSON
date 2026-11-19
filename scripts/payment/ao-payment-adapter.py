@@ -28,6 +28,8 @@ import json
 import os
 import re
 import sys
+import threading
+import time
 import urllib.error
 import urllib.request
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -130,6 +132,55 @@ def to_cents(amount) -> int | None:
         return None
 
 
+class RateLimiter:
+    """Per-IP token-bucket rate limiter for the payment webhook endpoint.
+
+    Implements a fixed window rate limiter keyed by client IP. Each IP is
+    allowed MAX_REQUESTS_PER_WINDOW requests per WINDOW_SECONDS. When the
+    limit is exceeded, do_POST returns 429 with a Retry-After header.
+
+    Not deployed against live traffic until operator approval (§4.1 rules 14,
+    15) and until PAY-11 is closed.
+    """
+
+    MAX_REQUESTS_PER_WINDOW = 60
+    WINDOW_SECONDS = 60
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        # ip -> [window_start, count]
+        self._buckets: dict[str, list] = {}
+
+    def check(self, ip: str) -> tuple[bool, int]:
+        """Return (allowed, retry_after_seconds).
+
+        If allowed is False, retry_after_seconds is seconds until the window
+        resets and the IP can retry.
+        """
+        now = int(time.time())
+        window_start = (now // self.WINDOW_SECONDS) * self.WINDOW_SECONDS
+        with self._lock:
+            bucket = self._buckets.get(ip)
+            if bucket is None or bucket[0] != window_start:
+                self._buckets[ip] = [window_start, 1]
+                return True, 0
+            bucket[1] += 1
+            if bucket[1] <= self.MAX_REQUESTS_PER_WINDOW:
+                return True, 0
+            # Window not yet reset; compute seconds until next window.
+            retry_after = window_start + self.WINDOW_SECONDS - now
+            return False, max(retry_after, 1)
+
+    def prune(self) -> None:
+        """Remove expired buckets (call periodically to bound memory)."""
+        now = int(time.time())
+        window_start = (now // self.WINDOW_SECONDS) * self.WINDOW_SECONDS
+        with self._lock:
+            self._buckets = {
+                ip: b for ip, b in self._buckets.items() if b[0] >= window_start
+            }
+
+
 class Sink:
     """Minimal salesdb writer.
 
@@ -170,6 +221,7 @@ class Handler(BaseHTTPRequestHandler):
     sink: Sink
     secret: str
     dry: bool
+    limiter: RateLimiter
 
     def log_message(self, fmt, *a):  # quieter default logging
         log("http " + (fmt % a))
@@ -182,6 +234,15 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(raw)
 
+    def _reply_429(self, retry_after: int):
+        raw = json.dumps({"error": "rate limit exceeded", "retry_after": retry_after}).encode()
+        self.send_response(429)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(raw)))
+        self.send_header("Retry-After", str(retry_after))
+        self.end_headers()
+        self.wfile.write(raw)
+
     def do_GET(self):
         if self.path == "/health":
             self._reply(200, {"ok": True, "enabled": not self.dry})
@@ -189,6 +250,12 @@ class Handler(BaseHTTPRequestHandler):
             self._reply(404, {"error": "not found"})
 
     def do_POST(self):
+        client_ip = self.client_address[0]
+        allowed, retry_after = self.limiter.check(client_ip)
+        if not allowed:
+            self._reply_429(retry_after)
+            return
+
         if self.path == "/webhook/paypal":
             provider = "paypal"
         elif self.path == "/webhook/coinbase":
@@ -258,6 +325,7 @@ def main() -> int:
     Handler.sink = Sink(args.dsn)
     Handler.secret = args.webhook_secret
     Handler.dry = args.dry_run
+    Handler.limiter = RateLimiter()
     log(f"listening on {args.host}:{args.port}")
     HTTPServer((args.host, args.port), Handler).serve_forever()
     return 0

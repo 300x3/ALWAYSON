@@ -77,3 +77,6 @@ TOPOLOGY/TOPOLOGY - ARCHIVE/*/*.pdf
 TOPOLOGY/TOPOLOGY - ARCHIVE/*/*.svg
 TOPOLOGY/TOPOLOGY - ARCHIVE/*/*.html
 TOPOLOGY/TOPOLOGY - ARCHIVE/*/*.dot
+logs/
+logs/*.log
+logs/*.log.*

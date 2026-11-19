@@ -4,7 +4,7 @@
 radio_profile:
   region: US915
   frequency_mhz: 915
-  frequency_plan: "US915 hybrid-channel raw LoRa (NOT LoRaWAN)"
+  frequency_plan: "US915 LoRaWAN"
   bandwidth_khz: 125
   spreading_factor: 7
   coding_rate: "4/5"
