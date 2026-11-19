@@ -33,7 +33,7 @@ own container. The version behind each row is stated in §3.3.1.
 |---|---|
 | `salesdb` | Authoritative sales and payment records |
 | `mastodon` | Mastodon application state |
-| `webodm` | WebODM/PostGIS mapping data |
+| `webodm_dev` | WebODM/PostGIS mapping data |
 | `cordadb` | Corda 5, with its own roles and backup scope (§11.1) |
 | `a_fab` | Real-machine production data for `ao-fabrication` (§3.3.0) |
 | `postgres` | Administration and maintenance |
@@ -230,7 +230,7 @@ installed package or desktop settings module.
 | **PostgreSQL 17** | Sales database service | Container `ao-sales-db` on `ao-sales`, database `salesdb` | Authoritative source for customers, orders, products, payments, receipts, entitlements, and audit history |
 | **PostgreSQL 17** | Mastodon web/background workers | Container `mastodon-db` on `ao-sales`, database `mastodon` | Accounts, posts, media metadata, federation state, and background-job application data |
 | **PostgreSQL 17** | Fabrication database service | Container `ao-fabrication-db` on `ao-fabrication`, database `a_fab`, role `fabrication_role` | Per-machine production data pulled from each individual machine (§3.3.0). Separate from `ao-sim-fabrication`, which holds none |
-| **PostgreSQL 9.5** | WebODM web/worker | Container `ao-webodm-db` on `ao-mapping`, database `webodm` (host-side data dir `~/webodm/dbdata`) | Mapping projects, processing state, users, and geospatial data. The app reads database `webodm_dev` in that container. **PostGIS is installed in `webodm_dev` (version 2.3.2) but not in `webodm`** — so the only installed extension in `webodm` is `plpgsql`, and the geospatial extension lives in the database the app actually reads |
+| **PostgreSQL 9.5** | WebODM web/worker | Container `ao-webodm-db` on `ao-mapping`, database `webodm_dev` (host-side data dir `~/webodm/dbdata`) | Mapping projects, processing state, users, and geospatial data. **PostGIS is installed in `webodm_dev` (version 2.3.2)** — the geospatial extension lives in the database the app actually reads. The empty `webodm` database in the same container is a 2026-09-30 rollback artefact and is not used. |
 | **PostgreSQL 9.5** | NodeODM | The same `ao-webodm-db` container, plus filesystem processing data | Processing-node state and coordination; large image/output artifacts remain filesystem data |
 | **PostgreSQL 18** | Corda 5 node | `cordadb` (dedicated Corda PostgreSQL database in the host cluster, per §11.1) | Receipt, entitlement, and provenance state. Built on Corda 5 against `cordadb`. |
 | **Redis 8** | Host Redis service | Host Redis database 0 | General low-latency cache/coordination layer; no current application data confirmed |

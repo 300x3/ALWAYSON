@@ -7,8 +7,15 @@ m="${1:-}"
 sig="$(jq -r '.signature // empty' "$m")"
 [[ -n "$sig" ]] || { echo "ERROR: manifest is unsigned (run sign-manifest.sh first)" >&2; exit 20; }
 if ! podman ps --format '{{.Names}}' 2>/dev/null | grep -q 'ledger-ingest'; then
-  mkdir -p "$AO_ROOT/artifacts/pending-ledger-submissions/$(date -u +%Y%m%d)"
-  install "$m" "$AO_ROOT/artifacts/pending-ledger-submissions/$(date -u +%Y%m%d)/"
+  staging_dir="$AO_ROOT/artifacts/pending-ledger-submissions/$(date -u +%Y%m%d)"
+  mkdir -p "$staging_dir"
+  manifest_hash="$(sha256sum "$m" | awk '{print $1}')"
+  staging_name="manifest-${manifest_hash}.json"
+  if [[ -f "$staging_dir/$staging_name" ]]; then
+    echo "PENDING: manifest with identical content already staged; not duplicating"
+    exit 3
+  fi
+  install -m 0600 "$m" "$staging_dir/$staging_name"
   echo "PENDING: gateway not deployed; manifest staged for later submission"
   exit 3
 fi
